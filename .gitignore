@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/playwright-report
+/test-results
 
 # next.js
 /.next/
@@ -32,6 +34,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+mcp.json
 
 # vercel
 .vercel
@@ -39,3 +42,22 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Playwright
+node_modules/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+# DLP hardening (secrets, local config, key material)
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+dist/
+build/
+*.key
+*.keystore
+*.p12
+*.pfx

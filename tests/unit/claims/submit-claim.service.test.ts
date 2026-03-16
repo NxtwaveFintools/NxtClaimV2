@@ -1,0 +1,288 @@
+import { SubmitClaimService } from "@/core/domain/claims/SubmitClaimService";
+import type { ClaimRepository } from "@/core/domain/claims/contracts";
+
+const submitterId = "11111111-1111-1111-1111-111111111111";
+const departmentApprover1Id = "44444444-4444-4444-4444-444444444444";
+const departmentApprover2Id = "88888888-8888-8888-8888-888888888888";
+
+const createLogger = () => ({
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+});
+
+const baseInput = {
+  submissionType: "Self" as const,
+  detailType: "expense" as const,
+  submittedBy: submitterId,
+  onBehalfOfId: null,
+  employeeId: "EMP-1001",
+  ccEmails: null,
+  onBehalfEmail: null,
+  onBehalfEmployeeCode: null,
+  departmentId: "22222222-2222-2222-2222-222222222222",
+  paymentModeId: "33333333-3333-3333-3333-333333333333",
+  assignedL2ApproverId: null,
+  expense: {
+    billNo: "BILL-1",
+    transactionId: "TXN-1",
+    purpose: "Client visit",
+    expenseCategoryId: "55555555-5555-5555-5555-555555555555",
+    productId: "77777777-7777-7777-7777-777777777777",
+    locationId: "66666666-6666-6666-6666-666666666666",
+    isGstApplicable: false,
+    gstNumber: null,
+    cgstAmount: 0,
+    sgstAmount: 0,
+    igstAmount: 0,
+    transactionDate: "2026-03-14",
+    basicAmount: 100,
+    totalAmount: 100,
+    currencyCode: "INR",
+    vendorName: null,
+    receiptFileHash: "abc123",
+    receiptFilePath: "expenses/11111111-1111-1111-1111-111111111111/100_bill.pdf",
+    bankStatementFilePath: null,
+    peopleInvolved: null,
+    remarks: null,
+  },
+};
+
+function createRepository(overrides?: Partial<ClaimRepository>): ClaimRepository {
+  return {
+    getActivePaymentModes: jest.fn(async () => ({ data: [], errorMessage: null })),
+    getActiveDepartments: jest.fn(async () => ({ data: [], errorMessage: null })),
+    getActiveExpenseCategories: jest.fn(async () => ({ data: [], errorMessage: null })),
+    getActiveProducts: jest.fn(async () => ({ data: [], errorMessage: null })),
+    getActiveLocations: jest.fn(async () => ({ data: [], errorMessage: null })),
+    getUserSummary: jest.fn(async () => ({
+      data: {
+        id: baseInput.submittedBy,
+        email: "user@nxtwave.co.in",
+        fullName: "User",
+      },
+      errorMessage: null,
+    })),
+    existsExpenseByReceiptFileHash: jest.fn(async () => ({ exists: false, errorMessage: null })),
+    existsExpenseByCompositeKey: jest.fn(async () => ({ exists: false, errorMessage: null })),
+    getPaymentModeById: jest.fn(async () => ({
+      data: { id: baseInput.paymentModeId, name: "Reimbursement", isActive: true },
+      errorMessage: null,
+    })),
+    getDepartmentApprovers: jest.fn(async () => ({
+      data: {
+        approver1Id: departmentApprover1Id,
+        approver2Id: departmentApprover2Id,
+      },
+      errorMessage: null,
+    })),
+    getActiveUserIdByEmail: jest.fn(async () => ({
+      data: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      errorMessage: null,
+    })),
+    isUserApprover1InAnyDepartment: jest.fn(async (userId: string) => ({
+      isApprover1: userId === departmentApprover1Id,
+      errorMessage: null,
+    })),
+    createClaimWithDetail: jest.fn(async () => ({
+      claimId: "77777777-7777-7777-7777-777777777777",
+      errorMessage: null,
+    })),
+    getMyClaims: jest.fn(async () => ({ data: [], errorMessage: null })),
+    ...overrides,
+  };
+}
+
+describe("SubmitClaimService", () => {
+  test("submits an expense claim successfully", async () => {
+    const repository = createRepository();
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    const result = await service.execute(baseInput);
+
+    expect(result.errorCode).toBeNull();
+    expect(result.claimId).toBe("77777777-7777-7777-7777-777777777777");
+    expect(repository.createClaimWithDetail).toHaveBeenCalledTimes(1);
+  });
+
+  test("accepts petty cash payment mode as expense", async () => {
+    const repository = createRepository({
+      getPaymentModeById: jest.fn(async () => ({
+        data: { id: baseInput.paymentModeId, name: "Petty Cash", isActive: true },
+        errorMessage: null,
+      })),
+    });
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    const result = await service.execute(baseInput);
+
+    expect(result.errorCode).toBeNull();
+    expect(result.claimId).toBe("77777777-7777-7777-7777-777777777777");
+    expect(repository.createClaimWithDetail).toHaveBeenCalledTimes(1);
+  });
+
+  test("Should assign Department approver_1 when a standard employee submits", async () => {
+    const repository = createRepository();
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    await service.execute({
+      ...baseInput,
+      submittedBy: submitterId,
+    });
+
+    expect(repository.createClaimWithDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assigned_l1_approver_id: departmentApprover1Id,
+        initial_status: "Submitted - Awaiting HOD approval",
+      }),
+    );
+  });
+
+  test("Should escalate and assign Department approver_2 when approver_1 submits their own claim", async () => {
+    const repository = createRepository({
+      isUserApprover1InAnyDepartment: jest.fn(async () => ({
+        isApprover1: true,
+        errorMessage: null,
+      })),
+    });
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    await service.execute({
+      ...baseInput,
+      submittedBy: departmentApprover1Id,
+    });
+
+    expect(repository.createClaimWithDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assigned_l1_approver_id: departmentApprover2Id,
+        initial_status: "Submitted - Awaiting HOD approval",
+      }),
+    );
+  });
+
+  test("Should escalate and assign Department approver_2 when submitter is HOD in another department", async () => {
+    const crossDepartmentHodId = "99999999-9999-9999-9999-999999999999";
+    const repository = createRepository({
+      isUserApprover1InAnyDepartment: jest.fn(async () => ({
+        isApprover1: true,
+        errorMessage: null,
+      })),
+    });
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    await service.execute({
+      ...baseInput,
+      submittedBy: crossDepartmentHodId,
+    });
+
+    expect(repository.createClaimWithDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assigned_l1_approver_id: departmentApprover2Id,
+        initial_status: "Submitted - Awaiting HOD approval",
+      }),
+    );
+  });
+
+  test("rejects detail type mismatch against payment mode", async () => {
+    const repository = createRepository({
+      getPaymentModeById: jest.fn(async () => ({
+        data: { id: baseInput.paymentModeId, name: "Petty Cash Request", isActive: true },
+        errorMessage: null,
+      })),
+    });
+
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+    const result = await service.execute(baseInput);
+
+    expect(result.errorCode).toBe("DETAIL_TYPE_MISMATCH");
+    expect(repository.createClaimWithDetail).not.toHaveBeenCalled();
+  });
+
+  test("requires on behalf fields for on behalf submission", async () => {
+    const repository = createRepository();
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    const result = await service.execute({
+      ...baseInput,
+      submissionType: "On Behalf",
+      onBehalfEmail: null,
+      onBehalfEmployeeCode: null,
+    });
+
+    expect(result.errorCode).toBe("ON_BEHALF_DETAILS_REQUIRED");
+    expect(repository.getPaymentModeById).not.toHaveBeenCalled();
+  });
+
+  test("routes proxy submission for HOD beneficiary to that HOD as L1 approver", async () => {
+    const beneficiaryHodId = departmentApprover1Id;
+    const repository = createRepository({
+      getActiveUserIdByEmail: jest.fn(async () => ({
+        data: beneficiaryHodId,
+        errorMessage: null,
+      })),
+      isUserApprover1InAnyDepartment: jest.fn(async (userId: string) => ({
+        isApprover1: userId === beneficiaryHodId,
+        errorMessage: null,
+      })),
+    });
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    await service.execute({
+      ...baseInput,
+      submissionType: "On Behalf",
+      onBehalfEmail: "hod@nxtwave.co.in",
+      onBehalfEmployeeCode: "EMP-HOD-100",
+      onBehalfOfId: beneficiaryHodId,
+      submittedBy: submitterId,
+    });
+
+    expect(repository.createClaimWithDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        on_behalf_of_id: beneficiaryHodId,
+        assigned_l1_approver_id: beneficiaryHodId,
+        initial_status: "Submitted - Awaiting HOD approval",
+      }),
+    );
+  });
+
+  test("routes proxy submission for founder beneficiary to department approver_2", async () => {
+    const beneficiaryFounderId = departmentApprover2Id;
+    const repository = createRepository({
+      getActiveUserIdByEmail: jest.fn(async () => ({
+        data: beneficiaryFounderId,
+        errorMessage: null,
+      })),
+      isUserApprover1InAnyDepartment: jest.fn(async () => ({
+        isApprover1: false,
+        errorMessage: null,
+      })),
+    });
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    await service.execute({
+      ...baseInput,
+      submissionType: "On Behalf",
+      onBehalfEmail: "founder@nxtwave.co.in",
+      onBehalfEmployeeCode: "EMP-FND-200",
+      onBehalfOfId: beneficiaryFounderId,
+      submittedBy: submitterId,
+    });
+
+    expect(repository.createClaimWithDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        on_behalf_of_id: beneficiaryFounderId,
+        assigned_l1_approver_id: departmentApprover2Id,
+        initial_status: "Submitted - Awaiting HOD approval",
+      }),
+    );
+  });
+});
