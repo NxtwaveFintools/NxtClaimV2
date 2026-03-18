@@ -239,11 +239,12 @@ async function resolveApprovalEvidenceUrls(
               })
               .then((result) => {
                 if (result.errorMessage) {
-                  throw new Error(result.errorMessage);
+                  return null;
                 }
 
                 return result.data;
               })
+              .catch(() => null)
           : Promise.resolve(null),
         isRenderableEvidencePath(row.expenseBankStatementFilePath)
           ? claimRepository
@@ -253,11 +254,12 @@ async function resolveApprovalEvidenceUrls(
               })
               .then((result) => {
                 if (result.errorMessage) {
-                  throw new Error(result.errorMessage);
+                  return null;
                 }
 
                 return result.data;
               })
+              .catch(() => null)
           : Promise.resolve(null),
         isRenderableEvidencePath(row.advanceSupportingDocumentPath)
           ? claimRepository
@@ -267,11 +269,12 @@ async function resolveApprovalEvidenceUrls(
               })
               .then((result) => {
                 if (result.errorMessage) {
-                  throw new Error(result.errorMessage);
+                  return null;
                 }
 
                 return result.data;
               })
+              .catch(() => null)
           : Promise.resolve(null),
       ]);
 

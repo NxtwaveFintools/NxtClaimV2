@@ -1522,7 +1522,6 @@ export class SupabaseClaimRepository implements ClaimRepository {
       };
     }
 
-    const financeApproverIdsFilter = toPostgrestInList(financeApproverIds);
     const financeNonRejectedStatusesFilter = toPostgrestInList(
       FINANCE_NON_REJECTED_VISIBLE_STATUSES,
     );
@@ -1533,7 +1532,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
         "id, employee_id, detail_type, submission_type, on_behalf_email, submitted_by, status, submitted_at, created_at, updated_at, submitter_user:users!claims_submitted_by_fkey!inner(full_name, email), master_departments(name), master_payment_modes(name), expense_details(total_amount, purpose, receipt_file_path, bank_statement_file_path, master_expense_categories(name)), advance_details(requested_amount, purpose, supporting_document_path)",
       )
       .or(
-        `assigned_l2_approver_id.in.${financeApproverIdsFilter},status.in.${financeNonRejectedStatusesFilter}`,
+        `status.in.${financeNonRejectedStatusesFilter},and(status.eq.Rejected,assigned_l2_approver_id.not.is.null)`,
       )
       .eq("is_active", true)
       .order("created_at", { ascending: false })
@@ -1671,13 +1670,12 @@ export class SupabaseClaimRepository implements ClaimRepository {
     }
 
     if (input.fetchScope === "finance_approvals") {
-      const financeApproverIdsFilter = toPostgrestInList(financeApproverIds);
       const financeNonRejectedStatusesFilter = toPostgrestInList(
         FINANCE_NON_REJECTED_VISIBLE_STATUSES,
       );
 
       query = query.or(
-        `assigned_l2_approver_id.in.${financeApproverIdsFilter},status.in.${financeNonRejectedStatusesFilter}`,
+        `status.in.${financeNonRejectedStatusesFilter},and(status.eq.Rejected,assigned_l2_approver_id.not.is.null)`,
       );
     }
 
