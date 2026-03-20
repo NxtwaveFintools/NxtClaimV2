@@ -5,6 +5,8 @@
   --background: #f8fafc;
   --foreground: #0f172a;
   --muted: #d7dee8;
+  --font-geist-sans: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-geist-mono: "Cascadia Mono", "Consolas", "Courier New", monospace;
 }
 
 @theme inline {
