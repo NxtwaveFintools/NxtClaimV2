@@ -299,12 +299,20 @@ export async function getClaimFormHydrationAction(): Promise<{
   }
 
   const userSummaryResult = await repository.getUserSummary(currentUserResult.user.id);
-  if (userSummaryResult.errorMessage || !userSummaryResult.data) {
+  if (userSummaryResult.errorMessage) {
     return {
       data: null,
-      errorMessage: userSummaryResult.errorMessage ?? "Unable to resolve user profile.",
+      errorMessage: userSummaryResult.errorMessage,
     };
   }
+
+  const resolvedCurrentUser =
+    userSummaryResult.data ??
+    ({
+      id: currentUserResult.user.id,
+      email: currentUserResult.user.email,
+      fullName: null,
+    } as const);
 
   const globalHodResult = await repository.isUserApprover1InAnyDepartment(
     currentUserResult.user.id,
@@ -374,9 +382,9 @@ export async function getClaimFormHydrationAction(): Promise<{
   return {
     data: {
       currentUser: {
-        id: userSummaryResult.data.id,
-        email: userSummaryResult.data.email,
-        name: userSummaryResult.data.fullName ?? userSummaryResult.data.email,
+        id: resolvedCurrentUser.id,
+        email: resolvedCurrentUser.email,
+        name: resolvedCurrentUser.fullName ?? resolvedCurrentUser.email,
         isGlobalHod: globalHodResult.isApprover1,
       },
       options: {

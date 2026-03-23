@@ -486,13 +486,13 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
     const nextTotals = {
       total_reimbursements_received:
-        toNumber(wallet?.total_reimbursements_received) +
+        (toNumber(wallet?.total_reimbursements_received) ?? 0) +
         (incrementColumn === "total_reimbursements_received" ? incrementAmount : 0),
       total_petty_cash_received:
-        toNumber(wallet?.total_petty_cash_received) +
+        (toNumber(wallet?.total_petty_cash_received) ?? 0) +
         (incrementColumn === "total_petty_cash_received" ? incrementAmount : 0),
       total_petty_cash_spent:
-        toNumber(wallet?.total_petty_cash_spent) +
+        (toNumber(wallet?.total_petty_cash_spent) ?? 0) +
         (incrementColumn === "total_petty_cash_spent" ? incrementAmount : 0),
     };
 

@@ -8,6 +8,13 @@ type WalletTotalsRow = {
   petty_cash_balance: number | string | null;
 };
 
+const EMPTY_WALLET_TOTALS = {
+  totalPettyCashReceived: 0,
+  totalPettyCashSpent: 0,
+  totalReimbursements: 0,
+  pettyCashBalance: 0,
+};
+
 const TRANSIENT_FETCH_ERROR_FRAGMENT = "fetch failed";
 
 function toNumber(value: number | string | null | undefined): number {
@@ -57,21 +64,25 @@ export class SupabaseDashboardRepository implements DashboardRepository {
   }> {
     const client = getServiceRoleSupabaseClient();
 
-    const { data, error } = await runWithSingleRetry(async () =>
+    const { data, error } = await runWithSingleRetry<WalletTotalsRow | null>(async () =>
       client
         .from("wallets")
         .select(
           "total_reimbursements_received, total_petty_cash_received, total_petty_cash_spent, petty_cash_balance",
         )
         .eq("user_id", userId)
-        .single(),
+        .maybeSingle(),
     );
 
     if (error) {
       return { data: null, errorMessage: error.message };
     }
 
-    const row = data as WalletTotalsRow;
+    if (!data) {
+      return { data: EMPTY_WALLET_TOTALS, errorMessage: null };
+    }
+
+    const row = data;
 
     return {
       data: {

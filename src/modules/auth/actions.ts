@@ -26,7 +26,7 @@ export async function loginWithEmailAction(
 }
 
 export async function loginWithMicrosoftAction(): Promise<{ ok: boolean; message?: string }> {
-  const redirectTo = `${window.location.origin}${ROUTES.authApi.callback}`;
+  const redirectTo = `${window.location.origin}/auth/callback`;
   const result = await authService.loginWithOAuth(AUTH_PROVIDERS.microsoft, redirectTo);
 
   if (result.errorCode) {
@@ -37,7 +37,7 @@ export async function loginWithMicrosoftAction(): Promise<{ ok: boolean; message
 }
 
 export async function loginWithGoogleAction(): Promise<{ ok: boolean; message?: string }> {
-  const redirectTo = `${window.location.origin}${ROUTES.authApi.callback}`;
+  const redirectTo = `${window.location.origin}/auth/callback`;
   const result = await authService.loginWithOAuth(AUTH_PROVIDERS.google, redirectTo);
 
   if (result.errorCode) {

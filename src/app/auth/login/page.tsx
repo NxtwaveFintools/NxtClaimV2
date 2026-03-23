@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ROUTES } from "@/core/config/route-registry";
 import {
@@ -13,15 +13,18 @@ import { EmailLoginForm } from "@/modules/auth/ui/email-login-form";
 import { OAuthButtons } from "@/modules/auth/ui/oauth-buttons";
 import type { LoginFormValues } from "@/modules/auth/validators/login-schema";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
   const params = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const queryErrorCode = params.get("error");
   const queryError =
-    params.get("error") === "unauthorized_domain"
+    queryErrorCode === "unauthorized_domain"
       ? "Your email domain is not authorized for this workspace."
-      : null;
+      : queryErrorCode === "sso-failed"
+        ? "Microsoft sign-in failed. Please try again."
+        : null;
 
   useEffect(() => {
     let isMounted = true;
@@ -118,5 +121,13 @@ export default function LoginPage() {
         <EmailLoginForm loading={loading} onSubmit={handleEmailSubmit} />
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
   );
 }

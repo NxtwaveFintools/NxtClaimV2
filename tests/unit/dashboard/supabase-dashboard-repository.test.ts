@@ -1,18 +1,13 @@
 import { SupabaseDashboardRepository } from "@/modules/dashboard/repositories/SupabaseDashboardRepository";
 
-type QueryResult = {
+type WalletQueryResult = {
   data: unknown;
   error: { message: string } | null;
 };
 
-type QueryBuilder = {
+type WalletQueryBuilder = {
   eq: jest.Mock;
-  in: jest.Mock;
-  single: jest.Mock;
-  then: (
-    onFulfilled: (value: QueryResult) => unknown,
-    onRejected?: (reason: unknown) => unknown,
-  ) => Promise<unknown>;
+  maybeSingle: jest.Mock;
 };
 
 const mockFrom = jest.fn();
@@ -22,181 +17,123 @@ jest.mock("@/core/infra/supabase/server-client", () => ({
   getServiceRoleSupabaseClient: () => mockGetServiceRoleSupabaseClient(),
 }));
 
-function createQueryBuilder(result: QueryResult): QueryBuilder {
-  const builder: QueryBuilder = {
+function createWalletBuilder(result: WalletQueryResult): WalletQueryBuilder {
+  const builder: WalletQueryBuilder = {
     eq: jest.fn(() => builder),
-    in: jest.fn(() => builder),
-    single: jest.fn(async () => result),
-    then: (onFulfilled, onRejected) => Promise.resolve(result).then(onFulfilled, onRejected),
+    maybeSingle: jest.fn(async () => result),
   };
 
   return builder;
 }
 
-function createDynamicClaimsBuilder(selectedColumns: string): QueryBuilder {
-  const filters = new Map<string, string>();
-
-  const builder: QueryBuilder = {
-    eq: jest.fn((key: string, value: string) => {
-      filters.set(key, value);
-      return builder;
-    }),
-    in: jest.fn(() => builder),
-    single: jest.fn(async () => ({ data: null, error: null })),
-    then: (onFulfilled, onRejected) => {
-      let data: unknown = [];
-
-      const submissionType = filters.get("submission_type");
-      const paymentModeId = filters.get("payment_mode_id");
-
-      if (selectedColumns.includes("advance_details")) {
-        data =
-          submissionType === "Self"
-            ? [{ advance_details: { requested_amount: 100 } }]
-            : [{ advance_details: { requested_amount: 50 } }];
-      }
-
-      if (selectedColumns.includes("expense_details")) {
-        if (paymentModeId === "pm-pc") {
-          data =
-            submissionType === "Self"
-              ? [{ expense_details: { total_amount: 40 } }]
-              : [{ expense_details: { total_amount: 10 } }];
-        } else {
-          data =
-            submissionType === "Self"
-              ? [{ expense_details: { total_amount: 30 } }]
-              : [{ expense_details: { total_amount: 20 } }];
-        }
-      }
-
-      return Promise.resolve({ data, error: null }).then(onFulfilled, onRejected);
-    },
-  };
-
-  return builder;
-}
-
-describe("SupabaseDashboardRepository.getClosedWalletBaseTotals", () => {
+describe("SupabaseDashboardRepository.getWalletTotals", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  test("retries once when a transient fetch failed error occurs", async () => {
-    let modeAttempts = 0;
+  test("returns wallet totals when a wallet row exists", async () => {
+    const queryBuilder = createWalletBuilder({
+      data: {
+        total_reimbursements_received: "100.50",
+        total_petty_cash_received: "250.25",
+        total_petty_cash_spent: "80.10",
+        petty_cash_balance: "170.15",
+      },
+      error: null,
+    });
 
-    mockFrom.mockImplementation((table: string) => ({
-      select: jest.fn((columns: string) => {
-        if (table === "master_payment_modes") {
-          const builder = createQueryBuilder({
-            data: [],
-            error: null,
-          });
-
-          builder.in = jest.fn(() => ({
-            then: (
-              onFulfilled: (value: QueryResult) => unknown,
-              onRejected?: (reason: unknown) => unknown,
-            ) => {
-              modeAttempts += 1;
-
-              if (modeAttempts === 1) {
-                return Promise.resolve({
-                  data: null,
-                  error: { message: "TypeError: fetch failed" },
-                }).then(onFulfilled, onRejected);
-              }
-
-              return Promise.resolve({
-                data: [
-                  { id: "pm-pcr", name: "Petty Cash Request" },
-                  { id: "pm-pc", name: "Petty Cash" },
-                  { id: "pm-reim", name: "Reimbursement" },
-                ],
-                error: null,
-              }).then(onFulfilled, onRejected);
-            },
-          }));
-
-          return builder;
-        }
-
-        if (table === "users") {
-          return createQueryBuilder({
-            data: { email: "user@nxtwave.co.in" },
-            error: null,
-          });
-        }
-
-        if (table === "claims") {
-          return createDynamicClaimsBuilder(columns);
-        }
-
-        throw new Error(`Unexpected table mock request: ${table}`);
-      }),
-    }));
+    mockFrom.mockReturnValue({
+      select: jest.fn(() => queryBuilder),
+    });
 
     mockGetServiceRoleSupabaseClient.mockReturnValue({
       from: mockFrom,
     });
 
     const repository = new SupabaseDashboardRepository();
-    const result = await repository.getClosedWalletBaseTotals(
-      "11111111-1111-1111-1111-111111111111",
-    );
+    const result = await repository.getWalletTotals("11111111-1111-1111-1111-111111111111");
 
-    expect(modeAttempts).toBe(2);
+    expect(queryBuilder.maybeSingle).toHaveBeenCalledTimes(1);
     expect(result.errorMessage).toBeNull();
     expect(result.data).toEqual({
-      totalPettyCashReceived: 150,
-      totalPettyCashSpent: 50,
-      totalReimbursements: 50,
+      totalPettyCashReceived: 250.25,
+      totalPettyCashSpent: 80.1,
+      totalReimbursements: 100.5,
+      pettyCashBalance: 170.15,
     });
   });
 
-  test("includes self and on-behalf closed claims for beneficiary wallet totals", async () => {
-    mockFrom.mockImplementation((table: string) => ({
-      select: jest.fn((columns: string) => {
-        if (table === "master_payment_modes") {
-          return createQueryBuilder({
-            data: [
-              { id: "pm-pcr", name: "Petty Cash Request" },
-              { id: "pm-pc", name: "Petty Cash" },
-              { id: "pm-reim", name: "Reimbursement" },
-            ],
-            error: null,
-          });
-        }
+  test("returns zeroed totals when no wallet row exists", async () => {
+    const queryBuilder = createWalletBuilder({
+      data: null,
+      error: null,
+    });
 
-        if (table === "users") {
-          return createQueryBuilder({
-            data: { email: "user@nxtwave.co.in" },
-            error: null,
-          });
-        }
-
-        if (table === "claims") {
-          return createDynamicClaimsBuilder(columns);
-        }
-
-        throw new Error(`Unexpected table mock request: ${table}`);
-      }),
-    }));
+    mockFrom.mockReturnValue({
+      select: jest.fn(() => queryBuilder),
+    });
 
     mockGetServiceRoleSupabaseClient.mockReturnValue({
       from: mockFrom,
     });
 
     const repository = new SupabaseDashboardRepository();
-    const result = await repository.getClosedWalletBaseTotals(
-      "11111111-1111-1111-1111-111111111111",
-    );
+    const result = await repository.getWalletTotals("11111111-1111-1111-1111-111111111111");
 
     expect(result.errorMessage).toBeNull();
     expect(result.data).toEqual({
-      totalPettyCashReceived: 150,
-      totalPettyCashSpent: 50,
-      totalReimbursements: 50,
+      totalPettyCashReceived: 0,
+      totalPettyCashSpent: 0,
+      totalReimbursements: 0,
+      pettyCashBalance: 0,
+    });
+  });
+
+  test("retries once for transient fetch failures", async () => {
+    let attempts = 0;
+
+    const queryBuilder: WalletQueryBuilder = {
+      eq: jest.fn(() => queryBuilder),
+      maybeSingle: jest.fn(async () => {
+        attempts += 1;
+
+        if (attempts === 1) {
+          return {
+            data: null,
+            error: { message: "TypeError: fetch failed" },
+          };
+        }
+
+        return {
+          data: {
+            total_reimbursements_received: 20,
+            total_petty_cash_received: 30,
+            total_petty_cash_spent: 10,
+            petty_cash_balance: 20,
+          },
+          error: null,
+        };
+      }),
+    };
+
+    mockFrom.mockReturnValue({
+      select: jest.fn(() => queryBuilder),
+    });
+
+    mockGetServiceRoleSupabaseClient.mockReturnValue({
+      from: mockFrom,
+    });
+
+    const repository = new SupabaseDashboardRepository();
+    const result = await repository.getWalletTotals("11111111-1111-1111-1111-111111111111");
+
+    expect(attempts).toBe(2);
+    expect(result.errorMessage).toBeNull();
+    expect(result.data).toEqual({
+      totalPettyCashReceived: 30,
+      totalPettyCashSpent: 10,
+      totalReimbursements: 20,
+      pettyCashBalance: 20,
     });
   });
 });

@@ -271,6 +271,24 @@ describe("claims actions", () => {
     ]);
   });
 
+  test("getClaimFormHydrationAction falls back to auth user when user summary is missing", async () => {
+    mockGetUserSummary.mockResolvedValueOnce({
+      data: null,
+      errorMessage: null,
+    });
+
+    const { getClaimFormHydrationAction } = await import("@/modules/claims/actions");
+    const result = await getClaimFormHydrationAction();
+
+    expect(result.errorMessage).toBeNull();
+    expect(result.data?.currentUser).toEqual({
+      id: "11111111-1111-4111-8111-111111111111",
+      email: "user@nxtwave.co.in",
+      name: "user@nxtwave.co.in",
+      isGlobalHod: false,
+    });
+  });
+
   test("submitClaimAction rejects invalid payload", async () => {
     const { submitClaimAction } = await import("@/modules/claims/actions");
 
