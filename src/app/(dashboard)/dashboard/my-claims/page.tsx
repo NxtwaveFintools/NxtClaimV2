@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { BackButton } from "@/components/ui/back-button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -65,6 +66,10 @@ function toSearchParams(searchParams?: Record<string, SearchParamsValue>): URLSe
 function resolveView(value: string | undefined, canViewApprovals: boolean): ViewMode {
   if (value === "approvals" && canViewApprovals) {
     return "approvals";
+  }
+
+  if (value === "submissions") {
+    return "submissions";
   }
 
   return "submissions";
@@ -900,7 +905,8 @@ export default async function MyClaimsDashboardPage({
   });
   const currentEmail = currentUserResult.user.email ?? "Unknown User";
   const canViewApprovals = viewerContextResult.canViewApprovals;
-  const activeView = resolveView(firstParamValue(resolvedSearchParams?.view), canViewApprovals);
+  const requestedView = firstParamValue(resolvedSearchParams?.view);
+  const activeView = resolveView(requestedView, canViewApprovals);
 
   const [paymentModesResult, departmentsResult, locationsResult, productsResult, categoriesResult] =
     await Promise.all([
@@ -928,6 +934,10 @@ export default async function MyClaimsDashboardPage({
 
   const submissionsHref = buildViewHref(resolvedSearchParams, "submissions");
   const approvalsHref = buildViewHref(resolvedSearchParams, "approvals");
+
+  if (viewerContextResult.activeScope === "finance" && !requestedView) {
+    redirect(approvalsHref);
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 px-6 py-8 dark:bg-[#0B0F1A]">
@@ -985,6 +995,7 @@ export default async function MyClaimsDashboardPage({
 
         <ClaimsFilterBar
           exportScope={activeView}
+          defaultFiltersExpanded={viewerContextResult.activeScope === "finance"}
           paymentModes={paymentModes}
           departments={departments}
           locations={locations}

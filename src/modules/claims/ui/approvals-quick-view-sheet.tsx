@@ -153,7 +153,7 @@ export function ApprovalsQuickViewSheet({
             }}
           />
 
-          <aside className="absolute right-0 top-0 h-full w-full max-w-2xl overflow-y-auto border-l border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-800 dark:bg-zinc-950 sm:p-6">
+          <aside className="absolute right-0 top-0 h-full w-full overflow-y-auto border-l border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-800 dark:bg-zinc-950 sm:p-6 md:w-1/2">
             <div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-4 dark:border-slate-800">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
