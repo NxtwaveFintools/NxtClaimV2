@@ -73,6 +73,7 @@ function hasActiveFilterParams(params: URLSearchParams): boolean {
 
 type ClaimsFilterBarProps = {
   exportScope: "submissions" | "approvals";
+  defaultFiltersExpanded?: boolean;
   paymentModes: Array<{ id: string; name: string }>;
   departments: Array<{ id: string; name: string }>;
   locations: Array<{ id: string; name: string }>;
@@ -100,6 +101,7 @@ function extractFilenameFromDisposition(dispositionHeader: string | null): strin
 
 export function ClaimsFilterBar({
   exportScope,
+  defaultFiltersExpanded = false,
   paymentModes,
   departments,
   locations,
@@ -116,8 +118,9 @@ export function ClaimsFilterBar({
   const [searchInput, setSearchInput] = useState(currentSearchQuery);
   const [debouncedSearchInput, setDebouncedSearchInput] = useState(currentSearchQuery);
   const [isExporting, setIsExporting] = useState(false);
-  const [isFiltersExpanded, setIsFiltersExpanded] = useState(() =>
-    hasActiveFilterParams(new URLSearchParams(searchParams.toString())),
+  const [isFiltersExpanded, setIsFiltersExpanded] = useState(
+    () =>
+      defaultFiltersExpanded || hasActiveFilterParams(new URLSearchParams(searchParams.toString())),
   );
 
   useEffect(() => {
