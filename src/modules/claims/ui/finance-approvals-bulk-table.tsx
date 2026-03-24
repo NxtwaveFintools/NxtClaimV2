@@ -263,6 +263,7 @@ export function FinanceApprovalsBulkTable({
 
     const formData = new FormData(event.currentTarget);
     const rejectionReason = String(formData.get("rejectionReason") ?? "").trim();
+    const allowResubmission = formData.get("allowResubmission") === "true";
 
     setIsSubmittingBulkReject(true);
 
@@ -293,6 +294,7 @@ export function FinanceApprovalsBulkTable({
               isGlobalSelect,
               filters: actionFilters,
               rejectionReason,
+              allowResubmission,
             });
 
             if (!result.ok) {
@@ -637,6 +639,23 @@ export function FinanceApprovalsBulkTable({
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-indigo-500 transition focus:ring dark:border-slate-700 dark:bg-zinc-900 dark:text-slate-100"
                   placeholder="Enter at least 5 characters"
                 />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  id="bulkAllowResubmission"
+                  type="checkbox"
+                  name="allowResubmission"
+                  value="true"
+                  disabled={isSubmittingBulkReject}
+                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700"
+                />
+                <label
+                  htmlFor="bulkAllowResubmission"
+                  className="text-sm text-slate-700 dark:text-slate-300"
+                >
+                  Allow resubmission for all selected claims
+                </label>
               </div>
 
               <div className="flex flex-wrap items-center justify-end gap-2">

@@ -81,6 +81,7 @@ const bulkActionInputSchema = z.object({
 });
 const bulkRejectInputSchema = bulkActionInputSchema.extend({
   rejectionReason: z.string().trim().min(5, "Rejection reason is required."),
+  allowResubmission: z.boolean().optional(),
 });
 
 class DuplicateTransactionError extends Error {
@@ -1141,6 +1142,7 @@ export async function bulkReject(input: {
   isGlobalSelect: boolean;
   filters?: GetMyClaimsFilters;
   rejectionReason: string;
+  allowResubmission?: boolean;
 }): Promise<{ ok: boolean; message: string; processedCount: number }> {
   const parseResult = bulkRejectInputSchema.safeParse(input);
   if (!parseResult.success) {
@@ -1163,6 +1165,7 @@ export async function bulkReject(input: {
     isGlobalSelect: parseResult.data.isGlobalSelect,
     filters: parseResult.data.filters,
     reason: parseResult.data.rejectionReason,
+    allowResubmission: parseResult.data.allowResubmission === true,
   });
 
   if (!result.ok) {

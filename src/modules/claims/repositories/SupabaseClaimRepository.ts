@@ -875,6 +875,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     action: "L2_APPROVE" | "L2_REJECT" | "MARK_PAID";
     actorUserId: string;
     reason?: string;
+    allowResubmission?: boolean;
   }): Promise<{ processedCount: number; errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
     const { data, error } = await client.rpc("bulk_process_claims", {
@@ -882,6 +883,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
       p_action: input.action,
       p_actor_id: input.actorUserId,
       p_reason: input.reason ?? null,
+      p_allow_resubmission: input.allowResubmission === true,
     });
 
     if (error) {

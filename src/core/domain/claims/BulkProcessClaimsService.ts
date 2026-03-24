@@ -15,6 +15,7 @@ type BulkProcessClaimsRepository = {
     action: BulkAction;
     actorUserId: string;
     reason?: string;
+    allowResubmission?: boolean;
   }): Promise<{ processedCount: number; errorMessage: string | null }>;
 };
 
@@ -40,6 +41,7 @@ export class BulkProcessClaimsService {
     isGlobalSelect: boolean;
     filters?: GetMyClaimsFilters;
     reason?: string;
+    allowResubmission?: boolean;
   }): Promise<{ ok: boolean; processedCount: number; errorMessage: string | null }> {
     const financeApproversResult = await this.repository.getFinanceApproverIdsForUser(
       input.actorUserId,
@@ -107,6 +109,7 @@ export class BulkProcessClaimsService {
       action: input.action,
       actorUserId: input.actorUserId,
       reason: input.reason,
+      allowResubmission: input.allowResubmission,
     });
 
     if (processResult.errorMessage) {
