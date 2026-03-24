@@ -251,6 +251,10 @@ type ExportClaimUserRow = {
   email: string | null;
 };
 
+type ExportClaimFinanceApproverRow = {
+  approver_user: ExportClaimUserRow | ExportClaimUserRow[] | null;
+};
+
 type ExportClaimLookupRow = {
   id: string;
   name: string;
@@ -321,7 +325,7 @@ type ExportClaimRow = {
   submitter_user: ExportClaimUserRow | ExportClaimUserRow[] | null;
   beneficiary_user: ExportClaimUserRow | ExportClaimUserRow[] | null;
   l1_approver_user: ExportClaimUserRow | ExportClaimUserRow[] | null;
-  l2_approver_user: ExportClaimUserRow | ExportClaimUserRow[] | null;
+  l2_finance_approver: ExportClaimFinanceApproverRow | ExportClaimFinanceApproverRow[] | null;
   master_departments: ExportClaimLookupRow | ExportClaimLookupRow[] | null;
   master_payment_modes: ExportClaimLookupRow | ExportClaimLookupRow[] | null;
   expense_details: ExportClaimExpenseRow | ExportClaimExpenseRow[] | null;
@@ -2479,109 +2483,22 @@ export class SupabaseClaimRepository implements ClaimRepository {
       };
     }
 
-    let queryData: unknown[] | null = null;
-    let queryErrorMessage: string | null = null;
-
-    const detailedSelect =
-      "id, status, submission_type, detail_type, submitted_by, on_behalf_of_id, employee_id, cc_emails, on_behalf_email, on_behalf_employee_code, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_at, hod_action_at, finance_action_at, rejection_reason, is_resubmission_allowed, created_at, updated_at, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), l1_approver_user:users!claims_assigned_l1_approver_id_fkey(full_name, email), l2_approver_user:users!claims_assigned_l2_approver_id_fkey(full_name, email), master_departments(id, name), master_payment_modes(id, name), expense_details(bill_no, transaction_id, purpose, expense_category_id, product_id, location_id, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, currency_code, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(id, name), master_products(id, name), master_locations(id, name)), advance_details(requested_amount, budget_month, budget_year, expected_usage_date, purpose, product_id, location_id, remarks, supporting_document_path, master_products(id, name), master_locations(id, name))";
-
-    const baseSelectWithoutUserRelations =
-      "id, status, submission_type, detail_type, submitted_by, on_behalf_of_id, employee_id, cc_emails, on_behalf_email, on_behalf_employee_code, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_at, hod_action_at, finance_action_at, rejection_reason, is_resubmission_allowed, created_at, updated_at, master_departments(id, name), master_payment_modes(id, name), expense_details(bill_no, transaction_id, purpose, expense_category_id, product_id, location_id, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, currency_code, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(id, name), master_products(id, name), master_locations(id, name)), advance_details(requested_amount, budget_month, budget_year, expected_usage_date, purpose, product_id, location_id, remarks, supporting_document_path, master_products(id, name), master_locations(id, name))";
-
-    const { data: primaryData, error: primaryError } = await client
+    const { data, error } = await client
       .from("claims")
-      .select(detailedSelect)
+      .select(
+        "id, status, submission_type, detail_type, submitted_by, on_behalf_of_id, employee_id, cc_emails, on_behalf_email, on_behalf_employee_code, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_at, hod_action_at, finance_action_at, rejection_reason, is_resubmission_allowed, created_at, updated_at, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), l1_approver_user:users!claims_assigned_l1_approver_id_fkey(full_name, email), l2_finance_approver:master_finance_approvers!claims_assigned_l2_approver_id_fkey(approver_user:users!master_finance_approvers_user_id_fkey(full_name, email)), master_departments(id, name), master_payment_modes(id, name), expense_details(bill_no, transaction_id, purpose, expense_category_id, product_id, location_id, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, currency_code, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(id, name), master_products(id, name), master_locations(id, name)), advance_details(requested_amount, budget_month, budget_year, expected_usage_date, purpose, product_id, location_id, remarks, supporting_document_path, master_products(id, name), master_locations(id, name))",
+      )
       .in("id", orderedClaimIds)
       .eq("is_active", true);
 
-    if (primaryError) {
-      const normalizedError = primaryError.message.toLowerCase();
-      const hasUsersRelationCacheError = normalizedError.includes(
-        "relationship between 'claims' and 'users'",
-      );
-
-      if (!hasUsersRelationCacheError) {
-        queryErrorMessage = primaryError.message;
-      } else {
-        const { data: fallbackData, error: fallbackError } = await client
-          .from("claims")
-          .select(baseSelectWithoutUserRelations)
-          .in("id", orderedClaimIds)
-          .eq("is_active", true);
-
-        if (fallbackError) {
-          queryErrorMessage = fallbackError.message;
-        } else {
-          queryData = fallbackData as unknown[];
-        }
-      }
-    } else {
-      queryData = primaryData as unknown[];
-    }
-
-    if (queryErrorMessage) {
+    if (error) {
       return {
         data: [],
-        errorMessage: queryErrorMessage,
+        errorMessage: error.message,
       };
     }
 
-    const rows = (queryData ?? []).map((row) => {
-      const source = row as Partial<ExportClaimRow>;
-
-      return {
-        ...source,
-        submitter_user: source.submitter_user ?? null,
-        beneficiary_user: source.beneficiary_user ?? null,
-        l1_approver_user: source.l1_approver_user ?? null,
-        l2_approver_user: source.l2_approver_user ?? null,
-      } as ExportClaimRow;
-    });
-
-    const userIds = new Set<string>();
-    for (const row of rows) {
-      userIds.add(row.submitted_by);
-
-      if (row.on_behalf_of_id) {
-        userIds.add(row.on_behalf_of_id);
-      }
-
-      if (row.assigned_l1_approver_id) {
-        userIds.add(row.assigned_l1_approver_id);
-      }
-
-      if (row.assigned_l2_approver_id) {
-        userIds.add(row.assigned_l2_approver_id);
-      }
-    }
-
-    const usersById = new Map<string, ExportClaimUserRow>();
-    if (userIds.size > 0) {
-      const { data: usersData, error: usersError } = await client
-        .from("users")
-        .select("id, full_name, email")
-        .in("id", [...userIds])
-        .eq("is_active", true);
-
-      if (usersError) {
-        return {
-          data: [],
-          errorMessage: usersError.message,
-        };
-      }
-
-      for (const user of (usersData ?? []) as Array<{
-        id: string;
-        full_name: string | null;
-        email: string | null;
-      }>) {
-        usersById.set(user.id, {
-          full_name: user.full_name,
-          email: user.email,
-        });
-      }
-    }
-
+    const rows = (data ?? []) as ExportClaimRow[];
     const rowById = new Map(rows.map((row) => [row.id, row]));
 
     return {
@@ -2589,20 +2506,11 @@ export class SupabaseClaimRepository implements ClaimRepository {
         .map((id) => rowById.get(id))
         .filter((row): row is ExportClaimRow => Boolean(row))
         .map((row) => {
-          const submitter =
-            getSingleRelation(row.submitter_user) ?? usersById.get(row.submitted_by) ?? null;
-          const beneficiary =
-            getSingleRelation(row.beneficiary_user) ??
-            (row.on_behalf_of_id ? (usersById.get(row.on_behalf_of_id) ?? null) : null);
-          const l1Approver =
-            getSingleRelation(row.l1_approver_user) ??
-            usersById.get(row.assigned_l1_approver_id) ??
-            null;
-          const l2Approver =
-            getSingleRelation(row.l2_approver_user) ??
-            (row.assigned_l2_approver_id
-              ? (usersById.get(row.assigned_l2_approver_id) ?? null)
-              : null);
+          const submitter = getSingleRelation(row.submitter_user);
+          const beneficiary = getSingleRelation(row.beneficiary_user);
+          const l1Approver = getSingleRelation(row.l1_approver_user);
+          const l2FinanceApprover = getSingleRelation(row.l2_finance_approver);
+          const l2Approver = getSingleRelation(l2FinanceApprover?.approver_user);
           const department = getSingleRelation(row.master_departments);
           const paymentMode = getSingleRelation(row.master_payment_modes);
           const expense = getSingleRelation(row.expense_details);

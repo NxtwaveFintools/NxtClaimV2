@@ -7,7 +7,6 @@ describe("financeEditSchema", () => {
       billNo: "BILL-100",
       vendorName: "Vendor",
       basicAmount: 120,
-      totalAmount: 141.6,
       purpose: "Client travel",
       productId: "11111111-1111-4111-8111-111111111111",
       remarks: "Updated by finance",

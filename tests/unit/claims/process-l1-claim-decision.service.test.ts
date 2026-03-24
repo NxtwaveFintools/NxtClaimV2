@@ -51,6 +51,7 @@ describe("ProcessL1ClaimDecisionService", () => {
     expect(result).toEqual({ ok: true, errorMessage: null });
     expect(repository.updateClaimL1Decision).toHaveBeenCalledWith({
       claimId: "claim-1",
+      actorUserId: "hod-1",
       status: "HOD approved - Awaiting finance approval",
       assignedL2ApproverId: "finance-approver-1",
       rejectionReason: null,
@@ -72,6 +73,7 @@ describe("ProcessL1ClaimDecisionService", () => {
     expect(result).toEqual({ ok: true, errorMessage: null });
     expect(repository.updateClaimL1Decision).toHaveBeenCalledWith({
       claimId: "claim-1",
+      actorUserId: "hod-1",
       status: "Rejected",
       assignedL2ApproverId: null,
       rejectionReason: "Missing policy compliance evidence.",
@@ -93,6 +95,7 @@ describe("ProcessL1ClaimDecisionService", () => {
 
     expect(repository.updateClaimL1Decision).toHaveBeenCalledWith({
       claimId: "claim-1",
+      actorUserId: "hod-1",
       status: "Rejected",
       assignedL2ApproverId: null,
       rejectionReason: "Missing policy compliance evidence.",

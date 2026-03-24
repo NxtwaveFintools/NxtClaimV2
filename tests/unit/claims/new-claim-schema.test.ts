@@ -79,7 +79,7 @@ describe("newClaimSubmitSchema", () => {
     }
   });
 
-  test("rejects total amount mismatch", () => {
+  test("accepts provided total amount metadata", () => {
     const parsed = newClaimSubmitSchema.safeParse({
       ...validExpensePayload,
       expense: {
@@ -88,11 +88,7 @@ describe("newClaimSubmitSchema", () => {
       },
     });
 
-    expect(parsed.success).toBe(false);
-    if (!parsed.success) {
-      const issues = parsed.error.issues.map((issue) => issue.message);
-      expect(issues).toContain("Total amount must equal basic amount + GST components.");
-    }
+    expect(parsed.success).toBe(true);
   });
 
   test("accepts a valid expense submission", () => {

@@ -14,9 +14,9 @@ function createRepository(overrides?: Partial<DashboardRepository>): DashboardRe
     getWalletTotals: jest.fn(async () => ({
       data: {
         totalPettyCashReceived: 1000,
-        totalPettyCashSpent: 1200,
+        totalPettyCashSpent: 800,
         totalReimbursements: 300,
-        pettyCashBalance: -200,
+        pettyCashBalance: 200,
       },
       errorMessage: null,
     })),
@@ -35,11 +35,11 @@ describe("GetWalletSummaryService", () => {
     expect(result.errorMessage).toBeNull();
     expect(result.data).toEqual({
       totalPettyCashReceived: 1000,
-      totalPettyCashSpent: 1200,
+      totalPettyCashSpent: 800,
       totalReimbursements: 300,
       amountReceived: 1300,
-      amountSpent: 1200,
-      pettyCashBalance: -200,
+      amountSpent: 800,
+      pettyCashBalance: 200,
     });
   });
 
@@ -92,9 +92,9 @@ describe("GetWalletSummaryService", () => {
       getWalletTotals: jest.fn(async () => ({
         data: {
           totalPettyCashReceived: 10000000,
-          totalPettyCashSpent: 10000001,
+          totalPettyCashSpent: 9999999,
           totalReimbursements: 0.01,
-          pettyCashBalance: -1,
+          pettyCashBalance: 1,
         },
         errorMessage: null,
       })),
@@ -107,11 +107,32 @@ describe("GetWalletSummaryService", () => {
     expect(result.errorMessage).toBeNull();
     expect(result.data).toEqual({
       totalPettyCashReceived: 10000000,
-      totalPettyCashSpent: 10000001,
+      totalPettyCashSpent: 9999999,
       totalReimbursements: 0.01,
       amountReceived: 10000000.01,
-      amountSpent: 10000001,
-      pettyCashBalance: -1,
+      amountSpent: 9999999,
+      pettyCashBalance: 1,
     });
+  });
+
+  test("returns integrity error when petty cash balance is negative", async () => {
+    const repository = createRepository({
+      getWalletTotals: jest.fn(async () => ({
+        data: {
+          totalPettyCashReceived: 1000,
+          totalPettyCashSpent: 1200,
+          totalReimbursements: 300,
+          pettyCashBalance: -200,
+        },
+        errorMessage: null,
+      })),
+    });
+    const logger = createLogger();
+    const service = new GetWalletSummaryService({ repository, logger });
+
+    const result = await service.execute("user-5");
+
+    expect(result.data).toBeNull();
+    expect(result.errorMessage).toContain("pettyCashBalance cannot be negative");
   });
 });
