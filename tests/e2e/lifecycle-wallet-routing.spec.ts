@@ -684,6 +684,10 @@ async function withActorPage<T>(
   try {
     if (storageStatePath) {
       await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+
+      if (/\/auth\/login/i.test(page.url())) {
+        await loginWithEmail(page, email);
+      }
     } else {
       await loginWithEmail(page, email);
       const discoveredStateRole =

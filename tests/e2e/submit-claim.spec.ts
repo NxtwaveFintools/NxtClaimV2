@@ -3,8 +3,44 @@ import { test, expect, type Page } from "@playwright/test";
 import { getAuthStatePathByRole } from "./support/auth-state";
 
 const receiptPath = path.resolve(process.cwd(), "tests/fixtures/dummy-receipt.pdf");
+const DEFAULT_PASSWORD = process.env.E2E_DEFAULT_PASSWORD ?? "password123";
 
-async function openClaimForm(page: Page): Promise<void> {
+async function ensureAuthenticated(page: Page, email: string): Promise<void> {
+  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+
+  if (!/\/auth\/login/i.test(page.url())) {
+    return;
+  }
+
+  const loginResponse = await page.request.post("/api/auth/email-login", {
+    data: { email, password: DEFAULT_PASSWORD },
+  });
+
+  if (!loginResponse.ok()) {
+    throw new Error(`Email login failed for ${email}: HTTP ${loginResponse.status()}`);
+  }
+
+  const loginPayload = (await loginResponse.json()) as {
+    data?: { session?: { accessToken?: string; refreshToken?: string } };
+  };
+
+  const accessToken = loginPayload.data?.session?.accessToken;
+  const refreshToken = loginPayload.data?.session?.refreshToken;
+  if (!accessToken || !refreshToken) {
+    throw new Error(`Missing auth session tokens for ${email}.`);
+  }
+
+  const sessionResponse = await page.request.post("/api/auth/session", {
+    data: { accessToken, refreshToken },
+  });
+
+  if (!sessionResponse.ok()) {
+    throw new Error(`Session bootstrap failed for ${email}: HTTP ${sessionResponse.status()}`);
+  }
+}
+
+async function openClaimForm(page: Page, email: string): Promise<void> {
+  await ensureAuthenticated(page, email);
   await page.goto("/claims/new", { waitUntil: "domcontentloaded" });
 
   const submitButton = page.getByRole("button", { name: /submit claim/i });
@@ -88,7 +124,7 @@ test.describe("Submit Claim Golden Paths", () => {
     test.use({ storageState: getAuthStatePathByRole("submitter") });
 
     test("Test A: Standard employee submits reimbursement claim with GST", async ({ page }) => {
-      await openClaimForm(page);
+      await openClaimForm(page, process.env.E2E_SUBMITTER_EMAIL ?? "user@nxtwave.co.in");
 
       const paymentMode = page.getByLabel(/Payment Mode/i);
       const reimbursementValue = await paymentMode.evaluate((el) => {
@@ -114,7 +150,7 @@ test.describe("Submit Claim Golden Paths", () => {
     test.use({ storageState: getAuthStatePathByRole("hod") });
 
     test("Test B: HOD submission resolves a valid senior approver", async ({ page }) => {
-      await openClaimForm(page);
+      await openClaimForm(page, process.env.E2E_HOD_EMAIL ?? "hod@nxtwave.co.in");
 
       const departmentSelect = page.getByLabel(/Department/i);
       const optionCount = await departmentSelect.locator("option").count();

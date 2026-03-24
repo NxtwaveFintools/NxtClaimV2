@@ -414,6 +414,11 @@ async function setupActorSessions(browser: Browser, actors: RuntimeActors): Prom
       if (storageStatePath) {
         page = await context.newPage();
         await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+
+        if (/\/auth\/login/i.test(page.url())) {
+          await page.close().catch(() => undefined);
+          page = await loginToContext(context, email, DEFAULT_PASSWORD);
+        }
       } else {
         page = await loginToContext(context, email, DEFAULT_PASSWORD);
         registerAuthStateEmail(email, role);
