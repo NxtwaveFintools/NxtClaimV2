@@ -28,11 +28,11 @@ import { ClaimDecisionActionForm } from "@/modules/claims/ui/claim-decision-acti
 import { ClaimRejectWithReasonForm } from "@/modules/claims/ui/claim-reject-with-reason-form";
 import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
 import { ClaimsFilterBar } from "@/modules/claims/ui/claims-filter-bar";
-import { ClaimsTableSkeleton } from "@/modules/claims/ui/claims-table-skeleton";
 import { FinanceApprovalsBulkTable } from "@/modules/claims/ui/finance-approvals-bulk-table";
 import { MyClaimsPaginationControls } from "@/modules/claims/ui/my-claims-pagination-controls";
 import { ApprovalsAuditModeDialog } from "@/modules/claims/ui/approvals-quick-view-sheet";
 import { ClaimSemanticDownloadButton } from "@/modules/claims/ui/claim-semantic-download-button";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 
 const PAGE_SIZE = 10;
 type SearchParamsValue = string | string[] | undefined;
@@ -978,7 +978,14 @@ export default async function MyClaimsDashboardPage({
   const currentEmail = currentUserResult.user.email ?? "Unknown User";
   const canViewApprovals = viewerContextResult.canViewApprovals;
   const requestedView = firstParamValue(resolvedSearchParams?.view);
+
+  if (canViewApprovals && !requestedView) {
+    redirect(buildViewHref(resolvedSearchParams, "approvals"));
+  }
+
   const activeView = resolveView(requestedView, canViewApprovals);
+  const submissionsHref = buildViewHref(resolvedSearchParams, "submissions");
+  const approvalsHref = buildViewHref(resolvedSearchParams, "approvals");
 
   const [paymentModesResult, departmentsResult, locationsResult, productsResult, categoriesResult] =
     await Promise.all([
@@ -1003,13 +1010,6 @@ export default async function MyClaimsDashboardPage({
     id: category.id,
     name: category.name,
   }));
-
-  const submissionsHref = buildViewHref(resolvedSearchParams, "submissions");
-  const approvalsHref = buildViewHref(resolvedSearchParams, "approvals");
-
-  if (viewerContextResult.activeScope === "finance" && !requestedView) {
-    redirect(approvalsHref);
-  }
 
   return (
     <div className="min-h-screen bg-slate-50 px-6 py-8 dark:bg-[#0B0F1A]">
@@ -1081,7 +1081,7 @@ export default async function MyClaimsDashboardPage({
           </h2>
         ) : null}
 
-        <Suspense fallback={<ClaimsTableSkeleton />}>
+        <Suspense fallback={<TableSkeleton rows={10} columns={8} />}>
           <ClaimsCommandCenterTable
             userId={currentUserResult.user.id}
             view={activeView}

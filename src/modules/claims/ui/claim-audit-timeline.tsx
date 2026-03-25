@@ -46,6 +46,37 @@ function describeAction(actionType: ClaimAuditLogRecord["actionType"]): string {
   return "Rejected by Finance";
 }
 
+function actionAccentClasses(actionType: ClaimAuditLogRecord["actionType"]): {
+  labelClassName: string;
+  dotClassName: string;
+} {
+  if (actionType === "SUBMITTED") {
+    return {
+      labelClassName: "text-amber-800 dark:text-amber-200",
+      dotClassName: "bg-amber-600 dark:bg-amber-400",
+    };
+  }
+
+  if (actionType === "L1_REJECTED" || actionType === "L2_REJECTED") {
+    return {
+      labelClassName: "text-rose-700 dark:text-rose-300",
+      dotClassName: "bg-rose-600 dark:bg-rose-400",
+    };
+  }
+
+  if (actionType === "L2_MARK_PAID") {
+    return {
+      labelClassName: "text-emerald-700 dark:text-emerald-300",
+      dotClassName: "bg-emerald-600 dark:bg-emerald-400",
+    };
+  }
+
+  return {
+    labelClassName: "text-indigo-700 dark:text-indigo-300",
+    dotClassName: "bg-indigo-600 dark:bg-indigo-400",
+  };
+}
+
 function buildActorLabel(log: ClaimAuditLogRecord): string {
   if (log.actorName && log.actorEmail) {
     return `${log.actorName} (${log.actorEmail})`;
@@ -80,17 +111,20 @@ export function ClaimAuditTimeline({
       {logs.length === 0 ? (
         <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">{emptyLabel}</p>
       ) : (
-        <ol className="mt-4 space-y-4 border-l border-slate-200 pl-4 dark:border-slate-700">
+        <ol className="mt-4 space-y-4 border-l-2 border-slate-300 pl-4 dark:border-slate-600">
           {logs.map((log) => {
             const assigneeLabel = buildAssigneeLabel(log);
+            const actionAccent = actionAccentClasses(log.actionType);
 
             return (
               <li key={log.id} className="relative">
-                <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-indigo-500" />
+                <span
+                  className={`absolute -left-[22px] top-1.5 h-3 w-3 rounded-full ring-2 ring-white dark:ring-zinc-900 ${actionAccent.dotClassName}`}
+                />
                 <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
                   {formatDateTime(log.createdAt)}
                 </p>
-                <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+                <p className={`mt-1 text-sm font-semibold ${actionAccent.labelClassName}`}>
                   {describeAction(log.actionType)}
                 </p>
                 <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">

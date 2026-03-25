@@ -13,7 +13,7 @@ function getStatusClasses(status: DbClaimStatus): string {
     status === "Submitted - Awaiting HOD approval" ||
     status === "HOD approved - Awaiting finance approval"
   ) {
-    return "bg-yellow-900/20 text-yellow-400 border-yellow-900/50";
+    return "border-amber-300 bg-amber-50/80 text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/30 dark:text-amber-200";
   }
 
   if (status === "Finance Approved - Payment under process") {

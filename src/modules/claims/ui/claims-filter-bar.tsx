@@ -119,10 +119,14 @@ export function ClaimsFilterBar({
   const [searchInput, setSearchInput] = useState(currentSearchQuery);
   const [debouncedSearchInput, setDebouncedSearchInput] = useState(currentSearchQuery);
   const [isExporting, setIsExporting] = useState(false);
-  const [isFiltersExpanded, setIsFiltersExpanded] = useState(
-    () =>
-      defaultFiltersExpanded || hasActiveFilterParams(new URLSearchParams(searchParams.toString())),
-  );
+
+  const filtersParam = currentParams.get("filters");
+  const isFiltersExpanded =
+    filtersParam === "open"
+      ? true
+      : filtersParam === "closed"
+        ? false
+        : defaultFiltersExpanded || hasActiveFilterParams(currentParams);
 
   useEffect(() => {
     setSearchInput(currentSearchQuery);
@@ -316,7 +320,11 @@ export function ClaimsFilterBar({
           <button
             type="button"
             onClick={() => {
-              setIsFiltersExpanded((previous) => !previous);
+              const nextParams = new URLSearchParams(searchParams.toString());
+              nextParams.set("filters", isFiltersExpanded ? "closed" : "open");
+              nextParams.delete("cursor");
+              nextParams.delete("prevCursor");
+              updateUrlWithMutation(nextParams, pathname, router);
             }}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
             aria-expanded={isFiltersExpanded}
@@ -370,7 +378,19 @@ export function ClaimsFilterBar({
             onClick={() => {
               setSearchInput("");
               setDebouncedSearchInput("");
-              router.push(pathname);
+              const nextParams = new URLSearchParams();
+              const currentView = searchParams.get("view");
+              const currentFilters = searchParams.get("filters");
+
+              if (currentView) {
+                nextParams.set("view", currentView);
+              }
+
+              if (currentFilters) {
+                nextParams.set("filters", currentFilters);
+              }
+
+              updateUrlWithMutation(nextParams, pathname, router);
             }}
             className="inline-flex rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
           >
