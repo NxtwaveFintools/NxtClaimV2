@@ -2,9 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ROUTES } from "@/core/config/route-registry";
 import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
-import { getAccessTokenAction } from "@/modules/auth/actions";
 import { exportClaimsCsvAction } from "@/modules/claims/actions/export-claims";
 import type {
   ClaimDateTarget,
@@ -70,24 +68,6 @@ function hasActiveFilterParams(params: URLSearchParams): boolean {
     const value = params.get(key);
     return Boolean(value && value.trim().length > 0);
   });
-}
-
-function extractFilenameFromDisposition(dispositionHeader: string | null): string | null {
-  if (!dispositionHeader) {
-    return null;
-  }
-
-  const utf8Match = dispositionHeader.match(/filename\*=UTF-8''([^;]+)/i);
-  if (utf8Match?.[1]) {
-    return decodeURIComponent(utf8Match[1]);
-  }
-
-  const plainMatch = dispositionHeader.match(/filename="?([^";]+)"?/i);
-  if (plainMatch?.[1]) {
-    return plainMatch[1];
-  }
-
-  return null;
 }
 
 type ClaimsFilterBarProps = {
@@ -226,37 +206,13 @@ export function ClaimsFilterBar({
         searchParams: params.toString(),
       });
 
-      let fileBlob: Blob;
-      let fileName = "claims_export.csv";
-
-      if (actionResponse.data && !actionResponse.error) {
-        fileBlob = new Blob([actionResponse.data.csvData], { type: "text/csv;charset=utf-8" });
-        fileName = actionResponse.data.fileName || fileName;
-      } else {
-        const accessToken = await getAccessTokenAction();
-        if (!accessToken) {
-          router.push(ROUTES.login);
-          return;
-        }
-
-        params.set("scope", exportScope);
-        const response = await fetch(`${ROUTES.exportApi.claims}?${params.toString()}`, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(
-            actionResponse.error?.message ?? `Export failed with status ${response.status}`,
-          );
-        }
-
-        fileBlob = await response.blob();
-        fileName =
-          extractFilenameFromDisposition(response.headers.get("content-disposition")) ?? fileName;
+      if (!actionResponse.data || actionResponse.error) {
+        throw new Error(actionResponse.error?.message ?? "Export failed. Please try again.");
       }
+
+      const fileBlob = new Blob([actionResponse.data.csvData], { type: "text/csv;charset=utf-8" });
+      const fileName = actionResponse.data.fileName || "claims_export.csv";
+
       const objectUrl = URL.createObjectURL(fileBlob);
 
       const anchor = document.createElement("a");

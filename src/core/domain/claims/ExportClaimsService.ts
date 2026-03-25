@@ -16,7 +16,7 @@ type ExportClaimsRepository = {
     fetchScope: ClaimsExportFetchScope;
     filters?: GetMyClaimsFilters;
     limit: number;
-    offset: number;
+    cursor?: { createdAt: string; claimId: string };
   }): Promise<{ data: ClaimFullExportRecord[]; errorMessage: string | null }>;
   getClaimEvidencePublicUrl(input: {
     filePath: string;
@@ -264,7 +264,7 @@ export class ExportClaimsService {
     }
 
     const rows: ClaimFullExportRecord[] = [];
-    let offset = 0;
+    let cursor: { createdAt: string; claimId: string } | undefined;
 
     while (true) {
       const batchResult = await this.repository.getClaimsForFullExport({
@@ -272,7 +272,7 @@ export class ExportClaimsService {
         fetchScope,
         filters: input.filters,
         limit: EXPORT_BATCH_SIZE,
-        offset,
+        cursor,
       });
 
       if (batchResult.errorMessage) {
@@ -294,7 +294,11 @@ export class ExportClaimsService {
         break;
       }
 
-      offset += EXPORT_BATCH_SIZE;
+      const lastRecord = batchResult.data[batchResult.data.length - 1];
+      cursor = {
+        createdAt: lastRecord.createdAt,
+        claimId: lastRecord.claimId,
+      };
     }
 
     const csvLines: string[] = [buildCsvRow([...CSV_HEADERS])];

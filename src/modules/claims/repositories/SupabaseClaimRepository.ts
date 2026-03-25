@@ -2478,7 +2478,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     fetchScope: ClaimsExportFetchScope;
     filters?: GetMyClaimsFilters;
     limit: number;
-    offset: number;
+    cursor?: { createdAt: string; claimId: string };
   }): Promise<{ data: ClaimFullExportRecord[]; errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
     const normalizedStatuses = normalizeStatusFilter(input.filters?.status);
@@ -2542,10 +2542,13 @@ export class SupabaseClaimRepository implements ClaimRepository {
       normalizedSearch,
     });
 
-    const { data: idData, error: idError } = await idsQuery.range(
-      input.offset,
-      input.offset + input.limit - 1,
-    );
+    if (input.cursor) {
+      idsQuery = idsQuery.or(
+        `created_at.lt.${input.cursor.createdAt},and(created_at.eq.${input.cursor.createdAt},claim_id.lt.${input.cursor.claimId})`,
+      );
+    }
+
+    const { data: idData, error: idError } = await idsQuery.limit(input.limit);
 
     if (idError) {
       return {
