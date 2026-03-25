@@ -13,6 +13,123 @@ const ROLE_PRIORITY = {
   finance: 3,
 };
 
+const MASTER_TABLE_SEEDS = {
+  master_expense_categories: [
+    "Food",
+    "Accommodation Domestic",
+    "Accommodation Overseas",
+    "Fuel Expense",
+    "Car Lease",
+    "Travel Domestic",
+    "Travel Overseas",
+    "Local Subscription",
+    "Overseas Subscription",
+    "Repairs & Maintenance - Office",
+    "Repairs & Maintenance - Electronic Equipment",
+    "Postal Charges",
+    "Printing & Stationery",
+    "Team outing",
+    "Miscellaneous expenses",
+    "Offline Marketing",
+    "Other Staff Welfare",
+    "Rates & Taxes",
+    "Internet Expense",
+    "Brand Promotion",
+    "Other Professional charges",
+    "Training & Conference",
+  ],
+  master_products: [
+    "Academy Online",
+    "Academy College Plus",
+    "Intensive Online",
+    "Intensive Offline",
+    "Intensive College Plus",
+    "NIAT Batch 2023",
+    "NIAT Batch 2024",
+    "NIAT Batch 2025",
+    "NIAT Batch 2026",
+    "NIAT Application",
+    "NIAT DS Transport",
+    "NxtWave Abroad Service",
+    "NxtWave Abroad Commission",
+    "Topin.tech",
+    "Common",
+    "NIFA",
+  ],
+  master_locations: [
+    "Presales-Bangalore",
+    "Presales-Bhubaneswar",
+    "Presales-Bikaner",
+    "Presales-Chennai",
+    "Presales-Coimbatore",
+    "Presales-Delhi",
+    "Presales-Durgapur",
+    "Presales-Ernakulam",
+    "Presales-Hubli",
+    "Presales-Jaipur",
+    "Presales-Karnataka",
+    "Presales-KERALA",
+    "Presales-Kolkata",
+    "Presales-Kota",
+    "Presales-Kurnool",
+    "Presales-Lucknow",
+    "Presales-Madurai",
+    "Presales-Maharastra",
+    "Presales-Mangalore",
+    "Presales-Mysore",
+    "Presales-Nagpur",
+    "Presales-Nashik",
+    "Presales-New Delhi",
+    "Presales-Noida",
+    "Presales-Odisha",
+    "Presales-Pune",
+    "Presales-Rajahmundry",
+    "Presales-Rajasthan",
+    "Presales-Rourkella",
+    "Presales-Sangareddy",
+    "Presales-Sikar",
+    "Presales-Siliguri",
+    "Presales-Tamilnadu",
+    "Presales-Tirupathi",
+    "Presales-Vijayawada",
+    "Presales-Vizag",
+    "Presales-Warangal",
+    "Presales-West Bengal",
+    "Office - Hyd Brigade",
+    "Office - Hyd KKH",
+    "Office - Hyd Other",
+    "NIAT - Aurora",
+    "NIAT - Yenepoya Managlore",
+    "NIAT - CDU",
+    "NIAT - Takshasila",
+    "NIAT - S-Vyasa",
+    "NIAT - BITS - Farah",
+    "NIAT - AMET",
+    "NIAT - CIET - LAM",
+    "NIAT - NIU",
+    "NIAT - ADYPU",
+    "NIAT - VGU",
+    "NIAT - CITY - Mothadaka",
+    "NIAT - NSRIT",
+    "NIAT - NRI",
+    "NIAT - Mallareddy",
+    "NIAT - Annamacharya",
+    "NIAT - SGU",
+    "NIAT - Sharda",
+    "NIAT - Crescent",
+    "Other",
+  ],
+  master_payment_modes: [
+    "Reimbursement",
+    "Petty Cash",
+    "Petty Cash Request",
+    "Bulk Petty Cash Request",
+    "Corporate Card",
+    "Happay",
+    "Forex",
+  ],
+};
+
 async function loadEnvFiles() {
   const envPaths = [path.resolve(process.cwd(), ".env"), path.resolve(process.cwd(), ".env.local")];
 
@@ -179,6 +296,33 @@ async function upsertPublicUser(adminClient, user, fullName) {
   }
 }
 
+function dedupeSeedNames(names) {
+  const deduped = new Set();
+  for (const rawName of names) {
+    const name = normalizeName(rawName);
+    if (name) deduped.add(name);
+  }
+  return [...deduped];
+}
+
+async function upsertMasterNames(adminClient, tableName, names) {
+  let count = 0;
+
+  for (const name of names) {
+    const { error } = await adminClient
+      .from(tableName)
+      .upsert({ name, is_active: true }, { onConflict: "name", ignoreDuplicates: false });
+
+    if (error) {
+      throw new Error(`Failed to upsert ${tableName} for ${name}: ${error.message}`);
+    }
+
+    count += 1;
+  }
+
+  return count;
+}
+
 async function main() {
   await loadEnvFiles();
 
@@ -213,9 +357,19 @@ async function main() {
     updateRoleMap(roleMap, email, "finance");
   }
 
+  const masterTableCounts = Object.fromEntries(
+    Object.entries(MASTER_TABLE_SEEDS).map(([tableName, names]) => [
+      tableName,
+      dedupeSeedNames(names).length,
+    ]),
+  );
+
   console.log(`[seed-master-routing] Mode: ${DRY_RUN ? "dry-run" : "apply"}`);
   console.log(`[seed-master-routing] Departments rows: ${rows.length}`);
   console.log(`[seed-master-routing] Unique users (HOD/Founder/Finance): ${roleMap.size}`);
+  console.log(
+    `[seed-master-routing] Master seeds: expense_categories=${masterTableCounts.master_expense_categories}, products=${masterTableCounts.master_products}, locations=${masterTableCounts.master_locations}, payment_modes=${masterTableCounts.master_payment_modes}`,
+  );
 
   if (DRY_RUN) {
     console.log(`[seed-master-routing] Finance approver candidates: ${financeEmails.size}`);
@@ -299,9 +453,39 @@ async function main() {
     financeUpsertedCount += 1;
   }
 
+  const expenseCategoriesUpsertedCount = await upsertMasterNames(
+    adminClient,
+    "master_expense_categories",
+    dedupeSeedNames(MASTER_TABLE_SEEDS.master_expense_categories),
+  );
+
+  const productsUpsertedCount = await upsertMasterNames(
+    adminClient,
+    "master_products",
+    dedupeSeedNames(MASTER_TABLE_SEEDS.master_products),
+  );
+
+  const locationsUpsertedCount = await upsertMasterNames(
+    adminClient,
+    "master_locations",
+    dedupeSeedNames(MASTER_TABLE_SEEDS.master_locations),
+  );
+
+  const paymentModesUpsertedCount = await upsertMasterNames(
+    adminClient,
+    "master_payment_modes",
+    dedupeSeedNames(MASTER_TABLE_SEEDS.master_payment_modes),
+  );
+
   console.log(`[seed-master-routing] Auth users created: ${authCreatedCount}`);
   console.log(`[seed-master-routing] master_departments upserted: ${departmentUpsertedCount}`);
   console.log(`[seed-master-routing] master_finance_approvers upserted: ${financeUpsertedCount}`);
+  console.log(
+    `[seed-master-routing] master_expense_categories upserted: ${expenseCategoriesUpsertedCount}`,
+  );
+  console.log(`[seed-master-routing] master_products upserted: ${productsUpsertedCount}`);
+  console.log(`[seed-master-routing] master_locations upserted: ${locationsUpsertedCount}`);
+  console.log(`[seed-master-routing] master_payment_modes upserted: ${paymentModesUpsertedCount}`);
 }
 
 main().catch((error) => {
