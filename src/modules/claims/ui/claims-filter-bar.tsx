@@ -1,16 +1,38 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ROUTES } from "@/core/config/route-registry";
 import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
 import { getAccessTokenAction } from "@/modules/auth/actions";
-import { exportClaimsCsvAction } from "@/modules/claims/actions/export-claims";
 import type {
   ClaimDateTarget,
   ClaimSearchField,
   ClaimSubmissionType,
 } from "@/core/domain/claims/contracts";
+
+function getFileNameFromContentDisposition(headerValue: string | null): string | null {
+  if (!headerValue) {
+    return null;
+  }
+
+  const utf8FileNameMatch = headerValue.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8FileNameMatch?.[1]) {
+    return decodeURIComponent(utf8FileNameMatch[1]);
+  }
+
+  const quotedFileNameMatch = headerValue.match(/filename="([^"]+)"/i);
+  if (quotedFileNameMatch?.[1]) {
+    return quotedFileNameMatch[1];
+  }
+
+  const plainFileNameMatch = headerValue.match(/filename=([^;]+)/i);
+  if (plainFileNameMatch?.[1]) {
+    return plainFileNameMatch[1].trim();
+  }
+
+  return null;
+}
 
 const SEARCH_FIELD_OPTIONS: Array<{ value: ClaimSearchField; label: string }> = [
   { value: "claim_id", label: "Claim ID" },
@@ -72,24 +94,6 @@ function hasActiveFilterParams(params: URLSearchParams): boolean {
   });
 }
 
-function extractFilenameFromDisposition(dispositionHeader: string | null): string | null {
-  if (!dispositionHeader) {
-    return null;
-  }
-
-  const utf8Match = dispositionHeader.match(/filename\*=UTF-8''([^;]+)/i);
-  if (utf8Match?.[1]) {
-    return decodeURIComponent(utf8Match[1]);
-  }
-
-  const plainMatch = dispositionHeader.match(/filename="?([^";]+)"?/i);
-  if (plainMatch?.[1]) {
-    return plainMatch[1];
-  }
-
-  return null;
-}
-
 type ClaimsFilterBarProps = {
   exportScope: "submissions" | "approvals";
   defaultFiltersExpanded?: boolean;
@@ -112,13 +116,42 @@ export function ClaimsFilterBar({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
 
   const currentParams = useMemo(() => new URLSearchParams(searchParams.toString()), [searchParams]);
 
-  const currentSearchQuery = currentParams.get("search_query") ?? "";
-  const [searchInput, setSearchInput] = useState(currentSearchQuery);
-  const [debouncedSearchInput, setDebouncedSearchInput] = useState(currentSearchQuery);
+  // ---------------------------------------------------------------------------
+  // Local state for instant UI (decoupled from URL / server round-trip)
+  // ---------------------------------------------------------------------------
+  const [searchInput, setSearchInput] = useState(searchParams.get("search_query") ?? "");
+  const [debouncedSearchInput, setDebouncedSearchInput] = useState(
+    searchParams.get("search_query")?.trim() ?? "",
+  );
   const [isExporting, setIsExporting] = useState(false);
+
+  const [localSearchField, setLocalSearchField] = useState(
+    searchParams.get("search_field") ?? "claim_id",
+  );
+  const [localDateTarget, setLocalDateTarget] = useState<ClaimDateTarget>(
+    (searchParams.get("date_target") as ClaimDateTarget | null) ?? "submitted",
+  );
+  const [localSubmissionType, setLocalSubmissionType] = useState(
+    searchParams.get("submission_type") ?? "",
+  );
+  const [localPaymentModeId, setLocalPaymentModeId] = useState(
+    searchParams.get("payment_mode_id") ?? "",
+  );
+  const [localDepartmentId, setLocalDepartmentId] = useState(
+    searchParams.get("department_id") ?? "",
+  );
+  const [localLocationId, setLocalLocationId] = useState(searchParams.get("location_id") ?? "");
+  const [localProductId, setLocalProductId] = useState(searchParams.get("product_id") ?? "");
+  const [localExpenseCategoryId, setLocalExpenseCategoryId] = useState(
+    searchParams.get("expense_category_id") ?? "",
+  );
+  const [localStatus, setLocalStatus] = useState(searchParams.get("status") ?? "");
+  const [localFromDate, setLocalFromDate] = useState(searchParams.get("from") ?? "");
+  const [localToDate, setLocalToDate] = useState(searchParams.get("to") ?? "");
 
   const filtersParam = currentParams.get("filters");
   const isFiltersExpanded =
@@ -128,10 +161,27 @@ export function ClaimsFilterBar({
         ? false
         : defaultFiltersExpanded || hasActiveFilterParams(currentParams);
 
+  // ---------------------------------------------------------------------------
+  // Sync local state ← URL on external navigation (Back / Forward buttons)
+  // ---------------------------------------------------------------------------
   useEffect(() => {
-    setSearchInput(currentSearchQuery);
-  }, [currentSearchQuery]);
+    setSearchInput(searchParams.get("search_query") ?? "");
+    setLocalSearchField(searchParams.get("search_field") ?? "claim_id");
+    setLocalDateTarget((searchParams.get("date_target") as ClaimDateTarget | null) ?? "submitted");
+    setLocalSubmissionType(searchParams.get("submission_type") ?? "");
+    setLocalPaymentModeId(searchParams.get("payment_mode_id") ?? "");
+    setLocalDepartmentId(searchParams.get("department_id") ?? "");
+    setLocalLocationId(searchParams.get("location_id") ?? "");
+    setLocalProductId(searchParams.get("product_id") ?? "");
+    setLocalExpenseCategoryId(searchParams.get("expense_category_id") ?? "");
+    setLocalStatus(searchParams.get("status") ?? "");
+    setLocalFromDate(searchParams.get("from") ?? "");
+    setLocalToDate(searchParams.get("to") ?? "");
+  }, [searchParams]);
 
+  // ---------------------------------------------------------------------------
+  // Search debounce (400 ms)
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchInput(searchInput.trim());
@@ -162,10 +212,17 @@ export function ClaimsFilterBar({
 
     nextParams.delete("cursor");
     nextParams.delete("prevCursor");
-    updateUrlWithMutation(nextParams, pathname, router);
+    startTransition(() => {
+      updateUrlWithMutation(nextParams, pathname, router);
+    });
   }, [debouncedSearchInput, pathname, router, searchParams]);
 
-  function setParam(name: string, value: string): void {
+  // ---------------------------------------------------------------------------
+  // Helpers: update local state immediately → push to URL inside startTransition
+  // ---------------------------------------------------------------------------
+  function setParam(name: string, value: string, localSetter: (v: string) => void): void {
+    localSetter(value);
+
     const nextParams = new URLSearchParams(searchParams.toString());
 
     if (value) {
@@ -176,10 +233,14 @@ export function ClaimsFilterBar({
 
     nextParams.delete("cursor");
     nextParams.delete("prevCursor");
-    updateUrlWithMutation(nextParams, pathname, router);
+    startTransition(() => {
+      updateUrlWithMutation(nextParams, pathname, router);
+    });
   }
 
   function handleSearchFieldChange(nextValue: string): void {
+    setLocalSearchField(nextValue);
+
     const nextParams = new URLSearchParams(searchParams.toString());
 
     if (nextValue) {
@@ -193,10 +254,14 @@ export function ClaimsFilterBar({
 
     nextParams.delete("cursor");
     nextParams.delete("prevCursor");
-    updateUrlWithMutation(nextParams, pathname, router);
+    startTransition(() => {
+      updateUrlWithMutation(nextParams, pathname, router);
+    });
   }
 
   function handleDateTargetChange(value: ClaimDateTarget): void {
+    setLocalDateTarget(value);
+
     const nextParams = new URLSearchParams(searchParams.toString());
 
     if (value === "submitted") {
@@ -207,7 +272,9 @@ export function ClaimsFilterBar({
 
     nextParams.delete("cursor");
     nextParams.delete("prevCursor");
-    updateUrlWithMutation(nextParams, pathname, router);
+    startTransition(() => {
+      updateUrlWithMutation(nextParams, pathname, router);
+    });
   }
 
   async function handleExportCsv(): Promise<void> {
@@ -221,42 +288,46 @@ export function ClaimsFilterBar({
       const params = new URLSearchParams(searchParams.toString());
       params.delete("cursor");
       params.delete("prevCursor");
-      const actionResponse = await exportClaimsCsvAction({
-        scope: exportScope,
-        searchParams: params.toString(),
+      params.set("scope", exportScope);
+
+      const accessToken = await getAccessTokenAction();
+      if (!accessToken) {
+        throw new Error("Export failed. Unauthorized session.");
+      }
+
+      const response = await fetch(`${ROUTES.exportApi.claims}?${params.toString()}`, {
+        method: "GET",
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
       });
 
-      let fileBlob: Blob;
-      let fileName = "claims_export.csv";
+      if (!response.ok) {
+        const errorPayload = (await response.json().catch(() => null)) as {
+          error?: { message?: string };
+          meta?: { correlationId?: string };
+        } | null;
 
-      if (actionResponse.data && !actionResponse.error) {
-        fileBlob = new Blob([actionResponse.data.csvData], { type: "text/csv;charset=utf-8" });
-        fileName = actionResponse.data.fileName || fileName;
-      } else {
-        const accessToken = await getAccessTokenAction();
-        if (!accessToken) {
-          router.push(ROUTES.login);
-          return;
-        }
+        const message = errorPayload?.error?.message ?? `Export failed. Status: ${response.status}`;
+        const correlationId = errorPayload?.meta?.correlationId;
+        const fullMessage = correlationId
+          ? `${message} (correlationId: ${correlationId})`
+          : message;
 
-        params.set("scope", exportScope);
-        const response = await fetch(`${ROUTES.exportApi.claims}?${params.toString()}`, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(
-            actionResponse.error?.message ?? `Export failed with status ${response.status}`,
-          );
-        }
-
-        fileBlob = await response.blob();
-        fileName =
-          extractFilenameFromDisposition(response.headers.get("content-disposition")) ?? fileName;
+        throw new Error(fullMessage);
       }
+
+      const xlsxBuffer = await response.arrayBuffer();
+      const headerFileName = getFileNameFromContentDisposition(
+        response.headers.get("content-disposition"),
+      );
+      const fileName = headerFileName || "claims_export.xlsx";
+
+      const fileBlob = new Blob([xlsxBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
       const objectUrl = URL.createObjectURL(fileBlob);
 
       const anchor = document.createElement("a");
@@ -273,29 +344,38 @@ export function ClaimsFilterBar({
     }
   }
 
-  const selectedSearchField = currentParams.get("search_field") ?? "claim_id";
-  const selectedDateTarget =
-    (currentParams.get("date_target") as ClaimDateTarget | null) ?? "submitted";
-  const selectedSubmissionType = currentParams.get("submission_type") ?? "";
-  const selectedPaymentModeId = currentParams.get("payment_mode_id") ?? "";
-  const selectedDepartmentId = currentParams.get("department_id") ?? "";
-  const selectedLocationId = currentParams.get("location_id") ?? "";
-  const selectedProductId = currentParams.get("product_id") ?? "";
-  const selectedExpenseCategoryId = currentParams.get("expense_category_id") ?? "";
-  const selectedStatus = currentParams.get("status") ?? "";
-  const selectedFromDate = currentParams.get("from") ?? "";
-  const selectedToDate = currentParams.get("to") ?? "";
   const hasActiveFilters = hasActiveFilterParams(currentParams);
 
   const searchPlaceholder =
-    selectedSearchField === "claim_id"
+    localSearchField === "claim_id"
       ? "Search by Claim ID..."
-      : selectedSearchField === "employee_name"
+      : localSearchField === "employee_name"
         ? "Search by Employee Name..."
         : "Search by Employee ID...";
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
+      {isPending ? (
+        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+          </svg>
+          Updating results…
+        </div>
+      ) : null}
+
       <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
         <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-900/60">
           {DATE_TARGET_OPTIONS.map((option) => (
@@ -306,7 +386,7 @@ export function ClaimsFilterBar({
                 handleDateTargetChange(option.value);
               }}
               className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
-                selectedDateTarget === option.value
+                localDateTarget === option.value
                   ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
                   : "text-slate-700 hover:bg-slate-200/70 dark:text-slate-300 dark:hover:bg-slate-800"
               }`}
@@ -324,7 +404,9 @@ export function ClaimsFilterBar({
               nextParams.set("filters", isFiltersExpanded ? "closed" : "open");
               nextParams.delete("cursor");
               nextParams.delete("prevCursor");
-              updateUrlWithMutation(nextParams, pathname, router);
+              startTransition(() => {
+                updateUrlWithMutation(nextParams, pathname, router);
+              });
             }}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
             aria-expanded={isFiltersExpanded}
@@ -378,6 +460,18 @@ export function ClaimsFilterBar({
             onClick={() => {
               setSearchInput("");
               setDebouncedSearchInput("");
+              setLocalSearchField("claim_id");
+              setLocalDateTarget("submitted");
+              setLocalSubmissionType("");
+              setLocalPaymentModeId("");
+              setLocalDepartmentId("");
+              setLocalLocationId("");
+              setLocalProductId("");
+              setLocalExpenseCategoryId("");
+              setLocalStatus("");
+              setLocalFromDate("");
+              setLocalToDate("");
+
               const nextParams = new URLSearchParams();
               const currentView = searchParams.get("view");
               const currentFilters = searchParams.get("filters");
@@ -390,7 +484,9 @@ export function ClaimsFilterBar({
                 nextParams.set("filters", currentFilters);
               }
 
-              updateUrlWithMutation(nextParams, pathname, router);
+              startTransition(() => {
+                updateUrlWithMutation(nextParams, pathname, router);
+              });
             }}
             className="inline-flex rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
           >
@@ -409,7 +505,7 @@ export function ClaimsFilterBar({
           <label className="grid gap-1 text-sm text-slate-700 dark:text-slate-300">
             Search Category
             <select
-              value={selectedSearchField}
+              value={localSearchField}
               onChange={(event) => {
                 handleSearchFieldChange(event.target.value);
               }}
@@ -438,9 +534,9 @@ export function ClaimsFilterBar({
           <label className="grid gap-1 text-sm text-slate-700 dark:text-slate-300">
             Submission Type
             <select
-              value={selectedSubmissionType}
+              value={localSubmissionType}
               onChange={(event) => {
-                setParam("submission_type", event.target.value);
+                setParam("submission_type", event.target.value, setLocalSubmissionType);
               }}
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             >
@@ -456,9 +552,9 @@ export function ClaimsFilterBar({
           <label className="grid gap-1 text-sm text-slate-700 dark:text-slate-300">
             Payment Mode
             <select
-              value={selectedPaymentModeId}
+              value={localPaymentModeId}
               onChange={(event) => {
-                setParam("payment_mode_id", event.target.value);
+                setParam("payment_mode_id", event.target.value, setLocalPaymentModeId);
               }}
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             >
@@ -474,9 +570,9 @@ export function ClaimsFilterBar({
           <label className="grid gap-1 text-sm text-slate-700 dark:text-slate-300">
             Department
             <select
-              value={selectedDepartmentId}
+              value={localDepartmentId}
               onChange={(event) => {
-                setParam("department_id", event.target.value);
+                setParam("department_id", event.target.value, setLocalDepartmentId);
               }}
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             >
@@ -492,9 +588,9 @@ export function ClaimsFilterBar({
           <label className="grid gap-1 text-sm text-slate-700 dark:text-slate-300">
             Location
             <select
-              value={selectedLocationId}
+              value={localLocationId}
               onChange={(event) => {
-                setParam("location_id", event.target.value);
+                setParam("location_id", event.target.value, setLocalLocationId);
               }}
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             >
@@ -510,9 +606,9 @@ export function ClaimsFilterBar({
           <label className="grid gap-1 text-sm text-slate-700 dark:text-slate-300">
             Product
             <select
-              value={selectedProductId}
+              value={localProductId}
               onChange={(event) => {
-                setParam("product_id", event.target.value);
+                setParam("product_id", event.target.value, setLocalProductId);
               }}
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             >
@@ -528,9 +624,9 @@ export function ClaimsFilterBar({
           <label className="grid gap-1 text-sm text-slate-700 dark:text-slate-300">
             Expense Category
             <select
-              value={selectedExpenseCategoryId}
+              value={localExpenseCategoryId}
               onChange={(event) => {
-                setParam("expense_category_id", event.target.value);
+                setParam("expense_category_id", event.target.value, setLocalExpenseCategoryId);
               }}
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             >
@@ -546,9 +642,9 @@ export function ClaimsFilterBar({
           <label className="grid gap-1 text-sm text-slate-700 dark:text-slate-300">
             Status
             <select
-              value={selectedStatus}
+              value={localStatus}
               onChange={(event) => {
-                setParam("status", event.target.value);
+                setParam("status", event.target.value, setLocalStatus);
               }}
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             >
@@ -565,9 +661,9 @@ export function ClaimsFilterBar({
             From
             <input
               type="date"
-              value={selectedFromDate}
+              value={localFromDate}
               onChange={(event) => {
-                setParam("from", event.target.value);
+                setParam("from", event.target.value, setLocalFromDate);
               }}
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
@@ -577,9 +673,9 @@ export function ClaimsFilterBar({
             To
             <input
               type="date"
-              value={selectedToDate}
+              value={localToDate}
               onChange={(event) => {
-                setParam("to", event.target.value);
+                setParam("to", event.target.value, setLocalToDate);
               }}
               className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />

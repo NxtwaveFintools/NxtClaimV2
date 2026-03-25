@@ -16,11 +16,12 @@ type ExportClaimsRepository = {
     fetchScope: ClaimsExportFetchScope;
     filters?: GetMyClaimsFilters;
     limit: number;
-    offset: number;
+    cursor?: { createdAt: string; claimId: string };
   }): Promise<{ data: ClaimFullExportRecord[]; errorMessage: string | null }>;
-  getClaimEvidencePublicUrl(input: {
-    filePath: string;
-  }): Promise<{ data: string | null; errorMessage: string | null }>;
+  createBulkSignedUrls(input: {
+    filePaths: string[];
+    expiresInSeconds: number;
+  }): Promise<{ data: Record<string, string>; errorMessage: string | null }>;
 };
 
 type ExportClaimsServiceDependencies = {
@@ -34,8 +35,52 @@ type ExportClaimsServiceInput = {
   filters?: GetMyClaimsFilters;
 };
 
+export type ClaimExportRow = {
+  claimId: string;
+  transactionId: string;
+  employeeEmail: string;
+  employeeName: string;
+  department: string;
+  pettyCashBalance: string;
+  submitter: string;
+  paymentMode: string;
+  submissionType: string;
+  purpose: string;
+  claimRaisedDate: string;
+  hodApprovedDate: string;
+  financeApprovedDate: string;
+  billDate: string;
+  claimStatus: string;
+  hodStatus: string;
+  financeStatus: string;
+  billStatus: string;
+  billNumber: string;
+  basicAmount: string;
+  cgst: string;
+  sgst: string;
+  igst: string;
+  totalAmount: string;
+  currency: string;
+  approvedAmount: string;
+  vendorName: string;
+  transactionCategory: string;
+  product: string;
+  expenseLocation: string;
+  locationType: string;
+  /** Raw signed URL, or null if unavailable. Set as a native hyperlink in the workbook. */
+  bankStatementUrl: string | null;
+  /** Raw signed URL, or null if unavailable. Set as a native hyperlink in the workbook. */
+  billUrl: string | null;
+  /** Raw signed URL, or null if unavailable. Set as a native hyperlink in the workbook. */
+  pettyCashPhotoUrl: string | null;
+  pettyCashRequestMonth: string;
+  transactionCount: string;
+  claimRemarks: string;
+  transactionRemarks: string;
+};
+
 type ExportClaimsServiceResult = {
-  csvData: string;
+  rows: ClaimExportRow[];
   fileName: string;
   rowCount: number;
   errorMessage: string | null;
@@ -43,7 +88,7 @@ type ExportClaimsServiceResult = {
 
 const EXPORT_BATCH_SIZE = 500;
 
-const CSV_HEADERS = [
+export const EXPORT_HEADERS = [
   "Claim ID",
   "Transaction ID",
   "Employee Email",
@@ -84,25 +129,6 @@ const CSV_HEADERS = [
   "Transaction Remarks",
 ] as const;
 
-function escapeCsvValue(value: string | number | boolean | null | undefined): string {
-  const stringValue = value == null ? "" : String(value);
-
-  if (
-    stringValue.includes('"') ||
-    stringValue.includes(",") ||
-    stringValue.includes("\n") ||
-    stringValue.includes("\r")
-  ) {
-    return `"${stringValue.replace(/"/g, '""')}"`;
-  }
-
-  return stringValue;
-}
-
-function buildCsvRow(values: Array<string | number | boolean | null | undefined>): string {
-  return values.map((value) => escapeCsvValue(value)).join(",");
-}
-
 function formatBusinessDate(value: string | null): string {
   if (!value) {
     return "N/A";
@@ -134,20 +160,6 @@ function toTextValue(value: string | null): string {
   }
 
   return value;
-}
-
-function toExcelHyperlink(value: string | null): string {
-  if (!value || value.trim().length === 0) {
-    return "N/A";
-  }
-
-  const normalized = value.trim();
-  if (!/^https?:\/\//i.test(normalized)) {
-    return "N/A";
-  }
-
-  const escapedUrl = normalized.replace(/"/g, '""');
-  return `=HYPERLINK("${escapedUrl}", "View Document")`;
 }
 
 function deriveWorkflowStatuses(input: { status: DbClaimStatus; financeActionAt: string | null }): {
@@ -245,8 +257,8 @@ export class ExportClaimsService {
 
     if (viewerContextResult.errorMessage) {
       return {
-        csvData: buildCsvRow([...CSV_HEADERS]) + "\n",
-        fileName: `claims_export_${resolveFilenameDateTag()}.csv`,
+        rows: [],
+        fileName: `claims_export_${resolveFilenameDateTag()}.xlsx`,
         rowCount: 0,
         errorMessage: viewerContextResult.errorMessage,
       };
@@ -256,15 +268,15 @@ export class ExportClaimsService {
 
     if (!fetchScope) {
       return {
-        csvData: buildCsvRow([...CSV_HEADERS]) + "\n",
-        fileName: `claims_export_${resolveFilenameDateTag()}.csv`,
+        rows: [],
+        fileName: `claims_export_${resolveFilenameDateTag()}.xlsx`,
         rowCount: 0,
         errorMessage: null,
       };
     }
 
-    const rows: ClaimFullExportRecord[] = [];
-    let offset = 0;
+    const dbRows: ClaimFullExportRecord[] = [];
+    let cursor: { createdAt: string; claimId: string } | undefined;
 
     while (true) {
       const batchResult = await this.repository.getClaimsForFullExport({
@@ -272,13 +284,13 @@ export class ExportClaimsService {
         fetchScope,
         filters: input.filters,
         limit: EXPORT_BATCH_SIZE,
-        offset,
+        cursor,
       });
 
       if (batchResult.errorMessage) {
         return {
-          csvData: buildCsvRow([...CSV_HEADERS]) + "\n",
-          fileName: `claims_export_${resolveFilenameDateTag()}.csv`,
+          rows: [],
+          fileName: `claims_export_${resolveFilenameDateTag()}.xlsx`,
           rowCount: 0,
           errorMessage: batchResult.errorMessage,
         };
@@ -288,46 +300,59 @@ export class ExportClaimsService {
         break;
       }
 
-      rows.push(...batchResult.data);
+      dbRows.push(...batchResult.data);
 
       if (batchResult.data.length < EXPORT_BATCH_SIZE) {
         break;
       }
 
-      offset += EXPORT_BATCH_SIZE;
+      const lastRecord = batchResult.data[batchResult.data.length - 1];
+      cursor = {
+        createdAt: lastRecord.createdAt,
+        claimId: lastRecord.claimId,
+      };
     }
 
-    const csvLines: string[] = [buildCsvRow([...CSV_HEADERS])];
+    const SIGNED_URL_EXPIRY_SECONDS = 2592000; // 30 days
 
-    for (const row of rows) {
-      const receiptUrlResult = row.expenseReceiptFilePath
-        ? await this.repository.getClaimEvidencePublicUrl({ filePath: row.expenseReceiptFilePath })
-        : { data: null, errorMessage: null };
-      const bankStatementUrlResult = row.expenseBankStatementFilePath
-        ? await this.repository.getClaimEvidencePublicUrl({
-            filePath: row.expenseBankStatementFilePath,
-          })
-        : { data: null, errorMessage: null };
-      const supportingUrlResult = row.advanceSupportingDocumentPath
-        ? await this.repository.getClaimEvidencePublicUrl({
-            filePath: row.advanceSupportingDocumentPath,
-          })
-        : { data: null, errorMessage: null };
+    const allFilePaths: string[] = [];
+    for (const row of dbRows) {
+      if (row.expenseReceiptFilePath) allFilePaths.push(row.expenseReceiptFilePath);
+      if (row.expenseBankStatementFilePath) allFilePaths.push(row.expenseBankStatementFilePath);
+      if (row.advanceSupportingDocumentPath) allFilePaths.push(row.advanceSupportingDocumentPath);
+    }
 
-      if (
-        receiptUrlResult.errorMessage ||
-        bankStatementUrlResult.errorMessage ||
-        supportingUrlResult.errorMessage
-      ) {
-        this.logger.warn("claims.export.public_url_resolution_failed", {
-          claimId: row.claimId,
-          receiptError: receiptUrlResult.errorMessage,
-          bankStatementError: bankStatementUrlResult.errorMessage,
-          supportingError: supportingUrlResult.errorMessage,
+    const uniquePaths = [...new Set(allFilePaths)];
+    let signedUrlMap: Record<string, string> = {};
+
+    if (uniquePaths.length > 0) {
+      const signedUrlResult = await this.repository.createBulkSignedUrls({
+        filePaths: uniquePaths,
+        expiresInSeconds: SIGNED_URL_EXPIRY_SECONDS,
+      });
+
+      if (signedUrlResult.errorMessage) {
+        this.logger.warn("claims.export.bulk_signed_url_generation_failed", {
+          errorMessage: signedUrlResult.errorMessage,
+          pathCount: uniquePaths.length,
         });
       }
 
-      const totalAmountRaw =
+      signedUrlMap = signedUrlResult.data;
+    }
+
+    const rows: ClaimExportRow[] = dbRows.map((row) => {
+      const receiptUrl = row.expenseReceiptFilePath
+        ? (signedUrlMap[row.expenseReceiptFilePath] ?? null)
+        : null;
+      const bankStatementUrl = row.expenseBankStatementFilePath
+        ? (signedUrlMap[row.expenseBankStatementFilePath] ?? null)
+        : null;
+      const supportingUrl = row.advanceSupportingDocumentPath
+        ? (signedUrlMap[row.advanceSupportingDocumentPath] ?? null)
+        : null;
+
+      const totalAmount =
         row.detailType === "expense"
           ? formatAmountDisplay(row.expenseTotalAmount)
           : formatAmountDisplay(row.advanceRequestedAmount);
@@ -337,73 +362,69 @@ export class ExportClaimsService {
       });
       const beneficiaryName = row.beneficiaryName ?? row.submitterName;
       const beneficiaryEmail = row.beneficiaryEmail ?? row.submitterEmail;
-      const submitter = row.submitterName ?? row.submitterEmail;
-      const purpose = row.detailType === "expense" ? row.expensePurpose : row.advancePurpose;
-      const product =
-        row.detailType === "expense" ? row.expenseProductName : row.advanceProductName;
-      const location =
-        row.detailType === "expense" ? row.expenseLocationName : row.advanceLocationName;
-      const transactionRemarks =
-        row.detailType === "expense" ? row.expenseRemarks : row.advanceRemarks;
-      const approvedAmount =
-        row.status === DB_CLAIM_STATUSES[2] || row.status === DB_CLAIM_STATUSES[3]
-          ? totalAmountRaw
-          : "N/A";
-      const billDate =
-        row.detailType === "expense"
-          ? formatBusinessDate(row.expenseTransactionDate)
-          : formatBusinessDate(row.advanceExpectedUsageDate);
-      const billUrl = receiptUrlResult.data;
-      const pettyCashPhotoUrl =
-        row.detailType === "expense" ? receiptUrlResult.data : supportingUrlResult.data;
 
-      csvLines.push(
-        buildCsvRow([
-          row.claimId,
-          toTextValue(row.expenseTransactionId),
-          toTextValue(beneficiaryEmail),
-          toTextValue(beneficiaryName),
-          toTextValue(row.departmentName),
-          formatAmountDisplay(row.pettyCashBalance),
-          toTextValue(submitter),
-          toTextValue(row.paymentModeName),
-          row.submissionType,
-          toTextValue(purpose),
-          formatBusinessDate(row.submittedAt),
-          formatBusinessDate(row.hodActionAt),
-          formatBusinessDate(row.financeActionAt),
-          billDate,
-          row.status,
-          workflowStatuses.hodStatus,
-          workflowStatuses.financeStatus,
-          workflowStatuses.billStatus,
-          toTextValue(row.expenseBillNo),
-          formatAmountDisplay(row.expenseBasicAmount),
-          formatAmountDisplay(row.expenseCgstAmount),
-          formatAmountDisplay(row.expenseSgstAmount),
-          formatAmountDisplay(row.expenseIgstAmount),
-          totalAmountRaw,
-          toTextValue(row.expenseCurrencyCode ?? "INR"),
-          approvedAmount,
-          toTextValue(row.expenseVendorName),
-          toTextValue(row.expenseCategoryName),
-          toTextValue(product),
-          toTextValue(location),
-          "N/A",
-          toExcelHyperlink(bankStatementUrlResult.data),
-          toExcelHyperlink(billUrl),
-          toExcelHyperlink(pettyCashPhotoUrl),
-          toPettyCashRequestMonth(row.advanceBudgetMonth, row.advanceBudgetYear),
-          "1",
-          toTextValue(row.rejectionReason),
-          toTextValue(transactionRemarks),
-        ]),
-      );
-    }
+      return {
+        claimId: row.claimId,
+        transactionId: toTextValue(row.expenseTransactionId),
+        employeeEmail: toTextValue(beneficiaryEmail),
+        employeeName: toTextValue(beneficiaryName),
+        department: toTextValue(row.departmentName),
+        pettyCashBalance: formatAmountDisplay(row.pettyCashBalance),
+        submitter: toTextValue(row.submitterName ?? row.submitterEmail),
+        paymentMode: toTextValue(row.paymentModeName),
+        submissionType: row.submissionType,
+        purpose: toTextValue(
+          row.detailType === "expense" ? row.expensePurpose : row.advancePurpose,
+        ),
+        claimRaisedDate: formatBusinessDate(row.submittedAt),
+        hodApprovedDate: formatBusinessDate(row.hodActionAt),
+        financeApprovedDate: formatBusinessDate(row.financeActionAt),
+        billDate:
+          row.detailType === "expense"
+            ? formatBusinessDate(row.expenseTransactionDate)
+            : formatBusinessDate(row.advanceExpectedUsageDate),
+        claimStatus: row.status,
+        hodStatus: workflowStatuses.hodStatus,
+        financeStatus: workflowStatuses.financeStatus,
+        billStatus: workflowStatuses.billStatus,
+        billNumber: toTextValue(row.expenseBillNo),
+        basicAmount: formatAmountDisplay(row.expenseBasicAmount),
+        cgst: formatAmountDisplay(row.expenseCgstAmount),
+        sgst: formatAmountDisplay(row.expenseSgstAmount),
+        igst: formatAmountDisplay(row.expenseIgstAmount),
+        totalAmount,
+        currency: toTextValue(row.expenseCurrencyCode ?? "INR"),
+        approvedAmount:
+          row.status === DB_CLAIM_STATUSES[2] || row.status === DB_CLAIM_STATUSES[3]
+            ? totalAmount
+            : "N/A",
+        vendorName: toTextValue(row.expenseVendorName),
+        transactionCategory: toTextValue(row.expenseCategoryName),
+        product: toTextValue(
+          row.detailType === "expense" ? row.expenseProductName : row.advanceProductName,
+        ),
+        expenseLocation: toTextValue(
+          row.detailType === "expense" ? row.expenseLocationName : row.advanceLocationName,
+        ),
+        locationType: "N/A",
+        bankStatementUrl,
+        billUrl: receiptUrl,
+        pettyCashPhotoUrl: row.detailType === "expense" ? receiptUrl : supportingUrl,
+        pettyCashRequestMonth: toPettyCashRequestMonth(
+          row.advanceBudgetMonth,
+          row.advanceBudgetYear,
+        ),
+        transactionCount: "1",
+        claimRemarks: toTextValue(row.rejectionReason),
+        transactionRemarks: toTextValue(
+          row.detailType === "expense" ? row.expenseRemarks : row.advanceRemarks,
+        ),
+      };
+    });
 
     return {
-      csvData: `${csvLines.join("\n")}\n`,
-      fileName: `claims_export_${resolveFilenameDateTag()}.csv`,
+      rows,
+      fileName: `claims_export_${resolveFilenameDateTag()}.xlsx`,
       rowCount: rows.length,
       errorMessage: null,
     };

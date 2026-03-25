@@ -1,4 +1,4 @@
-import { ExportClaimsService } from "@/core/domain/claims/ExportClaimsService";
+import { ExportClaimsService, EXPORT_HEADERS } from "@/core/domain/claims/ExportClaimsService";
 import type { ClaimFullExportRecord } from "@/core/domain/claims/contracts";
 import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
 
@@ -77,7 +77,7 @@ function createBaseRecord(overrides?: Partial<ClaimFullExportRecord>): ClaimFull
 function createRepository(overrides?: {
   getClaimsForFullExport?: jest.Mock;
   getApprovalViewerContext?: jest.Mock;
-  getClaimEvidencePublicUrl?: jest.Mock;
+  createBulkSignedUrls?: jest.Mock;
 }) {
   return {
     getApprovalViewerContext:
@@ -92,12 +92,15 @@ function createRepository(overrides?: {
         data: [createBaseRecord()],
         errorMessage: null,
       })),
-    getClaimEvidencePublicUrl:
-      overrides?.getClaimEvidencePublicUrl ??
-      jest.fn(async ({ filePath }: { filePath: string }) => ({
-        data: `https://example.supabase.co/storage/v1/object/public/claims/${filePath}`,
-        errorMessage: null,
-      })),
+    createBulkSignedUrls:
+      overrides?.createBulkSignedUrls ??
+      jest.fn(async ({ filePaths }: { filePaths: string[] }) => {
+        const data: Record<string, string> = {};
+        for (const fp of filePaths) {
+          data[fp] = `https://example.supabase.co/storage/v1/object/sign/claims/${fp}?token=abc`;
+        }
+        return { data, errorMessage: null };
+      }),
   };
 }
 
@@ -110,7 +113,7 @@ function createLogger() {
 }
 
 describe("ExportClaimsService", () => {
-  it("flattens all required fields and builds CSV with file URL columns", async () => {
+  it("returns typed rows with raw signed URLs (not formula strings) for document columns", async () => {
     const repository = createRepository();
     const service = new ExportClaimsService({ repository, logger: createLogger() });
 
@@ -122,54 +125,32 @@ describe("ExportClaimsService", () => {
 
     expect(result.errorMessage).toBeNull();
     expect(result.rowCount).toBe(1);
+    expect(result.rows).toHaveLength(1);
+    expect(result.fileName).toMatch(/\.xlsx$/);
 
-    const [headerLine, dataLine] = result.csvData.trim().split("\n");
-    const headers = headerLine.split(",");
+    const row = result.rows[0];
 
-    expect(headers).toHaveLength(38);
-    expect(headers).toEqual([
-      "Claim ID",
-      "Transaction ID",
-      "Employee Email",
-      "Employee Name",
-      "Department",
-      "Petty Cash Balance",
-      "Submitter",
-      "Payment Mode",
-      "Submission Type",
-      "Purpose",
-      "Claim Raised Date",
-      "HOD Approved Date",
-      "Finance Approved Date",
-      "Bill Date",
-      "Claim Status",
-      "HOD Status",
-      "Finance Status",
-      "Bill Status",
-      "Bill Number",
-      "Basic Amount",
-      "CGST",
-      "SGST",
-      "IGST",
-      "Total Amount",
-      "Currency",
-      "Approved Amount",
-      "Vendor Name",
-      "Transaction Category",
-      "Product",
-      "Expense Location",
-      "Location Type",
-      "Bank Statement URL",
-      "Bill URL",
-      "Petty Cash Photo URL",
-      "Petty Cash Request Month",
-      "Transaction Count",
-      "Claim Remarks",
-      "Transaction Remarks",
-    ]);
+    // Core identity fields
+    expect(row.claimId).toBe("CLAIM-EMP001-20260324-0001");
+    expect(row.employeeName).toBe("Submitter One");
+    expect(row.department).toBe("Engineering");
 
-    expect(dataLine).toContain("CLAIM-EMP001-20260324-0001");
-    expect(dataLine).toContain("=HYPERLINK(");
+    // URL fields must be raw signed URL strings — never =HYPERLINK(...) formulas
+    expect(row.billUrl).toMatch(/^https:\/\//);
+    expect(row.billUrl).not.toContain("=HYPERLINK");
+    expect(row.bankStatementUrl).toMatch(/^https:\/\//);
+    expect(row.bankStatementUrl).not.toContain("=HYPERLINK");
+    // expense type: pettyCashPhotoUrl mirrors billUrl (both use receipt path)
+    expect(row.pettyCashPhotoUrl).toBe(row.billUrl);
+  });
+
+  it("EXPORT_HEADERS has 38 columns matching the ClaimExportRow field order", () => {
+    expect(EXPORT_HEADERS).toHaveLength(38);
+    expect(EXPORT_HEADERS[0]).toBe("Claim ID");
+    expect(EXPORT_HEADERS[31]).toBe("Bank Statement URL");
+    expect(EXPORT_HEADERS[32]).toBe("Bill URL");
+    expect(EXPORT_HEADERS[33]).toBe("Petty Cash Photo URL");
+    expect(EXPORT_HEADERS[37]).toBe("Transaction Remarks");
   });
 
   it("bypasses pagination by requesting multiple backend batches", async () => {
@@ -198,11 +179,14 @@ describe("ExportClaimsService", () => {
     expect(result.rowCount).toBe(520);
     expect(getClaimsForFullExport).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ offset: 0, limit: 500 }),
+      expect.objectContaining({ cursor: undefined, limit: 500 }),
     );
     expect(getClaimsForFullExport).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ offset: 500, limit: 500 }),
+      expect.objectContaining({
+        cursor: { claimId: "CLAIM-1-499", createdAt: "2026-03-24T10:00:00.000Z" },
+        limit: 500,
+      }),
     );
   });
 });

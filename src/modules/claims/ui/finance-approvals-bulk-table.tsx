@@ -151,6 +151,58 @@ export function FinanceApprovalsBulkTable({
   const selectedCount = isGlobalSelect ? totalSelectableCount : selectedIds.length;
   const canBulkAct = selectedCount > 0;
 
+  // Map selected IDs back to their row data for status inspection.
+  // When isGlobalSelect is true we can't inspect all pages, so we fall back to
+  // trusting the server-side status guard and mark every action as valid.
+  const selectedRows = useMemo(
+    () => rows.filter((row) => selectedIds.includes(row.id)),
+    [rows, selectedIds],
+  );
+
+  const isApproveValid = useMemo(() => {
+    if (!canBulkAct) return false;
+    if (isGlobalSelect) return true;
+    const validStatus =
+      approvalScope === "l1"
+        ? ("Submitted - Awaiting HOD approval" as const)
+        : ("HOD approved - Awaiting finance approval" as const);
+    return selectedRows.length > 0 && selectedRows.every((row) => row.status === validStatus);
+  }, [canBulkAct, isGlobalSelect, selectedRows, approvalScope]);
+
+  const isRejectValid = isApproveValid;
+
+  const isMarkAsPaidValid = useMemo(() => {
+    if (!canBulkAct || approvalScope !== "finance") return false;
+    if (isGlobalSelect) return true;
+    return (
+      selectedRows.length > 0 &&
+      selectedRows.every((row) => row.status === "Finance Approved - Payment under process")
+    );
+  }, [canBulkAct, isGlobalSelect, selectedRows, approvalScope]);
+
+  const approveRejectInvalidReason =
+    approvalScope === "l1"
+      ? "All selected claims must be 'Submitted - Awaiting HOD approval' to use this action"
+      : "All selected claims must be 'HOD approved - Awaiting finance approval' to use this action";
+
+  const approveTitle = !canBulkAct
+    ? "Select claims to use this action"
+    : !isApproveValid
+      ? approveRejectInvalidReason
+      : "Approve selected claims";
+
+  const rejectTitle = !canBulkAct
+    ? "Select claims to use this action"
+    : !isRejectValid
+      ? approveRejectInvalidReason
+      : "Reject selected claims";
+
+  const markPaidTitle = !canBulkAct
+    ? "Select claims to use this action"
+    : !isMarkAsPaidValid
+      ? "All selected claims must be 'Finance Approved - Payment under process' to mark as paid"
+      : "Mark selected claims as paid";
+
   const toggleMaster = (checked: boolean) => {
     if (!checked) {
       setSelectedIds([]);
@@ -335,20 +387,22 @@ export function FinanceApprovalsBulkTable({
             <button
               type="button"
               onClick={submitBulkApprove}
-              disabled={!canBulkAct}
-              className="inline-flex h-8 items-center justify-center rounded-lg border border-emerald-300 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 transition-all duration-200 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-700/60 dark:bg-emerald-950/20 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+              disabled={!isApproveValid}
+              title={approveTitle}
+              className="inline-flex h-8 items-center justify-center rounded-lg border border-emerald-300 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 transition-all duration-200 enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-700/60 dark:bg-emerald-950/20 dark:text-emerald-300 dark:enabled:hover:bg-emerald-950/40"
             >
               Bulk Approve
             </button>
             <button
               type="button"
               onClick={() => {
-                if (canBulkAct) {
+                if (isRejectValid) {
                   setIsRejectModalOpen(true);
                 }
               }}
-              disabled={!canBulkAct}
-              className="inline-flex h-8 items-center justify-center rounded-lg border border-rose-300 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition-all duration-200 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-700/60 dark:bg-rose-950/20 dark:text-rose-300 dark:hover:bg-rose-950/40"
+              disabled={!isRejectValid}
+              title={rejectTitle}
+              className="inline-flex h-8 items-center justify-center rounded-lg border border-rose-300 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition-all duration-200 enabled:hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-700/60 dark:bg-rose-950/20 dark:text-rose-300 dark:enabled:hover:bg-rose-950/40"
             >
               Bulk Reject
             </button>
@@ -356,8 +410,9 @@ export function FinanceApprovalsBulkTable({
               <button
                 type="button"
                 onClick={submitBulkMarkPaid}
-                disabled={!canBulkAct}
-                className="inline-flex h-8 items-center justify-center rounded-lg border border-indigo-300 bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 transition-all duration-200 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-300 dark:hover:bg-indigo-950/40"
+                disabled={!isMarkAsPaidValid}
+                title={markPaidTitle}
+                className="inline-flex h-8 items-center justify-center rounded-lg border border-indigo-300 bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 transition-all duration-200 enabled:hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-300 dark:enabled:hover:bg-indigo-950/40"
               >
                 Bulk Mark Paid
               </button>

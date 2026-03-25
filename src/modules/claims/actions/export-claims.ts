@@ -103,7 +103,7 @@ export async function exportClaimsCsvAction(input: {
   scope: "submissions" | "approvals";
   searchParams: string;
 }): Promise<{
-  data: { csvData: string; fileName: string; rowCount: number } | null;
+  data: { fileName: string; rowCount: number } | null;
   error: { code: string; message: string } | null;
   meta: { correlationId: string };
 }> {
@@ -160,7 +160,6 @@ export async function exportClaimsCsvAction(input: {
 
   return {
     data: {
-      csvData: exportResult.csvData,
       fileName: exportResult.fileName,
       rowCount: exportResult.rowCount,
     },

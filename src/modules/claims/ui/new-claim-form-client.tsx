@@ -32,7 +32,6 @@ type ClaimFormDraftValues = {
   detailType: "expense" | "advance";
   expense: {
     billNo: string;
-    transactionId: string;
     purpose: string;
     expenseCategoryId: string;
     productId: string;
@@ -181,7 +180,6 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       detailType: defaultPaymentMode?.detailType ?? "expense",
       expense: {
         billNo: "",
-        transactionId: "",
         purpose: "",
         expenseCategoryId: options.expenseCategories[0]?.id ?? "",
         productId: options.products[0]?.id ?? "",
@@ -406,7 +404,6 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
     if (values.detailType === "expense") {
       appendFormDataValue(formData, "expense.billNo", values.expense.billNo);
-      appendFormDataValue(formData, "expense.transactionId", values.expense.transactionId);
       appendFormDataValue(formData, "expense.purpose", values.expense.purpose);
       appendFormDataValue(formData, "expense.expenseCategoryId", values.expense.expenseCategoryId);
       appendFormDataValue(formData, "expense.productId", values.expense.productId);
@@ -784,9 +781,110 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
       {detailType === "expense" ? (
         <section className="grid gap-4 rounded-xl border border-slate-200 p-4">
-          <h2 className="text-sm font-semibold text-slate-900">Expense Details</h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-slate-900">Expense Details</h2>
+            <button
+              type="button"
+              onClick={handleAutoFillWithAI}
+              disabled={isSubmitting || isAiParsing || !invoiceFile}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-700 transition-all duration-200 hover:bg-indigo-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 dark:border-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 dark:hover:bg-indigo-900/40"
+            >
+              {isAiParsing ? (
+                <>
+                  <svg
+                    className="h-4 w-4 animate-spin"
+                    viewBox="0 0 20 20"
+                    aria-hidden="true"
+                    fill="none"
+                  >
+                    <circle
+                      cx="10"
+                      cy="10"
+                      r="7"
+                      stroke="currentColor"
+                      strokeOpacity="0.3"
+                      strokeWidth="2"
+                    />
+                    <path
+                      d="M10 3a7 7 0 0 1 7 7"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  Auto-filling...
+                </>
+              ) : (
+                "✨ Auto-fill with AI"
+              )}
+            </button>
+          </div>
 
           <input type="hidden" {...register("detailType")} value="expense" />
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-1">
+              <label htmlFor="receiptFile" className="text-sm font-medium text-slate-700">
+                Invoice/Bill <span className="text-rose-600">*</span>
+              </label>
+              <input
+                id="receiptFile"
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/webp"
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                onChange={(event) => {
+                  const selectedFile = event.target.files?.[0] ?? null;
+                  setInvoiceFile(selectedFile);
+                  setValue("expense.receiptFileName", selectedFile ? selectedFile.name : "", {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                    shouldValidate: true,
+                  });
+                }}
+              />
+              <p className="text-xs text-slate-500">
+                Allowed: PDF, JPG, PNG, WEBP. Max size: 25MB.
+              </p>
+            </div>
+
+            <div className="grid gap-1">
+              <label htmlFor="bankStatementFile" className="text-sm font-medium text-slate-700">
+                Bank Statement (Optional)
+              </label>
+              <input
+                id="bankStatementFile"
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/webp"
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                onChange={(event) => {
+                  const selectedFile = event.target.files?.[0] ?? null;
+                  setBankStatementFile(selectedFile);
+                  setValue(
+                    "expense.bankStatementFileName",
+                    selectedFile ? selectedFile.name : null,
+                    {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                      shouldValidate: true,
+                    },
+                  );
+                  setValue(
+                    "expense.bankStatementFileType",
+                    selectedFile ? selectedFile.type || "application/octet-stream" : null,
+                    {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                      shouldValidate: true,
+                    },
+                  );
+                }}
+              />
+              <p className="text-xs text-slate-500">
+                Allowed: PDF, JPG, PNG, WEBP. Max size: 25MB.
+              </p>
+            </div>
+          </div>
+
           <div className="grid gap-1">
             <label htmlFor="billNo" className="text-sm font-medium text-slate-700">
               Bill No <span className="text-rose-600">*</span>
@@ -803,23 +901,8 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
           </div>
 
           <div className="grid gap-1">
-            <label htmlFor="transactionId" className="text-sm font-medium text-slate-700">
-              Transaction ID (Optional)
-            </label>
-            <input
-              id="transactionId"
-              type="text"
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              {...register("expense.transactionId")}
-            />
-            {errors.expense?.transactionId ? (
-              <p className="text-xs text-rose-600">{errors.expense.transactionId.message}</p>
-            ) : null}
-          </div>
-
-          <div className="grid gap-1">
             <label htmlFor="expensePurpose" className="text-sm font-medium text-slate-700">
-              Purpose (Optional)
+              Purpose <span className="text-rose-600">*</span>
             </label>
             <input
               id="expensePurpose"
@@ -899,7 +982,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-1">
                 <label htmlFor="gstNumber" className="text-sm font-medium text-slate-700">
-                  GST Number (Required when GST Applicable)
+                  GST Number (Optional)
                 </label>
                 <input
                   id="gstNumber"
@@ -1043,104 +1126,6 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
               })}
             />
           </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-1">
-              <label htmlFor="receiptFile" className="text-sm font-medium text-slate-700">
-                Invoice/Bill <span className="text-rose-600">*</span>
-              </label>
-              <input
-                id="receiptFile"
-                type="file"
-                accept="application/pdf,image/jpeg,image/png,image/webp"
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                onChange={(event) => {
-                  const selectedFile = event.target.files?.[0] ?? null;
-                  setInvoiceFile(selectedFile);
-                  setValue("expense.receiptFileName", selectedFile ? selectedFile.name : "", {
-                    shouldDirty: true,
-                    shouldTouch: true,
-                    shouldValidate: true,
-                  });
-                }}
-              />
-              <p className="text-xs text-slate-500">
-                Allowed: PDF, JPG, PNG, WEBP. Max size: 25MB.
-              </p>
-              <button
-                type="button"
-                onClick={handleAutoFillWithAI}
-                disabled={isSubmitting || isAiParsing || !invoiceFile}
-                className="mt-2 inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-900"
-              >
-                {isAiParsing ? (
-                  <>
-                    <svg
-                      className="h-4 w-4 animate-spin"
-                      viewBox="0 0 20 20"
-                      aria-hidden="true"
-                      fill="none"
-                    >
-                      <circle
-                        cx="10"
-                        cy="10"
-                        r="7"
-                        stroke="currentColor"
-                        strokeOpacity="0.3"
-                        strokeWidth="2"
-                      />
-                      <path
-                        d="M10 3a7 7 0 0 1 7 7"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                    Auto-filling...
-                  </>
-                ) : (
-                  "✨ Auto-fill with AI"
-                )}
-              </button>
-            </div>
-
-            <div className="grid gap-1">
-              <label htmlFor="bankStatementFile" className="text-sm font-medium text-slate-700">
-                Bank Statement (Optional)
-              </label>
-              <input
-                id="bankStatementFile"
-                type="file"
-                accept="application/pdf,image/jpeg,image/png,image/webp"
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                onChange={(event) => {
-                  const selectedFile = event.target.files?.[0] ?? null;
-                  setBankStatementFile(selectedFile);
-                  setValue(
-                    "expense.bankStatementFileName",
-                    selectedFile ? selectedFile.name : null,
-                    {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                      shouldValidate: true,
-                    },
-                  );
-                  setValue(
-                    "expense.bankStatementFileType",
-                    selectedFile ? selectedFile.type || "application/octet-stream" : null,
-                    {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                      shouldValidate: true,
-                    },
-                  );
-                }}
-              />
-              <p className="text-xs text-slate-500">
-                Allowed: PDF, JPG, PNG, WEBP. Max size: 25MB.
-              </p>
-            </div>
-          </div>
         </section>
       ) : null}
 
@@ -1270,7 +1255,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
           <div className="grid gap-1">
             <label htmlFor="purpose" className="text-sm font-medium text-slate-700">
-              Purpose/Reason (Optional)
+              Purpose/Reason <span className="text-rose-600">*</span>
             </label>
             <textarea
               id="purpose"

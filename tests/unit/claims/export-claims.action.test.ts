@@ -40,14 +40,14 @@ describe("exportClaimsCsvAction", () => {
     expect(typeof result.meta.correlationId).toBe("string");
   });
 
-  it("returns csv payload on successful export", async () => {
+  it("returns xlsx payload metadata on successful export", async () => {
     mockGetCurrentUser.mockResolvedValue({
       user: { id: "user-1", email: "finance@nxtwave.co.in" },
       errorMessage: null,
     });
     mockExecute.mockResolvedValue({
-      csvData: "Claim ID\nCLAIM-1\n",
-      fileName: "claims_export_20260324.csv",
+      rows: [{ claimId: "CLAIM-1" }],
+      fileName: "claims_export_20260324.xlsx",
       rowCount: 1,
       errorMessage: null,
     });
@@ -60,8 +60,8 @@ describe("exportClaimsCsvAction", () => {
     });
 
     expect(result.error).toBeNull();
-    expect(result.data?.fileName).toBe("claims_export_20260324.csv");
+    expect(result.data?.fileName).toBe("claims_export_20260324.xlsx");
     expect(result.data?.rowCount).toBe(1);
-    expect(result.data?.csvData).toContain("Claim ID");
+    expect(result.data).not.toHaveProperty("csvData");
   });
 });
