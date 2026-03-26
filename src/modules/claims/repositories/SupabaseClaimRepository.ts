@@ -174,7 +174,11 @@ type WalletRow = {
 type ClaimDetailExpenseRow = {
   bill_no: string;
   purpose: string | null;
+  expense_category_id: string | null;
+  location_id: string | null;
   transaction_date: string;
+  is_gst_applicable: boolean | null;
+  gst_number: string | null;
   basic_amount: number | string | null;
   cgst_amount: number | string | null;
   sgst_amount: number | string | null;
@@ -182,9 +186,13 @@ type ClaimDetailExpenseRow = {
   total_amount: number | string | null;
   vendor_name: string | null;
   product_id: string | null;
+  people_involved: string | null;
   remarks: string | null;
   receipt_file_path: string | null;
   bank_statement_file_path: string | null;
+  master_expense_categories: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
+  master_products: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
+  master_locations: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
 };
 
 type ClaimDetailAdvanceRow = {
@@ -1277,7 +1285,12 @@ export class SupabaseClaimRepository implements ClaimRepository {
       expense: {
         billNo: string;
         purpose: string | null;
+        expenseCategoryName: string | null;
+        productName: string | null;
+        locationName: string | null;
         transactionDate: string;
+        isGstApplicable: boolean | null;
+        gstNumber: string | null;
         basicAmount: number | null;
         cgstAmount: number | null;
         sgstAmount: number | null;
@@ -1285,6 +1298,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
         totalAmount: number | null;
         vendorName: string | null;
         productId: string | null;
+        peopleInvolved: string | null;
         remarks: string | null;
         receiptFilePath: string | null;
         bankStatementFilePath: string | null;
@@ -1304,7 +1318,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const { data, error } = await client
       .from("claims")
       .select(
-        "id, employee_id, submission_type, detail_type, on_behalf_email, status, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(bill_no, purpose, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, product_id, remarks, receipt_file_path, bank_statement_file_path), advance_details(purpose, requested_amount, expected_usage_date, product_id, remarks, supporting_document_path)",
+        "id, employee_id, submission_type, detail_type, on_behalf_email, status, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(bill_no, purpose, expense_category_id, product_id, location_id, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(purpose, requested_amount, expected_usage_date, product_id, remarks, supporting_document_path)",
       )
       .eq("id", claimId)
       .eq("is_active", true)
@@ -1330,6 +1344,9 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const paymentMode = getSingleRelation(row.master_payment_modes);
     const expense = getSingleRelation(row.expense_details);
     const advance = getSingleRelation(row.advance_details);
+    const expenseCategory = getSingleRelation(expense?.master_expense_categories);
+    const expenseProduct = getSingleRelation(expense?.master_products);
+    const expenseLocation = getSingleRelation(expense?.master_locations);
 
     return {
       data: {
@@ -1351,7 +1368,12 @@ export class SupabaseClaimRepository implements ClaimRepository {
           ? {
               billNo: expense.bill_no,
               purpose: expense.purpose,
+              expenseCategoryName: expenseCategory?.name ?? null,
+              productName: expenseProduct?.name ?? null,
+              locationName: expenseLocation?.name ?? null,
               transactionDate: expense.transaction_date,
+              isGstApplicable: expense.is_gst_applicable,
+              gstNumber: expense.gst_number,
               basicAmount: toNumber(expense.basic_amount),
               cgstAmount: toNumber(expense.cgst_amount),
               sgstAmount: toNumber(expense.sgst_amount),
@@ -1359,6 +1381,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
               totalAmount: toNumber(expense.total_amount),
               vendorName: expense.vendor_name,
               productId: expense.product_id,
+              peopleInvolved: expense.people_involved,
               remarks: expense.remarks,
               receiptFilePath: expense.receipt_file_path,
               bankStatementFilePath: expense.bank_statement_file_path,

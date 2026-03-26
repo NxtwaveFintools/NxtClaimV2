@@ -61,6 +61,15 @@ function formatAmount(amount: number | null): string {
   }).format(amount);
 }
 
+function formatOptionalText(value: string | null | undefined, fallback = "N/A"): string {
+  if (!value) {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : fallback;
+}
+
 function isPdf(path: string): boolean {
   return path.toLowerCase().endsWith(".pdf");
 }
@@ -327,23 +336,57 @@ export default async function ClaimDetailPage({ params, searchParams }: PageProp
               <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-700 dark:text-slate-300">
                 Expense Detail
               </h2>
-              <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
                 <p className="text-sm text-slate-600 dark:text-slate-400">
                   Bill No:{" "}
                   <span className="font-medium text-slate-900 dark:text-slate-100">
-                    {claim.expense.billNo}
+                    {formatOptionalText(claim.expense.billNo, "-")}
                   </span>
                 </p>
                 <p className="text-sm text-slate-600 dark:text-slate-400">
                   Vendor:{" "}
                   <span className="font-medium text-slate-900 dark:text-slate-100">
-                    {claim.expense.vendorName ?? "N/A"}
+                    {formatOptionalText(claim.expense.vendorName)}
+                  </span>
+                </p>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Expense Category:{" "}
+                  <span className="font-medium text-slate-900 dark:text-slate-100">
+                    {formatOptionalText(claim.expense.expenseCategoryName)}
+                  </span>
+                </p>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Product:{" "}
+                  <span className="font-medium text-slate-900 dark:text-slate-100">
+                    {formatOptionalText(claim.expense.productName)}
+                  </span>
+                </p>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Location:{" "}
+                  <span className="font-medium text-slate-900 dark:text-slate-100">
+                    {formatOptionalText(claim.expense.locationName)}
                   </span>
                 </p>
                 <p className="text-sm text-slate-600 dark:text-slate-400">
                   Transaction Date:{" "}
                   <span className="font-medium text-slate-900 dark:text-slate-100">
                     {formatDate(claim.expense.transactionDate)}
+                  </span>
+                </p>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  GST Applicable:{" "}
+                  <span className="font-medium text-slate-900 dark:text-slate-100">
+                    {claim.expense.isGstApplicable === null
+                      ? "N/A"
+                      : claim.expense.isGstApplicable
+                        ? "Yes"
+                        : "No"}
+                  </span>
+                </p>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  GST Number:{" "}
+                  <span className="font-medium text-slate-900 dark:text-slate-100">
+                    {formatOptionalText(claim.expense.gstNumber)}
                   </span>
                 </p>
                 <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -361,7 +404,19 @@ export default async function ClaimDetailPage({ params, searchParams }: PageProp
                 <p className="text-sm text-slate-600 dark:text-slate-400">
                   Purpose:{" "}
                   <span className="font-medium text-slate-900 dark:text-slate-100">
-                    {claim.expense.purpose ?? "N/A"}
+                    {formatOptionalText(claim.expense.purpose)}
+                  </span>
+                </p>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Remarks:{" "}
+                  <span className="font-medium text-slate-900 dark:text-slate-100">
+                    {formatOptionalText(claim.expense.remarks)}
+                  </span>
+                </p>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  People Involved:{" "}
+                  <span className="font-medium text-slate-900 dark:text-slate-100">
+                    {formatOptionalText(claim.expense.peopleInvolved)}
                   </span>
                 </p>
               </div>
