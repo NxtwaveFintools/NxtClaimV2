@@ -11,6 +11,7 @@ import type {
   ClaimExportRecord,
   ClaimFullExportRecord,
   ClaimDropdownOption,
+  ClaimListDetail,
   ClaimPaymentMode,
   ClaimsExportFetchScope,
   FinanceClaimEditPayload,
@@ -77,21 +78,18 @@ type EnterpriseClaimsDashboardRow = {
   submitted_on: string;
   hod_action_date: string | null;
   finance_action_date: string | null;
-  submitted_by: string;
-  on_behalf_of_id: string | null;
-  assigned_l1_approver_id: string;
-  assigned_l2_approver_id: string | null;
-  department_id: string;
-  payment_mode_id: string;
-  location_id: string | null;
-  product_id: string | null;
-  expense_category_id: string | null;
   detail_type: "expense" | "advance";
   submission_type: "Self" | "On Behalf";
   created_at: string;
-  submitter_email: string | null;
-  hod_email: string | null;
-  finance_email: string | null;
+  submitted_by?: string;
+  on_behalf_of_id?: string | null;
+  assigned_l1_approver_id?: string;
+  assigned_l2_approver_id?: string | null;
+  department_id?: string;
+  payment_mode_id?: string;
+  submitter_email?: string | null;
+  hod_email?: string | null;
+  finance_email?: string | null;
 };
 
 type ClaimAuditLogActorRow = {
@@ -122,11 +120,9 @@ type GetPendingApprovalsRow = {
   detail_type: "expense" | "advance";
   submission_type: "Self" | "On Behalf";
   on_behalf_email: string | null;
-  submitted_by: string;
   status: DbClaimStatus;
   submitted_at: string;
   created_at: string;
-  updated_at: string;
   submitter_user: ClaimSubmitterRow | ClaimSubmitterRow[] | null;
   master_departments: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
   master_payment_modes: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
@@ -2115,6 +2111,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
       submittedAt: string;
       hodActionDate: string | null;
       financeActionDate: string | null;
+      detailType: "expense" | "advance";
+      submissionType: "Self" | "On Behalf";
       submitterEmail: string | null;
       hodEmail: string | null;
       financeEmail: string | null;
@@ -2141,7 +2139,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     let query = client
       .from("vw_enterprise_claims_dashboard")
       .select(
-        "claim_id, employee_name, employee_id, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, submitted_by, on_behalf_of_id, department_id, payment_mode_id, detail_type, submission_type, created_at, submitter_email, hod_email, finance_email",
+        "claim_id, employee_name, employee_id, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, detail_type, submission_type, created_at, submitter_email, hod_email, finance_email",
       )
       .or(
         decodedCursor
@@ -2191,9 +2189,11 @@ export class SupabaseClaimRepository implements ClaimRepository {
       submittedAt: row.submitted_on,
       hodActionDate: row.hod_action_date,
       financeActionDate: row.finance_action_date,
-      submitterEmail: row.submitter_email,
-      hodEmail: row.hod_email,
-      financeEmail: row.finance_email,
+      detailType: row.detail_type,
+      submissionType: row.submission_type,
+      submitterEmail: row.submitter_email ?? null,
+      hodEmail: row.hod_email ?? null,
+      financeEmail: row.finance_email ?? null,
     }));
 
     return {
@@ -2259,7 +2259,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     let query = client
       .from("claims")
       .select(
-        `id, employee_id, detail_type, submission_type, on_behalf_email, submitted_by, status, submitted_at, created_at, updated_at, submitter_user:users!claims_submitted_by_fkey!inner(full_name, email), master_departments(name), master_payment_modes(name), ${expenseDetailsJoin}, advance_details(requested_amount, purpose, supporting_document_path)`,
+        `id, employee_id, detail_type, submission_type, on_behalf_email, status, submitted_at, created_at, submitter_user:users!claims_submitted_by_fkey!inner(full_name, email), master_departments(name), master_payment_modes(name), ${expenseDetailsJoin}, advance_details(requested_amount, purpose, supporting_document_path)`,
       )
       .eq("assigned_l1_approver_id", userId)
       .eq("is_active", true)
@@ -2444,7 +2444,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     let query = client
       .from("claims")
       .select(
-        `id, employee_id, detail_type, submission_type, on_behalf_email, submitted_by, status, submitted_at, created_at, updated_at, submitter_user:users!claims_submitted_by_fkey!inner(full_name, email), master_departments(name), master_payment_modes(name), ${expenseDetailsJoin}, advance_details(requested_amount, purpose, supporting_document_path)`,
+        `id, employee_id, detail_type, submission_type, on_behalf_email, status, submitted_at, created_at, submitter_user:users!claims_submitted_by_fkey!inner(full_name, email), master_departments(name), master_payment_modes(name), ${expenseDetailsJoin}, advance_details(requested_amount, purpose, supporting_document_path)`,
       )
       .or(
         `status.in.${financeNonRejectedStatusesFilter},and(status.eq.Rejected,assigned_l2_approver_id.not.is.null)`,
@@ -2917,5 +2917,70 @@ export class SupabaseClaimRepository implements ClaimRepository {
     }
 
     return { data: urlMap, errorMessage: null };
+  }
+
+  async getClaimListDetails(
+    claimIds: string[],
+  ): Promise<{ data: Record<string, ClaimListDetail>; errorMessage: string | null }> {
+    if (claimIds.length === 0) {
+      return { data: {}, errorMessage: null };
+    }
+
+    const client = getServiceRoleSupabaseClient();
+
+    const { data, error } = await client
+      .from("claims")
+      .select(
+        "id, detail_type, submission_type, on_behalf_email, employee_id, submitter_user:users!claims_submitted_by_fkey(full_name, email), expense_details(purpose, receipt_file_path, bank_statement_file_path, master_expense_categories(name)), advance_details(purpose, supporting_document_path)",
+      )
+      .in("id", claimIds)
+      .eq("is_active", true);
+
+    if (error) {
+      return { data: {}, errorMessage: error.message };
+    }
+
+    type BatchRow = {
+      id: string;
+      detail_type: "expense" | "advance";
+      submission_type: "Self" | "On Behalf";
+      on_behalf_email: string | null;
+      employee_id: string;
+      submitter_user: ClaimSubmitterRow | ClaimSubmitterRow[] | null;
+      expense_details: ClaimExpenseDetailRow | ClaimExpenseDetailRow[] | null;
+      advance_details: ClaimAdvanceDetailRow | ClaimAdvanceDetailRow[] | null;
+    };
+
+    const rows = (data ?? []) as BatchRow[];
+    const result: Record<string, ClaimListDetail> = {};
+
+    for (const row of rows) {
+      const submitter = getSingleRelation(row.submitter_user);
+      const expense = getSingleRelation(row.expense_details);
+      const advance = getSingleRelation(row.advance_details);
+      const expenseCategory = getSingleRelation(expense?.master_expense_categories);
+
+      const submitterName = submitter?.full_name?.trim();
+      const submitterEmail = submitter?.email?.trim();
+      const submitterLabel =
+        submitterName && submitterEmail
+          ? `${submitterName} (${submitterEmail})`
+          : (submitterName ?? submitterEmail ?? row.employee_id);
+
+      result[row.id] = {
+        detailType: row.detail_type,
+        submissionType: row.submission_type,
+        onBehalfEmail: row.on_behalf_email,
+        submitter: submitterLabel,
+        categoryName:
+          row.detail_type === "expense" ? (expenseCategory?.name ?? "Uncategorized") : "Advance",
+        purpose: expense?.purpose ?? advance?.purpose ?? null,
+        expenseReceiptFilePath: expense?.receipt_file_path ?? null,
+        expenseBankStatementFilePath: expense?.bank_statement_file_path ?? null,
+        advanceSupportingDocumentPath: advance?.supporting_document_path ?? null,
+      };
+    }
+
+    return { data: result, errorMessage: null };
   }
 }

@@ -5,6 +5,7 @@ import type {
   ClaimSubmissionType,
   GetMyClaimsFilters,
 } from "@/core/domain/claims/contracts";
+import { formatCurrency, formatDate } from "@/lib/format";
 
 type PendingApprovalRecord = {
   id: string;
@@ -24,7 +25,14 @@ type PendingApprovalRecord = {
   totalAmount: number;
   status: DbClaimStatus;
   submittedAt: string;
+  formattedTotalAmount: string;
+  formattedSubmittedAt: string;
 };
+
+type RepositoryApprovalRow = Omit<
+  PendingApprovalRecord,
+  "formattedTotalAmount" | "formattedSubmittedAt"
+>;
 
 type ApprovalViewerContext = {
   isHod: boolean;
@@ -43,7 +51,7 @@ type PendingApprovalsRepository = {
     limit: number,
     filters?: GetMyClaimsFilters,
   ): Promise<{
-    data: PendingApprovalRecord[];
+    data: RepositoryApprovalRow[];
     nextCursor: string | null;
     hasNextPage: boolean;
     errorMessage: string | null;
@@ -54,7 +62,7 @@ type PendingApprovalsRepository = {
     limit: number,
     filters?: GetMyClaimsFilters,
   ): Promise<{
-    data: PendingApprovalRecord[];
+    data: RepositoryApprovalRow[];
     nextCursor: string | null;
     hasNextPage: boolean;
     errorMessage: string | null;
@@ -170,7 +178,11 @@ export class GetPendingApprovalsService {
     }
 
     return {
-      data: approvalsResult.data,
+      data: approvalsResult.data.map((row) => ({
+        ...row,
+        formattedTotalAmount: formatCurrency(row.totalAmount),
+        formattedSubmittedAt: formatDate(row.submittedAt),
+      })),
       nextCursor: approvalsResult.nextCursor,
       hasNextPage: approvalsResult.hasNextPage,
       errorMessage: null,

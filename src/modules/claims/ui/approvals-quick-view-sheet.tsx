@@ -24,7 +24,7 @@ type ApprovalsQuickViewSheetProps = {
   expenseBankStatementSignedUrl: string | null;
   advanceSupportingDocumentPath: string | null;
   advanceSupportingDocumentSignedUrl: string | null;
-  auditLogs: ClaimAuditLogRecord[];
+  auditLogs: (ClaimAuditLogRecord & { formattedCreatedAt: string })[];
   children?: ReactNode;
 };
 

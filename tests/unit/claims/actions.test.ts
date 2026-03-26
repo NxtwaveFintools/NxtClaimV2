@@ -13,9 +13,13 @@ const mockActiveDepartmentsExecute = jest.fn();
 const mockSubmitExecute = jest.fn();
 const mockProcessL1DecisionExecute = jest.fn();
 const mockProcessL2DecisionExecute = jest.fn();
+const mockUpdateByFinanceExecute = jest.fn();
+const mockGetApprovalViewerContext = jest.fn();
+const mockGetClaimForFinanceEdit = jest.fn();
 const mockRevalidatePath = jest.fn();
 const mockRedirect = jest.fn();
 const mockStorageUpload = jest.fn();
+const mockStorageRemove = jest.fn();
 
 jest.mock("next/cache", () => ({
   revalidatePath: (...args: unknown[]) => mockRevalidatePath(...args),
@@ -51,6 +55,8 @@ jest.mock("@/modules/claims/repositories/SupabaseClaimRepository", () => ({
     existsExpenseByCompositeKey: mockExistsExpenseByCompositeKey,
     getActiveUserIdByEmail: mockGetActiveUserIdByEmail,
     isUserApprover1InAnyDepartment: mockIsUserApprover1InAnyDepartment,
+    getApprovalViewerContext: mockGetApprovalViewerContext,
+    getClaimForFinanceEdit: mockGetClaimForFinanceEdit,
   })),
 }));
 
@@ -59,6 +65,7 @@ jest.mock("@/core/infra/supabase/server-client", () => ({
     storage: {
       from: jest.fn().mockImplementation(() => ({
         upload: mockStorageUpload,
+        remove: mockStorageRemove,
       })),
     },
   })),
@@ -89,6 +96,12 @@ jest.mock("@/core/domain/claims/ProcessL1ClaimDecisionService", () => ({
 jest.mock("@/core/domain/claims/ProcessL2ClaimDecisionService", () => ({
   ProcessL2ClaimDecisionService: jest.fn().mockImplementation(() => ({
     execute: mockProcessL2DecisionExecute,
+  })),
+}));
+
+jest.mock("@/core/domain/claims/UpdateClaimByFinanceService", () => ({
+  UpdateClaimByFinanceService: jest.fn().mockImplementation(() => ({
+    execute: mockUpdateByFinanceExecute,
   })),
 }));
 
@@ -233,6 +246,23 @@ describe("claims actions", () => {
       errorMessage: null,
     });
 
+    mockGetApprovalViewerContext.mockResolvedValue({
+      data: { isHod: false, isFounder: false, isFinance: true },
+      errorMessage: null,
+    });
+
+    mockGetClaimForFinanceEdit.mockResolvedValue({
+      data: {
+        id: "claim-1",
+        detailType: "expense",
+        submittedBy: "11111111-1111-4111-8111-111111111111",
+        expenseReceiptFilePath: "expenses/old_receipt.pdf",
+        expenseBankStatementFilePath: "expenses/old_bank.pdf",
+        advanceSupportingDocumentPath: null,
+      },
+      errorMessage: null,
+    });
+
     mockStorageUpload.mockResolvedValue({
       data: { path: "expenses/user/receipt.pdf" },
       error: null,
@@ -244,6 +274,11 @@ describe("claims actions", () => {
     });
 
     mockProcessL2DecisionExecute.mockResolvedValue({
+      ok: true,
+      errorMessage: null,
+    });
+
+    mockUpdateByFinanceExecute.mockResolvedValue({
       ok: true,
       errorMessage: null,
     });
@@ -486,5 +521,66 @@ describe("claims actions", () => {
       rejectionReason: "Claim amount mismatch",
       allowResubmission: false,
     });
+  });
+
+  test("updateClaimByFinanceAction forwards validated expense payload including GST and bank statement fields", async () => {
+    const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
+
+    const formData = new FormData();
+    formData.append("detailType", "expense");
+    formData.append("departmentId", departmentId);
+    formData.append("paymentModeId", paymentModeId);
+    formData.append("billNo", "BILL-NEW-1");
+    formData.append("expenseCategoryId", "66666666-6666-4666-8666-666666666666");
+    formData.append("locationId", "88888888-8888-4888-8888-888888888888");
+    formData.append("transactionDate", "2026-03-22");
+    formData.append("isGstApplicable", "true");
+    formData.append("gstNumber", "GSTIN-999");
+    formData.append("vendorName", "Vendor X");
+    formData.append("basicAmount", "100");
+    formData.append("cgstAmount", "9");
+    formData.append("sgstAmount", "9");
+    formData.append("igstAmount", "0");
+    formData.append("totalAmount", "118");
+    formData.append("purpose", "Updated purpose");
+    formData.append("productId", "77777777-7777-4777-8777-777777777777");
+    formData.append("peopleInvolved", "Alice");
+    formData.append("remarks", "Updated remarks");
+
+    const result = await updateClaimByFinanceAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData,
+    });
+
+    expect(result).toEqual({ ok: true, message: "Claim details updated." });
+    expect(mockUpdateByFinanceExecute).toHaveBeenCalledWith({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      actorUserId: "11111111-1111-4111-8111-111111111111",
+      payload: expect.objectContaining({
+        detailType: "expense",
+        isGstApplicable: true,
+        gstNumber: "GSTIN-999",
+        bankStatementFilePath: "expenses/old_bank.pdf",
+      }),
+    });
+  });
+
+  test("updateClaimByFinanceAction blocks non-finance users", async () => {
+    mockGetApprovalViewerContext.mockResolvedValueOnce({
+      data: { isHod: true, isFounder: false, isFinance: false },
+      errorMessage: null,
+    });
+    const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
+
+    const result = await updateClaimByFinanceAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData: new FormData(),
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Only Finance users can edit claim details.",
+    });
+    expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
   });
 });

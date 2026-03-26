@@ -1,26 +1,10 @@
 import type { ClaimAuditLogRecord } from "@/core/domain/claims/contracts";
 
 type ClaimAuditTimelineProps = {
-  logs: ClaimAuditLogRecord[];
+  logs: (ClaimAuditLogRecord & { formattedCreatedAt: string })[];
   title?: string;
   emptyLabel?: string;
 };
-
-function formatDateTime(value: string): string {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "Unknown time";
-  }
-
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  }).format(parsed);
-}
 
 function describeAction(actionType: ClaimAuditLogRecord["actionType"]): string {
   if (actionType === "SUBMITTED") {
@@ -122,7 +106,7 @@ export function ClaimAuditTimeline({
                   className={`absolute -left-[22px] top-1.5 h-3 w-3 rounded-full ring-2 ring-white dark:ring-zinc-900 ${actionAccent.dotClassName}`}
                 />
                 <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
-                  {formatDateTime(log.createdAt)}
+                  {log.formattedCreatedAt}
                 </p>
                 <p className={`mt-1 text-sm font-semibold ${actionAccent.labelClassName}`}>
                   {describeAction(log.actionType)}

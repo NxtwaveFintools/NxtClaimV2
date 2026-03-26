@@ -14,6 +14,7 @@ import type {
 import { GetMyClaimsPaginatedService } from "@/core/domain/claims/GetMyClaimsPaginatedService";
 import { GetPendingApprovalsService } from "@/core/domain/claims/GetPendingApprovalsService";
 import { logger } from "@/core/infra/logging/logger";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { SupabaseServerAuthRepository } from "@/modules/auth/repositories/supabase-server-auth.repository";
 import {
   approveClaimAction,
@@ -190,32 +191,6 @@ function buildViewHref(
   return query ? `${ROUTES.claims.myClaims}?${query}` : ROUTES.claims.myClaims;
 }
 
-function formatDate(value: string | null): string {
-  if (!value) {
-    return "N/A";
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "N/A";
-  }
-
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(parsed);
-}
-
-function formatAmount(amount: number): string {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
-}
-
 function DateWithActor({
   dateValue,
   actorEmail,
@@ -322,10 +297,12 @@ async function resolveApprovalEvidenceUrls(
   return Object.fromEntries(signedEntries);
 }
 
+type EnrichedAuditLogRecord = ClaimAuditLogRecord & { formattedCreatedAt: string };
+
 async function resolveAuditLogsByClaimId(
   claimRepository: SupabaseClaimRepository,
   claimIds: string[],
-): Promise<Record<string, ClaimAuditLogRecord[]>> {
+): Promise<Record<string, EnrichedAuditLogRecord[]>> {
   const entries = await Promise.all(
     claimIds.map(async (claimId) => {
       const result = await claimRepository.getClaimAuditLogs(claimId);
@@ -334,7 +311,12 @@ async function resolveAuditLogsByClaimId(
         return [claimId, []] as const;
       }
 
-      return [claimId, result.data] as const;
+      const enriched: EnrichedAuditLogRecord[] = result.data.map((log) => ({
+        ...log,
+        formattedCreatedAt: formatDateTime(log.createdAt),
+      }));
+
+      return [claimId, enriched] as const;
     }),
   );
 
@@ -468,12 +450,23 @@ async function ClaimsCommandCenterTable({
                   expenseReceiptFilePath: claim.expenseReceiptFilePath,
                   expenseBankStatementFilePath: claim.expenseBankStatementFilePath,
                   advanceSupportingDocumentPath: claim.advanceSupportingDocumentPath,
-                  totalAmount: claim.totalAmount,
+                  formattedTotalAmount: claim.formattedTotalAmount,
                   status: claim.status,
-                  submittedAt: claim.submittedAt,
-                  hodActionDate: null,
-                  financeActionDate: null,
+                  formattedSubmittedAt: claim.formattedSubmittedAt,
+                  formattedHodActionDate: "N/A",
+                  formattedFinanceActionDate: "N/A",
                 }))}
+                actionableIds={rows
+                  .filter((row) => {
+                    if (approvalScope === "l1") {
+                      return row.status === "Submitted - Awaiting HOD approval";
+                    }
+                    return (
+                      row.status === "HOD approved - Awaiting finance approval" ||
+                      row.status === "Finance Approved - Payment under process"
+                    );
+                  })
+                  .map((row) => row.id)}
                 totalSelectableCount={
                   resolvedTotalCount.errorMessage ? rows.length : resolvedTotalCount.count
                 }
@@ -679,13 +672,13 @@ async function ClaimsCommandCenterTable({
                           </span>
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">
-                          {formatAmount(claim.totalAmount)}
+                          {claim.formattedTotalAmount}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
                           <ClaimStatusBadge status={claim.status} />
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
-                          {formatDate(claim.submittedAt)}
+                          {claim.formattedSubmittedAt}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">N/A</td>
                         <td className="whitespace-nowrap px-4 py-3">N/A</td>
@@ -722,7 +715,7 @@ async function ClaimsCommandCenterTable({
                               claimId={claim.id}
                               detailType={claim.detailType}
                               submitter={claim.submitter}
-                              amountLabel={formatAmount(claim.totalAmount)}
+                              amountLabel={claim.formattedTotalAmount}
                               categoryName={claim.categoryName}
                               purpose={claim.purpose}
                               submissionType={claim.submissionType}
@@ -773,13 +766,10 @@ async function ClaimsCommandCenterTable({
   });
 
   const rows = claimsResult.data;
-  const submissionDetailEntries = await Promise.all(
-    rows.map(async (claim) => {
-      const detailResult = await claimRepository.getClaimDetailById(claim.id);
-      return [claim.id, detailResult.data] as const;
-    }),
+  const submissionDetailResult = await claimRepository.getClaimListDetails(
+    rows.map((claim) => claim.id),
   );
-  const submissionDetailsByClaimId = Object.fromEntries(submissionDetailEntries);
+  const submissionDetailsByClaimId = submissionDetailResult.data;
   const submissionEvidenceSignedUrlByClaimId = await resolveApprovalEvidenceUrls(
     claimRepository,
     rows.map((claim) => {
@@ -787,9 +777,9 @@ async function ClaimsCommandCenterTable({
 
       return {
         id: claim.id,
-        expenseReceiptFilePath: detail?.expense?.receiptFilePath ?? null,
-        expenseBankStatementFilePath: detail?.expense?.bankStatementFilePath ?? null,
-        advanceSupportingDocumentPath: detail?.advance?.supportingDocumentPath ?? null,
+        expenseReceiptFilePath: detail?.expenseReceiptFilePath ?? null,
+        expenseBankStatementFilePath: detail?.expenseBankStatementFilePath ?? null,
+        advanceSupportingDocumentPath: detail?.advanceSupportingDocumentPath ?? null,
       };
     }),
   );
@@ -867,7 +857,7 @@ async function ClaimsCommandCenterTable({
                         </span>
                       </td>
                       <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">
-                        {formatAmount(claim.totalAmount)}
+                        {claim.formattedTotalAmount}
                       </td>
                       <td className="px-4 py-3">
                         <ClaimStatusBadge status={claim.status} />
@@ -897,22 +887,18 @@ async function ClaimsCommandCenterTable({
                               claimId={claim.id}
                               detailType={detail.detailType}
                               submitter={detail.submitter}
-                              amountLabel={formatAmount(claim.totalAmount)}
-                              categoryName={claim.typeOfClaim}
-                              purpose={detail.expense?.purpose ?? detail.advance?.purpose ?? null}
+                              amountLabel={claim.formattedTotalAmount}
+                              categoryName={detail.categoryName}
+                              purpose={detail.purpose}
                               submissionType={detail.submissionType}
                               onBehalfEmail={detail.onBehalfEmail}
-                              expenseReceiptFilePath={detail.expense?.receiptFilePath ?? null}
+                              expenseReceiptFilePath={detail.expenseReceiptFilePath}
                               expenseReceiptSignedUrl={evidenceSignedUrls.expenseReceiptSignedUrl}
-                              expenseBankStatementFilePath={
-                                detail.expense?.bankStatementFilePath ?? null
-                              }
+                              expenseBankStatementFilePath={detail.expenseBankStatementFilePath}
                               expenseBankStatementSignedUrl={
                                 evidenceSignedUrls.expenseBankStatementSignedUrl
                               }
-                              advanceSupportingDocumentPath={
-                                detail.advance?.supportingDocumentPath ?? null
-                              }
+                              advanceSupportingDocumentPath={detail.advanceSupportingDocumentPath}
                               advanceSupportingDocumentSignedUrl={
                                 evidenceSignedUrls.advanceSupportingDocumentSignedUrl
                               }

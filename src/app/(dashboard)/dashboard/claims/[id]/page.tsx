@@ -20,6 +20,7 @@ import { ClaimDecisionActionForm } from "@/modules/claims/ui/claim-decision-acti
 import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
 import { FinanceEditClaimForm } from "@/modules/claims/ui/finance-edit-claim-form";
 import { ClaimAuditTimeline } from "@/modules/claims/ui/claim-audit-timeline";
+import { formatDateTime } from "@/lib/format";
 import {
   getAvailableClaimActions,
   type ClaimActionRole,
@@ -171,7 +172,12 @@ export default async function ClaimDetailPage({ params, searchParams }: PageProp
 
   const claim = claimResult.data;
   const claimAuditLogsResult = await claimRepository.getClaimAuditLogs(claim.id);
-  const claimAuditLogs = claimAuditLogsResult.errorMessage ? [] : claimAuditLogsResult.data;
+  const claimAuditLogs = claimAuditLogsResult.errorMessage
+    ? []
+    : claimAuditLogsResult.data.map((log) => ({
+        ...log,
+        formattedCreatedAt: formatDateTime(log.createdAt),
+      }));
   const currentUserId = currentUserResult.user.id;
   const financeApproverIdsResult =
     await claimRepository.getFinanceApproverIdsForUser(currentUserId);

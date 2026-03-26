@@ -42,15 +42,16 @@ type FinanceApprovalRow = {
   expenseReceiptFilePath: string | null;
   expenseBankStatementFilePath: string | null;
   advanceSupportingDocumentPath: string | null;
-  totalAmount: number;
+  formattedTotalAmount: string;
   status: DbClaimStatus;
-  submittedAt: string;
-  hodActionDate: string | null;
-  financeActionDate: string | null;
+  formattedSubmittedAt: string;
+  formattedHodActionDate: string;
+  formattedFinanceActionDate: string;
 };
 
 type FinanceApprovalsBulkTableProps = {
   rows: FinanceApprovalRow[];
+  actionableIds: string[];
   totalSelectableCount: number;
   filters: GetMyClaimsFilters;
   approvalScope: "l1" | "finance";
@@ -62,34 +63,8 @@ type FinanceApprovalsBulkTableProps = {
       advanceSupportingDocumentSignedUrl: string | null;
     }
   >;
-  auditLogsByClaimId: Record<string, ClaimAuditLogRecord[]>;
+  auditLogsByClaimId: Record<string, (ClaimAuditLogRecord & { formattedCreatedAt: string })[]>;
 };
-
-function formatDate(value: string | null): string {
-  if (!value) {
-    return "N/A";
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "N/A";
-  }
-
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(parsed);
-}
-
-function formatAmount(amount: number): string {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
-}
 
 function normalizeFilters(filters: GetMyClaimsFilters): GetMyClaimsFilters {
   const status = Array.isArray(filters.status)
@@ -114,6 +89,7 @@ function normalizeFilters(filters: GetMyClaimsFilters): GetMyClaimsFilters {
 
 export function FinanceApprovalsBulkTable({
   rows,
+  actionableIds,
   totalSelectableCount,
   filters,
   approvalScope,
@@ -127,28 +103,12 @@ export function FinanceApprovalsBulkTable({
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [isSubmittingBulkReject, setIsSubmittingBulkReject] = useState(false);
 
-  const actionablePageIds = useMemo(
-    () =>
-      rows
-        .filter((row) => {
-          if (approvalScope === "l1") {
-            return row.status === "Submitted - Awaiting HOD approval";
-          }
-
-          return (
-            row.status === "HOD approved - Awaiting finance approval" ||
-            row.status === "Finance Approved - Payment under process"
-          );
-        })
-        .map((row) => row.id),
-    [approvalScope, rows],
-  );
   const selectedOnPageCount = useMemo(
-    () => actionablePageIds.filter((id) => selectedIds.includes(id)).length,
-    [actionablePageIds, selectedIds],
+    () => actionableIds.filter((id) => selectedIds.includes(id)).length,
+    [actionableIds, selectedIds],
   );
   const isPageFullySelected =
-    actionablePageIds.length > 0 && selectedOnPageCount === actionablePageIds.length;
+    actionableIds.length > 0 && selectedOnPageCount === actionableIds.length;
   const selectedCount = isGlobalSelect ? totalSelectableCount : selectedIds.length;
   const canBulkAct = selectedCount > 0;
 
@@ -211,7 +171,7 @@ export function FinanceApprovalsBulkTable({
       return;
     }
 
-    setSelectedIds(actionablePageIds);
+    setSelectedIds([...actionableIds]);
     setIsGlobalSelect(false);
   };
 
@@ -234,7 +194,7 @@ export function FinanceApprovalsBulkTable({
     await toast.promise(
       (async () => {
         if (approvalScope === "l1") {
-          const targetIds = isGlobalSelect ? actionablePageIds : selectedIds;
+          const targetIds = isGlobalSelect ? actionableIds : selectedIds;
 
           if (targetIds.length === 0) {
             throw new Error("No actionable claims selected.");
@@ -262,7 +222,7 @@ export function FinanceApprovalsBulkTable({
         setIsGlobalSelect(false);
         router.refresh();
         return approvalScope === "l1"
-          ? `${(isGlobalSelect ? actionablePageIds : selectedIds).length} claim(s) approved.`
+          ? `${(isGlobalSelect ? actionableIds : selectedIds).length} claim(s) approved.`
           : "Claims approved.";
       })(),
       {
@@ -324,7 +284,7 @@ export function FinanceApprovalsBulkTable({
       await toast.promise(
         (async () => {
           if (approvalScope === "l1") {
-            const targetIds = isGlobalSelect ? actionablePageIds : selectedIds;
+            const targetIds = isGlobalSelect ? actionableIds : selectedIds;
 
             if (targetIds.length === 0) {
               throw new Error("No actionable claims selected.");
@@ -360,7 +320,7 @@ export function FinanceApprovalsBulkTable({
           setIsRejectModalOpen(false);
           router.refresh();
           return approvalScope === "l1"
-            ? `${(isGlobalSelect ? actionablePageIds : selectedIds).length} claim(s) rejected.`
+            ? `${(isGlobalSelect ? actionableIds : selectedIds).length} claim(s) rejected.`
             : "Claims rejected.";
         })(),
         {
@@ -428,9 +388,9 @@ export function FinanceApprovalsBulkTable({
         ) : null}
       </div>
 
-      {isPageFullySelected && !isGlobalSelect && totalSelectableCount > actionablePageIds.length ? (
+      {isPageFullySelected && !isGlobalSelect && totalSelectableCount > actionableIds.length ? (
         <div className="mx-4 mt-3 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/20 dark:text-indigo-300">
-          All {actionablePageIds.length} claims on this page are selected.{" "}
+          All {actionableIds.length} claims on this page are selected.{" "}
           <button
             type="button"
             onClick={() => {
@@ -450,7 +410,7 @@ export function FinanceApprovalsBulkTable({
             type="button"
             onClick={() => {
               setIsGlobalSelect(false);
-              setSelectedIds(actionablePageIds);
+              setSelectedIds([...actionableIds]);
             }}
             className="ml-2 font-semibold underline underline-offset-2"
           >
@@ -470,7 +430,7 @@ export function FinanceApprovalsBulkTable({
                   onChange={(event) => {
                     toggleMaster(event.currentTarget.checked);
                   }}
-                  disabled={actionablePageIds.length === 0}
+                  disabled={actionableIds.length === 0}
                   aria-label="Select all claims on this page"
                   data-testid="bulk-master-checkbox"
                   className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700"
@@ -617,15 +577,15 @@ export function FinanceApprovalsBulkTable({
                   <td className="px-4 py-3">{claim.departmentName ?? "Unknown Department"}</td>
                   <td className="px-4 py-3">{claim.paymentModeName}</td>
                   <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">
-                    {formatAmount(claim.totalAmount)}
+                    {claim.formattedTotalAmount}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">
                     <ClaimStatusBadge status={claim.status} />
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3">{formatDate(claim.submittedAt)}</td>
-                  <td className="whitespace-nowrap px-4 py-3">{formatDate(claim.hodActionDate)}</td>
+                  <td className="whitespace-nowrap px-4 py-3">{claim.formattedSubmittedAt}</td>
+                  <td className="whitespace-nowrap px-4 py-3">{claim.formattedHodActionDate}</td>
                   <td className="whitespace-nowrap px-4 py-3">
-                    {formatDate(claim.financeActionDate)}
+                    {claim.formattedFinanceActionDate}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-right">
                     <div className="flex min-w-[280px] flex-wrap items-start justify-end gap-2">
@@ -633,7 +593,7 @@ export function FinanceApprovalsBulkTable({
                         claimId={claim.id}
                         detailType={claim.detailType}
                         submitter={claim.submitter}
-                        amountLabel={formatAmount(claim.totalAmount)}
+                        amountLabel={claim.formattedTotalAmount}
                         categoryName={claim.categoryName}
                         purpose={claim.purpose}
                         submissionType={claim.submissionType}
