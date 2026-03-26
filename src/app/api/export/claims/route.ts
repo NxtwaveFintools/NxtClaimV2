@@ -1,7 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
+import ExcelJS from "exceljs";
 import { z } from "zod";
 import { DB_CLAIM_STATUSES, type DbClaimStatus } from "@/core/constants/statuses";
-import { ExportClaimsService } from "@/core/domain/claims/ExportClaimsService";
+import {
+  ExportClaimsService,
+  EXPORT_HEADERS,
+  type ClaimExportRow,
+} from "@/core/domain/claims/ExportClaimsService";
 import type {
   ClaimDateTarget,
   ClaimSearchField,
@@ -119,6 +124,13 @@ const exportClaimsHandler = async (request: NextRequest, context: AuthenticatedC
   });
 
   if (result.errorMessage) {
+    logger.error("claims.export.route.failed", {
+      correlationId: context.correlationId,
+      userId: context.userId,
+      scope: parsedScope.data,
+      errorMessage: result.errorMessage,
+    });
+
     return NextResponse.json(
       {
         data: null,
@@ -132,15 +144,87 @@ const exportClaimsHandler = async (request: NextRequest, context: AuthenticatedC
     );
   }
 
-  return new NextResponse(result.csvData, {
+  return new NextResponse(new Uint8Array(await buildExcelWorkbook(result.rows)), {
     status: 200,
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": `attachment; filename="${result.fileName}"`,
       "Cache-Control": "no-store",
       "X-Correlation-Id": context.correlationId,
     },
   });
 };
+
+// Column indices (1-based) for the three document URL columns.
+const COL_BANK_STATEMENT = 32;
+const COL_BILL_URL = 33;
+const COL_PETTY_CASH_PHOTO = 34;
+
+function applyHyperlinkCell(row: ExcelJS.Row, colIndex: number, url: string | null): void {
+  const cell = row.getCell(colIndex);
+  if (url) {
+    cell.value = { text: "View Document", hyperlink: url };
+    cell.font = { color: { argb: "FF0563C1" }, underline: true };
+  } else {
+    cell.value = "Document Unavailable";
+  }
+}
+
+async function buildExcelWorkbook(rows: ClaimExportRow[]): Promise<ArrayBuffer> {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet("Claims");
+
+  const headerRow = worksheet.addRow([...EXPORT_HEADERS]);
+  headerRow.font = { bold: true };
+
+  for (const rowData of rows) {
+    const excelRow = worksheet.addRow([
+      rowData.claimId,
+      rowData.transactionId,
+      rowData.employeeEmail,
+      rowData.employeeName,
+      rowData.department,
+      rowData.pettyCashBalance,
+      rowData.submitter,
+      rowData.paymentMode,
+      rowData.submissionType,
+      rowData.purpose,
+      rowData.claimRaisedDate,
+      rowData.hodApprovedDate,
+      rowData.financeApprovedDate,
+      rowData.billDate,
+      rowData.claimStatus,
+      rowData.hodStatus,
+      rowData.financeStatus,
+      rowData.billStatus,
+      rowData.billNumber,
+      rowData.basicAmount,
+      rowData.cgst,
+      rowData.sgst,
+      rowData.igst,
+      rowData.totalAmount,
+      rowData.currency,
+      rowData.approvedAmount,
+      rowData.vendorName,
+      rowData.transactionCategory,
+      rowData.product,
+      rowData.expenseLocation,
+      rowData.locationType,
+      null, // col 32: Bank Statement URL — set below as native hyperlink
+      null, // col 33: Bill URL — set below as native hyperlink
+      null, // col 34: Petty Cash Photo URL — set below as native hyperlink
+      rowData.pettyCashRequestMonth,
+      rowData.transactionCount,
+      rowData.claimRemarks,
+      rowData.transactionRemarks,
+    ]);
+
+    applyHyperlinkCell(excelRow, COL_BANK_STATEMENT, rowData.bankStatementUrl);
+    applyHyperlinkCell(excelRow, COL_BILL_URL, rowData.billUrl);
+    applyHyperlinkCell(excelRow, COL_PETTY_CASH_PHOTO, rowData.pettyCashPhotoUrl);
+  }
+
+  return workbook.xlsx.writeBuffer();
+}
 
 export const GET = withAuth(exportClaimsHandler);

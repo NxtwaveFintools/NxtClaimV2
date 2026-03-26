@@ -185,7 +185,7 @@ function buildViewHref(
   if (targetView === "approvals") {
     params.set("view", "approvals");
   } else {
-    params.delete("view");
+    params.set("view", "submissions");
   }
 
   const query = params.toString();

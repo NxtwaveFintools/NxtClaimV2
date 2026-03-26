@@ -34,7 +34,7 @@ const expenseDetailSchema = z.object({
       .optional()
       .or(z.literal(""))
       .transform((val) => (!val || val.trim() === "" ? "N/A" : val.trim())),
-    purpose: optionalTextToNA,
+    purpose: z.string().trim().min(1, "Purpose is required"),
     expenseCategoryId: uuidSchema,
     productId: uuidSchema,
     locationId: uuidSchema,
@@ -82,7 +82,7 @@ const advanceDetailSchema = z.object({
 
       return value ?? null;
     }, z.iso.date("Expected usage date must be a valid date").nullable().optional()),
-    purpose: optionalTextToNA,
+    purpose: z.string().trim().min(1, "Purpose is required"),
     receiptFileBase64: optionalTextToNA,
     receiptFileName: optionalTextToNA,
     productId: uuidSchema.nullable(),
@@ -164,14 +164,6 @@ export const newClaimSubmitSchema = z
         context.addIssue({
           code: "custom",
           message: "GST number must be empty when GST is not applicable.",
-          path: ["expense", "gstNumber"],
-        });
-      }
-
-      if (value.expense.isGstApplicable && !hasGstNumber) {
-        context.addIssue({
-          code: "custom",
-          message: "GST number is required when GST is applicable.",
           path: ["expense", "gstNumber"],
         });
       }

@@ -8,6 +8,12 @@ import type {
 import { getBrowserSupabaseClient } from "@/core/infra/supabase/browser-client";
 
 export class SupabaseAuthRepository implements AuthRepository {
+  private isMissingSessionError(message: string | null | undefined): boolean {
+    if (!message) return false;
+
+    return message.toLowerCase().includes("auth session missing");
+  }
+
   async signInWithEmail(
     email: string,
     password: string,
@@ -98,6 +104,10 @@ export class SupabaseAuthRepository implements AuthRepository {
     const { data, error } = await supabase.auth.getUser();
 
     if (error) {
+      if (this.isMissingSessionError(error.message)) {
+        return { user: null, errorMessage: null };
+      }
+
       return { user: null, errorMessage: error.message };
     }
 

@@ -174,7 +174,11 @@ type WalletRow = {
 type ClaimDetailExpenseRow = {
   bill_no: string;
   purpose: string | null;
+  expense_category_id: string | null;
+  location_id: string | null;
   transaction_date: string;
+  is_gst_applicable: boolean | null;
+  gst_number: string | null;
   basic_amount: number | string | null;
   cgst_amount: number | string | null;
   sgst_amount: number | string | null;
@@ -182,9 +186,13 @@ type ClaimDetailExpenseRow = {
   total_amount: number | string | null;
   vendor_name: string | null;
   product_id: string | null;
+  people_involved: string | null;
   remarks: string | null;
   receipt_file_path: string | null;
   bank_statement_file_path: string | null;
+  master_expense_categories: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
+  master_products: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
+  master_locations: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
 };
 
 type ClaimDetailAdvanceRow = {
@@ -384,6 +392,22 @@ const FINANCE_NON_REJECTED_VISIBLE_STATUSES: DbClaimStatus[] = [
 ];
 const L1_ACTIONABLE_STATUSES: DbClaimStatus[] = [DB_CLAIM_STATUSES[0]];
 const FINANCE_ACTIONABLE_STATUSES: DbClaimStatus[] = [DB_CLAIM_STATUSES[1], DB_CLAIM_STATUSES[2]];
+const EXPORT_CLAIM_LOOKUP_BATCH_SIZE = 50;
+const EXPORT_WALLET_LOOKUP_BATCH_SIZE = 200;
+
+function chunkArray<T>(values: T[], chunkSize: number): T[][] {
+  if (chunkSize <= 0) {
+    return [values];
+  }
+
+  const chunks: T[][] = [];
+
+  for (let index = 0; index < values.length; index += chunkSize) {
+    chunks.push(values.slice(index, index + chunkSize));
+  }
+
+  return chunks;
+}
 
 function toPostgrestInList(values: string[]): string {
   return `(${values.map((value) => `"${value.replace(/"/g, '\\"')}"`).join(",")})`;
@@ -845,6 +869,10 @@ export class SupabaseClaimRepository implements ClaimRepository {
       query = query.eq("payment_mode_id", filters.paymentModeId);
     }
 
+    if (filters?.departmentId) {
+      query = query.eq("department_id", filters.departmentId);
+    }
+
     if (filters?.submissionType) {
       query = query.eq("submission_type", filters.submissionType);
     }
@@ -1257,7 +1285,12 @@ export class SupabaseClaimRepository implements ClaimRepository {
       expense: {
         billNo: string;
         purpose: string | null;
+        expenseCategoryName: string | null;
+        productName: string | null;
+        locationName: string | null;
         transactionDate: string;
+        isGstApplicable: boolean | null;
+        gstNumber: string | null;
         basicAmount: number | null;
         cgstAmount: number | null;
         sgstAmount: number | null;
@@ -1265,6 +1298,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
         totalAmount: number | null;
         vendorName: string | null;
         productId: string | null;
+        peopleInvolved: string | null;
         remarks: string | null;
         receiptFilePath: string | null;
         bankStatementFilePath: string | null;
@@ -1284,7 +1318,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const { data, error } = await client
       .from("claims")
       .select(
-        "id, employee_id, submission_type, detail_type, on_behalf_email, status, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(bill_no, purpose, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, product_id, remarks, receipt_file_path, bank_statement_file_path), advance_details(purpose, requested_amount, expected_usage_date, product_id, remarks, supporting_document_path)",
+        "id, employee_id, submission_type, detail_type, on_behalf_email, status, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(bill_no, purpose, expense_category_id, product_id, location_id, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(purpose, requested_amount, expected_usage_date, product_id, remarks, supporting_document_path)",
       )
       .eq("id", claimId)
       .eq("is_active", true)
@@ -1310,6 +1344,9 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const paymentMode = getSingleRelation(row.master_payment_modes);
     const expense = getSingleRelation(row.expense_details);
     const advance = getSingleRelation(row.advance_details);
+    const expenseCategory = getSingleRelation(expense?.master_expense_categories);
+    const expenseProduct = getSingleRelation(expense?.master_products);
+    const expenseLocation = getSingleRelation(expense?.master_locations);
 
     return {
       data: {
@@ -1331,7 +1368,12 @@ export class SupabaseClaimRepository implements ClaimRepository {
           ? {
               billNo: expense.bill_no,
               purpose: expense.purpose,
+              expenseCategoryName: expenseCategory?.name ?? null,
+              productName: expenseProduct?.name ?? null,
+              locationName: expenseLocation?.name ?? null,
               transactionDate: expense.transaction_date,
+              isGstApplicable: expense.is_gst_applicable,
+              gstNumber: expense.gst_number,
               basicAmount: toNumber(expense.basic_amount),
               cgstAmount: toNumber(expense.cgst_amount),
               sgstAmount: toNumber(expense.sgst_amount),
@@ -1339,6 +1381,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
               totalAmount: toNumber(expense.total_amount),
               vendorName: expense.vendor_name,
               productId: expense.product_id,
+              peopleInvolved: expense.people_involved,
               remarks: expense.remarks,
               receiptFilePath: expense.receipt_file_path,
               bankStatementFilePath: expense.bank_statement_file_path,
@@ -2142,6 +2185,10 @@ export class SupabaseClaimRepository implements ClaimRepository {
       query = query.eq("payment_mode_id", filters.paymentModeId);
     }
 
+    if (filters?.departmentId) {
+      query = query.eq("department_id", filters.departmentId);
+    }
+
     if (filters?.submissionType) {
       query = query.eq("submission_type", filters.submissionType);
     }
@@ -2304,6 +2351,10 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
     if (filters?.paymentModeId) {
       query = query.eq("payment_mode_id", filters.paymentModeId);
+    }
+
+    if (filters?.departmentId) {
+      query = query.eq("department_id", filters.departmentId);
     }
 
     if (filters?.submissionType) {
@@ -2478,7 +2529,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     fetchScope: ClaimsExportFetchScope;
     filters?: GetMyClaimsFilters;
     limit: number;
-    offset: number;
+    cursor?: { createdAt: string; claimId: string };
   }): Promise<{ data: ClaimFullExportRecord[]; errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
     const normalizedStatuses = normalizeStatusFilter(input.filters?.status);
@@ -2542,10 +2593,13 @@ export class SupabaseClaimRepository implements ClaimRepository {
       normalizedSearch,
     });
 
-    const { data: idData, error: idError } = await idsQuery.range(
-      input.offset,
-      input.offset + input.limit - 1,
-    );
+    if (input.cursor) {
+      idsQuery = idsQuery.or(
+        `created_at.lt.${input.cursor.createdAt},and(created_at.eq.${input.cursor.createdAt},claim_id.lt.${input.cursor.claimId})`,
+      );
+    }
+
+    const { data: idData, error: idError } = await idsQuery.limit(input.limit);
 
     if (idError) {
       return {
@@ -2565,22 +2619,27 @@ export class SupabaseClaimRepository implements ClaimRepository {
       };
     }
 
-    const { data, error } = await client
-      .from("claims")
-      .select(
-        "id, status, submission_type, detail_type, submitted_by, on_behalf_of_id, employee_id, cc_emails, on_behalf_email, on_behalf_employee_code, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_at, hod_action_at, finance_action_at, rejection_reason, is_resubmission_allowed, created_at, updated_at, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), l1_approver_user:users!claims_assigned_l1_approver_id_fkey(full_name, email), l2_finance_approver:master_finance_approvers!claims_assigned_l2_approver_id_fkey(approver_user:users!master_finance_approvers_user_id_fkey(full_name, email)), master_departments(id, name), master_payment_modes(id, name), expense_details(bill_no, transaction_id, purpose, expense_category_id, product_id, location_id, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, currency_code, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(id, name), master_products(id, name), master_locations(id, name)), advance_details(requested_amount, budget_month, budget_year, expected_usage_date, purpose, product_id, location_id, remarks, supporting_document_path, master_products(id, name), master_locations(id, name))",
-      )
-      .in("id", orderedClaimIds)
-      .eq("is_active", true);
+    const rows: ExportClaimRow[] = [];
 
-    if (error) {
-      return {
-        data: [],
-        errorMessage: error.message,
-      };
+    for (const claimIdChunk of chunkArray(orderedClaimIds, EXPORT_CLAIM_LOOKUP_BATCH_SIZE)) {
+      const { data, error } = await client
+        .from("claims")
+        .select(
+          "id, status, submission_type, detail_type, submitted_by, on_behalf_of_id, employee_id, cc_emails, on_behalf_email, on_behalf_employee_code, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_at, hod_action_at, finance_action_at, rejection_reason, is_resubmission_allowed, created_at, updated_at, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), l1_approver_user:users!claims_assigned_l1_approver_id_fkey(full_name, email), l2_finance_approver:master_finance_approvers!claims_assigned_l2_approver_id_fkey(approver_user:users!master_finance_approvers_user_id_fkey(full_name, email)), master_departments(id, name), master_payment_modes(id, name), expense_details(bill_no, transaction_id, purpose, expense_category_id, product_id, location_id, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, currency_code, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(id, name), master_products(id, name), master_locations(id, name)), advance_details(requested_amount, budget_month, budget_year, expected_usage_date, purpose, product_id, location_id, remarks, supporting_document_path, master_products(id, name), master_locations(id, name))",
+        )
+        .in("id", claimIdChunk)
+        .eq("is_active", true);
+
+      if (error) {
+        return {
+          data: [],
+          errorMessage: error.message,
+        };
+      }
+
+      rows.push(...((data ?? []) as ExportClaimRow[]));
     }
 
-    const rows = (data ?? []) as ExportClaimRow[];
     const rowById = new Map(rows.map((row) => [row.id, row]));
     const walletUserIds = Array.from(
       new Set(rows.map((row) => row.on_behalf_of_id ?? row.submitted_by).filter(Boolean)),
@@ -2588,20 +2647,22 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const walletBalanceByUserId = new Map<string, number | null>();
 
     if (walletUserIds.length > 0) {
-      const { data: walletRows, error: walletError } = await client
-        .from("wallets")
-        .select("user_id, petty_cash_balance")
-        .in("user_id", walletUserIds);
+      for (const walletUserIdChunk of chunkArray(walletUserIds, EXPORT_WALLET_LOOKUP_BATCH_SIZE)) {
+        const { data: walletRows, error: walletError } = await client
+          .from("wallets")
+          .select("user_id, petty_cash_balance")
+          .in("user_id", walletUserIdChunk);
 
-      if (walletError) {
-        return {
-          data: [],
-          errorMessage: walletError.message,
-        };
-      }
+        if (walletError) {
+          return {
+            data: [],
+            errorMessage: walletError.message,
+          };
+        }
 
-      for (const walletRow of (walletRows ?? []) as ExportWalletBalanceRow[]) {
-        walletBalanceByUserId.set(walletRow.user_id, toNumber(walletRow.petty_cash_balance));
+        for (const walletRow of (walletRows ?? []) as ExportWalletBalanceRow[]) {
+          walletBalanceByUserId.set(walletRow.user_id, toNumber(walletRow.petty_cash_balance));
+        }
       }
     }
 
@@ -2709,5 +2770,32 @@ export class SupabaseClaimRepository implements ClaimRepository {
       data: data.publicUrl ?? null,
       errorMessage: null,
     };
+  }
+
+  async createBulkSignedUrls(input: { filePaths: string[]; expiresInSeconds: number }): Promise<{
+    data: Record<string, string>;
+    errorMessage: string | null;
+  }> {
+    if (input.filePaths.length === 0) {
+      return { data: {}, errorMessage: null };
+    }
+
+    const client = getServiceRoleSupabaseClient();
+    const { data, error } = await client.storage
+      .from("claims")
+      .createSignedUrls(input.filePaths, input.expiresInSeconds);
+
+    if (error) {
+      return { data: {}, errorMessage: error.message };
+    }
+
+    const urlMap: Record<string, string> = {};
+    for (const entry of data ?? []) {
+      if (entry.path && entry.signedUrl && !entry.error) {
+        urlMap[entry.path] = entry.signedUrl;
+      }
+    }
+
+    return { data: urlMap, errorMessage: null };
   }
 }
