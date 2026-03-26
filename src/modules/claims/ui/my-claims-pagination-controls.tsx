@@ -1,4 +1,7 @@
-import Link from "next/link";
+"use client";
+
+import { useTransition } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 type MyClaimsPaginationControlsProps = {
   hasNextPage: boolean;
@@ -67,6 +70,10 @@ export function MyClaimsPaginationControls({
   previousCursor,
   searchParams,
 }: MyClaimsPaginationControlsProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [isPending, startTransition] = useTransition();
+
   const nextHref =
     hasNextPage && nextCursor
       ? buildPageHref(searchParams, nextCursor, currentCursor ?? "__first__")
@@ -77,27 +84,75 @@ export function MyClaimsPaginationControls({
       ? buildPageHref(searchParams, previousCursor === "__first__" ? null : previousCursor, null)
       : null;
 
+  const navigateTo = (href: string | null): void => {
+    if (!href) {
+      return;
+    }
+
+    const nextHref = href === "?" ? pathname : `${pathname}${href}`;
+    startTransition(() => {
+      router.replace(nextHref, { scroll: false });
+    });
+  };
+
   return (
-    <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3 dark:border-slate-800">
+    <div
+      className={`flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3 transition-opacity dark:border-slate-800 ${
+        isPending ? "opacity-80" : "opacity-100"
+      }`}
+    >
+      {isPending ? (
+        <span className="mr-2 inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+          <svg
+            className="h-3.5 w-3.5 animate-spin"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+          </svg>
+          Updating page...
+        </span>
+      ) : null}
       {previousHref ? (
-        <Link
-          href={previousHref}
+        <button
+          type="button"
+          onClick={() => {
+            navigateTo(previousHref);
+          }}
+          disabled={isPending}
           className="inline-flex rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
         >
           Previous
-        </Link>
+        </button>
       ) : (
         <span className="inline-flex cursor-not-allowed rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-400 opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500">
           Previous
         </span>
       )}
       {nextHref ? (
-        <Link
-          href={nextHref}
+        <button
+          type="button"
+          onClick={() => {
+            navigateTo(nextHref);
+          }}
+          disabled={isPending}
           className="inline-flex rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition-all duration-200 hover:bg-slate-700 active:scale-[0.98] dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
         >
           Next
-        </Link>
+        </button>
       ) : (
         <span className="inline-flex cursor-not-allowed rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white opacity-50 dark:bg-slate-100 dark:text-slate-900">
           Next

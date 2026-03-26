@@ -200,6 +200,7 @@ type ClaimDetailAdvanceRow = {
   requested_amount: number | string | null;
   expected_usage_date: string;
   product_id: string | null;
+  location_id: string | null;
   remarks: string | null;
   supporting_document_path: string | null;
 };
@@ -240,6 +241,7 @@ type BulkProcessClaimsRpcResponse = number | string | null;
 
 type ClaimFinanceEditExpenseRow = {
   receipt_file_path: string | null;
+  bank_statement_file_path: string | null;
 };
 
 type ClaimFinanceEditAdvanceRow = {
@@ -1270,6 +1272,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
     data: {
       id: string;
       employeeId: string;
+      departmentId: string;
+      paymentModeId: string;
       submissionType: "Self" | "On Behalf";
       detailType: "expense" | "advance";
       onBehalfEmail: string | null;
@@ -1282,11 +1286,15 @@ export class SupabaseClaimRepository implements ClaimRepository {
       assignedL2ApproverId: string | null;
       submittedBy: string;
       submitter: string;
+      submitterName: string | null;
+      submitterEmail: string | null;
       expense: {
         billNo: string;
         purpose: string | null;
+        expenseCategoryId: string | null;
         expenseCategoryName: string | null;
         productName: string | null;
+        locationId: string | null;
         locationName: string | null;
         transactionDate: string;
         isGstApplicable: boolean | null;
@@ -1308,6 +1316,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
         requestedAmount: number | null;
         expectedUsageDate: string;
         productId: string | null;
+        locationId: string | null;
         remarks: string | null;
         supportingDocumentPath: string | null;
       } | null;
@@ -1318,7 +1327,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const { data, error } = await client
       .from("claims")
       .select(
-        "id, employee_id, submission_type, detail_type, on_behalf_email, status, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(bill_no, purpose, expense_category_id, product_id, location_id, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(purpose, requested_amount, expected_usage_date, product_id, remarks, supporting_document_path)",
+        "id, employee_id, submission_type, detail_type, on_behalf_email, status, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(bill_no, purpose, expense_category_id, product_id, location_id, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(purpose, requested_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
       )
       .eq("id", claimId)
       .eq("is_active", true)
@@ -1352,6 +1361,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
       data: {
         id: row.id,
         employeeId: row.employee_id,
+        departmentId: row.department_id,
+        paymentModeId: row.payment_mode_id,
         submissionType: row.submission_type,
         detailType: row.detail_type,
         onBehalfEmail: row.on_behalf_email,
@@ -1364,12 +1375,16 @@ export class SupabaseClaimRepository implements ClaimRepository {
         assignedL2ApproverId: row.assigned_l2_approver_id,
         submittedBy: row.submitted_by,
         submitter: submitterLabel,
+        submitterName: submitterName ?? null,
+        submitterEmail: submitterEmail ?? null,
         expense: expense
           ? {
               billNo: expense.bill_no,
               purpose: expense.purpose,
+              expenseCategoryId: expense.expense_category_id,
               expenseCategoryName: expenseCategory?.name ?? null,
               productName: expenseProduct?.name ?? null,
+              locationId: expense.location_id,
               locationName: expenseLocation?.name ?? null,
               transactionDate: expense.transaction_date,
               isGstApplicable: expense.is_gst_applicable,
@@ -1393,6 +1408,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
               requestedAmount: toNumber(advance.requested_amount),
               expectedUsageDate: advance.expected_usage_date,
               productId: advance.product_id,
+              locationId: advance.location_id,
               remarks: advance.remarks,
               supportingDocumentPath: advance.supporting_document_path,
             }
@@ -1408,6 +1424,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
       detailType: "expense" | "advance";
       submittedBy: string;
       expenseReceiptFilePath: string | null;
+      expenseBankStatementFilePath: string | null;
       advanceSupportingDocumentPath: string | null;
     } | null;
     errorMessage: string | null;
@@ -1416,7 +1433,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const { data, error } = await client
       .from("claims")
       .select(
-        "id, detail_type, submitted_by, expense_details(receipt_file_path), advance_details(supporting_document_path)",
+        "id, detail_type, submitted_by, expense_details(receipt_file_path, bank_statement_file_path), advance_details(supporting_document_path)",
       )
       .eq("id", claimId)
       .eq("is_active", true)
@@ -1440,6 +1457,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
         detailType: row.detail_type,
         submittedBy: row.submitted_by,
         expenseReceiptFilePath: expense?.receipt_file_path ?? null,
+        expenseBankStatementFilePath: expense?.bank_statement_file_path ?? null,
         advanceSupportingDocumentPath: advance?.supporting_document_path ?? null,
       },
       errorMessage: null,
@@ -1452,41 +1470,86 @@ export class SupabaseClaimRepository implements ClaimRepository {
   ): Promise<{ errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
 
+    const { data: updatedClaim, error: claimError } = await client
+      .from("claims")
+      .update({
+        department_id: payload.departmentId,
+        payment_mode_id: payload.paymentModeId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", claimId)
+      .eq("is_active", true)
+      .select("id")
+      .maybeSingle();
+
+    if (claimError) {
+      return { errorMessage: claimError.message };
+    }
+
+    if (!updatedClaim) {
+      return { errorMessage: "Claim not found or inactive." };
+    }
+
     if (payload.detailType === "expense") {
-      const { error } = await client
+      const { data: updatedExpenseDetail, error: expenseError } = await client
         .from("expense_details")
         .update({
           bill_no: payload.billNo,
-          vendor_name: payload.vendorName,
-          basic_amount: payload.basicAmount,
-          purpose: payload.purpose,
+          expense_category_id: payload.expenseCategoryId,
           product_id: payload.productId,
+          location_id: payload.locationId,
+          transaction_date: payload.transactionDate,
+          is_gst_applicable: payload.isGstApplicable,
+          gst_number: payload.gstNumber,
+          basic_amount: payload.basicAmount,
+          cgst_amount: payload.cgstAmount,
+          sgst_amount: payload.sgstAmount,
+          igst_amount: payload.igstAmount,
+          vendor_name: payload.vendorName,
+          purpose: payload.purpose,
+          people_involved: payload.peopleInvolved,
           remarks: payload.remarks,
           receipt_file_path: payload.receiptFilePath,
+          bank_statement_file_path: payload.bankStatementFilePath,
+          updated_at: new Date().toISOString(),
         })
         .eq("claim_id", claimId)
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .select("id")
+        .maybeSingle();
 
-      if (error) {
-        return { errorMessage: error.message };
+      if (expenseError) {
+        return { errorMessage: expenseError.message };
       }
 
-      return { errorMessage: null };
-    }
+      if (!updatedExpenseDetail) {
+        return { errorMessage: "Active expense detail not found for claim." };
+      }
+    } else {
+      const { data: updatedAdvanceDetail, error: advanceError } = await client
+        .from("advance_details")
+        .update({
+          purpose: payload.purpose,
+          requested_amount: payload.requestedAmount,
+          expected_usage_date: payload.expectedUsageDate,
+          product_id: payload.productId,
+          location_id: payload.locationId,
+          remarks: payload.remarks,
+          supporting_document_path: payload.supportingDocumentPath,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("claim_id", claimId)
+        .eq("is_active", true)
+        .select("id")
+        .maybeSingle();
 
-    const { error } = await client
-      .from("advance_details")
-      .update({
-        purpose: payload.purpose,
-        product_id: payload.productId,
-        remarks: payload.remarks,
-        supporting_document_path: payload.supportingDocumentPath,
-      })
-      .eq("claim_id", claimId)
-      .eq("is_active", true);
+      if (advanceError) {
+        return { errorMessage: advanceError.message };
+      }
 
-    if (error) {
-      return { errorMessage: error.message };
+      if (!updatedAdvanceDetail) {
+        return { errorMessage: "Active advance detail not found for claim." };
+      }
     }
 
     return { errorMessage: null };
@@ -1930,10 +1993,17 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const dateColumn = filters?.dateTarget === "finance_closed" ? "updated_at" : "submitted_at";
     const normalizedSearch = normalizeSearchInput(filters);
 
+    const needsExpenseInnerJoin =
+      filters?.locationId || filters?.productId || filters?.expenseCategoryId;
+
+    const expenseDetailsJoin = needsExpenseInnerJoin
+      ? "expense_details!inner(total_amount, location_id, product_id, expense_category_id)"
+      : "expense_details(total_amount)";
+
     let query = client
       .from("claims")
       .select(
-        "id, employee_id, on_behalf_email, submission_type, status, submitted_at, updated_at, submitter_user:users!claims_submitted_by_fkey!inner(full_name, email), master_departments(name), master_payment_modes(name), expense_details(total_amount), advance_details(requested_amount)",
+        `id, employee_id, on_behalf_email, submission_type, status, submitted_at, updated_at, submitter_user:users!claims_submitted_by_fkey!inner(full_name, email), master_departments(name), master_payment_modes(name), ${expenseDetailsJoin}, advance_details(requested_amount)`,
       )
       .or(buildMyClaimsOwnershipOrFilter(userId))
       .eq("is_active", true)
@@ -1949,6 +2019,18 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
     if (filters?.departmentId) {
       query = query.eq("department_id", filters.departmentId);
+    }
+
+    if (filters?.locationId) {
+      query = query.eq("expense_details.location_id", filters.locationId);
+    }
+
+    if (filters?.productId) {
+      query = query.eq("expense_details.product_id", filters.productId);
+    }
+
+    if (filters?.expenseCategoryId) {
+      query = query.eq("expense_details.expense_category_id", filters.expenseCategoryId);
     }
 
     if (filters?.submissionType) {
@@ -2167,10 +2249,17 @@ export class SupabaseClaimRepository implements ClaimRepository {
       };
     }
 
+    const needsExpenseInnerJoin =
+      filters?.locationId || filters?.productId || filters?.expenseCategoryId;
+
+    const expenseDetailsJoin = needsExpenseInnerJoin
+      ? "expense_details!inner(total_amount, purpose, receipt_file_path, bank_statement_file_path, master_expense_categories(name), location_id, product_id, expense_category_id)"
+      : "expense_details(total_amount, purpose, receipt_file_path, bank_statement_file_path, master_expense_categories(name))";
+
     let query = client
       .from("claims")
       .select(
-        "id, employee_id, detail_type, submission_type, on_behalf_email, submitted_by, status, submitted_at, created_at, updated_at, submitter_user:users!claims_submitted_by_fkey!inner(full_name, email), master_departments(name), master_payment_modes(name), expense_details(total_amount, purpose, receipt_file_path, bank_statement_file_path, master_expense_categories(name)), advance_details(requested_amount, purpose, supporting_document_path)",
+        `id, employee_id, detail_type, submission_type, on_behalf_email, submitted_by, status, submitted_at, created_at, updated_at, submitter_user:users!claims_submitted_by_fkey!inner(full_name, email), master_departments(name), master_payment_modes(name), ${expenseDetailsJoin}, advance_details(requested_amount, purpose, supporting_document_path)`,
       )
       .eq("assigned_l1_approver_id", userId)
       .eq("is_active", true)
@@ -2187,6 +2276,18 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
     if (filters?.departmentId) {
       query = query.eq("department_id", filters.departmentId);
+    }
+
+    if (filters?.locationId) {
+      query = query.eq("expense_details.location_id", filters.locationId);
+    }
+
+    if (filters?.productId) {
+      query = query.eq("expense_details.product_id", filters.productId);
+    }
+
+    if (filters?.expenseCategoryId) {
+      query = query.eq("expense_details.expense_category_id", filters.expenseCategoryId);
     }
 
     if (filters?.submissionType) {
@@ -2333,10 +2434,17 @@ export class SupabaseClaimRepository implements ClaimRepository {
       FINANCE_NON_REJECTED_VISIBLE_STATUSES,
     );
 
+    const needsExpenseInnerJoin =
+      filters?.locationId || filters?.productId || filters?.expenseCategoryId;
+
+    const expenseDetailsJoin = needsExpenseInnerJoin
+      ? "expense_details!inner(total_amount, purpose, receipt_file_path, bank_statement_file_path, master_expense_categories(name), location_id, product_id, expense_category_id)"
+      : "expense_details(total_amount, purpose, receipt_file_path, bank_statement_file_path, master_expense_categories(name))";
+
     let query = client
       .from("claims")
       .select(
-        "id, employee_id, detail_type, submission_type, on_behalf_email, submitted_by, status, submitted_at, created_at, updated_at, submitter_user:users!claims_submitted_by_fkey!inner(full_name, email), master_departments(name), master_payment_modes(name), expense_details(total_amount, purpose, receipt_file_path, bank_statement_file_path, master_expense_categories(name)), advance_details(requested_amount, purpose, supporting_document_path)",
+        `id, employee_id, detail_type, submission_type, on_behalf_email, submitted_by, status, submitted_at, created_at, updated_at, submitter_user:users!claims_submitted_by_fkey!inner(full_name, email), master_departments(name), master_payment_modes(name), ${expenseDetailsJoin}, advance_details(requested_amount, purpose, supporting_document_path)`,
       )
       .or(
         `status.in.${financeNonRejectedStatusesFilter},and(status.eq.Rejected,assigned_l2_approver_id.not.is.null)`,
@@ -2355,6 +2463,18 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
     if (filters?.departmentId) {
       query = query.eq("department_id", filters.departmentId);
+    }
+
+    if (filters?.locationId) {
+      query = query.eq("expense_details.location_id", filters.locationId);
+    }
+
+    if (filters?.productId) {
+      query = query.eq("expense_details.product_id", filters.productId);
+    }
+
+    if (filters?.expenseCategoryId) {
+      query = query.eq("expense_details.expense_category_id", filters.expenseCategoryId);
     }
 
     if (filters?.submissionType) {

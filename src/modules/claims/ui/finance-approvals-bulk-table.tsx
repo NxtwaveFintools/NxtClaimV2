@@ -26,6 +26,7 @@ import { ApprovalsAuditModeDialog } from "@/modules/claims/ui/approvals-quick-vi
 import { ClaimDecisionActionForm } from "@/modules/claims/ui/claim-decision-action-form";
 import { ClaimRejectWithReasonForm } from "@/modules/claims/ui/claim-reject-with-reason-form";
 import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
+import { getAvailableClaimActions } from "@/modules/claims/utils/get-available-claim-actions";
 
 type FinanceApprovalRow = {
   id: string;
@@ -491,13 +492,10 @@ export function FinanceApprovalsBulkTable({
           <tbody className="divide-y divide-slate-100 bg-white text-slate-700 dark:divide-slate-900 dark:bg-zinc-950 dark:text-slate-300">
             {rows.map((claim) => {
               const isChecked = isGlobalSelect || selectedIds.includes(claim.id);
-              const canApproveOrReject =
-                approvalScope === "l1"
-                  ? claim.status === "Submitted - Awaiting HOD approval"
-                  : claim.status === "HOD approved - Awaiting finance approval";
-              const canMarkPaid =
-                approvalScope === "finance" &&
-                claim.status === "Finance Approved - Payment under process";
+              const userRole = approvalScope === "l1" ? "HOD" : "Finance";
+              const availableActions = getAvailableClaimActions(claim.status, userRole);
+              const canApproveOrReject = availableActions.canApprove && availableActions.canReject;
+              const canMarkPaid = availableActions.canMarkPaid;
               const isActionable = canApproveOrReject || canMarkPaid;
 
               const approveSingle = async () => {
@@ -540,6 +538,43 @@ export function FinanceApprovalsBulkTable({
                   throw new Error(result.message ?? "Unable to mark as paid.");
                 }
                 router.refresh();
+              };
+
+              const renderRowActions = (compact: boolean) => {
+                if (canApproveOrReject) {
+                  return (
+                    <>
+                      <ClaimDecisionActionForm
+                        action={approveSingle}
+                        decision="approve"
+                        compact={compact}
+                        loadingMessage="Approving finance step..."
+                        successMessage="Finance decision approved."
+                        errorMessage="Unable to approve finance step."
+                      />
+                      <ClaimRejectWithReasonForm action={rejectSingle} compact={compact} />
+                    </>
+                  );
+                }
+
+                if (canMarkPaid) {
+                  return (
+                    <ClaimDecisionActionForm
+                      action={markPaidSingle}
+                      decision="mark-paid"
+                      compact={compact}
+                      loadingMessage="Marking payment as done..."
+                      successMessage="Claim marked as paid."
+                      errorMessage="Unable to mark payment as done."
+                    />
+                  );
+                }
+
+                return (
+                  <span className="text-xs font-medium uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+                    No actions
+                  </span>
+                );
               };
 
               return (
@@ -618,33 +653,10 @@ export function FinanceApprovalsBulkTable({
                             ?.advanceSupportingDocumentSignedUrl ?? null
                         }
                         auditLogs={auditLogsByClaimId[claim.id] ?? []}
-                      />
-                      {canApproveOrReject ? (
-                        <>
-                          <ClaimDecisionActionForm
-                            action={approveSingle}
-                            decision="approve"
-                            compact
-                            loadingMessage="Approving finance step..."
-                            successMessage="Finance decision approved."
-                            errorMessage="Unable to approve finance step."
-                          />
-                          <ClaimRejectWithReasonForm action={rejectSingle} compact />
-                        </>
-                      ) : canMarkPaid ? (
-                        <ClaimDecisionActionForm
-                          action={markPaidSingle}
-                          decision="mark-paid"
-                          compact
-                          loadingMessage="Marking payment as done..."
-                          successMessage="Claim marked as paid."
-                          errorMessage="Unable to mark payment as done."
-                        />
-                      ) : (
-                        <span className="text-xs font-medium uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
-                          No actions
-                        </span>
-                      )}
+                      >
+                        {renderRowActions(false)}
+                      </ApprovalsAuditModeDialog>
+                      {renderRowActions(true)}
                     </div>
                   </td>
                 </tr>

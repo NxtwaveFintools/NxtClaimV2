@@ -74,19 +74,37 @@ export type ClaimSubmissionInput = {
 
 export type FinanceExpenseEditPayload = {
   detailType: "expense";
+  departmentId: string;
+  paymentModeId: string;
   billNo: string;
+  expenseCategoryId: string;
+  locationId: string;
+  transactionDate: string;
+  isGstApplicable: boolean;
+  gstNumber: string | null;
   vendorName: string | null;
   basicAmount: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+  totalAmount: number;
   purpose: string;
   productId: string | null;
+  peopleInvolved: string | null;
   remarks: string | null;
   receiptFilePath: string | null;
+  bankStatementFilePath: string | null;
 };
 
 export type FinanceAdvanceEditPayload = {
   detailType: "advance";
+  departmentId: string;
+  paymentModeId: string;
   purpose: string;
+  requestedAmount: number;
+  expectedUsageDate: string;
   productId: string | null;
+  locationId: string | null;
   remarks: string | null;
   supportingDocumentPath: string | null;
 };
@@ -98,6 +116,7 @@ export type ClaimFinanceEditSnapshot = {
   detailType: ClaimDetailType;
   submittedBy: string;
   expenseReceiptFilePath: string | null;
+  expenseBankStatementFilePath: string | null;
   advanceSupportingDocumentPath: string | null;
 };
 

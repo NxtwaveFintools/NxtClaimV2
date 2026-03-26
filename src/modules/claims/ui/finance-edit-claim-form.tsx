@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
-type ProductOption = {
+type DropdownOption = {
   id: string;
   name: string;
 };
@@ -11,48 +11,64 @@ type ProductOption = {
 type FinanceEditClaimFormProps = {
   claim: {
     id: string;
+    employeeName: string;
+    employeeEmail: string | null;
+    submissionType: "Self" | "On Behalf";
     detailType: "expense" | "advance";
-    submittedAt: string;
-    departmentName: string | null;
-    paymentModeName: string | null;
+    departmentId: string;
+    paymentModeId: string;
     expense: {
       billNo: string;
+      expenseCategoryId: string | null;
+      locationId: string | null;
       transactionDate: string;
+      isGstApplicable: boolean | null;
+      gstNumber: string | null;
       basicAmount: number | null;
+      cgstAmount: number | null;
+      sgstAmount: number | null;
+      igstAmount: number | null;
       totalAmount: number | null;
       vendorName: string | null;
       purpose: string | null;
       productId: string | null;
+      peopleInvolved: string | null;
       remarks: string | null;
     } | null;
     advance: {
       purpose: string;
+      requestedAmount: number | null;
+      expectedUsageDate: string;
       productId: string | null;
+      locationId: string | null;
       remarks: string | null;
     } | null;
   };
-  products: ProductOption[];
+  departments: DropdownOption[];
+  paymentModes: DropdownOption[];
+  expenseCategories: DropdownOption[];
+  products: DropdownOption[];
+  locations: DropdownOption[];
   action: (formData: FormData) => Promise<void>;
 };
 
-function formatDate(value: string | null): string {
+function toDateInputValue(value: string | null | undefined): string {
   if (!value) {
-    return "N/A";
+    return "";
   }
 
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "N/A";
-  }
-
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(parsed);
+  return value.slice(0, 10);
 }
 
-export function FinanceEditClaimForm({ claim, products, action }: FinanceEditClaimFormProps) {
+export function FinanceEditClaimForm({
+  claim,
+  departments,
+  paymentModes,
+  expenseCategories,
+  products,
+  locations,
+  action,
+}: FinanceEditClaimFormProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -102,8 +118,7 @@ export function FinanceEditClaimForm({ claim, products, action }: FinanceEditCla
         Finance Edit Claim
       </h2>
       <p className="mt-2 text-xs text-indigo-100/80">
-        Only allowlisted fields are editable. Claim identity, dates, detail type, department, and
-        payment mode are read-only.
+        Finance can correct claim and detail values before final processing.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-4 grid gap-4">
@@ -121,52 +136,64 @@ export function FinanceEditClaimForm({ claim, products, action }: FinanceEditCla
             </label>
 
             <label className="grid gap-1 text-sm text-indigo-100/90">
-              Detail Type (Read-only)
+              Employee Name (Read-only)
               <input
-                value={claim.detailType}
+                value={claim.employeeName}
                 disabled
                 className="rounded-lg border border-indigo-700/60 bg-indigo-950/40 px-3 py-2 text-sm text-indigo-100/80"
               />
             </label>
 
             <label className="grid gap-1 text-sm text-indigo-100/90">
-              Submitted At (Read-only)
+              Employee Email (Read-only)
               <input
-                value={formatDate(claim.submittedAt)}
+                value={claim.employeeEmail ?? "N/A"}
                 disabled
                 className="rounded-lg border border-indigo-700/60 bg-indigo-950/40 px-3 py-2 text-sm text-indigo-100/80"
               />
             </label>
 
             <label className="grid gap-1 text-sm text-indigo-100/90">
-              Department (Read-only)
+              Submission Type (Read-only)
               <input
-                value={claim.departmentName ?? "N/A"}
+                value={claim.submissionType}
                 disabled
                 className="rounded-lg border border-indigo-700/60 bg-indigo-950/40 px-3 py-2 text-sm text-indigo-100/80"
               />
             </label>
+          </div>
 
-            <label className="grid gap-1 text-sm text-indigo-100/90">
-              Payment Mode (Read-only)
-              <input
-                value={claim.paymentModeName ?? "N/A"}
-                disabled
-                className="rounded-lg border border-indigo-700/60 bg-indigo-950/40 px-3 py-2 text-sm text-indigo-100/80"
-              />
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="grid gap-1 text-sm text-slate-200">
+              Department
+              <select
+                name="departmentId"
+                required
+                defaultValue={claim.departmentId}
+                className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100"
+              >
+                {departments.map((department) => (
+                  <option key={department.id} value={department.id}>
+                    {department.name}
+                  </option>
+                ))}
+              </select>
             </label>
 
-            <label className="grid gap-1 text-sm text-indigo-100/90">
-              Transaction Date (Read-only)
-              <input
-                value={
-                  claim.detailType === "expense"
-                    ? formatDate(expense?.transactionDate ?? null)
-                    : "N/A"
-                }
-                disabled
-                className="rounded-lg border border-indigo-700/60 bg-indigo-950/40 px-3 py-2 text-sm text-indigo-100/80"
-              />
+            <label className="grid gap-1 text-sm text-slate-200">
+              Payment Mode
+              <select
+                name="paymentModeId"
+                required
+                defaultValue={claim.paymentModeId}
+                className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100"
+              >
+                {paymentModes.map((paymentMode) => (
+                  <option key={paymentMode.id} value={paymentMode.id}>
+                    {paymentMode.name}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
 
@@ -183,10 +210,81 @@ export function FinanceEditClaimForm({ claim, products, action }: FinanceEditCla
               </label>
 
               <label className="grid gap-1 text-sm text-slate-200">
+                Expense Category
+                <select
+                  name="expenseCategoryId"
+                  required
+                  defaultValue={expense?.expenseCategoryId ?? ""}
+                  className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100"
+                >
+                  <option value="" disabled>
+                    Select expense category
+                  </option>
+                  {expenseCategories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="grid gap-1 text-sm text-slate-200">
                 Vendor Name
                 <input
                   name="vendorName"
                   defaultValue={expense?.vendorName ?? ""}
+                  className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100"
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm text-slate-200">
+                Location
+                <select
+                  name="locationId"
+                  required
+                  defaultValue={expense?.locationId ?? ""}
+                  className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100"
+                >
+                  <option value="" disabled>
+                    Select location
+                  </option>
+                  {locations.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="grid gap-1 text-sm text-slate-200">
+                Transaction Date
+                <input
+                  name="transactionDate"
+                  type="date"
+                  required
+                  defaultValue={toDateInputValue(expense?.transactionDate)}
+                  className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100"
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm text-slate-200">
+                GST Applicable
+                <select
+                  name="isGstApplicable"
+                  required
+                  defaultValue={expense?.isGstApplicable ? "true" : "false"}
+                  className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100"
+                >
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </label>
+
+              <label className="grid gap-1 text-sm text-slate-200">
+                GST Number
+                <input
+                  name="gstNumber"
+                  defaultValue={expense?.gstNumber ?? ""}
                   className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100"
                 />
               </label>
@@ -205,13 +303,51 @@ export function FinanceEditClaimForm({ claim, products, action }: FinanceEditCla
               </label>
 
               <label className="grid gap-1 text-sm text-slate-200">
-                Total Amount (Read-only)
+                CGST Amount
                 <input
+                  name="cgstAmount"
                   type="number"
                   step="0.01"
-                  disabled
-                  value={expense?.totalAmount ?? ""}
-                  className="rounded-lg border border-indigo-700/60 bg-indigo-950/40 px-3 py-2 text-sm text-indigo-100/80"
+                  min="0"
+                  defaultValue={expense?.cgstAmount ?? 0}
+                  className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100"
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm text-slate-200">
+                SGST Amount
+                <input
+                  name="sgstAmount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  defaultValue={expense?.sgstAmount ?? 0}
+                  className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100"
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm text-slate-200">
+                IGST Amount
+                <input
+                  name="igstAmount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  defaultValue={expense?.igstAmount ?? 0}
+                  className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100"
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm text-slate-200">
+                Total Amount
+                <input
+                  name="totalAmount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  required
+                  defaultValue={expense?.totalAmount ?? ""}
+                  className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100"
                 />
               </label>
 
@@ -239,6 +375,15 @@ export function FinanceEditClaimForm({ claim, products, action }: FinanceEditCla
                     </option>
                   ))}
                 </select>
+              </label>
+
+              <label className="grid gap-1 text-sm text-slate-200">
+                People Involved
+                <input
+                  name="peopleInvolved"
+                  defaultValue={expense?.peopleInvolved ?? ""}
+                  className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100"
+                />
               </label>
 
               <label className="grid gap-1 text-sm text-slate-200 md:col-span-2">
@@ -279,6 +424,46 @@ export function FinanceEditClaimForm({ claim, products, action }: FinanceEditCla
                 </select>
               </label>
 
+              <label className="grid gap-1 text-sm text-slate-200">
+                Location
+                <select
+                  name="locationId"
+                  defaultValue={advance?.locationId ?? ""}
+                  className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100"
+                >
+                  <option value="">None</option>
+                  {locations.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="grid gap-1 text-sm text-slate-200">
+                Requested Amount
+                <input
+                  name="requestedAmount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  required
+                  defaultValue={advance?.requestedAmount ?? ""}
+                  className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100"
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm text-slate-200">
+                Expected Usage Date
+                <input
+                  name="expectedUsageDate"
+                  type="date"
+                  required
+                  defaultValue={toDateInputValue(advance?.expectedUsageDate)}
+                  className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100"
+                />
+              </label>
+
               <label className="grid gap-1 text-sm text-slate-200 md:col-span-2">
                 Remarks
                 <textarea
@@ -300,6 +485,18 @@ export function FinanceEditClaimForm({ claim, products, action }: FinanceEditCla
               className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 file:mr-3 file:rounded-md file:border-0 file:bg-slate-700 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-slate-100"
             />
           </label>
+
+          {claim.detailType === "expense" ? (
+            <label className="grid gap-1 text-sm text-slate-200">
+              Replace Bank Statement File
+              <input
+                name="bankStatementFile"
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg,.webp"
+                className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-slate-100 file:mr-3 file:rounded-md file:border-0 file:bg-slate-700 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-slate-100"
+              />
+            </label>
+          ) : null}
 
           <div className="flex flex-wrap gap-2">
             <button

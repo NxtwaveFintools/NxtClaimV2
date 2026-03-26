@@ -57,7 +57,7 @@ function updateUrlWithMutation(
 ): void {
   const query = params.toString();
   const nextHref = query ? `${pathname}?${query}` : pathname;
-  router.push(nextHref);
+  router.replace(nextHref, { scroll: false });
 }
 
 function hasActiveFilterParams(params: URLSearchParams): boolean {

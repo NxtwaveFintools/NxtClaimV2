@@ -1,17 +1,21 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 type ClaimRejectWithReasonFormProps = {
   action: (formData: FormData) => Promise<void>;
   compact?: boolean;
+  redirectToHref?: string;
 };
 
 export function ClaimRejectWithReasonForm({
   action,
   compact = false,
+  redirectToHref,
 }: ClaimRejectWithReasonFormProps) {
+  const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -33,6 +37,10 @@ export function ClaimRejectWithReasonForm({
       });
       setIsModalOpen(false);
       event.currentTarget.reset();
+
+      if (redirectToHref) {
+        router.push(redirectToHref);
+      }
     } finally {
       setIsSubmitting(false);
     }

@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ExternalLink } from "lucide-react";
 import { BackButton } from "@/components/ui/back-button";
 import { ROUTES } from "@/core/config/route-registry";
 import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
@@ -19,6 +20,10 @@ import { ClaimDecisionActionForm } from "@/modules/claims/ui/claim-decision-acti
 import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
 import { FinanceEditClaimForm } from "@/modules/claims/ui/finance-edit-claim-form";
 import { ClaimAuditTimeline } from "@/modules/claims/ui/claim-audit-timeline";
+import {
+  getAvailableClaimActions,
+  type ClaimActionRole,
+} from "@/modules/claims/utils/get-available-claim-actions";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -186,17 +191,52 @@ export default async function ClaimDetailPage({ params, searchParams }: PageProp
     notFound();
   }
 
-  const canTakeL1Decision = isAssignedL1Approver && claim.status === DB_CLAIM_STATUSES[0];
+  const effectiveRole: ClaimActionRole | null = isAssignedL1Approver
+    ? "HOD"
+    : isFinanceActor
+      ? "Finance"
+      : null;
+  const availableActions = effectiveRole
+    ? getAvailableClaimActions(claim.status, effectiveRole)
+    : { canApprove: false, canReject: false, canMarkPaid: false };
+  const canTakeL1Decision =
+    effectiveRole === "HOD" && availableActions.canApprove && availableActions.canReject;
   const canTakeFinanceAuthorizationDecision =
-    isAssignedL2Approver && claim.status === DB_CLAIM_STATUSES[1];
+    effectiveRole === "Finance" && availableActions.canApprove && availableActions.canReject;
   const canTakeFinanceExecutionDecision =
-    isAssignedL2Approver && claim.status === DB_CLAIM_STATUSES[2];
+    effectiveRole === "Finance" && availableActions.canMarkPaid;
   const canTakeDecision =
     canTakeL1Decision || canTakeFinanceAuthorizationDecision || canTakeFinanceExecutionDecision;
-  const productsResult = canEditByFinance
-    ? await claimRepository.getActiveProducts()
-    : { data: [], errorMessage: null };
+  const [
+    productsResult,
+    departmentsResult,
+    paymentModesResult,
+    expenseCategoriesResult,
+    locationsResult,
+  ] = canEditByFinance
+    ? await Promise.all([
+        claimRepository.getActiveProducts(),
+        claimRepository.getActiveDepartments(),
+        claimRepository.getActivePaymentModes(),
+        claimRepository.getActiveExpenseCategories(),
+        claimRepository.getActiveLocations(),
+      ])
+    : [
+        { data: [], errorMessage: null },
+        { data: [], errorMessage: null },
+        { data: [], errorMessage: null },
+        { data: [], errorMessage: null },
+        { data: [], errorMessage: null },
+      ];
   const productOptions = productsResult.errorMessage ? [] : productsResult.data;
+  const departmentOptions = departmentsResult.errorMessage ? [] : departmentsResult.data;
+  const paymentModeOptions = paymentModesResult.errorMessage
+    ? []
+    : paymentModesResult.data.map((mode) => ({ id: mode.id, name: mode.name }));
+  const expenseCategoryOptions = expenseCategoriesResult.errorMessage
+    ? []
+    : expenseCategoriesResult.data;
+  const locationOptions = locationsResult.errorMessage ? [] : locationsResult.data;
 
   const evidencePaths: Array<{ label: string; path: string }> = [];
 
@@ -208,11 +248,18 @@ export default async function ClaimDetailPage({ params, searchParams }: PageProp
     evidencePaths.push({ label: "Bank Statement", path: claim.expense.bankStatementFilePath });
   }
 
+  if (isRenderableEvidencePath(claim.advance?.supportingDocumentPath)) {
+    evidencePaths.push({
+      label: "Supporting Document",
+      path: claim.advance.supportingDocumentPath,
+    });
+  }
+
   const evidenceItems = await resolveEvidenceUrls(claimRepository, evidencePaths);
 
   const approveFromDetail = async () => {
     "use server";
-    await approveClaimAction({ claimId: claim.id, redirectToApprovalsView: true });
+    await approveClaimAction({ claimId: claim.id });
   };
 
   const rejectFromDetail = async (formData: FormData) => {
@@ -221,7 +268,6 @@ export default async function ClaimDetailPage({ params, searchParams }: PageProp
     const allowResubmission = formData.get("allowResubmission") === "true";
     await rejectClaimAction({
       claimId: claim.id,
-      redirectToApprovalsView: true,
       rejectionReason,
       allowResubmission,
     });
@@ -229,7 +275,7 @@ export default async function ClaimDetailPage({ params, searchParams }: PageProp
 
   const approveFinanceFromDetail = async () => {
     "use server";
-    await approveFinanceAction({ claimId: claim.id, redirectToApprovalsView: true });
+    await approveFinanceAction({ claimId: claim.id });
   };
 
   const rejectFinanceFromDetail = async (formData: FormData) => {
@@ -238,7 +284,6 @@ export default async function ClaimDetailPage({ params, searchParams }: PageProp
     const allowResubmission = formData.get("allowResubmission") === "true";
     await rejectFinanceAction({
       claimId: claim.id,
-      redirectToApprovalsView: true,
       rejectionReason,
       allowResubmission,
     });
@@ -246,13 +291,24 @@ export default async function ClaimDetailPage({ params, searchParams }: PageProp
 
   const markPaidFromDetail = async () => {
     "use server";
-    await markPaymentDoneAction({ claimId: claim.id, redirectToApprovalsView: true });
+    await markPaymentDoneAction({ claimId: claim.id });
   };
 
   const updateFinanceDetailFromPage = async (formData: FormData) => {
     "use server";
-    await updateClaimByFinanceAction({ claimId: claim.id, formData });
+    const result = await updateClaimByFinanceAction({ claimId: claim.id, formData });
+
+    if (!result.ok) {
+      throw new Error(result.message ?? "Unable to update claim details.");
+    }
   };
+
+  const shouldShowExpenseTaxBreakdown =
+    !!claim.expense &&
+    (claim.expense.isGstApplicable === true ||
+      (claim.expense.cgstAmount ?? 0) > 0 ||
+      (claim.expense.sgstAmount ?? 0) > 0 ||
+      (claim.expense.igstAmount ?? 0) > 0);
 
   return (
     <div className="min-h-screen bg-slate-50 px-6 py-8 dark:bg-[#0B0F1A]">
@@ -401,6 +457,28 @@ export default async function ClaimDetailPage({ params, searchParams }: PageProp
                     {formatAmount(claim.expense.basicAmount)}
                   </span>
                 </p>
+                {shouldShowExpenseTaxBreakdown ? (
+                  <>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      CGST Amount:{" "}
+                      <span className="font-medium text-slate-900 dark:text-slate-100">
+                        {formatAmount(claim.expense.cgstAmount)}
+                      </span>
+                    </p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      SGST Amount:{" "}
+                      <span className="font-medium text-slate-900 dark:text-slate-100">
+                        {formatAmount(claim.expense.sgstAmount)}
+                      </span>
+                    </p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      IGST Amount:{" "}
+                      <span className="font-medium text-slate-900 dark:text-slate-100">
+                        {formatAmount(claim.expense.igstAmount)}
+                      </span>
+                    </p>
+                  </>
+                ) : null}
                 <p className="text-sm text-slate-600 dark:text-slate-400">
                   Purpose:{" "}
                   <span className="font-medium text-slate-900 dark:text-slate-100">
@@ -471,6 +549,7 @@ export default async function ClaimDetailPage({ params, searchParams }: PageProp
                     loadingMessage="Marking payment as done..."
                     successMessage="Claim marked as paid."
                     errorMessage="Unable to mark payment as done."
+                    redirectToHref={`${ROUTES.claims.myClaims}?view=approvals`}
                   />
                 ) : canTakeFinanceAuthorizationDecision ? (
                   <>
@@ -480,8 +559,12 @@ export default async function ClaimDetailPage({ params, searchParams }: PageProp
                       loadingMessage="Approving finance step..."
                       successMessage="Finance decision approved."
                       errorMessage="Unable to approve finance step."
+                      redirectToHref={`${ROUTES.claims.myClaims}?view=approvals`}
                     />
-                    <ClaimRejectWithReasonForm action={rejectFinanceFromDetail} />
+                    <ClaimRejectWithReasonForm
+                      action={rejectFinanceFromDetail}
+                      redirectToHref={`${ROUTES.claims.myClaims}?view=approvals`}
+                    />
                   </>
                 ) : (
                   <>
@@ -491,8 +574,12 @@ export default async function ClaimDetailPage({ params, searchParams }: PageProp
                       loadingMessage="Approving claim..."
                       successMessage="Claim approved."
                       errorMessage="Unable to approve claim."
+                      redirectToHref={`${ROUTES.claims.myClaims}?view=approvals`}
                     />
-                    <ClaimRejectWithReasonForm action={rejectFromDetail} />
+                    <ClaimRejectWithReasonForm
+                      action={rejectFromDetail}
+                      redirectToHref={`${ROUTES.claims.myClaims}?view=approvals`}
+                    />
                   </>
                 )}
               </div>
@@ -503,31 +590,48 @@ export default async function ClaimDetailPage({ params, searchParams }: PageProp
             <FinanceEditClaimForm
               claim={{
                 id: claim.id,
+                employeeName: claim.submitterName ?? claim.submitter,
+                employeeEmail: claim.submitterEmail,
                 detailType: claim.detailType,
-                submittedAt: claim.submittedAt,
-                departmentName: claim.departmentName,
-                paymentModeName: claim.paymentModeName,
+                submissionType: claim.submissionType,
+                departmentId: claim.departmentId,
+                paymentModeId: claim.paymentModeId,
                 expense: claim.expense
                   ? {
                       billNo: claim.expense.billNo,
+                      expenseCategoryId: claim.expense.expenseCategoryId,
+                      locationId: claim.expense.locationId,
                       transactionDate: claim.expense.transactionDate,
+                      isGstApplicable: claim.expense.isGstApplicable,
+                      gstNumber: claim.expense.gstNumber,
                       basicAmount: claim.expense.basicAmount,
+                      cgstAmount: claim.expense.cgstAmount,
+                      sgstAmount: claim.expense.sgstAmount,
+                      igstAmount: claim.expense.igstAmount,
                       totalAmount: claim.expense.totalAmount,
                       vendorName: claim.expense.vendorName,
                       purpose: claim.expense.purpose,
                       productId: claim.expense.productId,
+                      peopleInvolved: claim.expense.peopleInvolved,
                       remarks: claim.expense.remarks,
                     }
                   : null,
                 advance: claim.advance
                   ? {
                       purpose: claim.advance.purpose,
+                      requestedAmount: claim.advance.requestedAmount,
+                      expectedUsageDate: claim.advance.expectedUsageDate,
                       productId: claim.advance.productId,
+                      locationId: claim.advance.locationId,
                       remarks: claim.advance.remarks,
                     }
                   : null,
               }}
+              departments={departmentOptions}
+              paymentModes={paymentModeOptions}
+              expenseCategories={expenseCategoryOptions}
               products={productOptions}
+              locations={locationOptions}
               action={updateFinanceDetailFromPage}
             />
           ) : null}
@@ -560,33 +664,44 @@ export default async function ClaimDetailPage({ params, searchParams }: PageProp
               No evidence files attached to this claim.
             </p>
           ) : (
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="mt-4 flex w-full flex-col gap-6">
               {evidenceItems.map((item) => (
                 <article
                   key={item.path}
-                  className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800"
+                  className="w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800"
                 >
-                  <header className="border-b border-slate-200 px-4 py-2 dark:border-slate-800">
+                  <header className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
                     <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
                       {item.label}
                     </p>
+                    <a
+                      href={item.signedUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      Open in New Tab
+                      <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                    </a>
                   </header>
-                  <div className="bg-slate-950/40 p-2">
+                  <div className="w-full bg-slate-950/40 p-2 sm:p-3">
                     {isPdf(item.path) ? (
                       <iframe
                         title={item.label}
                         src={item.signedUrl}
-                        className="h-[460px] w-full rounded-lg border border-slate-800"
+                        className="h-[70vh] min-h-[420px] w-full rounded-lg border border-slate-800 md:min-h-[600px]"
                       />
                     ) : (
-                      <Image
-                        src={item.signedUrl}
-                        alt={item.label}
-                        width={1440}
-                        height={900}
-                        unoptimized
-                        className="h-auto max-h-[460px] w-full rounded-lg object-contain"
-                      />
+                      <div className="flex h-[70vh] min-h-[420px] w-full items-center justify-center rounded-lg border border-slate-800 bg-slate-950/40 p-2 md:min-h-[600px]">
+                        <Image
+                          src={item.signedUrl}
+                          alt={item.label}
+                          width={1800}
+                          height={2200}
+                          unoptimized
+                          className="h-full w-full object-contain"
+                        />
+                      </div>
                     )}
                   </div>
                 </article>

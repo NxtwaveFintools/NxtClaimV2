@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Suspense } from "react";
 import { BackButton } from "@/components/ui/back-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ROUTES } from "@/core/config/route-registry";
@@ -32,7 +31,6 @@ import { FinanceApprovalsBulkTable } from "@/modules/claims/ui/finance-approvals
 import { MyClaimsPaginationControls } from "@/modules/claims/ui/my-claims-pagination-controls";
 import { ApprovalsAuditModeDialog } from "@/modules/claims/ui/approvals-quick-view-sheet";
 import { ClaimSemanticDownloadButton } from "@/modules/claims/ui/claim-semantic-download-button";
-import { TableSkeleton } from "@/components/ui/table-skeleton";
 
 const PAGE_SIZE = 10;
 type SearchParamsValue = string | string[] | undefined;
@@ -1081,15 +1079,13 @@ export default async function MyClaimsDashboardPage({
           </h2>
         ) : null}
 
-        <Suspense fallback={<TableSkeleton rows={10} columns={8} />}>
-          <ClaimsCommandCenterTable
-            userId={currentUserResult.user.id}
-            view={activeView}
-            approvalScope={viewerContextResult.activeScope}
-            searchParams={resolvedSearchParams}
-            filters={filters}
-          />
-        </Suspense>
+        <ClaimsCommandCenterTable
+          userId={currentUserResult.user.id}
+          view={activeView}
+          approvalScope={viewerContextResult.activeScope}
+          searchParams={resolvedSearchParams}
+          filters={filters}
+        />
       </main>
     </div>
   );

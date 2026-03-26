@@ -739,37 +739,51 @@ export async function submitClaimAction(input: unknown): Promise<{
 function buildFinanceEditPayload(formData: FormData): unknown {
   const detailType = getFormDataString(formData, "detailType");
   const productId = getFormDataNullableString(formData, "productId");
+  const locationId = getFormDataNullableString(formData, "locationId");
   const receiptFileEntry = formData.get("receiptFile");
   const receiptFile =
     receiptFileEntry instanceof File && receiptFileEntry.size > 0 ? receiptFileEntry : null;
+  const bankStatementFileEntry = formData.get("bankStatementFile");
+  const bankStatementFile =
+    bankStatementFileEntry instanceof File && bankStatementFileEntry.size > 0
+      ? bankStatementFileEntry
+      : null;
 
   if (detailType === "expense") {
     return {
       detailType,
+      departmentId: getFormDataString(formData, "departmentId"),
+      paymentModeId: getFormDataString(formData, "paymentModeId"),
       billNo: getFormDataString(formData, "billNo"),
+      expenseCategoryId: getFormDataString(formData, "expenseCategoryId"),
+      locationId: getFormDataString(formData, "locationId"),
+      transactionDate: getFormDataString(formData, "transactionDate"),
+      isGstApplicable: getFormDataBoolean(formData, "isGstApplicable"),
+      gstNumber: getFormDataNullableString(formData, "gstNumber"),
       vendorName: getFormDataNullableString(formData, "vendorName"),
       basicAmount: getFormDataNumber(formData, "basicAmount"),
+      cgstAmount: getFormDataNumber(formData, "cgstAmount"),
+      sgstAmount: getFormDataNumber(formData, "sgstAmount"),
+      igstAmount: getFormDataNumber(formData, "igstAmount"),
+      totalAmount: getFormDataNumber(formData, "totalAmount"),
       purpose: getFormDataString(formData, "purpose"),
       productId,
+      peopleInvolved: getFormDataNullableString(formData, "peopleInvolved"),
       remarks: getFormDataNullableString(formData, "remarks"),
       receiptFile,
-    };
-  }
-
-  if (detailType !== "advance") {
-    return {
-      detailType,
-      purpose: getFormDataString(formData, "purpose"),
-      productId,
-      remarks: getFormDataNullableString(formData, "remarks"),
-      receiptFile,
+      bankStatementFile,
     };
   }
 
   return {
     detailType,
+    departmentId: getFormDataString(formData, "departmentId"),
+    paymentModeId: getFormDataString(formData, "paymentModeId"),
     purpose: getFormDataString(formData, "purpose"),
+    requestedAmount: getFormDataNumber(formData, "requestedAmount"),
+    expectedUsageDate: getFormDataString(formData, "expectedUsageDate"),
     productId,
+    locationId,
     remarks: getFormDataNullableString(formData, "remarks"),
     receiptFile,
   };
@@ -841,6 +855,7 @@ export async function updateClaimByFinanceAction(input: {
   }
 
   let nextExpenseReceiptPath = claimSnapshotResult.data.expenseReceiptFilePath;
+  let nextExpenseBankStatementPath = claimSnapshotResult.data.expenseBankStatementFilePath;
   let nextAdvanceDocumentPath = claimSnapshotResult.data.advanceSupportingDocumentPath;
 
   if (parseResult.data.receiptFile && parseResult.data.receiptFile.size > 0) {
@@ -877,24 +892,73 @@ export async function updateClaimByFinanceAction(input: {
     }
   }
 
+  if (
+    parseResult.data.detailType === "expense" &&
+    parseResult.data.bankStatementFile &&
+    parseResult.data.bankStatementFile.size > 0
+  ) {
+    const fileBuffer = Buffer.from(await parseResult.data.bankStatementFile.arrayBuffer());
+
+    const uploadResult = await uploadClaimFile({
+      folder: "expenses",
+      userId: claimSnapshotResult.data.submittedBy,
+      fileName: parseResult.data.bankStatementFile.name,
+      fileType: parseResult.data.bankStatementFile.type || "application/octet-stream",
+      fileBuffer,
+    });
+
+    if (uploadResult.errorMessage || !uploadResult.path) {
+      return {
+        ok: false,
+        message: uploadResult.errorMessage ?? "Failed to upload replacement bank statement.",
+      };
+    }
+
+    const previousBankStatementPath = claimSnapshotResult.data.expenseBankStatementFilePath;
+
+    if (previousBankStatementPath && previousBankStatementPath !== uploadResult.path) {
+      await removeClaimFile(previousBankStatementPath);
+    }
+
+    nextExpenseBankStatementPath = uploadResult.path;
+  }
+
   let financeEditPayload: FinanceClaimEditPayload;
 
   if (parseResult.data.detailType === "expense") {
     financeEditPayload = {
       detailType: "expense",
+      departmentId: parseResult.data.departmentId,
+      paymentModeId: parseResult.data.paymentModeId,
       billNo: parseResult.data.billNo,
+      expenseCategoryId: parseResult.data.expenseCategoryId,
+      locationId: parseResult.data.locationId,
+      transactionDate: parseResult.data.transactionDate,
+      isGstApplicable: parseResult.data.isGstApplicable,
+      gstNumber: parseResult.data.gstNumber,
       vendorName: parseResult.data.vendorName,
       basicAmount: parseResult.data.basicAmount,
+      cgstAmount: parseResult.data.cgstAmount,
+      sgstAmount: parseResult.data.sgstAmount,
+      igstAmount: parseResult.data.igstAmount,
+      totalAmount: parseResult.data.totalAmount,
       purpose: parseResult.data.purpose,
       productId: parseResult.data.productId,
+      peopleInvolved: parseResult.data.peopleInvolved,
       remarks: parseResult.data.remarks,
       receiptFilePath: nextExpenseReceiptPath,
+      bankStatementFilePath: nextExpenseBankStatementPath,
     };
   } else {
     financeEditPayload = {
       detailType: "advance",
+      departmentId: parseResult.data.departmentId,
+      paymentModeId: parseResult.data.paymentModeId,
       purpose: parseResult.data.purpose,
+      requestedAmount: parseResult.data.requestedAmount,
+      expectedUsageDate: parseResult.data.expectedUsageDate,
       productId: parseResult.data.productId,
+      locationId: parseResult.data.locationId,
       remarks: parseResult.data.remarks,
       supportingDocumentPath: nextAdvanceDocumentPath,
     };
@@ -914,7 +978,8 @@ export async function updateClaimByFinanceAction(input: {
   }
 
   revalidatePath(ROUTES.claims.myClaims);
-  revalidatePath(`${ROUTES.claims.dashboardList}/${claimIdParse.data.claimId}`);
+  revalidatePath(ROUTES.claims.dashboardList);
+  revalidatePath(`${ROUTES.claims.dashboardList}/${claimIdParse.data.claimId}`, "page");
 
   return {
     ok: true,

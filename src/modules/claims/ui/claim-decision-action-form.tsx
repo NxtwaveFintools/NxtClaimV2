@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ClaimDecisionSubmitButton } from "@/modules/claims/ui/claim-decision-submit-button";
 
@@ -11,6 +12,7 @@ type ClaimDecisionActionFormProps = {
   loadingMessage: string;
   successMessage: string;
   errorMessage: string;
+  redirectToHref?: string;
 };
 
 export function ClaimDecisionActionForm({
@@ -20,7 +22,9 @@ export function ClaimDecisionActionForm({
   loadingMessage,
   successMessage,
   errorMessage,
+  redirectToHref,
 }: ClaimDecisionActionFormProps) {
+  const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -39,6 +43,10 @@ export function ClaimDecisionActionForm({
         success: successMessage,
         error: (error) => (error instanceof Error ? error.message : errorMessage),
       });
+
+      if (redirectToHref) {
+        router.push(redirectToHref);
+      }
     } finally {
       setIsSubmitting(false);
     }
