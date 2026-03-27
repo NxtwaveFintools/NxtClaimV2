@@ -223,15 +223,15 @@ function MyClaimsShellSkeleton() {
         <FilterBarSkeleton />
       </div>
 
-      <section className="min-h-[600px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="border-b border-slate-200 px-4 py-3 dark:border-zinc-800">
-          <div className="shimmer-sweep h-4 w-40 rounded-md bg-slate-200 dark:bg-gray-800/40" />
+      <section className="min-h-[600px] overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+          <div className="shimmer-sweep h-4 w-40 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
         </div>
         <div className="space-y-3 p-4">
           {Array.from({ length: 11 }).map((_, index) => (
             <div
               key={`table-shell-row-${index}`}
-              className="shimmer-sweep h-4 w-full rounded-md bg-slate-200 dark:bg-gray-800/40"
+              className="shimmer-sweep h-4 w-full rounded-md bg-zinc-200 dark:bg-gray-800/40"
             />
           ))}
         </div>
@@ -365,7 +365,7 @@ function resolveApprovalActionMode(params: {
 
 function TableHeader({ showActions }: { showActions: boolean }) {
   return (
-    <thead className="bg-slate-50 text-xs uppercase tracking-[0.12em] text-slate-600 dark:bg-slate-900/50 dark:text-slate-400">
+    <thead className="bg-zinc-50 text-xs uppercase tracking-[0.12em] text-zinc-600 dark:bg-zinc-900/50 dark:text-zinc-400">
       <tr>
         <th className="whitespace-nowrap px-4 py-3 font-semibold">CLAIM ID</th>
         <th className="whitespace-nowrap px-4 py-3 font-semibold">EMPLOYEE ID</th>
@@ -427,7 +427,7 @@ async function ClaimsCommandCenterTable({
       ]);
 
       return (
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
+        <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900">
           {approvalsResult.errorMessage ? (
             <div className="px-4 py-6">
               <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
@@ -437,10 +437,10 @@ async function ClaimsCommandCenterTable({
           ) : rows.length === 0 ? (
             <>
               <div className="grid place-items-center px-4 py-14 text-center">
-                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
                   No approvals history found.
                 </p>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">
+                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
                   Claims routed to your approval scope will appear here.
                 </p>
               </div>
@@ -514,11 +514,11 @@ async function ClaimsCommandCenterTable({
     };
 
     return (
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-        <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+      <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
           <p
             aria-hidden="true"
-            className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-700 dark:text-slate-300"
+            className="text-sm font-semibold uppercase tracking-[0.14em] text-zinc-700 dark:text-zinc-300"
           >
             Approvals History
           </p>
@@ -532,19 +532,19 @@ async function ClaimsCommandCenterTable({
           </div>
         ) : rows.length === 0 ? (
           <div className="grid place-items-center px-4 py-14 text-center">
-            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
               No approvals history found.
             </p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
               Claims routed to your approval scope will appear here.
             </p>
           </div>
         ) : (
           <>
             <div className="w-full overflow-x-auto">
-              <table className="min-w-[1720px] divide-y divide-slate-200 text-left text-sm dark:divide-slate-800">
+              <table className="min-w-[1720px] divide-y divide-zinc-200 text-left text-sm dark:divide-zinc-800">
                 <TableHeader showActions />
-                <tbody className="divide-y divide-slate-100 bg-white text-slate-700 dark:divide-slate-800 dark:bg-slate-900 dark:text-slate-300">
+                <tbody className="divide-y divide-zinc-100 bg-white text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
                   {rows.map((claim) => {
                     const evidenceSignedUrls = evidenceSignedUrlByClaimId[claim.id] ?? {
                       expenseReceiptSignedUrl: null,
@@ -645,7 +645,7 @@ async function ClaimsCommandCenterTable({
                       }
 
                       return (
-                        <span className="text-xs font-medium uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+                        <span className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
                           No actions
                         </span>
                       );
@@ -654,9 +654,9 @@ async function ClaimsCommandCenterTable({
                     return (
                       <tr
                         key={claim.id}
-                        className="group transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-900/40"
+                        className="group transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
                       >
-                        <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
+                        <td className="whitespace-nowrap px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
                           <Link
                             href={ROUTES.claims.detail(claim.id)}
                             className="text-indigo-500 hover:text-indigo-400 hover:underline"
@@ -684,7 +684,7 @@ async function ClaimsCommandCenterTable({
                             {claim.paymentModeName}
                           </span>
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">
+                        <td className="whitespace-nowrap px-4 py-3 font-semibold text-zinc-900 dark:text-zinc-100">
                           {claim.formattedTotalAmount}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
@@ -800,9 +800,9 @@ async function ClaimsCommandCenterTable({
   );
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-      <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-700 dark:text-slate-300">
+    <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-zinc-700 dark:text-zinc-300">
           My Submissions
         </h2>
       </div>
@@ -815,17 +815,17 @@ async function ClaimsCommandCenterTable({
         </div>
       ) : rows.length === 0 ? (
         <div className="grid place-items-center px-4 py-14 text-center">
-          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">No claims found</p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">
+          <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">No claims found</p>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
             Submit a new claim to see it here.
           </p>
         </div>
       ) : (
         <>
           <div className="overflow-x-auto">
-            <table className="min-w-[1500px] divide-y divide-slate-200 text-left text-sm dark:divide-slate-800">
+            <table className="min-w-[1500px] divide-y divide-zinc-200 text-left text-sm dark:divide-zinc-800">
               <TableHeader showActions />
-              <tbody className="divide-y divide-slate-100 bg-white text-slate-700 dark:divide-slate-800 dark:bg-slate-900 dark:text-slate-300">
+              <tbody className="divide-y divide-zinc-100 bg-white text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
                 {rows.map((claim) => {
                   const detail = submissionDetailsByClaimId[claim.id];
                   const evidenceSignedUrls = submissionEvidenceSignedUrlByClaimId[claim.id] ?? {
@@ -837,9 +837,9 @@ async function ClaimsCommandCenterTable({
                   return (
                     <tr
                       key={claim.id}
-                      className="transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-900/40"
+                      className="transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
                     >
-                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
+                      <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
                         <Link
                           href={ROUTES.claims.detail(claim.id)}
                           className="text-indigo-500 hover:text-indigo-400 hover:underline"
@@ -867,7 +867,7 @@ async function ClaimsCommandCenterTable({
                           {claim.typeOfClaim}
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">
+                      <td className="px-4 py-3 font-semibold text-zinc-900 dark:text-zinc-100">
                         {claim.formattedTotalAmount}
                       </td>
                       <td className="px-4 py-3">
@@ -918,7 +918,7 @@ async function ClaimsCommandCenterTable({
                           ) : (
                             <Link
                               href={ROUTES.claims.detail(claim.id)}
-                              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-zinc-800"
+                              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-2.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                             >
                               View
                             </Link>
@@ -948,18 +948,18 @@ async function ClaimsCommandCenterTable({
 
 function FilterBarSkeleton() {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
+    <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900">
       <div className="grid gap-3 md:grid-cols-5">
         {Array.from({ length: 5 }).map((_, index) => (
           <div key={`filter-placeholder-${index}`} className="space-y-1">
-            <div className="shimmer-sweep h-3 w-20 rounded-md bg-slate-200 dark:bg-gray-800/40" />
-            <div className="shimmer-sweep h-9 w-full rounded-lg bg-slate-200 dark:bg-gray-800/40" />
+            <div className="shimmer-sweep h-3 w-20 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
+            <div className="shimmer-sweep h-9 w-full rounded-lg bg-zinc-200 dark:bg-gray-800/40" />
           </div>
         ))}
       </div>
       <div className="mt-3 flex items-center gap-2">
-        <div className="shimmer-sweep h-9 w-24 rounded-lg bg-slate-200 dark:bg-gray-800/40" />
-        <div className="shimmer-sweep h-9 w-20 rounded-lg bg-slate-200 dark:bg-gray-800/40" />
+        <div className="shimmer-sweep h-9 w-24 rounded-lg bg-zinc-200 dark:bg-gray-800/40" />
+        <div className="shimmer-sweep h-9 w-20 rounded-lg bg-zinc-200 dark:bg-gray-800/40" />
       </div>
     </section>
   );
@@ -1084,16 +1084,14 @@ export default function MyClaimsDashboardPage({
   const approvalsHref = buildViewHref(resolvedSearchParams, "approvals");
 
   return (
-    <div className="min-h-screen bg-slate-50 px-6 py-8 dark:bg-[#0B0F1A]">
+    <div className="min-h-screen bg-zinc-50 px-6 py-8 dark:bg-[#0B0F1A]">
       <main className="mx-auto max-w-7xl space-y-5">
         <BackButton className="w-fit" />
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
+        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
-                My Claims
-              </h1>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              <h1 className="text-3xl font-semibold text-zinc-900 dark:text-zinc-100">My Claims</h1>
+              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
                 Command Center for submissions and approvals
               </p>
             </div>
@@ -1108,13 +1106,13 @@ export default function MyClaimsDashboardPage({
             </div>
           </div>
 
-          <div className="mt-4 inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-900/60">
+          <div className="mt-4 inline-flex rounded-xl border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-700 dark:bg-zinc-900/60">
             <Link
               href={submissionsHref}
               className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
                 activeView === "submissions"
-                  ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                  : "text-slate-700 hover:bg-slate-200/70 dark:text-slate-300 dark:hover:bg-slate-800"
+                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  : "text-zinc-700 hover:bg-zinc-200/70 dark:text-zinc-300 dark:hover:bg-zinc-800"
               }`}
             >
               My Submissions
@@ -1123,8 +1121,8 @@ export default function MyClaimsDashboardPage({
               href={approvalsHref}
               className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
                 activeView === "approvals"
-                  ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                  : "text-slate-700 hover:bg-slate-200/70 dark:text-slate-300 dark:hover:bg-slate-800"
+                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  : "text-zinc-700 hover:bg-zinc-200/70 dark:text-zinc-300 dark:hover:bg-zinc-800"
               }`}
             >
               Approvals History

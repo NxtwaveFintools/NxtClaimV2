@@ -97,12 +97,12 @@ export function MyClaimsPaginationControls({
 
   return (
     <div
-      className={`flex items-center justify-end gap-2 border-t border-slate-200 px-4 py-3 transition-opacity dark:border-slate-800 ${
+      className={`flex items-center justify-end gap-2 border-t border-zinc-200 px-4 py-3 transition-opacity dark:border-zinc-800 ${
         isPending ? "opacity-80" : "opacity-100"
       }`}
     >
       {isPending ? (
-        <span className="mr-2 inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+        <span className="mr-2 inline-flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
           <svg
             className="h-3.5 w-3.5 animate-spin"
             viewBox="0 0 24 24"
@@ -133,12 +133,12 @@ export function MyClaimsPaginationControls({
             navigateTo(previousHref);
           }}
           disabled={isPending}
-          className="inline-flex rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-slate-50 active:scale-[0.98] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+          className="inline-flex rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-700 transition-all duration-200 hover:bg-zinc-50 active:scale-[0.98] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >
           Previous
         </button>
       ) : (
-        <span className="inline-flex cursor-not-allowed rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-400 opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-500">
+        <span className="inline-flex cursor-not-allowed rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-400 opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-500">
           Previous
         </span>
       )}
@@ -149,12 +149,12 @@ export function MyClaimsPaginationControls({
             navigateTo(nextHref);
           }}
           disabled={isPending}
-          className="inline-flex rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition-all duration-200 hover:bg-slate-700 active:scale-[0.98] dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+          className="inline-flex rounded-lg bg-zinc-900 px-3 py-2 text-sm font-semibold text-white transition-all duration-200 hover:bg-zinc-700 active:scale-[0.98] dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
         >
           Next
         </button>
       ) : (
-        <span className="inline-flex cursor-not-allowed rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white opacity-50 dark:bg-slate-100 dark:text-slate-900">
+        <span className="inline-flex cursor-not-allowed rounded-lg bg-zinc-900 px-3 py-2 text-sm font-semibold text-white opacity-50 dark:bg-zinc-100 dark:text-zinc-900">
           Next
         </span>
       )}

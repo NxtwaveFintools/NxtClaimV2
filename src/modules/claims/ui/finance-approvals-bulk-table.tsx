@@ -336,11 +336,11 @@ export function FinanceApprovalsBulkTable({
 
   return (
     <div className="min-h-[600px]">
-      <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+      <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p
             aria-hidden="true"
-            className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-700 dark:text-slate-300"
+            className="text-sm font-semibold uppercase tracking-[0.14em] text-zinc-700 dark:text-zinc-300"
           >
             Approvals History
           </p>
@@ -382,7 +382,7 @@ export function FinanceApprovalsBulkTable({
         </div>
 
         {selectedCount > 0 ? (
-          <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+          <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
             {selectedCount} claim(s) selected
           </p>
         ) : null}
@@ -420,8 +420,8 @@ export function FinanceApprovalsBulkTable({
       ) : null}
 
       <div className="w-full overflow-x-auto">
-        <table className="min-w-[1720px] divide-y divide-slate-200 text-left text-sm dark:divide-slate-800">
-          <thead className="bg-slate-50 text-xs uppercase tracking-[0.12em] text-slate-600 dark:bg-slate-900/50 dark:text-slate-400">
+        <table className="min-w-[1720px] divide-y divide-zinc-200 text-left text-sm dark:divide-zinc-800">
+          <thead className="bg-zinc-50 text-xs uppercase tracking-[0.12em] text-zinc-600 dark:bg-zinc-900/50 dark:text-zinc-400">
             <tr>
               <th className="px-4 py-3">
                 <input
@@ -433,7 +433,7 @@ export function FinanceApprovalsBulkTable({
                   disabled={actionableIds.length === 0}
                   aria-label="Select all claims on this page"
                   data-testid="bulk-master-checkbox"
-                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700"
+                  className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 dark:border-zinc-700"
                 />
               </th>
               <th className="whitespace-nowrap px-4 py-3 font-semibold">CLAIM ID</th>
@@ -449,7 +449,7 @@ export function FinanceApprovalsBulkTable({
               <th className="whitespace-nowrap px-4 py-3 text-right font-semibold">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 bg-white text-slate-700 dark:divide-slate-800 dark:bg-slate-900 dark:text-slate-300">
+          <tbody className="divide-y divide-zinc-100 bg-white text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
             {rows.map((claim) => {
               const isChecked = isGlobalSelect || selectedIds.includes(claim.id);
               const userRole = approvalScope === "l1" ? "HOD" : "Finance";
@@ -531,7 +531,7 @@ export function FinanceApprovalsBulkTable({
                 }
 
                 return (
-                  <span className="text-xs font-medium uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+                  <span className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
                     No actions
                   </span>
                 );
@@ -540,7 +540,7 @@ export function FinanceApprovalsBulkTable({
               return (
                 <tr
                   key={claim.id}
-                  className="group transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-900/40"
+                  className="group transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
                 >
                   <td className="px-4 py-3">
                     {isActionable ? (
@@ -551,7 +551,7 @@ export function FinanceApprovalsBulkTable({
                           toggleRow(claim.id, event.currentTarget.checked);
                         }}
                         aria-label={`Select claim ${claim.id}`}
-                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700"
+                        className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 dark:border-zinc-700"
                       />
                     ) : (
                       <span
@@ -560,7 +560,7 @@ export function FinanceApprovalsBulkTable({
                       />
                     )}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
+                  <td className="whitespace-nowrap px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
                     <Link
                       href={ROUTES.claims.detail(claim.id)}
                       className="text-indigo-500 hover:text-indigo-400 hover:underline"
@@ -576,7 +576,7 @@ export function FinanceApprovalsBulkTable({
                   </td>
                   <td className="px-4 py-3">{claim.departmentName ?? "Unknown Department"}</td>
                   <td className="px-4 py-3">{claim.paymentModeName}</td>
-                  <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">
+                  <td className="whitespace-nowrap px-4 py-3 font-semibold text-zinc-900 dark:text-zinc-100">
                     {claim.formattedTotalAmount}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">
@@ -631,17 +631,17 @@ export function FinanceApprovalsBulkTable({
           <button
             type="button"
             aria-label="Close bulk reject dialog"
-            className="absolute inset-0 bg-slate-900/50"
+            className="absolute inset-0 bg-zinc-900/50"
             disabled={isSubmittingBulkReject}
             onClick={() => {
               setIsRejectModalOpen(false);
             }}
           />
-          <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-800 dark:bg-slate-900 sm:p-6">
-            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+          <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-lg -tranzinc-x-1/2 -tranzinc-y-1/2 rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 sm:p-6">
+            <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
               Bulk Reject Claims
             </h3>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
               One rejection reason will be applied to all selected claims.
             </p>
 
@@ -649,7 +649,7 @@ export function FinanceApprovalsBulkTable({
               <div className="grid gap-1.5">
                 <label
                   htmlFor="bulkRejectionReason"
-                  className="text-xs font-medium uppercase tracking-[0.08em] text-slate-600 dark:text-slate-300"
+                  className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-600 dark:text-zinc-300"
                 >
                   Shared Rejection Reason
                 </label>
@@ -660,7 +660,7 @@ export function FinanceApprovalsBulkTable({
                   minLength={5}
                   disabled={isSubmittingBulkReject}
                   rows={4}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-indigo-500 transition focus:ring dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-indigo-500 transition focus:ring dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
                   placeholder="Enter at least 5 characters"
                 />
               </div>
@@ -672,11 +672,11 @@ export function FinanceApprovalsBulkTable({
                   name="allowResubmission"
                   value="true"
                   disabled={isSubmittingBulkReject}
-                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700"
+                  className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 dark:border-zinc-700"
                 />
                 <label
                   htmlFor="bulkAllowResubmission"
-                  className="text-sm text-slate-700 dark:text-slate-300"
+                  className="text-sm text-zinc-700 dark:text-zinc-300"
                 >
                   Allow resubmission for all selected claims
                 </label>
@@ -689,7 +689,7 @@ export function FinanceApprovalsBulkTable({
                   onClick={() => {
                     setIsRejectModalOpen(false);
                   }}
-                  className="inline-flex items-center justify-center rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-slate-100 active:scale-[0.98] disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-zinc-800"
+                  className="inline-flex items-center justify-center rounded-xl border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 transition-all duration-200 hover:bg-zinc-100 active:scale-[0.98] disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 >
                   Cancel
                 </button>

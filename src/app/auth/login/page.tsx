@@ -91,15 +91,15 @@ function LoginPageContent() {
         <ThemeToggle />
       </div>
 
-      <div className="mx-auto grid max-w-md gap-6 rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-xl shadow-slate-900/5 backdrop-blur dark:border-slate-700 dark:bg-slate-900/90 dark:shadow-black/20">
+      <div className="mx-auto grid max-w-md gap-6 rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-xl shadow-zinc-900/5 backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/90 dark:shadow-black/20">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600 dark:text-indigo-300">
             NxtClaim V2
           </p>
-          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
             Sign in to continue
           </h1>
-          <p className="text-sm text-slate-600 dark:text-slate-300">
+          <p className="text-sm text-zinc-600 dark:text-zinc-300">
             Use your official NxtWave account to access the reimbursement portal.
           </p>
         </div>
@@ -118,10 +118,10 @@ function LoginPageContent() {
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-slate-200 dark:border-slate-700" />
+            <span className="w-full border-t border-zinc-200 dark:border-zinc-700" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-white px-2 text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+            <span className="bg-white px-2 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
               Or continue with email
             </span>
           </div>

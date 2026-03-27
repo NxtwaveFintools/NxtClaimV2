@@ -24,7 +24,7 @@ function getStatusClasses(status: DbClaimStatus): string {
     return "bg-green-600/20 text-green-400 border-green-600/50";
   }
 
-  return "bg-slate-900/20 text-slate-300 border-slate-700/60";
+  return "bg-zinc-900/20 text-zinc-300 border-zinc-700/60";
 }
 
 export function ClaimStatusBadge({ status }: ClaimStatusBadgeProps) {
