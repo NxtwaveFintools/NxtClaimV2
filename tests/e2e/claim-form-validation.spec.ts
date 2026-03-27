@@ -45,7 +45,7 @@ const RUN_TAG = process.env.E2E_RUN_TAG ?? `VAL-${Date.now()}`;
 
 type FormOptions = {
   reimbursementPaymentModeName: string;
-  pettyCashPaymentModeName: string;
+  pettyCashRequestPaymentModeName: string;
 };
 
 let formOptionsPromise: Promise<FormOptions> | null = null;
@@ -75,7 +75,7 @@ async function resolveFormOptions(): Promise<FormOptions> {
 
       const [
         { data: reimbursement, error: reimburseError },
-        { data: pettyCash, error: pettyError },
+        { data: pettyCashRequest, error: pettyRequestError },
       ] = await Promise.all([
         client
           .from("master_payment_modes")
@@ -88,7 +88,7 @@ async function resolveFormOptions(): Promise<FormOptions> {
           .from("master_payment_modes")
           .select("name")
           .eq("is_active", true)
-          .ilike("name", "%petty cash%")
+          .ilike("name", "%petty cash request%")
           .limit(1)
           .maybeSingle(),
       ]);
@@ -99,13 +99,15 @@ async function resolveFormOptions(): Promise<FormOptions> {
         );
       }
 
-      if (pettyError || !pettyCash?.name) {
-        throw new Error(pettyError?.message ?? "No active petty cash payment mode found in DB.");
+      if (pettyRequestError || !pettyCashRequest?.name) {
+        throw new Error(
+          pettyRequestError?.message ?? "No active petty cash request payment mode found in DB.",
+        );
       }
 
       return {
         reimbursementPaymentModeName: reimbursement.name,
-        pettyCashPaymentModeName: pettyCash.name,
+        pettyCashRequestPaymentModeName: pettyCashRequest.name,
       };
     })();
   }
@@ -137,10 +139,30 @@ async function fillExpenseFieldsWithoutFile(
 ): Promise<void> {
   await page.locator("#employeeId").fill(`EMP-${opts.tag}`);
   await page.locator("#billNo").fill(opts.billNo);
-  await page.locator("#transactionId").fill(`TXN-${opts.billNo}`);
   await page.locator("#expensePurpose").fill("E2E claim-form-validation test");
   await page.locator("#transactionDate").fill(opts.transactionDate);
   await page.locator("#basicAmount").fill(String(opts.amount));
+}
+
+async function countExpenseFingerprintRecords(input: {
+  billNo: string;
+  transactionDate: string;
+  totalAmount: number;
+}): Promise<number> {
+  const client = getAdminSupabaseClient();
+  const { count, error } = await client
+    .from("expense_details")
+    .select("id", { count: "exact", head: true })
+    .eq("bill_no", input.billNo)
+    .eq("transaction_date", input.transactionDate)
+    .eq("total_amount", input.totalAmount)
+    .eq("is_active", true);
+
+  if (error) {
+    throw new Error(`Failed to count duplicate fingerprint records: ${error.message}`);
+  }
+
+  return count ?? 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -205,6 +227,13 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
     const billNo = `BILL-DUP-${RUN_TAG}`;
     const txDate = "2026-03-15";
     const amount = 123;
+    const expectedTotalAmount = amount;
+
+    const baselineCount = await countExpenseFingerprintRecords({
+      billNo,
+      transactionDate: txDate,
+      totalAmount: expectedTotalAmount,
+    });
 
     const paymentModeSelect = page.getByRole("combobox", { name: /payment mode/i });
 
@@ -214,7 +243,6 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
 
     await page.locator("#employeeId").fill(`EMP-DUP-${RUN_TAG}`);
     await page.locator("#billNo").fill(billNo);
-    await page.locator("#transactionId").fill(`TXN-DUP-A-${RUN_TAG}`);
     await page.locator("#expensePurpose").fill("E2E duplicate-detection first submission");
     await page.locator("#transactionDate").fill(txDate);
     await page.locator("#basicAmount").fill(String(amount));
@@ -225,13 +253,28 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
     // A successful submission always redirects to the My Claims dashboard.
     await expect(page).toHaveURL(/\/dashboard\/my-claims(?:\?|$)/, { timeout: 30_000 });
 
+    // Ensure the first claim is fully persisted before duplicate attempt.
+    await expect
+      .poll(
+        () =>
+          countExpenseFingerprintRecords({
+            billNo,
+            transactionDate: txDate,
+            totalAmount: expectedTotalAmount,
+          }),
+        {
+          timeout: 30_000,
+          message: `waiting for first duplicate fingerprint record for ${billNo}`,
+        },
+      )
+      .toBe(baselineCount + 1);
+
     // ── Second submission: identical fingerprint — must be rejected ──────
     await openClaimForm(page);
     await paymentModeSelect.selectOption({ label: options.reimbursementPaymentModeName });
 
     await page.locator("#employeeId").fill(`EMP-DUP-${RUN_TAG}`);
     await page.locator("#billNo").fill(billNo); // ← same bill number
-    await page.locator("#transactionId").fill(`TXN-DUP-B-${RUN_TAG}`); // different TXN ID is intentional
     await page.locator("#expensePurpose").fill("E2E duplicate-detection second submission");
     await page.locator("#transactionDate").fill(txDate); // ← same date
     await page.locator("#basicAmount").fill(String(amount)); // ← same amount
@@ -250,7 +293,22 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
     await expect(dupToast).toBeVisible({ timeout: 20_000 });
 
     // The form must not redirect — the user should stay to correct the data.
-    await expect(page).toHaveURL(/\/claims\/new/);
+    await expect(page).toHaveURL(/\/claims\/new/, { timeout: 10_000 });
+
+    await expect
+      .poll(
+        () =>
+          countExpenseFingerprintRecords({
+            billNo,
+            transactionDate: txDate,
+            totalAmount: expectedTotalAmount,
+          }),
+        {
+          timeout: 15_000,
+          message: `waiting to confirm duplicate fingerprint count is stable for ${billNo}`,
+        },
+      )
+      .toBe(baselineCount + 1);
   });
 
   // ─── VAL-3 ────────────────────────────────────────────────────────────────
@@ -274,7 +332,7 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
     await expect(page.locator("#requestedAmount")).not.toBeAttached();
 
     // ── Phase 2: Petty Cash → advance detail section active ──────────────
-    await paymentModeSelect.selectOption({ label: options.pettyCashPaymentModeName });
+    await paymentModeSelect.selectOption({ label: options.pettyCashRequestPaymentModeName });
 
     // The useEffect that syncs paymentModeId→detailType must have fired and
     // React must have re-rendered before these assertions run.

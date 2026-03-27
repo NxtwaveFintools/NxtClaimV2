@@ -2,7 +2,7 @@ function DashboardSegmentLoading() {
   return (
     <div className="min-h-screen bg-slate-50 px-6 py-8 dark:bg-[#0B0F1A]">
       <main className="mx-auto max-w-7xl space-y-5">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="space-y-2">
               <div className="shimmer-sweep h-8 w-44 rounded-md bg-slate-200 dark:bg-gray-800/40" />
@@ -16,7 +16,7 @@ function DashboardSegmentLoading() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
           <div className="shimmer-sweep h-4 w-32 rounded-md bg-slate-200 dark:bg-gray-800/40" />
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             {Array.from({ length: 3 }).map((_, index) => (
@@ -32,7 +32,7 @@ function DashboardSegmentLoading() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
           <div className="shimmer-sweep h-4 w-24 rounded-md bg-slate-200 dark:bg-gray-800/40" />
           <div className="mt-4 flex flex-wrap gap-3">
             <div className="shimmer-sweep h-10 w-28 rounded-xl bg-slate-200 dark:bg-gray-800/40" />

@@ -4,7 +4,7 @@ export function ClaimDetailSkeleton() {
       <main className="mx-auto max-w-7xl space-y-5">
         <div className="h-10 w-24 animate-pulse rounded-md bg-muted/60" />
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
               <div className="h-3 w-20 animate-pulse rounded-md bg-muted/60" />
@@ -51,7 +51,7 @@ export function ClaimDetailSkeleton() {
           </section>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
           <div className="h-4 w-36 animate-pulse rounded-md bg-muted/60" />
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             {Array.from({ length: 2 }).map((_, index) => (

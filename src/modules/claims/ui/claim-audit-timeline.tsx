@@ -103,7 +103,7 @@ export function ClaimAuditTimeline({
             return (
               <li key={log.id} className="relative">
                 <span
-                  className={`absolute -left-[22px] top-1.5 h-3 w-3 rounded-full ring-2 ring-white dark:ring-zinc-900 ${actionAccent.dotClassName}`}
+                  className={`absolute -left-[22px] top-1.5 h-3 w-3 rounded-full ring-2 ring-white dark:ring-slate-900 ${actionAccent.dotClassName}`}
                 />
                 <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
                   {log.formattedCreatedAt}

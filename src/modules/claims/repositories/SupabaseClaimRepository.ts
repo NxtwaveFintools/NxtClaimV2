@@ -1846,23 +1846,39 @@ export class SupabaseClaimRepository implements ClaimRepository {
   async existsExpenseByCompositeKey(input: {
     billNo: string;
     transactionDate: string;
+    basicAmount: number;
     totalAmount: number;
   }): Promise<{ exists: boolean; errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
+    const epsilon = 0.01;
+
     const { data, error } = await client
       .from("expense_details")
-      .select("id")
+      .select("basic_amount, total_amount")
       .eq("bill_no", input.billNo)
       .eq("transaction_date", input.transactionDate)
-      .eq("total_amount", input.totalAmount)
       .eq("is_active", true)
-      .limit(1);
+      .limit(50);
 
     if (error) {
       return { exists: false, errorMessage: error.message };
     }
 
-    return { exists: (data ?? []).length > 0, errorMessage: null };
+    const rows = (data ?? []) as Array<{ basic_amount: number; total_amount: number }>;
+    const normalizedBasic = Number(input.basicAmount);
+    const normalizedTotal = Number(input.totalAmount);
+
+    const exists = rows.some((row) => {
+      const candidateBasic = Number(row.basic_amount);
+      const candidateTotal = Number(row.total_amount);
+
+      const basicMatches = Math.abs(candidateBasic - normalizedBasic) <= epsilon;
+      const totalMatches = Math.abs(candidateTotal - normalizedTotal) <= epsilon;
+
+      return basicMatches || totalMatches;
+    });
+
+    return { exists, errorMessage: null };
   }
 
   async getDepartmentApprovers(departmentId: string): Promise<{

@@ -452,34 +452,21 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     }
 
     try {
-      try {
-        await toast.promise(
-          submitClaimAction(formData).then((result) => {
-            if (!result.ok) {
-              if (result.errorCode === "DUPLICATE_TRANSACTION") {
-                throw new Error(
-                  "A claim with this exact Bill No, Date, and Amount already exists.",
-                );
-              }
+      const result = await submitClaimAction(formData);
+      if (!result.ok) {
+        if (result.errorCode === "DUPLICATE_TRANSACTION") {
+          toast.error("A claim with this exact Bill No, Date, and Amount already exists.");
+          return;
+        }
 
-              throw new Error(result.message ?? "Failed to submit claim.");
-            }
-
-            return result;
-          }),
-          {
-            loading: "Submitting claim...",
-            success: "Claim submitted successfully!",
-            error: (error) => (error instanceof Error ? error.message : "Failed to submit claim."),
-          },
-        );
-
-        startNavTransition(() => {
-          router.push("/dashboard/my-claims", { scroll: false });
-        });
-      } catch {
-        // Toast already reports the failure; stay on form for correction.
+        toast.error(result.message ?? "Failed to submit claim.");
+        return;
       }
+
+      toast.success("Claim submitted successfully!");
+      startNavTransition(() => {
+        router.push("/dashboard/my-claims", { scroll: false });
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -599,7 +586,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
   return (
     <form
-      className="grid gap-5 text-slate-900 transition-colors dark:text-slate-100 [&_section]:rounded-xl [&_section]:border [&_section]:border-slate-200 [&_section]:bg-white [&_section]:p-4 dark:[&_section]:border-slate-800 dark:[&_section]:bg-zinc-950 [&_h2]:text-slate-900 dark:[&_h2]:text-slate-100 [&_label]:text-slate-700 dark:[&_label]:text-slate-300 [&_input:not([type='checkbox'])]:border-slate-300 [&_input:not([type='checkbox'])]:bg-white [&_input:not([type='checkbox'])]:text-slate-900 dark:[&_input:not([type='checkbox'])]:border-slate-700 dark:[&_input:not([type='checkbox'])]:bg-slate-900/70 dark:[&_input:not([type='checkbox'])]:text-slate-100 [&_select]:border-slate-300 [&_select]:bg-white [&_select]:text-slate-900 dark:[&_select]:border-slate-700 dark:[&_select]:bg-slate-900/70 dark:[&_select]:text-slate-100 [&_textarea]:border-slate-300 [&_textarea]:bg-white [&_textarea]:text-slate-900 dark:[&_textarea]:border-slate-700 dark:[&_textarea]:bg-slate-900/70 dark:[&_textarea]:text-slate-100 [&_input[type='file']]:file:mr-3 [&_input[type='file']]:file:rounded-md [&_input[type='file']]:file:border-0 [&_input[type='file']]:file:bg-slate-100 [&_input[type='file']]:file:px-3 [&_input[type='file']]:file:py-1 [&_input[type='file']]:file:text-slate-700 dark:[&_input[type='file']]:file:bg-slate-800 dark:[&_input[type='file']]:file:text-slate-200"
+      className="grid gap-5 text-slate-900 transition-colors dark:text-slate-100 [&_section]:rounded-xl [&_section]:border [&_section]:border-slate-200 [&_section]:bg-white [&_section]:p-4 dark:[&_section]:border-slate-800 dark:[&_section]:bg-slate-900 [&_h2]:text-slate-900 dark:[&_h2]:text-slate-100 [&_label]:text-slate-700 dark:[&_label]:text-slate-300 [&_input:not([type='checkbox'])]:border-slate-300 [&_input:not([type='checkbox'])]:bg-white [&_input:not([type='checkbox'])]:text-slate-900 dark:[&_input:not([type='checkbox'])]:border-slate-700 dark:[&_input:not([type='checkbox'])]:bg-slate-900/70 dark:[&_input:not([type='checkbox'])]:text-slate-100 [&_select]:border-slate-300 [&_select]:bg-white [&_select]:text-slate-900 dark:[&_select]:border-slate-700 dark:[&_select]:bg-slate-900/70 dark:[&_select]:text-slate-100 [&_textarea]:border-slate-300 [&_textarea]:bg-white [&_textarea]:text-slate-900 dark:[&_textarea]:border-slate-700 dark:[&_textarea]:bg-slate-900/70 dark:[&_textarea]:text-slate-100 [&_input[type='file']]:file:mr-3 [&_input[type='file']]:file:rounded-md [&_input[type='file']]:file:border-0 [&_input[type='file']]:file:bg-slate-100 [&_input[type='file']]:file:px-3 [&_input[type='file']]:file:py-1 [&_input[type='file']]:file:text-slate-700 dark:[&_input[type='file']]:file:bg-slate-800 dark:[&_input[type='file']]:file:text-slate-200"
       onSubmit={handleFormSubmit}
     >
       <input type="hidden" {...register("employeeName")} />

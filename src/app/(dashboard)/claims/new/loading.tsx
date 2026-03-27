@@ -1,7 +1,7 @@
 export default function NewClaimLoading() {
   return (
     <div className="min-h-screen bg-slate-50 px-6 py-8 dark:bg-[#0B0F1A]">
-      <main className="mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
+      <main className="mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
         <div className="mb-3 h-10 w-24 animate-pulse rounded-md bg-muted/60" />
 
         <div className="flex flex-wrap items-start justify-between gap-3">

@@ -211,7 +211,6 @@ async function submitReimbursementClaim(flowKey: string, amount: number): Promis
   const page = pageFor("employee");
   const marker = `${flowKey}-${RUN_TAG}`;
   const billNo = `BULK-LC-${marker}`;
-  const txId = `TX-${marker}`;
   const purpose = `BULK-LIFECYCLE-${flowKey}-${RUN_TAG}`;
 
   await page.goto("/claims/new", { waitUntil: "domcontentloaded" });
@@ -223,7 +222,6 @@ async function submitReimbursementClaim(flowKey: string, amount: number): Promis
 
   await page.locator("#employeeId").fill(`EMP-${marker}`);
   await page.locator("#billNo").fill(billNo);
-  await page.locator("#transactionId").fill(txId);
   await page.locator("#expensePurpose").fill(purpose);
   await page.locator("#transactionDate").fill("2026-03-24");
   await page.locator("#basicAmount").fill(String(amount));
@@ -345,6 +343,7 @@ async function openApprovalsForClaim(page: Page, claimId: string): Promise<void>
   });
 
   await page.goto(`/dashboard/my-claims?${params.toString()}`, { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("heading", { name: /approvals history/i })).toBeVisible();
 
   const row = page.locator("tbody tr", { has: page.getByRole("link", { name: claimId }) }).first();
@@ -591,8 +590,17 @@ test.describe("Bulk Actions Lifecycle Matrix", () => {
     // Bulk approve
     await clickBulkApprove(financePage);
 
-    // The claim row should be removed from the current table view (reactively updates)
-    await expect(claimRow).toHaveCount(0, { timeout: 30000 });
+    // Wait for streamed refresh cycle to settle after startTransition/router.refresh
+    await expect(financePage.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
+    await expect(financePage.getByText(/approved/i).first()).toBeVisible({ timeout: 15000 });
+
+    // In current behavior, finance bulk approve moves the claim to payment-under-process,
+    // and that row remains visible in approvals for Bulk Mark Paid.
+    await openApprovalsForClaim(financePage, claimId);
+    await expect(claimRow).toBeVisible({ timeout: 30000 });
+    await expect(claimRow).toContainText(/Finance Approved - Payment under process/i, {
+      timeout: 30000,
+    });
 
     // Verify DB status advanced
     await expect

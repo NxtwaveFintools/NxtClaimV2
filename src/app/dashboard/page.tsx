@@ -33,7 +33,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100 px-6 py-10 dark:from-[#0B0F1A] dark:via-[#111827] dark:to-[#0B0F1A]">
-      <main className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-900/5 transition-colors dark:border-slate-800 dark:bg-zinc-950 dark:shadow-black/30">
+      <main className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-900/5 transition-colors dark:border-slate-800 dark:bg-slate-900 dark:shadow-black/30">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600 dark:text-indigo-400">

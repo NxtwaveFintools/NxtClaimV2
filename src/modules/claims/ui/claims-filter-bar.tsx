@@ -354,7 +354,7 @@ export function ClaimsFilterBar({
         : "Search by Employee ID...";
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
       {isPending ? (
         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
           <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">

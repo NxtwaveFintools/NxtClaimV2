@@ -4,7 +4,7 @@ import { ROUTES } from "@/core/config/route-registry";
 export default function NotFound() {
   return (
     <div className="grid min-h-screen place-items-center bg-gradient-to-b from-slate-50 via-white to-slate-100 px-6 py-10 dark:from-[#0B0F1A] dark:via-[#111827] dark:to-[#0B0F1A]">
-      <main className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-900/5 transition-colors dark:border-slate-800 dark:bg-zinc-950 dark:shadow-black/30">
+      <main className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-900/5 transition-colors dark:border-slate-800 dark:bg-slate-900 dark:shadow-black/30">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600 dark:text-indigo-400">
           NxtClaim V2
         </p>

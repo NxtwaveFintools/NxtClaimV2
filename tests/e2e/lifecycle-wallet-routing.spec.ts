@@ -364,6 +364,84 @@ async function getClaimRouting(
   };
 }
 
+async function resolveClaimIdByAdvancePurpose(purpose: string): Promise<string> {
+  const client = getAdminSupabaseClient();
+
+  await expect
+    .poll(
+      async () => {
+        const { data, error } = await client
+          .from("claims")
+          .select("id, advance_details!inner(purpose)")
+          .eq("advance_details.purpose", purpose)
+          .eq("is_active", true)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) {
+          throw new Error(`Failed to resolve claim id for purpose ${purpose}: ${error.message}`);
+        }
+
+        return data?.id ?? null;
+      },
+      {
+        timeout: 45000,
+        message: `waiting for claim id by purpose ${purpose}`,
+      },
+    )
+    .not.toBeNull();
+
+  const { data, error } = await client
+    .from("claims")
+    .select("id, advance_details!inner(purpose)")
+    .eq("advance_details.purpose", purpose)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data?.id) {
+    throw new Error(error?.message ?? `No claim found for advance purpose ${purpose}.`);
+  }
+
+  return data.id as string;
+}
+
+async function waitForClaimInTableWithRetry(page: Page, targetClaimId: string): Promise<void> {
+  await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
+
+  const waitForTargetRow = async (timeout: number): Promise<void> => {
+    await page.waitForFunction(
+      (claimId: string) => {
+        const tableBodies = Array.from(document.querySelectorAll("tbody"));
+
+        return tableBodies.some((tableBody) => {
+          const rows = Array.from(tableBody.querySelectorAll("tr"));
+          if (rows.length === 0) {
+            return false;
+          }
+
+          return rows.some((row) => (row.textContent ?? "").includes(claimId));
+        });
+      },
+      targetClaimId,
+      { timeout },
+    );
+  };
+
+  try {
+    await waitForTargetRow(5000);
+    return;
+  } catch {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(2000);
+  }
+
+  await waitForTargetRow(30000);
+}
+
 function parseCurrency(value: string): number {
   const normalized = value.replace(/[^0-9.-]/g, "");
   const parsed = Number(normalized);
@@ -546,42 +624,61 @@ async function submitPettyCashRequest(
   const submitButton = page.getByRole("button", { name: /submit claim/i });
   await submitButton.click();
 
-  await Promise.race([
-    page
-      .locator("[data-sonner-toast]", { hasText: /success|submitted/i })
-      .waitFor({ state: "visible", timeout: 15000 }),
-    page
-      .locator(".text-destructive")
-      .first()
-      .waitFor({ state: "visible", timeout: 5000 })
-      .then(async () => {
-        throw new Error(
-          `ZOD ERROR: ${await page.locator(".text-destructive").first().innerText()}`,
-        );
-      }),
-    page
-      .locator('[data-sonner-toast][data-type="error"]')
-      .first()
-      .waitFor({ state: "visible", timeout: 5000 })
-      .then(async () => {
-        throw new Error(
-          `BACKEND ERROR: ${await page.locator('[data-sonner-toast][data-type="error"]').first().innerText()}`,
-        );
-      }),
-  ]);
+  await expect
+    .poll(
+      async () => {
+        const zodError = page.locator(".text-destructive").first();
+        if (await zodError.isVisible().catch(() => false)) {
+          throw new Error(`ZOD ERROR: ${await zodError.innerText()}`);
+        }
 
-  await page.goto("/dashboard/my-claims", { waitUntil: "domcontentloaded" });
-  const firstClaimLink = page.locator("tbody tr td a").first();
-  await expect(firstClaimLink).toBeVisible({ timeout: 30000 });
+        const backendErrorToast = page.locator('[data-sonner-toast][data-type="error"]').first();
+        if (await backendErrorToast.isVisible().catch(() => false)) {
+          throw new Error(`BACKEND ERROR: ${await backendErrorToast.innerText()}`);
+        }
 
-  const claimIdFromTable = (await firstClaimLink.innerText()).trim();
+        const successToast = page
+          .locator("[data-sonner-toast]", { hasText: /success|submitted/i })
+          .first();
+        return successToast.isVisible().catch(() => false);
+      },
+      {
+        timeout: 15000,
+        message: "waiting for successful submission toast without validation/backend errors",
+      },
+    )
+    .toBe(true);
+
+  const claimIdFromDb = await resolveClaimIdByAdvancePurpose(input.purpose);
+  const params = new URLSearchParams({
+    view: "submissions",
+    status: "all",
+    search_field: "claim_id",
+    search_query: claimIdFromDb,
+  });
+
+  await page.goto(`/dashboard/my-claims?${params.toString()}`, { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 10000 });
+  await waitForClaimInTableWithRetry(page, claimIdFromDb);
+  const claimLink = page.getByRole("link", { name: claimIdFromDb }).first();
+  await expect(claimLink).toBeVisible({ timeout: 30000 });
+
+  const claimIdFromTable = (await claimLink.innerText()).trim();
+  expect(claimIdFromTable).toBe(claimIdFromDb);
   expect(claimIdFromTable).toMatch(SEMANTIC_CLAIM_ID_REGEX);
   console.info(`SEMANTIC_ID_MAP ${input.purpose} => ${claimIdFromTable}`);
-  return { claimId: claimIdFromTable, hodEmail: resolvedHodEmail };
+  return { claimId: claimIdFromDb, hodEmail: resolvedHodEmail };
 }
 
-async function openApprovalsPage(page: Page): Promise<void> {
-  await page.goto("/dashboard/my-claims?view=approvals", { waitUntil: "domcontentloaded" });
+async function openApprovalsPage(page: Page, claimId?: string): Promise<void> {
+  const params = new URLSearchParams({ view: "approvals", status: "all" });
+  if (claimId) {
+    params.set("search_field", "claim_id");
+    params.set("search_query", claimId);
+  }
+
+  await page.goto(`/dashboard/my-claims?${params.toString()}`, { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("heading", { name: /approvals history/i })).toBeVisible();
 }
 
@@ -594,7 +691,10 @@ async function expectClaimVisibleInApprovals(
   claimId: string,
   visible: boolean,
 ): Promise<void> {
-  await openApprovalsPage(page);
+  await openApprovalsPage(page, claimId);
+  if (visible) {
+    await waitForClaimInTableWithRetry(page, claimId);
+  }
   const row = await getClaimRow(page, claimId);
 
   if (visible) {
@@ -610,7 +710,18 @@ async function expectClaimVisibleInMyClaims(
   claimId: string,
   visible: boolean,
 ): Promise<void> {
-  await page.goto("/dashboard/my-claims", { waitUntil: "domcontentloaded" });
+  const params = new URLSearchParams({
+    view: "submissions",
+    status: "all",
+    search_field: "claim_id",
+    search_query: claimId,
+  });
+
+  await page.goto(`/dashboard/my-claims?${params.toString()}`, { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
+  if (visible) {
+    await waitForClaimInTableWithRetry(page, claimId);
+  }
   const row = await getClaimRow(page, claimId);
 
   if (visible) {

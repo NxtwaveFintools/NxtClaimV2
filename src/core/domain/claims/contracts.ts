@@ -354,6 +354,7 @@ export type ClaimRepository = {
   existsExpenseByCompositeKey(input: {
     billNo: string;
     transactionDate: string;
+    basicAmount: number;
     totalAmount: number;
   }): Promise<{
     exists: boolean;

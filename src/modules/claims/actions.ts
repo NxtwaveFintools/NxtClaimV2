@@ -534,6 +534,7 @@ export async function submitClaimAction(input: unknown): Promise<{
       const duplicateTransactionResult = await repository.existsExpenseByCompositeKey({
         billNo: parseResult.data.expense.billNo,
         transactionDate: parseResult.data.expense.transactionDate,
+        basicAmount: parseResult.data.expense.basicAmount,
         totalAmount: computeExpenseTotalAmount({
           basicAmount: parseResult.data.expense.basicAmount,
           cgstAmount: parseResult.data.expense.cgstAmount,

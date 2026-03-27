@@ -89,7 +89,7 @@ export default async function MyClaimsPage({
   if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
     return (
       <div className="min-h-screen bg-slate-50 px-6 py-8 dark:bg-[#0B0F1A]">
-        <main className="mx-auto max-w-6xl rounded-2xl border border-rose-200 bg-white p-6 shadow-sm transition-colors dark:border-rose-900/40 dark:bg-zinc-950">
+        <main className="mx-auto max-w-6xl rounded-2xl border border-rose-200 bg-white p-6 shadow-sm transition-colors dark:border-rose-900/40 dark:bg-slate-900">
           <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">My Claims</h1>
           <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
             Unable to authenticate your session.{" "}
@@ -138,7 +138,7 @@ export default async function MyClaimsPage({
   return (
     <div className="min-h-screen bg-slate-50 px-6 py-8 dark:bg-[#0B0F1A]">
       <main className="mx-auto max-w-6xl space-y-5">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
@@ -164,7 +164,7 @@ export default async function MyClaimsPage({
         </section>
 
         <section className="grid gap-5 md:grid-cols-3">
-          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
+          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
             <p className="text-xs uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
               Total Claims
             </p>
@@ -173,7 +173,7 @@ export default async function MyClaimsPage({
             </p>
           </article>
 
-          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
+          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
             <p className="text-xs uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
               Active Filter
             </p>
@@ -182,7 +182,7 @@ export default async function MyClaimsPage({
             </p>
           </article>
 
-          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
+          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
             <p className="text-xs uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
               Submission Type
             </p>
@@ -192,7 +192,7 @@ export default async function MyClaimsPage({
           </article>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
           <form method="GET" action={ROUTES.claims.list} className="space-y-4">
             <div className="grid gap-3 md:grid-cols-5">
               <label className="grid gap-1 text-sm text-slate-700 dark:text-slate-300">
@@ -281,7 +281,7 @@ export default async function MyClaimsPage({
           </form>
         </section>
 
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
           <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
             <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-700 dark:text-slate-300">
               All Claims
@@ -323,7 +323,7 @@ export default async function MyClaimsPage({
                     <th className="px-4 py-3 font-semibold">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 bg-white text-slate-700 dark:divide-slate-900 dark:bg-zinc-950 dark:text-slate-300">
+                <tbody className="divide-y divide-slate-100 bg-white text-slate-700 dark:divide-slate-800 dark:bg-slate-900 dark:text-slate-300">
                   {claimRows.map((claim) => (
                     <tr
                       key={claim.id}

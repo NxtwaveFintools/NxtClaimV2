@@ -13,7 +13,6 @@ type RuntimeFormData = {
 };
 
 type ExpenseFingerprint = {
-  transactionId: string;
   billNo: string;
 };
 
@@ -146,7 +145,6 @@ async function selectOptionByLabel(page: Page, label: string | RegExp, optionLab
 async function fillMandatoryExpenseFields(page: Page): Promise<ExpenseFingerprint> {
   const uniq = `${RUN_TAG}-${Date.now()}`;
   const billNo = `BILL-E2E-${uniq}`;
-  const txnId = `TXN-E2E-${uniq}`;
   const transactionDate = new Date().toISOString().slice(0, 10);
 
   const employeeIdInput = page.getByRole("textbox", { name: /^Employee ID \*/i });
@@ -154,7 +152,6 @@ async function fillMandatoryExpenseFields(page: Page): Promise<ExpenseFingerprin
   await expect(employeeIdInput).toHaveValue(`EMP-${uniq}`);
 
   await page.getByRole("textbox", { name: /^Bill No \*/i }).fill(billNo);
-  await page.getByRole("textbox", { name: /^Transaction ID/i }).fill(txnId);
   await page.getByRole("textbox", { name: /^Purpose/i }).fill("Client visit and documentation");
   await page.getByRole("spinbutton", { name: /^Basic Amount \*/i }).fill("100");
 
@@ -167,12 +164,11 @@ async function fillMandatoryExpenseFields(page: Page): Promise<ExpenseFingerprin
   await page.locator("#receiptFile").setInputFiles(receiptPath);
 
   return {
-    transactionId: txnId,
     billNo,
   };
 }
 
-async function resolveSubmittedClaimId(transactionId: string): Promise<string> {
+async function resolveSubmittedClaimId(billNo: string): Promise<string> {
   const client = getAdminSupabaseClient();
 
   await expect
@@ -180,8 +176,8 @@ async function resolveSubmittedClaimId(transactionId: string): Promise<string> {
       async () => {
         const { data, error } = await client
           .from("claims")
-          .select("id, expense_details!inner(transaction_id)")
-          .eq("expense_details.transaction_id", transactionId)
+          .select("id, expense_details!inner(bill_no)")
+          .eq("expense_details.bill_no", billNo)
           .eq("is_active", true)
           .order("created_at", { ascending: false })
           .limit(1)
@@ -195,22 +191,22 @@ async function resolveSubmittedClaimId(transactionId: string): Promise<string> {
       },
       {
         timeout: 45000,
-        message: `waiting for submitted claim using transaction ${transactionId}`,
+        message: `waiting for submitted claim using bill ${billNo}`,
       },
     )
     .not.toBeNull();
 
   const { data, error } = await client
     .from("claims")
-    .select("id, expense_details!inner(transaction_id)")
-    .eq("expense_details.transaction_id", transactionId)
+    .select("id, expense_details!inner(bill_no)")
+    .eq("expense_details.bill_no", billNo)
     .eq("is_active", true)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (error || !data?.id) {
-    throw new Error(error?.message ?? `Claim was not created for transaction ${transactionId}`);
+    throw new Error(error?.message ?? `Claim was not created for bill ${billNo}`);
   }
 
   return data.id;
@@ -224,8 +220,8 @@ test.describe("Submit Claim Golden Paths", () => {
     await resolveRuntimeFormData();
   });
 
-  async function expectSubmitOutcome(transactionId: string): Promise<void> {
-    await resolveSubmittedClaimId(transactionId);
+  async function expectSubmitOutcome(billNo: string): Promise<void> {
+    await resolveSubmittedClaimId(billNo);
   }
 
   test.describe("submitter path", () => {
@@ -243,7 +239,7 @@ test.describe("Submit Claim Golden Paths", () => {
 
       const fingerprint = await fillMandatoryExpenseFields(page);
       await page.getByRole("button", { name: /submit claim/i }).click();
-      await expectSubmitOutcome(fingerprint.transactionId);
+      await expectSubmitOutcome(fingerprint.billNo);
     });
   });
 
@@ -275,7 +271,7 @@ test.describe("Submit Claim Golden Paths", () => {
 
       const fingerprint = await fillMandatoryExpenseFields(page);
       await page.getByRole("button", { name: /submit claim/i }).click();
-      await expectSubmitOutcome(fingerprint.transactionId);
+      await expectSubmitOutcome(fingerprint.billNo);
     });
   });
 });

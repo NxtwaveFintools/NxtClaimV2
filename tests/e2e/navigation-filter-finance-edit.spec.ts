@@ -213,7 +213,6 @@ async function submitReimbursementClaim(
 
   await page.locator("#employeeId").fill(`EMP-${marker}`);
   await page.locator("#billNo").fill(`BILL-${marker}`);
-  await page.locator("#transactionId").fill(`TX-${marker}`);
   await page.locator("#expensePurpose").fill(`NAV-FIN-PURPOSE-${marker}`);
   await page.locator("#transactionDate").fill("2026-03-24");
   await page.locator("#basicAmount").fill(String(amount));
@@ -221,6 +220,7 @@ async function submitReimbursementClaim(
 
   await page.getByRole("button", { name: /submit claim/i }).click();
   await expect(page).toHaveURL(/\/dashboard\/my-claims(?:\?|$)/, { timeout: 30000 });
+  await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
 
   const firstClaimLink = page.locator("tbody tr td a").first();
   await expect(firstClaimLink).toBeVisible({ timeout: 30000 });
@@ -233,27 +233,27 @@ async function submitReimbursementClaim(
 async function fastForwardToFinance(claimId: string): Promise<void> {
   const client = getAdminSupabaseClient();
 
-  // Resolve first active finance approver
+  // assigned_l2_approver_id references master_finance_approvers.id (not users.id).
   const { data: financeRows, error: financeError } = await client
     .from("master_finance_approvers")
-    .select("user_id")
+    .select("id")
     .eq("is_active", true)
     .order("is_primary", { ascending: false })
     .limit(1);
 
-  if (financeError || !financeRows?.[0]?.user_id) {
+  if (financeError || !financeRows?.[0]?.id) {
     throw new Error(
       `Failed to resolve finance approver: ${financeError?.message ?? "no rows returned"}`,
     );
   }
 
-  const financeUserId = financeRows[0].user_id;
+  const financeApproverId = financeRows[0].id;
 
   const { error: updateError } = await client
     .from("claims")
     .update({
       status: "HOD approved - Awaiting finance approval",
-      assigned_l2_approver_id: financeUserId,
+      assigned_l2_approver_id: financeApproverId,
     })
     .eq("id", claimId)
     .eq("is_active", true);
@@ -345,6 +345,7 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
 
     await withActorPage(browser, ACTORS.employee.email, async (page) => {
       await page.goto("/dashboard/my-claims", { waitUntil: "domcontentloaded" });
+      await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
 
       // Expand filters if collapsed
       const toggleButton = page.getByRole("button", { name: /toggle filters/i });
@@ -352,15 +353,16 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
         const isExpanded = await toggleButton.getAttribute("aria-expanded");
         if (isExpanded !== "true") {
           await toggleButton.click();
-          await page.waitForTimeout(300);
+          await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
         }
       }
 
       // Select a specific status filter
-      const statusSelect = page.locator('select[name="status"]');
+      const statusSelect = page.getByRole("combobox", { name: /^Status$/i });
       await expect(statusSelect).toBeVisible({ timeout: 10000 });
 
       await statusSelect.selectOption({ label: "Submitted - Awaiting HOD approval" });
+      await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
 
       // Wait for URL to reflect the status param
       await expect

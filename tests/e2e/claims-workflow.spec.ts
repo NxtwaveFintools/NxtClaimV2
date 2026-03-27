@@ -525,57 +525,80 @@ async function openNewClaimForm(page: Page): Promise<void> {
   await expect(page.getByRole("button", { name: /submit claim/i })).toBeVisible({ timeout: 15000 });
 }
 
-async function resolveClaimIdByTransactionId(
+async function resolveClaimIdByBillNo(
   submitterId: string,
-  transactionId: string,
+  billNo: string,
+  options?: {
+    employeeId?: string;
+    excludeClaimId?: string;
+  },
 ): Promise<string> {
   const client = getAdminSupabaseClient();
   await expect
     .poll(
       async () => {
-        const { data, error } = await querySupabaseWithRetry(() =>
-          client
+        const { data, error } = await querySupabaseWithRetry(async () => {
+          let query = client
             .from("claims")
-            .select("id, expense_details!inner(transaction_id)")
+            .select("id, expense_details!inner(bill_no)")
             .eq("submitted_by", submitterId)
-            .eq("expense_details.transaction_id", transactionId)
-            .eq("is_active", true)
+            .eq("expense_details.bill_no", billNo)
+            .eq("is_active", true);
+
+          if (options?.employeeId) {
+            query = query.eq("employee_id", options.employeeId);
+          }
+
+          if (options?.excludeClaimId) {
+            query = query.neq("id", options.excludeClaimId);
+          }
+
+          return query
             .order("created_at", { ascending: false })
+            .order("id", { ascending: false })
             .limit(1)
-            .maybeSingle(),
-        );
+            .maybeSingle();
+        });
 
         if (error) {
-          throw new Error(
-            `Failed to resolve claim id for transaction ${transactionId}: ${error.message}`,
-          );
+          throw new Error(`Failed to resolve claim id for bill ${billNo}: ${error.message}`);
         }
 
         return data?.id ?? null;
       },
       {
         timeout: 45000,
-        message: `waiting for claim id by transaction ${transactionId}`,
+        message: `waiting for claim id by bill ${billNo}`,
       },
     )
     .not.toBeNull();
 
-  const { data, error } = await querySupabaseWithRetry(() =>
-    client
+  const { data, error } = await querySupabaseWithRetry(async () => {
+    let query = client
       .from("claims")
-      .select("id, expense_details!inner(transaction_id)")
+      .select("id, expense_details!inner(bill_no)")
       .eq("submitted_by", submitterId)
-      .eq("expense_details.transaction_id", transactionId)
-      .eq("is_active", true)
+      .eq("expense_details.bill_no", billNo)
+      .eq("is_active", true);
+
+    if (options?.employeeId) {
+      query = query.eq("employee_id", options.employeeId);
+    }
+
+    if (options?.excludeClaimId) {
+      query = query.neq("id", options.excludeClaimId);
+    }
+
+    return query
       .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .limit(1)
-      .maybeSingle(),
-  );
+      .maybeSingle();
+  });
 
   if (error || !data?.id) {
     throw new Error(
-      error?.message ??
-        `No claim found for submitter ${submitterId} and transaction ${transactionId}.`,
+      error?.message ?? `No claim found for submitter ${submitterId} and bill ${billNo}.`,
     );
   }
 
@@ -714,7 +737,6 @@ async function submitReimbursementClaim(
   const marker = newMarker(input.workflowLabel);
   const employeeCode = input.employeeIdOverride ?? `${input.actorRole.toUpperCase()}-${marker}`;
   const billNo = input.billNoOverride ?? `BILL-${marker}`;
-  const transactionId = `TXN-${marker}`;
 
   if (input.onBehalfOfEmail && input.onBehalfOfEmployeeCode) {
     await selectDropdownOption(page, "Submission Type", "On Behalf");
@@ -741,7 +763,6 @@ async function submitReimbursementClaim(
 
   await page.locator("#employeeId").fill(employeeCode);
   await page.locator("#billNo").fill(billNo);
-  await page.locator("#transactionId").fill(transactionId);
   await page.locator("#expensePurpose").fill(`${input.workflowLabel} ${marker}`);
   await page.locator("#transactionDate").fill("2026-03-18");
   await page.locator("#basicAmount").fill(String(input.amount));
@@ -750,7 +771,9 @@ async function submitReimbursementClaim(
   await page.getByRole("button", { name: /submit claim/i }).click();
 
   const actor = getActorByRole(input.actorRole);
-  const claimId = await resolveClaimIdByTransactionId(actor.id, transactionId);
+  const claimId = await resolveClaimIdByBillNo(actor.id, billNo, {
+    employeeId: employeeCode,
+  });
 
   return { claimId, marker };
 }
@@ -809,7 +832,6 @@ async function submitPettyCashExpenseClaim(
   const marker = newMarker(input.workflowLabel);
   const employeeCode = `${input.actorRole.toUpperCase()}-${marker}`;
   const billNo = `BILL-${marker}`;
-  const transactionId = `TXN-${marker}`;
 
   await page.locator("#departmentId").selectOption({ value: input.departmentId });
   await page.locator("#paymentModeId").selectOption({ label: "Petty Cash" });
@@ -820,7 +842,6 @@ async function submitPettyCashExpenseClaim(
 
   await page.locator("#employeeId").fill(employeeCode);
   await page.locator("#billNo").fill(billNo);
-  await page.locator("#transactionId").fill(transactionId);
   await page.locator("#expensePurpose").fill(`${input.workflowLabel} ${marker}`);
   await page.locator("#transactionDate").fill("2026-03-18");
   await page.locator("#basicAmount").fill(String(input.amount));
@@ -829,7 +850,9 @@ async function submitPettyCashExpenseClaim(
   await page.getByRole("button", { name: /submit claim/i }).click();
 
   const actor = getActorByRole(input.actorRole);
-  const claimId = await resolveClaimIdByTransactionId(actor.id, transactionId);
+  const claimId = await resolveClaimIdByBillNo(actor.id, billNo, {
+    employeeId: employeeCode,
+  });
 
   return { claimId, marker };
 }
@@ -842,13 +865,17 @@ async function openApprovalsHistory(page: Page, claimId?: string): Promise<void>
   }
 
   await page.goto(`/dashboard/my-claims?${params.toString()}`, { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("heading", { name: /approvals history/i })).toBeVisible({
     timeout: 20000,
   });
+  if (claimId) {
+    await page.waitForTimeout(2000);
+  }
 }
 
 async function openMyClaims(page: Page, claimId?: string): Promise<void> {
-  const params = new URLSearchParams();
+  const params = new URLSearchParams({ view: "submissions" });
   if (claimId) {
     params.set("search_field", "claim_id");
     params.set("search_query", claimId);
@@ -857,7 +884,66 @@ async function openMyClaims(page: Page, claimId?: string): Promise<void> {
   const url =
     params.size > 0 ? `/dashboard/my-claims?${params.toString()}` : "/dashboard/my-claims";
   await page.goto(url, { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("heading", { name: /my claims/i })).toBeVisible({ timeout: 20000 });
+  if (claimId) {
+    await page.waitForTimeout(2000);
+  }
+}
+
+async function waitForClaimRecordInDatabase(claimId: string): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        try {
+          await getClaimRouting(claimId);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      {
+        timeout: 30000,
+        message: `waiting for claim ${claimId} to be readable in DB`,
+      },
+    )
+    .toBe(true);
+}
+
+async function waitForClaimInTableWithRetry(page: Page, targetClaimId: string): Promise<void> {
+  await waitForClaimRecordInDatabase(targetClaimId);
+
+  const waitForTargetRow = async (timeout: number): Promise<void> => {
+    await page.waitForFunction(
+      (claimId: string) => {
+        const tableBodies = Array.from(document.querySelectorAll("tbody"));
+
+        return tableBodies.some((tableBody) => {
+          const rows = Array.from(tableBody.querySelectorAll("tr"));
+          if (rows.length === 0) {
+            return false;
+          }
+
+          return rows.some((row) => (row.textContent ?? "").includes(claimId));
+        });
+      },
+      targetClaimId,
+      { timeout },
+    );
+  };
+
+  try {
+    await page.waitForTimeout(500);
+    await waitForTargetRow(5000);
+    return;
+  } catch {
+    await page.waitForTimeout(1000);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(2000);
+  }
+
+  await waitForTargetRow(45000);
 }
 
 function claimRow(page: Page, claimId: string): Locator {
@@ -988,6 +1074,7 @@ async function expectClaimVisibleInApprovals(
   const row = claimRow(page, claimId);
 
   if (visible) {
+    await waitForClaimInTableWithRetry(page, claimId);
     await expect(row).toBeVisible({ timeout: 30000 });
     return;
   }
@@ -1004,6 +1091,7 @@ async function expectClaimVisibleInMyClaims(
   const row = claimRow(page, claimId);
 
   if (visible) {
+    await waitForClaimInTableWithRetry(page, claimId);
     await expect(row).toBeVisible({ timeout: 30000 });
     return;
   }
@@ -1573,9 +1661,6 @@ test.describe("Claims Workflow Multi-Role E2E", () => {
       .fill(`SUBMITTER-${secondMarker}`);
     await submitterPage.getByRole("textbox", { name: /^Bill No \*/i }).fill(duplicateBillNo);
     await submitterPage
-      .getByRole("textbox", { name: /^Transaction ID/i })
-      .fill(`TXN-${secondMarker}`);
-    await submitterPage
       .getByRole("textbox", { name: /^Purpose/i })
       .fill(`FLOW8 duplicate attempt ${secondMarker}`);
     await submitterPage.getByRole("textbox", { name: /^Transaction Date \*/i }).fill("2026-03-18");
@@ -1633,6 +1718,7 @@ test.describe("Claims Workflow Multi-Role E2E", () => {
 
     expect(secondSubmitted).not.toBeNull();
 
+    await submitterPage.waitForTimeout(1000);
     await assertClaimStatusInDb(secondSubmitted!.claimId, "Submitted - Awaiting HOD approval");
     await expectClaimVisibleInMyClaims(submitterPage, secondSubmitted!.claimId, true);
   });
