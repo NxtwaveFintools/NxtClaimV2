@@ -17,7 +17,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body
         suppressHydrationWarning
-        className="bg-slate-50 text-slate-900 antialiased transition-colors duration-200 dark:bg-[#0B0F1A] dark:text-slate-100"
+        className="bg-zinc-50 text-zinc-900 antialiased transition-colors duration-200 dark:bg-[#0B0F1A] dark:text-zinc-100"
       >
         <ThemeProvider
           attribute="class"

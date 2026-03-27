@@ -1,4 +1,5 @@
 import { GetPendingApprovalsService } from "@/core/domain/claims/GetPendingApprovalsService";
+import { formatCurrency, formatDate } from "@/lib/format";
 
 type PendingApprovalsRepository = {
   getApprovalViewerContext: jest.Mock;
@@ -121,6 +122,54 @@ describe("GetPendingApprovalsService", () => {
     expect(repository.getPendingApprovalsForL1).not.toHaveBeenCalled();
   });
 
+  test("applies formatted fields in response DTO", async () => {
+    const repository = createRepository({
+      getPendingApprovalsForL1: jest.fn(async () => ({
+        data: [
+          {
+            id: "claim-typed-1",
+            employeeId: "EMP-101",
+            submitter: "Employee One",
+            departmentName: "Operations",
+            paymentModeName: "Reimbursement",
+            detailType: "expense",
+            submissionType: "Self",
+            onBehalfEmail: null,
+            purpose: "Business travel",
+            categoryName: "Travel",
+            evidenceFilePath: null,
+            expenseReceiptFilePath: "expenses/receipt.pdf",
+            expenseBankStatementFilePath: "expenses/bank.pdf",
+            advanceSupportingDocumentPath: null,
+            totalAmount: 999.5,
+            status: "Submitted - Awaiting HOD approval",
+            submittedAt: "2026-03-14T10:00:00.000Z",
+          },
+        ],
+        nextCursor: "next-typed",
+        hasNextPage: true,
+        errorMessage: null,
+      })),
+    });
+    const service = new GetPendingApprovalsService({ repository, logger: createLogger() });
+
+    const result = await service.execute({
+      userId: "founder-1",
+      cursor: null,
+      limit: 1,
+    });
+
+    expect(result.errorMessage).toBeNull();
+    expect(result.nextCursor).toBe("next-typed");
+    expect(result.hasNextPage).toBe(true);
+    expect(result.data[0]).toMatchObject({
+      detailType: "expense",
+      formattedTotalAmount: formatCurrency(999.5),
+      formattedSubmittedAt: formatDate("2026-03-14T10:00:00.000Z"),
+      expenseBankStatementFilePath: "expenses/bank.pdf",
+    });
+  });
+
   test("returns empty response when user has no approver privileges", async () => {
     const repository = createRepository({
       getApprovalViewerContext: jest.fn(async () => ({
@@ -146,5 +195,85 @@ describe("GetPendingApprovalsService", () => {
     expect(result.data).toEqual([]);
     expect(repository.getPendingApprovalsForL1).not.toHaveBeenCalled();
     expect(repository.getPendingApprovalsForFinance).not.toHaveBeenCalled();
+  });
+
+  test("prioritizes finance scope for dual-role users", async () => {
+    const repository = createRepository({
+      getApprovalViewerContext: jest.fn(async () => ({
+        data: { isHod: true, isFounder: false, isFinance: true },
+        errorMessage: null,
+      })),
+    });
+    const service = new GetPendingApprovalsService({ repository, logger: createLogger() });
+
+    const viewerContext = await service.getViewerContext({ userId: "dual-role-user" });
+    await service.execute({ userId: "dual-role-user", cursor: null, limit: 10 });
+
+    expect(viewerContext).toEqual({
+      canViewApprovals: true,
+      activeScope: "finance",
+      errorMessage: null,
+    });
+    expect(repository.getPendingApprovalsForFinance).toHaveBeenCalled();
+    expect(repository.getPendingApprovalsForL1).not.toHaveBeenCalled();
+  });
+
+  test("returns viewer-context error and logs it", async () => {
+    const repository = createRepository({
+      getApprovalViewerContext: jest.fn(async () => ({
+        data: { isHod: false, isFounder: false, isFinance: false },
+        errorMessage: "viewer context failed",
+      })),
+    });
+    const logger = createLogger();
+    const service = new GetPendingApprovalsService({ repository, logger });
+
+    const result = await service.execute({ userId: "user-1", cursor: null, limit: 10 });
+
+    expect(result).toEqual({
+      data: [],
+      nextCursor: null,
+      hasNextPage: false,
+      errorMessage: "viewer context failed",
+    });
+    expect(logger.error).toHaveBeenCalledWith(
+      "claims.get_pending_approvals.viewer_context_failed",
+      expect.objectContaining({ userId: "user-1", errorMessage: "viewer context failed" }),
+    );
+  });
+
+  test("returns fetch error for active scope and logs it", async () => {
+    const repository = createRepository({
+      getPendingApprovalsForL1: jest.fn(async () => ({
+        data: [],
+        nextCursor: null,
+        hasNextPage: false,
+        errorMessage: "fetch failed",
+      })),
+    });
+    const logger = createLogger();
+    const service = new GetPendingApprovalsService({ repository, logger });
+
+    const result = await service.execute({
+      userId: "founder-1",
+      cursor: "cursor-1",
+      limit: 10,
+    });
+
+    expect(result).toEqual({
+      data: [],
+      nextCursor: null,
+      hasNextPage: false,
+      errorMessage: "fetch failed",
+    });
+    expect(logger.error).toHaveBeenCalledWith(
+      "claims.get_pending_approvals.fetch_failed",
+      expect.objectContaining({
+        userId: "founder-1",
+        scope: "l1",
+        cursor: "cursor-1",
+        errorMessage: "fetch failed",
+      }),
+    );
   });
 });

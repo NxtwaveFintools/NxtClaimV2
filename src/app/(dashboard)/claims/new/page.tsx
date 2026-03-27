@@ -8,24 +8,24 @@ export default async function NewClaimPage() {
   const hydrationResult = await getClaimFormHydrationAction();
 
   return (
-    <div className="min-h-screen bg-slate-50 px-6 py-8 dark:bg-[#0B0F1A]">
-      <main className="mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
+    <div className="min-h-screen bg-zinc-50 px-6 py-8 dark:bg-[#0B0F1A]">
+      <main className="mx-auto max-w-4xl rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900">
         <BackButton className="mb-3" fallbackHref={ROUTES.claims.myClaims} />
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600 dark:text-indigo-400">
               NxtClaim V2
             </p>
-            <h1 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+            <h1 className="mt-2 text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
               New Claim
             </h1>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
               Submit one claim for one transaction. Draft saving is disabled.
             </p>
           </div>
           <div className="flex items-center gap-2">
             {hydrationResult.data ? (
-              <span className="inline-flex max-w-[220px] items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+              <span className="inline-flex max-w-[220px] items-center rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
                 {hydrationResult.data.currentUser.email}
               </span>
             ) : null}

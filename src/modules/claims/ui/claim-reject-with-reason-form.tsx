@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -16,6 +16,7 @@ export function ClaimRejectWithReasonForm({
   redirectToHref,
 }: ClaimRejectWithReasonFormProps) {
   const router = useRouter();
+  const [, startTransition] = useTransition();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -39,7 +40,9 @@ export function ClaimRejectWithReasonForm({
       event.currentTarget.reset();
 
       if (redirectToHref) {
-        router.push(redirectToHref);
+        startTransition(() => {
+          router.push(redirectToHref, { scroll: false });
+        });
       }
     } finally {
       setIsSubmitting(false);
@@ -67,17 +70,17 @@ export function ClaimRejectWithReasonForm({
           <button
             type="button"
             aria-label="Close reject dialog"
-            className="absolute inset-0 bg-slate-900/50"
+            className="absolute inset-0 bg-zinc-900/50"
             disabled={isSubmitting}
             onClick={() => {
               setIsModalOpen(false);
             }}
           />
-          <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-800 dark:bg-zinc-950 sm:p-6">
-            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+          <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-lg -tranzinc-x-1/2 -tranzinc-y-1/2 rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 sm:p-6">
+            <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
               Reject Claim
             </h3>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
               Add a rejection reason and choose whether the employee can resubmit this exact bill.
             </p>
 
@@ -85,7 +88,7 @@ export function ClaimRejectWithReasonForm({
               <div className="grid gap-1.5">
                 <label
                   htmlFor="rejectionReason"
-                  className="text-xs font-medium uppercase tracking-[0.08em] text-slate-600 dark:text-slate-300"
+                  className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-600 dark:text-zinc-300"
                 >
                   Reason for Rejection
                 </label>
@@ -96,20 +99,20 @@ export function ClaimRejectWithReasonForm({
                   minLength={5}
                   disabled={isSubmitting}
                   rows={4}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-indigo-500 transition focus:ring dark:border-slate-700 dark:bg-zinc-900 dark:text-slate-100"
+                  className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-indigo-500 transition focus:ring dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
                   placeholder="Enter at least 5 characters"
                 />
               </div>
 
-              <label className="inline-flex items-start gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-zinc-900">
+              <label className="inline-flex items-start gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
                 <input
                   type="checkbox"
                   name="allowResubmission"
                   value="true"
                   disabled={isSubmitting}
-                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700"
+                  className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 dark:border-zinc-700"
                 />
-                <span className="text-sm text-slate-700 dark:text-slate-300">
+                <span className="text-sm text-zinc-700 dark:text-zinc-300">
                   Allow employee to resubmit this exact bill/receipt
                 </span>
               </label>
@@ -121,7 +124,7 @@ export function ClaimRejectWithReasonForm({
                   onClick={() => {
                     setIsModalOpen(false);
                   }}
-                  className="inline-flex items-center justify-center rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-slate-100 active:scale-[0.98] disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-zinc-800"
+                  className="inline-flex items-center justify-center rounded-xl border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 transition-all duration-200 hover:bg-zinc-100 active:scale-[0.98] disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 >
                   Cancel
                 </button>

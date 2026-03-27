@@ -114,6 +114,7 @@ function createRepository(overrides?: Partial<ClaimRepository>): ClaimRepository
       errorMessage: null,
     })),
     getClaimsForExport: jest.fn(async () => ({ data: [], errorMessage: null })),
+    getClaimListDetails: jest.fn(async () => ({ data: {}, errorMessage: null })),
     getClaimEvidenceSignedUrl: jest.fn(async () => ({ data: null, errorMessage: null })),
   };
 
@@ -309,6 +310,108 @@ describe("SubmitClaimService", () => {
         on_behalf_of_id: beneficiaryFounderId,
         assigned_l1_approver_id: departmentApprover2Id,
         initial_status: "Submitted - Awaiting HOD approval",
+      }),
+    );
+  });
+
+  test("returns INVALID_PAYMENT_MODE when mode is inactive", async () => {
+    const repository = createRepository({
+      getPaymentModeById: jest.fn(async () => ({
+        data: { id: baseInput.paymentModeId, name: "Reimbursement", isActive: false },
+        errorMessage: null,
+      })),
+    });
+    const service = new SubmitClaimService({ repository, logger: createLogger() });
+
+    const result = await service.execute(baseInput);
+
+    expect(result).toEqual({
+      claimId: null,
+      errorCode: "INVALID_PAYMENT_MODE",
+      errorMessage: "Payment mode not found or inactive.",
+    });
+    expect(repository.createClaimWithDetail).not.toHaveBeenCalled();
+  });
+
+  test("returns PAYMENT_MODE_NOT_SUPPORTED for unknown mode", async () => {
+    const repository = createRepository({
+      getPaymentModeById: jest.fn(async () => ({
+        data: { id: baseInput.paymentModeId, name: "Custom Mode", isActive: true },
+        errorMessage: null,
+      })),
+    });
+    const service = new SubmitClaimService({ repository, logger: createLogger() });
+
+    const result = await service.execute(baseInput);
+
+    expect(result.errorCode).toBe("PAYMENT_MODE_NOT_SUPPORTED");
+    expect(result.errorMessage).toContain("Custom Mode");
+    expect(repository.createClaimWithDetail).not.toHaveBeenCalled();
+  });
+
+  test("returns ON_BEHALF_USER_NOT_FOUND when on-behalf email cannot be resolved", async () => {
+    const repository = createRepository({
+      getActiveUserIdByEmail: jest.fn(async () => ({
+        data: null,
+        errorMessage: null,
+      })),
+    });
+    const service = new SubmitClaimService({ repository, logger: createLogger() });
+
+    const result = await service.execute({
+      ...baseInput,
+      submissionType: "On Behalf",
+      onBehalfOfId: null,
+      onBehalfEmail: "missing@nxtwave.co.in",
+      onBehalfEmployeeCode: "EMP-MISSING",
+    });
+
+    expect(result).toEqual({
+      claimId: null,
+      errorCode: "ON_BEHALF_USER_NOT_FOUND",
+      errorMessage: "On-behalf beneficiary is not an active user.",
+    });
+  });
+
+  test("returns DEPARTMENT_ROUTING_MISSING when department has no configured approver", async () => {
+    const repository = createRepository({
+      getDepartmentApprovers: jest.fn(async () => ({
+        data: { approver1Id: null, approver2Id: null },
+        errorMessage: null,
+      })),
+    });
+    const service = new SubmitClaimService({ repository, logger: createLogger() });
+
+    const result = await service.execute(baseInput);
+
+    expect(result.errorCode).toBe("DEPARTMENT_ROUTING_MISSING");
+    expect(result.errorMessage).toBe("Department approver routing is not configured.");
+    expect(repository.createClaimWithDetail).not.toHaveBeenCalled();
+  });
+
+  test("returns CLAIM_SUBMISSION_FAILED and logs when create claim fails", async () => {
+    const repository = createRepository({
+      createClaimWithDetail: jest.fn(async () => ({
+        claimId: null,
+        errorMessage: "insert failed",
+      })),
+    });
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    const result = await service.execute(baseInput);
+
+    expect(result).toEqual({
+      claimId: null,
+      errorCode: "CLAIM_SUBMISSION_FAILED",
+      errorMessage: "insert failed",
+    });
+    expect(logger.error).toHaveBeenCalledWith(
+      "claims.submit.failed",
+      expect.objectContaining({
+        paymentModeId: baseInput.paymentModeId,
+        detailType: "expense",
+        errorMessage: "insert failed",
       }),
     );
   });

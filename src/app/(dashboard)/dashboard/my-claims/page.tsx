@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Suspense, use } from "react";
 import { BackButton } from "@/components/ui/back-button";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ROUTES } from "@/core/config/route-registry";
 import { DB_CLAIM_STATUSES, type DbClaimStatus } from "@/core/constants/statuses";
@@ -14,6 +16,7 @@ import type {
 import { GetMyClaimsPaginatedService } from "@/core/domain/claims/GetMyClaimsPaginatedService";
 import { GetPendingApprovalsService } from "@/core/domain/claims/GetPendingApprovalsService";
 import { logger } from "@/core/infra/logging/logger";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { SupabaseServerAuthRepository } from "@/modules/auth/repositories/supabase-server-auth.repository";
 import {
   approveClaimAction,
@@ -35,6 +38,10 @@ import { ClaimSemanticDownloadButton } from "@/modules/claims/ui/claim-semantic-
 const PAGE_SIZE = 10;
 type SearchParamsValue = string | string[] | undefined;
 type ViewMode = "submissions" | "approvals";
+
+export const metadata = {
+  title: "My Claims | NxtClaim",
+};
 
 function firstParamValue(value: SearchParamsValue): string | undefined {
   if (Array.isArray(value)) {
@@ -190,32 +197,6 @@ function buildViewHref(
   return query ? `${ROUTES.claims.myClaims}?${query}` : ROUTES.claims.myClaims;
 }
 
-function formatDate(value: string | null): string {
-  if (!value) {
-    return "N/A";
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "N/A";
-  }
-
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(parsed);
-}
-
-function formatAmount(amount: number): string {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
-}
-
 function DateWithActor({
   dateValue,
   actorEmail,
@@ -232,6 +213,30 @@ function DateWithActor({
       <span>{formatDate(dateValue)}</span>
       <span className="text-xs text-muted-foreground">{actorEmail ?? "-"}</span>
     </div>
+  );
+}
+
+function MyClaimsShellSkeleton() {
+  return (
+    <>
+      <div className="min-h-[140px]">
+        <FilterBarSkeleton />
+      </div>
+
+      <section className="min-h-[600px] overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+          <div className="shimmer-sweep h-4 w-40 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
+        </div>
+        <div className="space-y-3 p-4">
+          {Array.from({ length: 11 }).map((_, index) => (
+            <div
+              key={`table-shell-row-${index}`}
+              className="shimmer-sweep h-4 w-full rounded-md bg-zinc-200 dark:bg-gray-800/40"
+            />
+          ))}
+        </div>
+      </section>
+    </>
   );
 }
 
@@ -254,91 +259,86 @@ async function resolveApprovalEvidenceUrls(
     advanceSupportingDocumentPath: string | null;
   }>,
 ): Promise<Record<string, ApprovalEvidenceSignedUrls>> {
-  const signedEntries = await Promise.all(
-    rows.map(async (row) => {
-      const [
-        expenseReceiptSignedUrl,
-        expenseBankStatementSignedUrl,
-        advanceSupportingDocumentSignedUrl,
-      ] = await Promise.all([
-        isRenderableEvidencePath(row.expenseReceiptFilePath)
-          ? claimRepository
-              .getClaimEvidenceSignedUrl({
-                filePath: row.expenseReceiptFilePath,
-                expiresInSeconds: 60 * 10,
-              })
-              .then((result) => {
-                if (result.errorMessage) {
-                  return null;
-                }
+  const filePaths = Array.from(
+    new Set(
+      rows.flatMap((row) =>
+        [
+          row.expenseReceiptFilePath,
+          row.expenseBankStatementFilePath,
+          row.advanceSupportingDocumentPath,
+        ].filter((path): path is string => isRenderableEvidencePath(path)),
+      ),
+    ),
+  );
 
-                return result.data;
-              })
-              .catch(() => null)
-          : Promise.resolve(null),
-        isRenderableEvidencePath(row.expenseBankStatementFilePath)
-          ? claimRepository
-              .getClaimEvidenceSignedUrl({
-                filePath: row.expenseBankStatementFilePath,
-                expiresInSeconds: 60 * 10,
-              })
-              .then((result) => {
-                if (result.errorMessage) {
-                  return null;
-                }
+  const signedUrlByPath: Record<string, string> =
+    filePaths.length === 0
+      ? {}
+      : await claimRepository
+          .createBulkSignedUrls({
+            filePaths,
+            expiresInSeconds: 60 * 10,
+          })
+          .then((result) => (result.errorMessage ? {} : result.data))
+          .catch(() => ({}));
 
-                return result.data;
-              })
-              .catch(() => null)
-          : Promise.resolve(null),
-        isRenderableEvidencePath(row.advanceSupportingDocumentPath)
-          ? claimRepository
-              .getClaimEvidenceSignedUrl({
-                filePath: row.advanceSupportingDocumentPath,
-                expiresInSeconds: 60 * 10,
-              })
-              .then((result) => {
-                if (result.errorMessage) {
-                  return null;
-                }
-
-                return result.data;
-              })
-              .catch(() => null)
-          : Promise.resolve(null),
-      ]);
+  return Object.fromEntries(
+    rows.map((row) => {
+      const expenseReceiptPath = isRenderableEvidencePath(row.expenseReceiptFilePath)
+        ? row.expenseReceiptFilePath
+        : null;
+      const expenseBankStatementPath = isRenderableEvidencePath(row.expenseBankStatementFilePath)
+        ? row.expenseBankStatementFilePath
+        : null;
+      const advanceSupportingDocumentPath = isRenderableEvidencePath(
+        row.advanceSupportingDocumentPath,
+      )
+        ? row.advanceSupportingDocumentPath
+        : null;
 
       return [
         row.id,
         {
-          expenseReceiptSignedUrl,
-          expenseBankStatementSignedUrl,
-          advanceSupportingDocumentSignedUrl,
+          expenseReceiptSignedUrl: expenseReceiptPath
+            ? (signedUrlByPath[expenseReceiptPath] ?? null)
+            : null,
+          expenseBankStatementSignedUrl: expenseBankStatementPath
+            ? (signedUrlByPath[expenseBankStatementPath] ?? null)
+            : null,
+          advanceSupportingDocumentSignedUrl: advanceSupportingDocumentPath
+            ? (signedUrlByPath[advanceSupportingDocumentPath] ?? null)
+            : null,
         },
       ] as const;
     }),
   );
-
-  return Object.fromEntries(signedEntries);
 }
+
+type EnrichedAuditLogRecord = ClaimAuditLogRecord & { formattedCreatedAt: string };
 
 async function resolveAuditLogsByClaimId(
   claimRepository: SupabaseClaimRepository,
   claimIds: string[],
-): Promise<Record<string, ClaimAuditLogRecord[]>> {
-  const entries = await Promise.all(
-    claimIds.map(async (claimId) => {
-      const result = await claimRepository.getClaimAuditLogs(claimId);
+): Promise<Record<string, EnrichedAuditLogRecord[]>> {
+  if (claimIds.length === 0) {
+    return {};
+  }
 
-      if (result.errorMessage) {
-        return [claimId, []] as const;
-      }
+  const result = await claimRepository.getClaimAuditLogsBatch(claimIds);
 
-      return [claimId, result.data] as const;
-    }),
+  if (result.errorMessage) {
+    return Object.fromEntries(claimIds.map((claimId) => [claimId, []] as const));
+  }
+
+  return Object.fromEntries(
+    claimIds.map((claimId) => [
+      claimId,
+      (result.data[claimId] ?? []).map((log) => ({
+        ...log,
+        formattedCreatedAt: formatDateTime(log.createdAt),
+      })),
+    ]),
   );
-
-  return Object.fromEntries(entries);
 }
 
 function resolveApprovalActionMode(params: {
@@ -365,7 +365,7 @@ function resolveApprovalActionMode(params: {
 
 function TableHeader({ showActions }: { showActions: boolean }) {
   return (
-    <thead className="bg-slate-50 text-xs uppercase tracking-[0.12em] text-slate-600 dark:bg-slate-900/50 dark:text-slate-400">
+    <thead className="bg-zinc-50 text-xs uppercase tracking-[0.12em] text-zinc-600 dark:bg-zinc-900/50 dark:text-zinc-400">
       <tr>
         <th className="whitespace-nowrap px-4 py-3 font-semibold">CLAIM ID</th>
         <th className="whitespace-nowrap px-4 py-3 font-semibold">EMPLOYEE ID</th>
@@ -418,22 +418,16 @@ async function ClaimsCommandCenterTable({
     });
 
     const rows = approvalsResult.data;
+    const claimIds = rows.map((claim) => claim.id);
 
     if (approvalScope === "finance" || approvalScope === "l1") {
-      const totalCount =
-        approvalScope === "finance"
-          ? claimRepository.getFinancePendingApprovalsCount(userId, filters)
-          : claimRepository.getL1PendingApprovalsCount(userId, filters);
-
-      const resolvedTotalCount = await totalCount;
-      const evidenceSignedUrlByClaimId = await resolveApprovalEvidenceUrls(claimRepository, rows);
-      const auditLogsByClaimId = await resolveAuditLogsByClaimId(
-        claimRepository,
-        rows.map((claim) => claim.id),
-      );
+      const [evidenceSignedUrlByClaimId, auditLogsByClaimId] = await Promise.all([
+        resolveApprovalEvidenceUrls(claimRepository, rows),
+        resolveAuditLogsByClaimId(claimRepository, claimIds),
+      ]);
 
       return (
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
+        <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900">
           {approvalsResult.errorMessage ? (
             <div className="px-4 py-6">
               <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
@@ -443,45 +437,58 @@ async function ClaimsCommandCenterTable({
           ) : rows.length === 0 ? (
             <>
               <div className="grid place-items-center px-4 py-14 text-center">
-                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
                   No approvals history found.
                 </p>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">
+                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
                   Claims routed to your approval scope will appear here.
                 </p>
               </div>
             </>
           ) : (
             <>
-              <FinanceApprovalsBulkTable
-                rows={rows.map((claim) => ({
-                  id: claim.id,
-                  employeeId: claim.employeeId,
-                  submitter: claim.submitter,
-                  departmentName: claim.departmentName,
-                  paymentModeName: claim.paymentModeName,
-                  detailType: claim.detailType,
-                  submissionType: claim.submissionType,
-                  onBehalfEmail: claim.onBehalfEmail,
-                  purpose: claim.purpose,
-                  categoryName: claim.categoryName,
-                  expenseReceiptFilePath: claim.expenseReceiptFilePath,
-                  expenseBankStatementFilePath: claim.expenseBankStatementFilePath,
-                  advanceSupportingDocumentPath: claim.advanceSupportingDocumentPath,
-                  totalAmount: claim.totalAmount,
-                  status: claim.status,
-                  submittedAt: claim.submittedAt,
-                  hodActionDate: null,
-                  financeActionDate: null,
-                }))}
-                totalSelectableCount={
-                  resolvedTotalCount.errorMessage ? rows.length : resolvedTotalCount.count
-                }
-                filters={filters}
-                approvalScope={approvalScope}
-                evidenceSignedUrlByClaimId={evidenceSignedUrlByClaimId}
-                auditLogsByClaimId={auditLogsByClaimId}
-              />
+              <Suspense key={JSON.stringify(searchParams ?? {})} fallback={<TableSkeleton />}>
+                <FinanceApprovalsBulkTable
+                  rows={rows.map((claim) => ({
+                    id: claim.id,
+                    employeeId: claim.employeeId,
+                    submitter: claim.submitter,
+                    departmentName: claim.departmentName,
+                    paymentModeName: claim.paymentModeName,
+                    detailType: claim.detailType,
+                    submissionType: claim.submissionType,
+                    onBehalfEmail: claim.onBehalfEmail,
+                    purpose: claim.purpose,
+                    categoryName: claim.categoryName,
+                    expenseReceiptFilePath: claim.expenseReceiptFilePath,
+                    expenseBankStatementFilePath: claim.expenseBankStatementFilePath,
+                    advanceSupportingDocumentPath: claim.advanceSupportingDocumentPath,
+                    formattedTotalAmount: claim.formattedTotalAmount,
+                    status: claim.status,
+                    formattedSubmittedAt: claim.formattedSubmittedAt,
+                    formattedHodActionDate: "N/A",
+                    formattedFinanceActionDate: "N/A",
+                  }))}
+                  actionableIds={rows
+                    .filter((row) => {
+                      if (approvalScope === "l1") {
+                        return row.status === "Submitted - Awaiting HOD approval";
+                      }
+                      return (
+                        row.status === "HOD approved - Awaiting finance approval" ||
+                        row.status === "Finance Approved - Payment under process"
+                      );
+                    })
+                    .map((row) => row.id)}
+                  totalSelectableCount={
+                    approvalsResult.totalCount > 0 ? approvalsResult.totalCount : rows.length
+                  }
+                  filters={filters}
+                  approvalScope={approvalScope}
+                  evidenceSignedUrlByClaimId={evidenceSignedUrlByClaimId}
+                  auditLogsByClaimId={auditLogsByClaimId}
+                />
+              </Suspense>
 
               <MyClaimsPaginationControls
                 hasNextPage={approvalsResult.hasNextPage}
@@ -497,22 +504,21 @@ async function ClaimsCommandCenterTable({
       );
     }
 
-    const evidenceSignedUrlByClaimId = await resolveApprovalEvidenceUrls(claimRepository, rows);
-    const auditLogsByClaimId = await resolveAuditLogsByClaimId(
-      claimRepository,
-      rows.map((claim) => claim.id),
-    );
+    const [evidenceSignedUrlByClaimId, auditLogsByClaimId] = await Promise.all([
+      resolveApprovalEvidenceUrls(claimRepository, rows),
+      resolveAuditLogsByClaimId(claimRepository, claimIds),
+    ]);
     const gatedStatuses = {
       l1: DB_CLAIM_STATUSES[0],
       finance: DB_CLAIM_STATUSES[1],
     };
 
     return (
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
-        <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+      <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
           <p
             aria-hidden="true"
-            className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-700 dark:text-slate-300"
+            className="text-sm font-semibold uppercase tracking-[0.14em] text-zinc-700 dark:text-zinc-300"
           >
             Approvals History
           </p>
@@ -526,19 +532,19 @@ async function ClaimsCommandCenterTable({
           </div>
         ) : rows.length === 0 ? (
           <div className="grid place-items-center px-4 py-14 text-center">
-            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
               No approvals history found.
             </p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
               Claims routed to your approval scope will appear here.
             </p>
           </div>
         ) : (
           <>
             <div className="w-full overflow-x-auto">
-              <table className="min-w-[1720px] divide-y divide-slate-200 text-left text-sm dark:divide-slate-800">
+              <table className="min-w-[1720px] divide-y divide-zinc-200 text-left text-sm dark:divide-zinc-800">
                 <TableHeader showActions />
-                <tbody className="divide-y divide-slate-100 bg-white text-slate-700 dark:divide-slate-900 dark:bg-zinc-950 dark:text-slate-300">
+                <tbody className="divide-y divide-zinc-100 bg-white text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
                   {rows.map((claim) => {
                     const evidenceSignedUrls = evidenceSignedUrlByClaimId[claim.id] ?? {
                       expenseReceiptSignedUrl: null,
@@ -639,7 +645,7 @@ async function ClaimsCommandCenterTable({
                       }
 
                       return (
-                        <span className="text-xs font-medium uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+                        <span className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
                           No actions
                         </span>
                       );
@@ -648,9 +654,9 @@ async function ClaimsCommandCenterTable({
                     return (
                       <tr
                         key={claim.id}
-                        className="group transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-900/40"
+                        className="group transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
                       >
-                        <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
+                        <td className="whitespace-nowrap px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
                           <Link
                             href={ROUTES.claims.detail(claim.id)}
                             className="text-indigo-500 hover:text-indigo-400 hover:underline"
@@ -678,14 +684,14 @@ async function ClaimsCommandCenterTable({
                             {claim.paymentModeName}
                           </span>
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">
-                          {formatAmount(claim.totalAmount)}
+                        <td className="whitespace-nowrap px-4 py-3 font-semibold text-zinc-900 dark:text-zinc-100">
+                          {claim.formattedTotalAmount}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
                           <ClaimStatusBadge status={claim.status} />
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
-                          {formatDate(claim.submittedAt)}
+                          {claim.formattedSubmittedAt}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">N/A</td>
                         <td className="whitespace-nowrap px-4 py-3">N/A</td>
@@ -722,7 +728,7 @@ async function ClaimsCommandCenterTable({
                               claimId={claim.id}
                               detailType={claim.detailType}
                               submitter={claim.submitter}
-                              amountLabel={formatAmount(claim.totalAmount)}
+                              amountLabel={claim.formattedTotalAmount}
                               categoryName={claim.categoryName}
                               purpose={claim.purpose}
                               submissionType={claim.submissionType}
@@ -773,35 +779,30 @@ async function ClaimsCommandCenterTable({
   });
 
   const rows = claimsResult.data;
-  const submissionDetailEntries = await Promise.all(
-    rows.map(async (claim) => {
-      const detailResult = await claimRepository.getClaimDetailById(claim.id);
-      return [claim.id, detailResult.data] as const;
-    }),
-  );
-  const submissionDetailsByClaimId = Object.fromEntries(submissionDetailEntries);
+  const claimIds = rows.map((claim) => claim.id);
+  const [submissionDetailResult, submissionAuditLogsByClaimId] = await Promise.all([
+    claimRepository.getClaimListDetails(claimIds),
+    resolveAuditLogsByClaimId(claimRepository, claimIds),
+  ]);
+  const submissionDetailsByClaimId = submissionDetailResult.data;
   const submissionEvidenceSignedUrlByClaimId = await resolveApprovalEvidenceUrls(
     claimRepository,
-    rows.map((claim) => {
-      const detail = submissionDetailsByClaimId[claim.id];
+    claimIds.map((claimId) => {
+      const detail = submissionDetailsByClaimId[claimId];
 
       return {
-        id: claim.id,
-        expenseReceiptFilePath: detail?.expense?.receiptFilePath ?? null,
-        expenseBankStatementFilePath: detail?.expense?.bankStatementFilePath ?? null,
-        advanceSupportingDocumentPath: detail?.advance?.supportingDocumentPath ?? null,
+        id: claimId,
+        expenseReceiptFilePath: detail?.expenseReceiptFilePath ?? null,
+        expenseBankStatementFilePath: detail?.expenseBankStatementFilePath ?? null,
+        advanceSupportingDocumentPath: detail?.advanceSupportingDocumentPath ?? null,
       };
     }),
   );
-  const submissionAuditLogsByClaimId = await resolveAuditLogsByClaimId(
-    claimRepository,
-    rows.map((claim) => claim.id),
-  );
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
-      <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-700 dark:text-slate-300">
+    <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-zinc-700 dark:text-zinc-300">
           My Submissions
         </h2>
       </div>
@@ -814,17 +815,17 @@ async function ClaimsCommandCenterTable({
         </div>
       ) : rows.length === 0 ? (
         <div className="grid place-items-center px-4 py-14 text-center">
-          <p className="text-sm font-medium text-slate-700 dark:text-slate-300">No claims found</p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">
+          <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">No claims found</p>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
             Submit a new claim to see it here.
           </p>
         </div>
       ) : (
         <>
           <div className="overflow-x-auto">
-            <table className="min-w-[1500px] divide-y divide-slate-200 text-left text-sm dark:divide-slate-800">
+            <table className="min-w-[1500px] divide-y divide-zinc-200 text-left text-sm dark:divide-zinc-800">
               <TableHeader showActions />
-              <tbody className="divide-y divide-slate-100 bg-white text-slate-700 dark:divide-slate-900 dark:bg-zinc-950 dark:text-slate-300">
+              <tbody className="divide-y divide-zinc-100 bg-white text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
                 {rows.map((claim) => {
                   const detail = submissionDetailsByClaimId[claim.id];
                   const evidenceSignedUrls = submissionEvidenceSignedUrlByClaimId[claim.id] ?? {
@@ -836,9 +837,9 @@ async function ClaimsCommandCenterTable({
                   return (
                     <tr
                       key={claim.id}
-                      className="transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-900/40"
+                      className="transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
                     >
-                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
+                      <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
                         <Link
                           href={ROUTES.claims.detail(claim.id)}
                           className="text-indigo-500 hover:text-indigo-400 hover:underline"
@@ -866,8 +867,8 @@ async function ClaimsCommandCenterTable({
                           {claim.typeOfClaim}
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">
-                        {formatAmount(claim.totalAmount)}
+                      <td className="px-4 py-3 font-semibold text-zinc-900 dark:text-zinc-100">
+                        {claim.formattedTotalAmount}
                       </td>
                       <td className="px-4 py-3">
                         <ClaimStatusBadge status={claim.status} />
@@ -897,22 +898,18 @@ async function ClaimsCommandCenterTable({
                               claimId={claim.id}
                               detailType={detail.detailType}
                               submitter={detail.submitter}
-                              amountLabel={formatAmount(claim.totalAmount)}
-                              categoryName={claim.typeOfClaim}
-                              purpose={detail.expense?.purpose ?? detail.advance?.purpose ?? null}
+                              amountLabel={claim.formattedTotalAmount}
+                              categoryName={detail.categoryName}
+                              purpose={detail.purpose}
                               submissionType={detail.submissionType}
                               onBehalfEmail={detail.onBehalfEmail}
-                              expenseReceiptFilePath={detail.expense?.receiptFilePath ?? null}
+                              expenseReceiptFilePath={detail.expenseReceiptFilePath}
                               expenseReceiptSignedUrl={evidenceSignedUrls.expenseReceiptSignedUrl}
-                              expenseBankStatementFilePath={
-                                detail.expense?.bankStatementFilePath ?? null
-                              }
+                              expenseBankStatementFilePath={detail.expenseBankStatementFilePath}
                               expenseBankStatementSignedUrl={
                                 evidenceSignedUrls.expenseBankStatementSignedUrl
                               }
-                              advanceSupportingDocumentPath={
-                                detail.advance?.supportingDocumentPath ?? null
-                              }
+                              advanceSupportingDocumentPath={detail.advanceSupportingDocumentPath}
                               advanceSupportingDocumentSignedUrl={
                                 evidenceSignedUrls.advanceSupportingDocumentSignedUrl
                               }
@@ -921,7 +918,7 @@ async function ClaimsCommandCenterTable({
                           ) : (
                             <Link
                               href={ROUTES.claims.detail(claim.id)}
-                              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-zinc-900 dark:text-slate-200 dark:hover:bg-zinc-800"
+                              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-2.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                             >
                               View
                             </Link>
@@ -949,42 +946,33 @@ async function ClaimsCommandCenterTable({
   );
 }
 
-export default async function MyClaimsDashboardPage({
-  searchParams,
+function FilterBarSkeleton() {
+  return (
+    <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="grid gap-3 md:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <div key={`filter-placeholder-${index}`} className="space-y-1">
+            <div className="shimmer-sweep h-3 w-20 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
+            <div className="shimmer-sweep h-9 w-full rounded-lg bg-zinc-200 dark:bg-gray-800/40" />
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 flex items-center gap-2">
+        <div className="shimmer-sweep h-9 w-24 rounded-lg bg-zinc-200 dark:bg-gray-800/40" />
+        <div className="shimmer-sweep h-9 w-20 rounded-lg bg-zinc-200 dark:bg-gray-800/40" />
+      </div>
+    </section>
+  );
+}
+
+async function FilterBarWithData({
+  exportScope,
+  defaultFiltersExpanded,
 }: {
-  searchParams: Promise<Record<string, SearchParamsValue>>;
+  exportScope: ViewMode;
+  defaultFiltersExpanded: boolean;
 }) {
-  const authRepository = new SupabaseServerAuthRepository();
   const claimRepository = new SupabaseClaimRepository();
-  const pendingApprovalsService = new GetPendingApprovalsService({
-    repository: claimRepository,
-    logger,
-  });
-
-  const currentUserResult = await authRepository.getCurrentUser();
-
-  if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
-    redirect(ROUTES.login);
-  }
-
-  const resolvedSearchParams = await searchParams;
-  const filters = buildClaimFilters(resolvedSearchParams);
-
-  const viewerContextResult = await pendingApprovalsService.getViewerContext({
-    userId: currentUserResult.user.id,
-  });
-  const currentEmail = currentUserResult.user.email ?? "Unknown User";
-  const canViewApprovals = viewerContextResult.canViewApprovals;
-  const requestedView = firstParamValue(resolvedSearchParams?.view);
-
-  if (canViewApprovals && !requestedView) {
-    redirect(buildViewHref(resolvedSearchParams, "approvals"));
-  }
-
-  const activeView = resolveView(requestedView, canViewApprovals);
-  const submissionsHref = buildViewHref(resolvedSearchParams, "submissions");
-  const approvalsHref = buildViewHref(resolvedSearchParams, "approvals");
-
   const [paymentModesResult, departmentsResult, locationsResult, productsResult, categoriesResult] =
     await Promise.all([
       claimRepository.getActivePaymentModes(),
@@ -1010,23 +998,104 @@ export default async function MyClaimsDashboardPage({
   }));
 
   return (
-    <div className="min-h-screen bg-slate-50 px-6 py-8 dark:bg-[#0B0F1A]">
+    <ClaimsFilterBar
+      exportScope={exportScope}
+      defaultFiltersExpanded={defaultFiltersExpanded}
+      paymentModes={paymentModes}
+      departments={departments}
+      locations={locations}
+      products={products}
+      expenseCategories={expenseCategories}
+    />
+  );
+}
+
+async function MyClaimsDashboardPageContent({
+  searchParams,
+}: {
+  searchParams: Record<string, SearchParamsValue>;
+}) {
+  const authRepository = new SupabaseServerAuthRepository();
+  const claimRepository = new SupabaseClaimRepository();
+  const pendingApprovalsService = new GetPendingApprovalsService({
+    repository: claimRepository,
+    logger,
+  });
+
+  const currentUserResult = await authRepository.getCurrentUser();
+
+  if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
+    redirect(ROUTES.login);
+  }
+
+  const resolvedSearchParams = searchParams;
+
+  const filters = buildClaimFilters(resolvedSearchParams);
+
+  const viewerContextResult = await pendingApprovalsService.getViewerContext({
+    userId: currentUserResult.user.id,
+  });
+  const canViewApprovals = viewerContextResult.canViewApprovals;
+  const requestedView = firstParamValue(resolvedSearchParams?.view);
+
+  if (canViewApprovals && !requestedView) {
+    redirect(buildViewHref(resolvedSearchParams, "approvals"));
+  }
+
+  const activeView = resolveView(requestedView, canViewApprovals);
+
+  return (
+    <>
+      <Suspense fallback={<FilterBarSkeleton />}>
+        <FilterBarWithData
+          exportScope={activeView}
+          defaultFiltersExpanded={viewerContextResult.activeScope === "finance"}
+        />
+      </Suspense>
+
+      {activeView === "approvals" ? (
+        <h2 className="sr-only" aria-label="Approvals History">
+          Approvals History
+        </h2>
+      ) : null}
+
+      <Suspense key={JSON.stringify(resolvedSearchParams)} fallback={<TableSkeleton />}>
+        <ClaimsCommandCenterTable
+          userId={currentUserResult.user.id}
+          view={activeView}
+          approvalScope={viewerContextResult.activeScope}
+          searchParams={resolvedSearchParams}
+          filters={filters}
+        />
+      </Suspense>
+    </>
+  );
+}
+
+export default function MyClaimsDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, SearchParamsValue>>;
+}) {
+  const resolvedSearchParams = use(searchParams);
+  const requestedView = firstParamValue(resolvedSearchParams?.view);
+  const activeView: ViewMode = requestedView === "approvals" ? "approvals" : "submissions";
+  const submissionsHref = buildViewHref(resolvedSearchParams, "submissions");
+  const approvalsHref = buildViewHref(resolvedSearchParams, "approvals");
+
+  return (
+    <div className="min-h-screen bg-zinc-50 px-6 py-8 dark:bg-[#0B0F1A]">
       <main className="mx-auto max-w-7xl space-y-5">
         <BackButton className="w-fit" />
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
+        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
-                My Claims
-              </h1>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              <h1 className="text-3xl font-semibold text-zinc-900 dark:text-zinc-100">My Claims</h1>
+              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
                 Command Center for submissions and approvals
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <span className="inline-flex max-w-[220px] items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                {currentEmail}
-              </span>
               <ThemeToggle />
               <Link
                 href={ROUTES.claims.new}
@@ -1037,55 +1106,33 @@ export default async function MyClaimsDashboardPage({
             </div>
           </div>
 
-          {canViewApprovals ? (
-            <div className="mt-4 inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-900/60">
-              <Link
-                href={submissionsHref}
-                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                  activeView === "submissions"
-                    ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                    : "text-slate-700 hover:bg-slate-200/70 dark:text-slate-300 dark:hover:bg-slate-800"
-                }`}
-              >
-                My Submissions
-              </Link>
-              <Link
-                href={approvalsHref}
-                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                  activeView === "approvals"
-                    ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                    : "text-slate-700 hover:bg-slate-200/70 dark:text-slate-300 dark:hover:bg-slate-800"
-                }`}
-              >
-                Approvals History
-              </Link>
-            </div>
-          ) : null}
+          <div className="mt-4 inline-flex rounded-xl border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-700 dark:bg-zinc-900/60">
+            <Link
+              href={submissionsHref}
+              className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                activeView === "submissions"
+                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  : "text-zinc-700 hover:bg-zinc-200/70 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              }`}
+            >
+              My Submissions
+            </Link>
+            <Link
+              href={approvalsHref}
+              className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                activeView === "approvals"
+                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  : "text-zinc-700 hover:bg-zinc-200/70 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              }`}
+            >
+              Approvals History
+            </Link>
+          </div>
         </section>
 
-        <ClaimsFilterBar
-          exportScope={activeView}
-          defaultFiltersExpanded={viewerContextResult.activeScope === "finance"}
-          paymentModes={paymentModes}
-          departments={departments}
-          locations={locations}
-          products={products}
-          expenseCategories={expenseCategories}
-        />
-
-        {activeView === "approvals" ? (
-          <h2 className="sr-only" aria-label="Approvals History">
-            Approvals History
-          </h2>
-        ) : null}
-
-        <ClaimsCommandCenterTable
-          userId={currentUserResult.user.id}
-          view={activeView}
-          approvalScope={viewerContextResult.activeScope}
-          searchParams={resolvedSearchParams}
-          filters={filters}
-        />
+        <Suspense fallback={<MyClaimsShellSkeleton />}>
+          <MyClaimsDashboardPageContent searchParams={resolvedSearchParams} />
+        </Suspense>
       </main>
     </div>
   );

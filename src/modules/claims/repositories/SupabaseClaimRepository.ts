@@ -11,6 +11,7 @@ import type {
   ClaimExportRecord,
   ClaimFullExportRecord,
   ClaimDropdownOption,
+  ClaimListDetail,
   ClaimPaymentMode,
   ClaimsExportFetchScope,
   FinanceClaimEditPayload,
@@ -77,21 +78,18 @@ type EnterpriseClaimsDashboardRow = {
   submitted_on: string;
   hod_action_date: string | null;
   finance_action_date: string | null;
-  submitted_by: string;
-  on_behalf_of_id: string | null;
-  assigned_l1_approver_id: string;
-  assigned_l2_approver_id: string | null;
-  department_id: string;
-  payment_mode_id: string;
-  location_id: string | null;
-  product_id: string | null;
-  expense_category_id: string | null;
   detail_type: "expense" | "advance";
   submission_type: "Self" | "On Behalf";
   created_at: string;
-  submitter_email: string | null;
-  hod_email: string | null;
-  finance_email: string | null;
+  submitted_by?: string;
+  on_behalf_of_id?: string | null;
+  assigned_l1_approver_id?: string;
+  assigned_l2_approver_id?: string | null;
+  department_id?: string;
+  payment_mode_id?: string;
+  submitter_email?: string | null;
+  hod_email?: string | null;
+  finance_email?: string | null;
 };
 
 type ClaimAuditLogActorRow = {
@@ -122,11 +120,9 @@ type GetPendingApprovalsRow = {
   detail_type: "expense" | "advance";
   submission_type: "Self" | "On Behalf";
   on_behalf_email: string | null;
-  submitted_by: string;
   status: DbClaimStatus;
   submitted_at: string;
   created_at: string;
-  updated_at: string;
   submitter_user: ClaimSubmitterRow | ClaimSubmitterRow[] | null;
   master_departments: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
   master_payment_modes: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
@@ -396,6 +392,7 @@ const L1_ACTIONABLE_STATUSES: DbClaimStatus[] = [DB_CLAIM_STATUSES[0]];
 const FINANCE_ACTIONABLE_STATUSES: DbClaimStatus[] = [DB_CLAIM_STATUSES[1], DB_CLAIM_STATUSES[2]];
 const EXPORT_CLAIM_LOOKUP_BATCH_SIZE = 50;
 const EXPORT_WALLET_LOOKUP_BATCH_SIZE = 200;
+const MAX_LIST_PAGE_SIZE = 50;
 
 function chunkArray<T>(values: T[], chunkSize: number): T[][] {
   if (chunkSize <= 0) {
@@ -409,6 +406,14 @@ function chunkArray<T>(values: T[], chunkSize: number): T[][] {
   }
 
   return chunks;
+}
+
+function clampListPageSize(limit: number): number {
+  if (!Number.isFinite(limit)) {
+    return MAX_LIST_PAGE_SIZE;
+  }
+
+  return Math.max(1, Math.min(Math.trunc(limit), MAX_LIST_PAGE_SIZE));
 }
 
 function toPostgrestInList(values: string[]): string {
@@ -529,6 +534,74 @@ function applyEnterpriseDashboardFilters<
   return query;
 }
 
+type PendingApprovalsQueryChain<TQuery> = {
+  eq(column: string, value: string): TQuery;
+  in(column: string, values: DbClaimStatus[]): TQuery;
+  gte(column: string, value: string): TQuery;
+  lte(column: string, value: string): TQuery;
+  ilike(column: string, pattern: string): TQuery;
+};
+
+function applyPendingApprovalsFilters<TQuery extends PendingApprovalsQueryChain<TQuery>>(params: {
+  query: TQuery;
+  filters?: GetMyClaimsFilters;
+  normalizedStatuses: DbClaimStatus[];
+  fromDate?: string;
+  toDate?: string;
+  dateColumn: string;
+  normalizedSearch: { field: GetMyClaimsFilters["searchField"]; query: string };
+}): TQuery {
+  let { query } = params;
+
+  const equalityFilters: Array<[string, string | undefined]> = [
+    ["detail_type", params.filters?.detailType],
+    ["payment_mode_id", params.filters?.paymentModeId],
+    ["department_id", params.filters?.departmentId],
+    ["expense_details.location_id", params.filters?.locationId],
+    ["expense_details.product_id", params.filters?.productId],
+    ["expense_details.expense_category_id", params.filters?.expenseCategoryId],
+    ["submission_type", params.filters?.submissionType],
+  ];
+
+  for (const [column, value] of equalityFilters) {
+    if (value) {
+      query = query.eq(column, value);
+    }
+  }
+
+  if (params.normalizedStatuses.length > 0) {
+    query = query.in("status", params.normalizedStatuses);
+  }
+
+  if (params.filters?.dateTarget === "finance_closed") {
+    query = query.in("status", FINANCE_CLOSED_STATUSES);
+  }
+
+  if (params.fromDate) {
+    query = query.gte(params.dateColumn, `${params.fromDate}T00:00:00.000Z`);
+  }
+
+  if (params.toDate) {
+    query = query.lte(params.dateColumn, `${params.toDate}T23:59:59.999Z`);
+  }
+
+  if (params.normalizedSearch.query && params.normalizedSearch.field) {
+    if (params.normalizedSearch.field === "claim_id") {
+      query = query.eq("id", params.normalizedSearch.query);
+    }
+
+    if (params.normalizedSearch.field === "employee_name") {
+      query = query.ilike("submitter_user.full_name", `%${params.normalizedSearch.query}%`);
+    }
+
+    if (params.normalizedSearch.field === "employee_id") {
+      query = query.ilike("employee_id", `%${params.normalizedSearch.query}%`);
+    }
+  }
+
+  return query;
+}
+
 function mapPendingApprovalRows(rows: GetPendingApprovalsRow[]) {
   return rows.map((row) => {
     const department = getSingleRelation(row.master_departments);
@@ -568,6 +641,25 @@ function mapPendingApprovalRows(rows: GetPendingApprovalsRow[]) {
       submittedAt: row.submitted_at,
     };
   });
+}
+
+function mapClaimAuditLogRow(row: ClaimAuditLogRow): ClaimAuditLogRecord {
+  const actor = getSingleRelation(row.actor);
+  const assignedTo = getSingleRelation(row.assigned_to);
+
+  return {
+    id: row.id,
+    claimId: row.claim_id,
+    actorId: row.actor_id,
+    actorName: actor?.full_name ?? null,
+    actorEmail: actor?.email ?? null,
+    actionType: row.action_type,
+    assignedToId: row.assigned_to_id,
+    assignedToName: assignedTo?.full_name ?? null,
+    assignedToEmail: assignedTo?.email ?? null,
+    remarks: row.remarks,
+    createdAt: row.created_at,
+  };
 }
 
 type ClaimsCursor = {
@@ -1327,7 +1419,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const { data, error } = await client
       .from("claims")
       .select(
-        "id, employee_id, submission_type, detail_type, on_behalf_email, status, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(bill_no, purpose, expense_category_id, product_id, location_id, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(purpose, requested_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
+        "id, employee_id, submission_type, detail_type, on_behalf_email, status, rejection_reason, submitted_at, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(bill_no, purpose, expense_category_id, product_id, location_id, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(purpose, requested_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
       )
       .eq("id", claimId)
       .eq("is_active", true)
@@ -1754,23 +1846,39 @@ export class SupabaseClaimRepository implements ClaimRepository {
   async existsExpenseByCompositeKey(input: {
     billNo: string;
     transactionDate: string;
+    basicAmount: number;
     totalAmount: number;
   }): Promise<{ exists: boolean; errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
+    const epsilon = 0.01;
+
     const { data, error } = await client
       .from("expense_details")
-      .select("id")
+      .select("basic_amount, total_amount")
       .eq("bill_no", input.billNo)
       .eq("transaction_date", input.transactionDate)
-      .eq("total_amount", input.totalAmount)
       .eq("is_active", true)
-      .limit(1);
+      .limit(50);
 
     if (error) {
       return { exists: false, errorMessage: error.message };
     }
 
-    return { exists: (data ?? []).length > 0, errorMessage: null };
+    const rows = (data ?? []) as Array<{ basic_amount: number; total_amount: number }>;
+    const normalizedBasic = Number(input.basicAmount);
+    const normalizedTotal = Number(input.totalAmount);
+
+    const exists = rows.some((row) => {
+      const candidateBasic = Number(row.basic_amount);
+      const candidateTotal = Number(row.total_amount);
+
+      const basicMatches = Math.abs(candidateBasic - normalizedBasic) <= epsilon;
+      const totalMatches = Math.abs(candidateTotal - normalizedTotal) <= epsilon;
+
+      return basicMatches || totalMatches;
+    });
+
+    return { exists, errorMessage: null };
   }
 
   async getDepartmentApprovers(departmentId: string): Promise<{
@@ -1961,24 +2069,51 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
     const rows = (data ?? []) as ClaimAuditLogRow[];
     return {
-      data: rows.map((row) => {
-        const actor = getSingleRelation(row.actor);
-        const assignedTo = getSingleRelation(row.assigned_to);
+      data: rows.map(mapClaimAuditLogRow),
+      errorMessage: null,
+    };
+  }
 
-        return {
-          id: row.id,
-          claimId: row.claim_id,
-          actorId: row.actor_id,
-          actorName: actor?.full_name ?? null,
-          actorEmail: actor?.email ?? null,
-          actionType: row.action_type,
-          assignedToId: row.assigned_to_id,
-          assignedToName: assignedTo?.full_name ?? null,
-          assignedToEmail: assignedTo?.email ?? null,
-          remarks: row.remarks,
-          createdAt: row.created_at,
-        };
-      }),
+  async getClaimAuditLogsBatch(claimIds: string[]): Promise<{
+    data: Record<string, ClaimAuditLogRecord[]>;
+    errorMessage: string | null;
+  }> {
+    if (claimIds.length === 0) {
+      return { data: {}, errorMessage: null };
+    }
+
+    const scopedClaimIds = claimIds.slice(0, MAX_LIST_PAGE_SIZE);
+    const client = getServiceRoleSupabaseClient();
+    const { data, error } = await client
+      .from("claim_audit_logs")
+      .select(
+        "id, claim_id, actor_id, action_type, assigned_to_id, remarks, created_at, actor:users!claim_audit_logs_actor_id_fkey(full_name, email), assigned_to:users!claim_audit_logs_assigned_to_id_fkey(full_name, email)",
+      )
+      .in("claim_id", scopedClaimIds)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      return { data: {}, errorMessage: error.message };
+    }
+
+    const rows = (data ?? []) as ClaimAuditLogRow[];
+    const grouped: Record<string, ClaimAuditLogRecord[]> = {};
+
+    for (const claimId of scopedClaimIds) {
+      grouped[claimId] = [];
+    }
+
+    for (const row of rows) {
+      const claimId = row.claim_id;
+      if (!grouped[claimId]) {
+        grouped[claimId] = [];
+      }
+
+      grouped[claimId].push(mapClaimAuditLogRow(row));
+    }
+
+    return {
+      data: grouped,
       errorMessage: null,
     };
   }
@@ -2115,6 +2250,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
       submittedAt: string;
       hodActionDate: string | null;
       financeActionDate: string | null;
+      detailType: "expense" | "advance";
+      submissionType: "Self" | "On Behalf";
       submitterEmail: string | null;
       hodEmail: string | null;
       financeEmail: string | null;
@@ -2128,6 +2265,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const normalizedStatuses = normalizeStatusFilter(filters?.status);
     const { fromDate, toDate } = normalizeDateRange(filters);
     const normalizedSearch = normalizeSearchInput(filters);
+    const safeLimit = clampListPageSize(limit);
 
     if (cursor && !decodedCursor) {
       return {
@@ -2141,7 +2279,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     let query = client
       .from("vw_enterprise_claims_dashboard")
       .select(
-        "claim_id, employee_name, employee_id, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, submitted_by, on_behalf_of_id, department_id, payment_mode_id, detail_type, submission_type, created_at, submitter_email, hod_email, finance_email",
+        "claim_id, employee_name, employee_id, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, detail_type, submission_type, created_at, submitter_email, hod_email, finance_email",
       )
       .or(
         decodedCursor
@@ -2160,7 +2298,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
       normalizedSearch,
     });
 
-    const { data, error } = await query.limit(limit + 1);
+    const { data, error } = await query.limit(safeLimit + 1);
 
     if (error) {
       return {
@@ -2172,8 +2310,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
     }
 
     const rows = (data ?? []) as EnterpriseClaimsDashboardRow[];
-    const hasExtraRecord = rows.length > limit;
-    const pageRows = hasExtraRecord ? rows.slice(0, limit) : rows;
+    const hasExtraRecord = rows.length > safeLimit;
+    const pageRows = hasExtraRecord ? rows.slice(0, safeLimit) : rows;
     const lastRow = pageRows[pageRows.length - 1] ?? null;
     const nextCursor =
       hasExtraRecord && lastRow
@@ -2191,9 +2329,11 @@ export class SupabaseClaimRepository implements ClaimRepository {
       submittedAt: row.submitted_on,
       hodActionDate: row.hod_action_date,
       financeActionDate: row.finance_action_date,
-      submitterEmail: row.submitter_email,
-      hodEmail: row.hod_email,
-      financeEmail: row.finance_email,
+      detailType: row.detail_type,
+      submissionType: row.submission_type,
+      submitterEmail: row.submitter_email ?? null,
+      hodEmail: row.hod_email ?? null,
+      financeEmail: row.finance_email ?? null,
     }));
 
     return {
@@ -2231,6 +2371,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     }>;
     nextCursor: string | null;
     hasNextPage: boolean;
+    totalCount: number;
     errorMessage: string | null;
   }> {
     const client = getServiceRoleSupabaseClient();
@@ -2239,12 +2380,14 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const { fromDate, toDate } = normalizeDateRange(filters);
     const dateColumn = filters?.dateTarget === "finance_closed" ? "updated_at" : "submitted_at";
     const normalizedSearch = normalizeSearchInput(filters);
+    const safeLimit = clampListPageSize(limit);
 
     if (cursor && !decodedCursor) {
       return {
         data: [],
         nextCursor: null,
         hasNextPage: false,
+        totalCount: 0,
         errorMessage: "Invalid cursor format.",
       };
     }
@@ -2259,70 +2402,23 @@ export class SupabaseClaimRepository implements ClaimRepository {
     let query = client
       .from("claims")
       .select(
-        `id, employee_id, detail_type, submission_type, on_behalf_email, submitted_by, status, submitted_at, created_at, updated_at, submitter_user:users!claims_submitted_by_fkey!inner(full_name, email), master_departments(name), master_payment_modes(name), ${expenseDetailsJoin}, advance_details(requested_amount, purpose, supporting_document_path)`,
+        `id, employee_id, detail_type, submission_type, on_behalf_email, status, submitted_at, created_at, submitter_user:users!claims_submitted_by_fkey!inner(full_name), master_departments(name), master_payment_modes(name), ${expenseDetailsJoin}, advance_details(requested_amount, purpose, supporting_document_path)`,
+        { count: "exact" },
       )
       .eq("assigned_l1_approver_id", userId)
       .eq("is_active", true)
       .order("created_at", { ascending: false })
       .order("id", { ascending: false });
 
-    if (filters?.detailType) {
-      query = query.eq("detail_type", filters.detailType);
-    }
-
-    if (filters?.paymentModeId) {
-      query = query.eq("payment_mode_id", filters.paymentModeId);
-    }
-
-    if (filters?.departmentId) {
-      query = query.eq("department_id", filters.departmentId);
-    }
-
-    if (filters?.locationId) {
-      query = query.eq("expense_details.location_id", filters.locationId);
-    }
-
-    if (filters?.productId) {
-      query = query.eq("expense_details.product_id", filters.productId);
-    }
-
-    if (filters?.expenseCategoryId) {
-      query = query.eq("expense_details.expense_category_id", filters.expenseCategoryId);
-    }
-
-    if (filters?.submissionType) {
-      query = query.eq("submission_type", filters.submissionType);
-    }
-
-    if (normalizedStatuses.length > 0) {
-      query = query.in("status", normalizedStatuses);
-    }
-
-    if (filters?.dateTarget === "finance_closed") {
-      query = query.in("status", FINANCE_CLOSED_STATUSES);
-    }
-
-    if (fromDate) {
-      query = query.gte(dateColumn, `${fromDate}T00:00:00.000Z`);
-    }
-
-    if (toDate) {
-      query = query.lte(dateColumn, `${toDate}T23:59:59.999Z`);
-    }
-
-    if (normalizedSearch.query && normalizedSearch.field) {
-      if (normalizedSearch.field === "claim_id") {
-        query = query.eq("id", normalizedSearch.query);
-      }
-
-      if (normalizedSearch.field === "employee_name") {
-        query = query.ilike("submitter_user.full_name", `%${normalizedSearch.query}%`);
-      }
-
-      if (normalizedSearch.field === "employee_id") {
-        query = query.ilike("employee_id", `%${normalizedSearch.query}%`);
-      }
-    }
+    query = applyPendingApprovalsFilters({
+      query,
+      filters,
+      normalizedStatuses,
+      fromDate,
+      toDate,
+      dateColumn,
+      normalizedSearch,
+    });
 
     if (decodedCursor) {
       query = query.or(
@@ -2330,20 +2426,21 @@ export class SupabaseClaimRepository implements ClaimRepository {
       );
     }
 
-    const { data, error } = await query.limit(limit + 1);
+    const { data, error, count } = await query.limit(safeLimit + 1);
 
     if (error) {
       return {
         data: [],
         nextCursor: null,
         hasNextPage: false,
+        totalCount: 0,
         errorMessage: error.message,
       };
     }
 
     const rows = (data ?? []) as GetPendingApprovalsRow[];
-    const hasExtraRecord = rows.length > limit;
-    const pageRows = hasExtraRecord ? rows.slice(0, limit) : rows;
+    const hasExtraRecord = rows.length > safeLimit;
+    const pageRows = hasExtraRecord ? rows.slice(0, safeLimit) : rows;
     const lastRow = pageRows[pageRows.length - 1] ?? null;
     const nextCursor =
       hasExtraRecord && lastRow
@@ -2354,12 +2451,13 @@ export class SupabaseClaimRepository implements ClaimRepository {
       data: mapPendingApprovalRows(pageRows),
       nextCursor,
       hasNextPage: hasExtraRecord,
+      totalCount: count ?? 0,
       errorMessage: null,
     };
   }
 
   async getPendingApprovalsForFinance(
-    userId: string,
+    _userId: string,
     cursor: string | null,
     limit: number,
     filters?: GetMyClaimsFilters,
@@ -2385,6 +2483,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     }>;
     nextCursor: string | null;
     hasNextPage: boolean;
+    totalCount: number;
     errorMessage: string | null;
   }> {
     const client = getServiceRoleSupabaseClient();
@@ -2393,40 +2492,15 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const { fromDate, toDate } = normalizeDateRange(filters);
     const dateColumn = filters?.dateTarget === "finance_closed" ? "updated_at" : "submitted_at";
     const normalizedSearch = normalizeSearchInput(filters);
+    const safeLimit = clampListPageSize(limit);
 
     if (cursor && !decodedCursor) {
       return {
         data: [],
         nextCursor: null,
         hasNextPage: false,
+        totalCount: 0,
         errorMessage: "Invalid cursor format.",
-      };
-    }
-
-    const financeApproversResult = await client
-      .from("master_finance_approvers")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("is_active", true);
-
-    if (financeApproversResult.error) {
-      return {
-        data: [],
-        nextCursor: null,
-        hasNextPage: false,
-        errorMessage: financeApproversResult.error.message,
-      };
-    }
-
-    const financeApproverIds = (financeApproversResult.data ?? []).map((row) => row.id as string);
-    const isFinanceApprover = financeApproverIds.length > 0;
-
-    if (!isFinanceApprover) {
-      return {
-        data: [],
-        nextCursor: null,
-        hasNextPage: false,
-        errorMessage: null,
       };
     }
 
@@ -2444,7 +2518,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
     let query = client
       .from("claims")
       .select(
-        `id, employee_id, detail_type, submission_type, on_behalf_email, submitted_by, status, submitted_at, created_at, updated_at, submitter_user:users!claims_submitted_by_fkey!inner(full_name, email), master_departments(name), master_payment_modes(name), ${expenseDetailsJoin}, advance_details(requested_amount, purpose, supporting_document_path)`,
+        `id, employee_id, detail_type, submission_type, on_behalf_email, status, submitted_at, created_at, submitter_user:users!claims_submitted_by_fkey!inner(full_name), master_departments(name), master_payment_modes(name), ${expenseDetailsJoin}, advance_details(requested_amount, purpose, supporting_document_path)`,
+        { count: "exact" },
       )
       .or(
         `status.in.${financeNonRejectedStatusesFilter},and(status.eq.Rejected,assigned_l2_approver_id.not.is.null)`,
@@ -2453,63 +2528,15 @@ export class SupabaseClaimRepository implements ClaimRepository {
       .order("created_at", { ascending: false })
       .order("id", { ascending: false });
 
-    if (filters?.detailType) {
-      query = query.eq("detail_type", filters.detailType);
-    }
-
-    if (filters?.paymentModeId) {
-      query = query.eq("payment_mode_id", filters.paymentModeId);
-    }
-
-    if (filters?.departmentId) {
-      query = query.eq("department_id", filters.departmentId);
-    }
-
-    if (filters?.locationId) {
-      query = query.eq("expense_details.location_id", filters.locationId);
-    }
-
-    if (filters?.productId) {
-      query = query.eq("expense_details.product_id", filters.productId);
-    }
-
-    if (filters?.expenseCategoryId) {
-      query = query.eq("expense_details.expense_category_id", filters.expenseCategoryId);
-    }
-
-    if (filters?.submissionType) {
-      query = query.eq("submission_type", filters.submissionType);
-    }
-
-    if (normalizedStatuses.length > 0) {
-      query = query.in("status", normalizedStatuses);
-    }
-
-    if (filters?.dateTarget === "finance_closed") {
-      query = query.in("status", FINANCE_CLOSED_STATUSES);
-    }
-
-    if (fromDate) {
-      query = query.gte(dateColumn, `${fromDate}T00:00:00.000Z`);
-    }
-
-    if (toDate) {
-      query = query.lte(dateColumn, `${toDate}T23:59:59.999Z`);
-    }
-
-    if (normalizedSearch.query && normalizedSearch.field) {
-      if (normalizedSearch.field === "claim_id") {
-        query = query.eq("id", normalizedSearch.query);
-      }
-
-      if (normalizedSearch.field === "employee_name") {
-        query = query.ilike("submitter_user.full_name", `%${normalizedSearch.query}%`);
-      }
-
-      if (normalizedSearch.field === "employee_id") {
-        query = query.ilike("employee_id", `%${normalizedSearch.query}%`);
-      }
-    }
+    query = applyPendingApprovalsFilters({
+      query,
+      filters,
+      normalizedStatuses,
+      fromDate,
+      toDate,
+      dateColumn,
+      normalizedSearch,
+    });
 
     if (decodedCursor) {
       query = query.or(
@@ -2517,20 +2544,21 @@ export class SupabaseClaimRepository implements ClaimRepository {
       );
     }
 
-    const { data, error } = await query.limit(limit + 1);
+    const { data, error, count } = await query.limit(safeLimit + 1);
 
     if (error) {
       return {
         data: [],
         nextCursor: null,
         hasNextPage: false,
+        totalCount: 0,
         errorMessage: error.message,
       };
     }
 
     const rows = (data ?? []) as GetPendingApprovalsRow[];
-    const hasExtraRecord = rows.length > limit;
-    const pageRows = hasExtraRecord ? rows.slice(0, limit) : rows;
+    const hasExtraRecord = rows.length > safeLimit;
+    const pageRows = hasExtraRecord ? rows.slice(0, safeLimit) : rows;
     const lastRow = pageRows[pageRows.length - 1] ?? null;
     const nextCursor =
       hasExtraRecord && lastRow
@@ -2541,6 +2569,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
       data: mapPendingApprovalRows(pageRows),
       nextCursor,
       hasNextPage: hasExtraRecord,
+      totalCount: count ?? 0,
       errorMessage: null,
     };
   }
@@ -2917,5 +2946,73 @@ export class SupabaseClaimRepository implements ClaimRepository {
     }
 
     return { data: urlMap, errorMessage: null };
+  }
+
+  async getClaimListDetails(
+    claimIds: string[],
+  ): Promise<{ data: Record<string, ClaimListDetail>; errorMessage: string | null }> {
+    if (claimIds.length === 0) {
+      return { data: {}, errorMessage: null };
+    }
+
+    const scopedClaimIds = claimIds.slice(0, MAX_LIST_PAGE_SIZE);
+
+    const client = getServiceRoleSupabaseClient();
+
+    const { data, error } = await client
+      .from("claims")
+      .select(
+        "id, detail_type, submission_type, on_behalf_email, employee_id, submitter_user:users!claims_submitted_by_fkey(full_name, email), expense_details(purpose, receipt_file_path, bank_statement_file_path, master_expense_categories(name)), advance_details(purpose, supporting_document_path)",
+      )
+      .in("id", scopedClaimIds)
+      .eq("is_active", true)
+      .limit(scopedClaimIds.length);
+
+    if (error) {
+      return { data: {}, errorMessage: error.message };
+    }
+
+    type BatchRow = {
+      id: string;
+      detail_type: "expense" | "advance";
+      submission_type: "Self" | "On Behalf";
+      on_behalf_email: string | null;
+      employee_id: string;
+      submitter_user: ClaimSubmitterRow | ClaimSubmitterRow[] | null;
+      expense_details: ClaimExpenseDetailRow | ClaimExpenseDetailRow[] | null;
+      advance_details: ClaimAdvanceDetailRow | ClaimAdvanceDetailRow[] | null;
+    };
+
+    const rows = (data ?? []) as BatchRow[];
+    const result: Record<string, ClaimListDetail> = {};
+
+    for (const row of rows) {
+      const submitter = getSingleRelation(row.submitter_user);
+      const expense = getSingleRelation(row.expense_details);
+      const advance = getSingleRelation(row.advance_details);
+      const expenseCategory = getSingleRelation(expense?.master_expense_categories);
+
+      const submitterName = submitter?.full_name?.trim();
+      const submitterEmail = submitter?.email?.trim();
+      const submitterLabel =
+        submitterName && submitterEmail
+          ? `${submitterName} (${submitterEmail})`
+          : (submitterName ?? submitterEmail ?? row.employee_id);
+
+      result[row.id] = {
+        detailType: row.detail_type,
+        submissionType: row.submission_type,
+        onBehalfEmail: row.on_behalf_email,
+        submitter: submitterLabel,
+        categoryName:
+          row.detail_type === "expense" ? (expenseCategory?.name ?? "Uncategorized") : "Advance",
+        purpose: expense?.purpose ?? advance?.purpose ?? null,
+        expenseReceiptFilePath: expense?.receipt_file_path ?? null,
+        expenseBankStatementFilePath: expense?.bank_statement_file_path ?? null,
+        advanceSupportingDocumentPath: advance?.supporting_document_path ?? null,
+      };
+    }
+
+    return { data: result, errorMessage: null };
   }
 }

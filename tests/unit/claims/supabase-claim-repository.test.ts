@@ -209,3 +209,176 @@ describe("SupabaseClaimRepository selectable approvals counts", () => {
     ]);
   });
 });
+
+type MutationResult = {
+  data: unknown;
+  error: { message: string } | null;
+};
+
+type MutationBuilder = {
+  update: jest.Mock;
+  eq: jest.Mock;
+  select: jest.Mock;
+  maybeSingle: jest.Mock;
+};
+
+function createMutationBuilder(result: MutationResult): MutationBuilder {
+  const builder: MutationBuilder = {
+    update: jest.fn(() => builder),
+    eq: jest.fn(() => builder),
+    select: jest.fn(() => builder),
+    maybeSingle: jest.fn(async () => result),
+  };
+
+  return builder;
+}
+
+describe("SupabaseClaimRepository.updateClaimDetailsByFinance", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("updates claims and expense_details with GST and bank statement fields", async () => {
+    const claimsBuilder = createMutationBuilder({
+      data: { id: "claim-1" },
+      error: null,
+    });
+    const expenseBuilder = createMutationBuilder({
+      data: { id: "expense-1" },
+      error: null,
+    });
+
+    mockFrom.mockReturnValueOnce(claimsBuilder).mockReturnValueOnce(expenseBuilder);
+
+    mockGetServiceRoleSupabaseClient.mockReturnValue({
+      from: mockFrom,
+    });
+
+    const repository = new SupabaseClaimRepository();
+    const result = await repository.updateClaimDetailsByFinance("claim-1", {
+      detailType: "expense",
+      departmentId: "dept-1",
+      paymentModeId: "mode-1",
+      billNo: "BILL-1",
+      expenseCategoryId: "cat-1",
+      locationId: "loc-1",
+      transactionDate: "2026-03-22",
+      isGstApplicable: true,
+      gstNumber: "GSTIN-123",
+      vendorName: "Vendor A",
+      basicAmount: 100,
+      cgstAmount: 9,
+      sgstAmount: 9,
+      igstAmount: 0,
+      totalAmount: 118,
+      purpose: "Travel",
+      productId: "prod-1",
+      peopleInvolved: "Alice",
+      remarks: "updated",
+      receiptFilePath: "expenses/new_receipt.pdf",
+      bankStatementFilePath: "expenses/new_bank_statement.pdf",
+    });
+
+    expect(result).toEqual({ errorMessage: null });
+    expect(mockFrom).toHaveBeenNthCalledWith(1, "claims");
+    expect(mockFrom).toHaveBeenNthCalledWith(2, "expense_details");
+
+    expect(claimsBuilder.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        department_id: "dept-1",
+        payment_mode_id: "mode-1",
+      }),
+    );
+
+    expect(expenseBuilder.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        is_gst_applicable: true,
+        gst_number: "GSTIN-123",
+        cgst_amount: 9,
+        sgst_amount: 9,
+        igst_amount: 0,
+        bank_statement_file_path: "expenses/new_bank_statement.pdf",
+        receipt_file_path: "expenses/new_receipt.pdf",
+      }),
+    );
+  });
+
+  test("returns claim update error without running expense update", async () => {
+    const claimsBuilder = createMutationBuilder({
+      data: null,
+      error: { message: "claim update failed" },
+    });
+
+    mockFrom.mockReturnValueOnce(claimsBuilder);
+    mockGetServiceRoleSupabaseClient.mockReturnValue({ from: mockFrom });
+
+    const repository = new SupabaseClaimRepository();
+    const result = await repository.updateClaimDetailsByFinance("claim-1", {
+      detailType: "expense",
+      departmentId: "dept-1",
+      paymentModeId: "mode-1",
+      billNo: "BILL-1",
+      expenseCategoryId: "cat-1",
+      locationId: "loc-1",
+      transactionDate: "2026-03-22",
+      isGstApplicable: false,
+      gstNumber: null,
+      vendorName: null,
+      basicAmount: 100,
+      cgstAmount: 0,
+      sgstAmount: 0,
+      igstAmount: 0,
+      totalAmount: 100,
+      purpose: "Travel",
+      productId: null,
+      peopleInvolved: null,
+      remarks: null,
+      receiptFilePath: null,
+      bankStatementFilePath: null,
+    });
+
+    expect(result).toEqual({ errorMessage: "claim update failed" });
+    expect(mockFrom).toHaveBeenCalledTimes(1);
+  });
+
+  test("returns expense detail missing error when claim exists but expense row is absent", async () => {
+    const claimsBuilder = createMutationBuilder({
+      data: { id: "claim-1" },
+      error: null,
+    });
+    const expenseBuilder = createMutationBuilder({
+      data: null,
+      error: null,
+    });
+
+    mockFrom.mockReturnValueOnce(claimsBuilder).mockReturnValueOnce(expenseBuilder);
+    mockGetServiceRoleSupabaseClient.mockReturnValue({ from: mockFrom });
+
+    const repository = new SupabaseClaimRepository();
+    const result = await repository.updateClaimDetailsByFinance("claim-1", {
+      detailType: "expense",
+      departmentId: "dept-1",
+      paymentModeId: "mode-1",
+      billNo: "BILL-1",
+      expenseCategoryId: "cat-1",
+      locationId: "loc-1",
+      transactionDate: "2026-03-22",
+      isGstApplicable: false,
+      gstNumber: null,
+      vendorName: null,
+      basicAmount: 100,
+      cgstAmount: 0,
+      sgstAmount: 0,
+      igstAmount: 0,
+      totalAmount: 100,
+      purpose: "Travel",
+      productId: null,
+      peopleInvolved: null,
+      remarks: null,
+      receiptFilePath: null,
+      bankStatementFilePath: null,
+    });
+
+    expect(result).toEqual({ errorMessage: "Active expense detail not found for claim." });
+  });
+});

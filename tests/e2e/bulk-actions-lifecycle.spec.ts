@@ -211,7 +211,6 @@ async function submitReimbursementClaim(flowKey: string, amount: number): Promis
   const page = pageFor("employee");
   const marker = `${flowKey}-${RUN_TAG}`;
   const billNo = `BULK-LC-${marker}`;
-  const txId = `TX-${marker}`;
   const purpose = `BULK-LIFECYCLE-${flowKey}-${RUN_TAG}`;
 
   await page.goto("/claims/new", { waitUntil: "domcontentloaded" });
@@ -223,7 +222,6 @@ async function submitReimbursementClaim(flowKey: string, amount: number): Promis
 
   await page.locator("#employeeId").fill(`EMP-${marker}`);
   await page.locator("#billNo").fill(billNo);
-  await page.locator("#transactionId").fill(txId);
   await page.locator("#expensePurpose").fill(purpose);
   await page.locator("#transactionDate").fill("2026-03-24");
   await page.locator("#basicAmount").fill(String(amount));
@@ -345,6 +343,7 @@ async function openApprovalsForClaim(page: Page, claimId: string): Promise<void>
   });
 
   await page.goto(`/dashboard/my-claims?${params.toString()}`, { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("heading", { name: /approvals history/i })).toBeVisible();
 
   const row = page.locator("tbody tr", { has: page.getByRole("link", { name: claimId }) }).first();
@@ -556,5 +555,130 @@ test.describe("Bulk Actions Lifecycle Matrix", () => {
     const after = await getClaimState(claimId);
     expect(after.is_resubmission_allowed).toBe(true);
     expect(after.rejection_reason).toContain(`Bulk soft reject ${RUN_TAG}`);
+  });
+
+  test("Flow 5: Global select bulk approve removes rows from table without page reload", async () => {
+    const claimId = await submitReimbursementClaim("F5-GLOBAL-SELECT", 421.0);
+
+    // L1 approve to push to finance stage
+    const l1Page = await findBulkActorPage(claimId, ["hod", "founder"]);
+    await bulkSelectCurrentResult(l1Page);
+    await clickBulkApprove(l1Page);
+
+    await expect
+      .poll(async () => (await getClaimState(claimId)).status, {
+        timeout: 45000,
+        message: `waiting for claim ${claimId} to reach finance approval stage`,
+      })
+      .toBe("HOD approved - Awaiting finance approval");
+
+    // Finance: open bulk view filtered to this claim
+    const financePage = await financePageWithBulkAccess(claimId);
+
+    // Verify the claim row is visible before bulk action
+    const claimRow = financePage
+      .locator("tbody tr", { has: financePage.getByRole("link", { name: claimId }) })
+      .first();
+    await expect(claimRow).toBeVisible({ timeout: 15000 });
+
+    // Select via master checkbox
+    await bulkSelectCurrentResult(financePage);
+
+    // Verify selection count banner appears
+    await expect(financePage.getByText(/1 claim\(s\) selected/i)).toBeVisible();
+
+    // Bulk approve
+    await clickBulkApprove(financePage);
+
+    // Wait for streamed refresh cycle to settle after startTransition/router.refresh
+    await expect(financePage.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
+    await expect(financePage.getByText(/approved/i).first()).toBeVisible({ timeout: 15000 });
+
+    // In current behavior, finance bulk approve moves the claim to payment-under-process,
+    // and that row remains visible in approvals for Bulk Mark Paid.
+    await openApprovalsForClaim(financePage, claimId);
+    await expect(claimRow).toBeVisible({ timeout: 30000 });
+    await expect(claimRow).toContainText(/Finance Approved - Payment under process/i, {
+      timeout: 30000,
+    });
+
+    // Verify DB status advanced
+    await expect
+      .poll(async () => (await getClaimState(claimId)).status, {
+        timeout: 45000,
+        message: `waiting for claim ${claimId} to advance to payment-under-process`,
+      })
+      .toBe("Finance Approved - Payment under process");
+  });
+
+  test("Flow 6: Filter for Finance Approved, bulk mark paid, verify status badge updates", async () => {
+    const claimId = await submitReimbursementClaim("F6-PAY-LIFECYCLE", 612.45);
+
+    // L1 approve
+    const l1Page = await findBulkActorPage(claimId, ["hod", "founder"]);
+    await bulkSelectCurrentResult(l1Page);
+    await clickBulkApprove(l1Page);
+
+    await expect
+      .poll(async () => (await getClaimState(claimId)).status, {
+        timeout: 45000,
+        message: `waiting for claim ${claimId} to reach finance approval stage`,
+      })
+      .toBe("HOD approved - Awaiting finance approval");
+
+    // Finance approve to push to payment stage
+    const financeApprovePage = await financePageWithBulkAccess(claimId);
+    await bulkSelectCurrentResult(financeApprovePage);
+    await clickBulkApprove(financeApprovePage);
+
+    await expect
+      .poll(async () => (await getClaimState(claimId)).status, {
+        timeout: 45000,
+        message: `waiting for claim ${claimId} to reach payment-under-process`,
+      })
+      .toBe("Finance Approved - Payment under process");
+
+    // Navigate to approvals with status filter for "Finance Approved - Payment under process"
+    const filterParams = new URLSearchParams({
+      view: "approvals",
+      status: "Finance Approved - Payment under process",
+      search_field: "claim_id",
+      search_query: claimId,
+    });
+
+    const financePage = pageFor("finance");
+    await financePage.goto(`/dashboard/my-claims?${filterParams.toString()}`, {
+      waitUntil: "domcontentloaded",
+    });
+
+    // Verify the claim row is visible in the filtered view
+    const claimRow = financePage
+      .locator("tbody tr", { has: financePage.getByRole("link", { name: claimId }) })
+      .first();
+    await expect(claimRow).toBeVisible({ timeout: 30000 });
+
+    // Verify the status badge shows "Finance Approved - Payment under process"
+    await expect(claimRow.getByText(/Finance Approved/i)).toBeVisible();
+
+    // Select and mark as paid
+    await bulkSelectCurrentResult(financePage);
+    await clickBulkMarkPaid(financePage);
+
+    // Verify DB status is now "Payment Done - Closed"
+    await expect
+      .poll(async () => (await getClaimState(claimId)).status, {
+        timeout: 45000,
+        message: `waiting for claim ${claimId} to reach payment done stage`,
+      })
+      .toBe("Payment Done - Closed");
+
+    // Verify the claim is no longer visible in the "Finance Approved" filtered view
+    // (since its status has changed)
+    await expect(claimRow).toHaveCount(0, { timeout: 30000 });
+
+    // Final DB check
+    const after = await getClaimState(claimId);
+    expect(after.status).toBe("Payment Done - Closed");
+    expect(after.is_resubmission_allowed).toBe(false);
   });
 });

@@ -26,28 +26,28 @@ export function EmailLoginForm({ loading, onSubmit }: EmailLoginFormProps) {
   return (
     <form className="grid gap-3" onSubmit={handleSubmit((values) => void onSubmit(values))}>
       <div className="grid gap-1">
-        <label htmlFor="email" className="text-sm font-medium text-slate-700">
+        <label htmlFor="email" className="text-sm font-medium text-zinc-700">
           Work Email
         </label>
         <input
           id="email"
           type="email"
           autoComplete="email"
-          className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none ring-indigo-500 transition focus:ring"
+          className="rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none ring-indigo-500 transition focus:ring"
           {...register("email")}
         />
         {errors.email ? <p className="text-xs text-rose-600">{errors.email.message}</p> : null}
       </div>
 
       <div className="grid gap-1">
-        <label htmlFor="password" className="text-sm font-medium text-slate-700">
+        <label htmlFor="password" className="text-sm font-medium text-zinc-700">
           Password
         </label>
         <input
           id="password"
           type="password"
           autoComplete="current-password"
-          className="rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none ring-indigo-500 transition focus:ring"
+          className="rounded-xl border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none ring-indigo-500 transition focus:ring"
           {...register("password")}
         />
         {errors.password ? (

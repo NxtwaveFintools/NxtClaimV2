@@ -1,26 +1,10 @@
 import type { ClaimAuditLogRecord } from "@/core/domain/claims/contracts";
 
 type ClaimAuditTimelineProps = {
-  logs: ClaimAuditLogRecord[];
+  logs: (ClaimAuditLogRecord & { formattedCreatedAt: string })[];
   title?: string;
   emptyLabel?: string;
 };
-
-function formatDateTime(value: string): string {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "Unknown time";
-  }
-
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  }).format(parsed);
-}
 
 function describeAction(actionType: ClaimAuditLogRecord["actionType"]): string {
   if (actionType === "SUBMITTED") {
@@ -103,15 +87,15 @@ export function ClaimAuditTimeline({
   emptyLabel = "No audit entries are available for this claim.",
 }: ClaimAuditTimelineProps) {
   return (
-    <section className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-      <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-slate-700 dark:text-slate-300">
+    <section className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+      <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-zinc-700 dark:text-zinc-300">
         {title}
       </h3>
 
       {logs.length === 0 ? (
-        <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">{emptyLabel}</p>
+        <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">{emptyLabel}</p>
       ) : (
-        <ol className="mt-4 space-y-4 border-l-2 border-slate-300 pl-4 dark:border-slate-600">
+        <ol className="mt-4 space-y-4 border-l-2 border-zinc-300 pl-4 dark:border-zinc-600">
           {logs.map((log) => {
             const assigneeLabel = buildAssigneeLabel(log);
             const actionAccent = actionAccentClasses(log.actionType);
@@ -121,22 +105,22 @@ export function ClaimAuditTimeline({
                 <span
                   className={`absolute -left-[22px] top-1.5 h-3 w-3 rounded-full ring-2 ring-white dark:ring-zinc-900 ${actionAccent.dotClassName}`}
                 />
-                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
-                  {formatDateTime(log.createdAt)}
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
+                  {log.formattedCreatedAt}
                 </p>
                 <p className={`mt-1 text-sm font-semibold ${actionAccent.labelClassName}`}>
                   {describeAction(log.actionType)}
                 </p>
-                <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">
+                <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300">
                   By {buildActorLabel(log)}
                 </p>
                 {assigneeLabel ? (
-                  <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300">
+                  <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300">
                     Assigned to {assigneeLabel}
                   </p>
                 ) : null}
                 {log.remarks ? (
-                  <p className="mt-2 rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                  <p className="mt-2 rounded-md bg-zinc-100 px-2 py-1 text-xs text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
                     Remarks: {log.remarks}
                   </p>
                 ) : null}

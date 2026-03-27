@@ -20,8 +20,8 @@ export function WalletSummary({ summary }: WalletSummaryProps) {
   const isNegativeBalance = summary.pettyCashBalance < 0;
 
   return (
-    <section className="mt-8 rounded-xl border border-slate-200 bg-slate-50 p-4 transition-colors dark:border-slate-800 dark:bg-slate-900/70">
-      <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Wallet Summary</h2>
+    <section className="mt-8 rounded-xl border border-zinc-200 bg-zinc-50 p-4 transition-colors dark:border-zinc-800 dark:bg-zinc-900/70">
+      <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Wallet Summary</h2>
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         <article className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/60 dark:bg-emerald-950/30">
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-300">

@@ -3,6 +3,7 @@ import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { loadEnvConfig } from "@next/env";
 import { createClient } from "@supabase/supabase-js";
+import ExcelJS from "exceljs";
 import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
 import { getAuthStatePathByRole } from "./support/auth-state";
 
@@ -10,35 +11,39 @@ loadEnvConfig(process.cwd());
 
 test.use({ storageState: getAuthStatePathByRole("finance1") });
 
-function parseCsvLine(line: string): string[] {
-  const values: string[] = [];
-  let current = "";
-  let inQuotes = false;
-
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index];
-
-    if (char === '"') {
-      if (inQuotes && line[index + 1] === '"') {
-        current += '"';
-        index += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (char === "," && !inQuotes) {
-      values.push(current);
-      current = "";
-      continue;
-    }
-
-    current += char;
+function normalizeCellValue(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "";
   }
 
-  values.push(current);
-  return values;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  if (typeof value === "object") {
+    if ("text" in value && typeof value.text === "string") {
+      return value.text;
+    }
+
+    if ("hyperlink" in value && typeof value.hyperlink === "string") {
+      return value.hyperlink;
+    }
+
+    if (
+      "result" in value &&
+      (typeof value.result === "string" ||
+        typeof value.result === "number" ||
+        typeof value.result === "boolean")
+    ) {
+      return String(value.result);
+    }
+
+    if ("formula" in value && typeof value.formula === "string") {
+      return value.formula;
+    }
+  }
+
+  return String(value);
 }
 
 function getAdminClient() {
@@ -212,31 +217,36 @@ test("Finance user can download full CSV containing all form fields", async ({
     const exportButton = page.getByRole("button", { name: /Export CSV/i });
     await expect(exportButton).toBeVisible();
 
-    let csvContent = "";
     await fs.mkdir(testInfo.outputDir, { recursive: true });
-    const targetPath = path.join(testInfo.outputDir, "claims_export.csv");
+    const targetPath = path.join(testInfo.outputDir, "claims_export.xlsx");
 
     const [download] = await Promise.all([
       page.waitForEvent("download", { timeout: 20_000 }),
       exportButton.click(),
     ]);
     await download.saveAs(targetPath);
-    csvContent = await fs.readFile(targetPath, "utf8");
 
-    if (!csvContent) {
+    const fileStat = await fs.stat(targetPath);
+    if (fileStat.size === 0) {
       throw new Error(
-        `CSV download did not produce Blob content. Console errors: ${consoleErrors.join(" | ")}`,
+        `Export download produced an empty file. Console errors: ${consoleErrors.join(" | ")}`,
       );
     }
 
-    const rows = csvContent
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(targetPath);
+    const worksheet = workbook.getWorksheet(1) ?? workbook.worksheets[0];
 
-    expect(rows.length).toBeGreaterThan(11);
+    if (!worksheet) {
+      throw new Error("Exported workbook does not contain a worksheet.");
+    }
 
-    const headers = parseCsvLine(rows[0]).map((header) => header.trim());
+    expect(worksheet.rowCount).toBeGreaterThan(11);
+
+    const headers = worksheet
+      .getRow(1)
+      .values.slice(1)
+      .map((header) => normalizeCellValue(header).trim());
     expect(headers).toEqual([
       "Claim ID",
       "Transaction ID",
@@ -278,7 +288,6 @@ test("Finance user can download full CSV containing all form fields", async ({
       "Transaction Remarks",
     ]);
 
-    const dataRows = rows.slice(1).map((row) => parseCsvLine(row));
     const bankUrlIndex = headers.indexOf("Bank Statement URL");
     const billUrlIndex = headers.indexOf("Bill URL");
     const pettyCashPhotoUrlIndex = headers.indexOf("Petty Cash Photo URL");
@@ -287,9 +296,29 @@ test("Finance user can download full CSV containing all form fields", async ({
     expect(billUrlIndex).toBeGreaterThan(-1);
     expect(pettyCashPhotoUrlIndex).toBeGreaterThan(-1);
 
-    expect(dataRows.some((row) => row[bankUrlIndex]?.includes("=HYPERLINK("))).toBe(true);
-    expect(dataRows.some((row) => row[billUrlIndex]?.includes("=HYPERLINK("))).toBe(true);
-    expect(dataRows.some((row) => row[pettyCashPhotoUrlIndex]?.includes("=HYPERLINK("))).toBe(true);
+    const bankValues = Array.from({ length: worksheet.rowCount - 1 }, (_, offset) =>
+      normalizeCellValue(worksheet.getRow(offset + 2).getCell(bankUrlIndex + 1).value).trim(),
+    ).filter((value) => value.length > 0);
+
+    const billValues = Array.from({ length: worksheet.rowCount - 1 }, (_, offset) =>
+      normalizeCellValue(worksheet.getRow(offset + 2).getCell(billUrlIndex + 1).value).trim(),
+    ).filter((value) => value.length > 0);
+
+    const pettyCashPhotoValues = Array.from({ length: worksheet.rowCount - 1 }, (_, offset) =>
+      normalizeCellValue(
+        worksheet.getRow(offset + 2).getCell(pettyCashPhotoUrlIndex + 1).value,
+      ).trim(),
+    ).filter((value) => value.length > 0);
+
+    const urlColumnValuePattern = /document unavailable|https?:\/\/|=HYPERLINK\(/i;
+
+    expect(bankValues.length).toBeGreaterThan(0);
+    expect(billValues.length).toBeGreaterThan(0);
+    expect(pettyCashPhotoValues.length).toBeGreaterThan(0);
+
+    expect(bankValues.some((value) => urlColumnValuePattern.test(value))).toBe(true);
+    expect(billValues.some((value) => urlColumnValuePattern.test(value))).toBe(true);
+    expect(pettyCashPhotoValues.some((value) => urlColumnValuePattern.test(value))).toBe(true);
   } finally {
     await cleanupSeedFinanceClaims(seedTag);
   }

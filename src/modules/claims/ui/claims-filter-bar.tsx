@@ -354,9 +354,9 @@ export function ClaimsFilterBar({
         : "Search by Employee ID...";
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
+    <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900">
       {isPending ? (
-        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+        <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
           <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle
               className="opacity-25"
@@ -377,7 +377,7 @@ export function ClaimsFilterBar({
       ) : null}
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-900/60">
+        <div className="inline-flex rounded-xl border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-700 dark:bg-zinc-900/60">
           {DATE_TARGET_OPTIONS.map((option) => (
             <button
               key={option.value}
@@ -387,8 +387,8 @@ export function ClaimsFilterBar({
               }}
               className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
                 localDateTarget === option.value
-                  ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                  : "text-slate-700 hover:bg-slate-200/70 dark:text-slate-300 dark:hover:bg-slate-800"
+                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  : "text-zinc-700 hover:bg-zinc-200/70 dark:text-zinc-300 dark:hover:bg-zinc-800"
               }`}
             >
               {option.label}
@@ -408,7 +408,7 @@ export function ClaimsFilterBar({
                 updateUrlWithMutation(nextParams, pathname, router);
               });
             }}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
             aria-expanded={isFiltersExpanded}
             aria-controls="claims-filter-panel"
           >
@@ -426,7 +426,7 @@ export function ClaimsFilterBar({
             </svg>
             Toggle Filters
             {hasActiveFilters ? (
-              <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs dark:bg-slate-700">
+              <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs dark:bg-zinc-700">
                 Active
               </span>
             ) : null}
@@ -488,7 +488,7 @@ export function ClaimsFilterBar({
                 updateUrlWithMutation(nextParams, pathname, router);
               });
             }}
-            className="inline-flex rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="inline-flex rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
           >
             Clear All
           </button>
@@ -502,14 +502,14 @@ export function ClaimsFilterBar({
         }`}
       >
         <div className="grid gap-5 md:grid-cols-3 xl:grid-cols-3">
-          <label className="grid gap-1 text-sm text-slate-700 dark:text-slate-300">
+          <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
             Search Category
             <select
               value={localSearchField}
               onChange={(event) => {
                 handleSearchFieldChange(event.target.value);
               }}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             >
               {SEARCH_FIELD_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -519,7 +519,7 @@ export function ClaimsFilterBar({
             </select>
           </label>
 
-          <label className="grid gap-1 text-sm text-slate-700 dark:text-slate-300 md:col-span-1 xl:col-span-3">
+          <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-1 xl:col-span-3">
             Search
             <input
               value={searchInput}
@@ -527,18 +527,18 @@ export function ClaimsFilterBar({
                 setSearchInput(event.target.value);
               }}
               placeholder={searchPlaceholder}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             />
           </label>
 
-          <label className="grid gap-1 text-sm text-slate-700 dark:text-slate-300">
+          <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
             Submission Type
             <select
               value={localSubmissionType}
               onChange={(event) => {
                 setParam("submission_type", event.target.value, setLocalSubmissionType);
               }}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             >
               <option value="">All</option>
               {SUBMISSION_TYPE_OPTIONS.map((option) => (
@@ -549,14 +549,14 @@ export function ClaimsFilterBar({
             </select>
           </label>
 
-          <label className="grid gap-1 text-sm text-slate-700 dark:text-slate-300">
+          <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
             Payment Mode
             <select
               value={localPaymentModeId}
               onChange={(event) => {
                 setParam("payment_mode_id", event.target.value, setLocalPaymentModeId);
               }}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             >
               <option value="">All</option>
               {paymentModes.map((mode) => (
@@ -567,14 +567,14 @@ export function ClaimsFilterBar({
             </select>
           </label>
 
-          <label className="grid gap-1 text-sm text-slate-700 dark:text-slate-300">
+          <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
             Department
             <select
               value={localDepartmentId}
               onChange={(event) => {
                 setParam("department_id", event.target.value, setLocalDepartmentId);
               }}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             >
               <option value="">All</option>
               {departments.map((department) => (
@@ -585,14 +585,14 @@ export function ClaimsFilterBar({
             </select>
           </label>
 
-          <label className="grid gap-1 text-sm text-slate-700 dark:text-slate-300">
+          <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
             Location
             <select
               value={localLocationId}
               onChange={(event) => {
                 setParam("location_id", event.target.value, setLocalLocationId);
               }}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             >
               <option value="">All</option>
               {locations.map((location) => (
@@ -603,14 +603,14 @@ export function ClaimsFilterBar({
             </select>
           </label>
 
-          <label className="grid gap-1 text-sm text-slate-700 dark:text-slate-300">
+          <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
             Product
             <select
               value={localProductId}
               onChange={(event) => {
                 setParam("product_id", event.target.value, setLocalProductId);
               }}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             >
               <option value="">All</option>
               {products.map((product) => (
@@ -621,14 +621,14 @@ export function ClaimsFilterBar({
             </select>
           </label>
 
-          <label className="grid gap-1 text-sm text-slate-700 dark:text-slate-300">
+          <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
             Expense Category
             <select
               value={localExpenseCategoryId}
               onChange={(event) => {
                 setParam("expense_category_id", event.target.value, setLocalExpenseCategoryId);
               }}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             >
               <option value="">All</option>
               {expenseCategories.map((category) => (
@@ -639,14 +639,14 @@ export function ClaimsFilterBar({
             </select>
           </label>
 
-          <label className="grid gap-1 text-sm text-slate-700 dark:text-slate-300">
+          <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
             Status
             <select
               value={localStatus}
               onChange={(event) => {
                 setParam("status", event.target.value, setLocalStatus);
               }}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             >
               <option value="">All</option>
               {DB_CLAIM_STATUSES.map((status) => (
@@ -657,7 +657,7 @@ export function ClaimsFilterBar({
             </select>
           </label>
 
-          <label className="grid gap-1 text-sm text-slate-700 dark:text-slate-300">
+          <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
             From
             <input
               type="date"
@@ -665,11 +665,11 @@ export function ClaimsFilterBar({
               onChange={(event) => {
                 setParam("from", event.target.value, setLocalFromDate);
               }}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             />
           </label>
 
-          <label className="grid gap-1 text-sm text-slate-700 dark:text-slate-300">
+          <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
             To
             <input
               type="date"
@@ -677,7 +677,7 @@ export function ClaimsFilterBar({
               onChange={(event) => {
                 setParam("to", event.target.value, setLocalToDate);
               }}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             />
           </label>
         </div>

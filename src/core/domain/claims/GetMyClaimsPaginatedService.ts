@@ -1,5 +1,11 @@
 import type { DbClaimStatus } from "@/core/constants/statuses";
-import type { ClaimDomainLogger, GetMyClaimsFilters } from "@/core/domain/claims/contracts";
+import type {
+  ClaimDetailType,
+  ClaimDomainLogger,
+  ClaimSubmissionType,
+  GetMyClaimsFilters,
+} from "@/core/domain/claims/contracts";
+import { formatCurrency, formatDate } from "@/lib/format";
 
 type MyClaimsPaginatedRecord = {
   id: string;
@@ -12,6 +18,30 @@ type MyClaimsPaginatedRecord = {
   submittedAt: string;
   hodActionDate: string | null;
   financeActionDate: string | null;
+  detailType: ClaimDetailType;
+  submissionType: ClaimSubmissionType;
+  submitterEmail: string | null;
+  hodEmail: string | null;
+  financeEmail: string | null;
+  formattedTotalAmount: string;
+  formattedSubmittedAt: string;
+  formattedHodActionDate: string;
+  formattedFinanceActionDate: string;
+};
+
+type RepositoryClaimRow = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  departmentName: string;
+  typeOfClaim: string;
+  totalAmount: number;
+  status: DbClaimStatus;
+  submittedAt: string;
+  hodActionDate: string | null;
+  financeActionDate: string | null;
+  detailType: ClaimDetailType;
+  submissionType: ClaimSubmissionType;
   submitterEmail: string | null;
   hodEmail: string | null;
   financeEmail: string | null;
@@ -24,7 +54,7 @@ type PaginatedClaimsRepository = {
     limit: number,
     filters?: GetMyClaimsFilters,
   ): Promise<{
-    data: MyClaimsPaginatedRecord[];
+    data: RepositoryClaimRow[];
     nextCursor: string | null;
     hasNextPage: boolean;
     errorMessage: string | null;
@@ -80,7 +110,13 @@ export class GetMyClaimsPaginatedService {
     }
 
     return {
-      data: result.data,
+      data: result.data.map((row) => ({
+        ...row,
+        formattedTotalAmount: formatCurrency(row.totalAmount),
+        formattedSubmittedAt: formatDate(row.submittedAt),
+        formattedHodActionDate: formatDate(row.hodActionDate),
+        formattedFinanceActionDate: formatDate(row.financeActionDate),
+      })),
       nextCursor: result.nextCursor,
       hasNextPage: result.hasNextPage,
       errorMessage: null,

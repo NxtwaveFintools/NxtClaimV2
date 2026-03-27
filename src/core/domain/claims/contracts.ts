@@ -257,6 +257,7 @@ export type CursorPaginatedResult<T> = {
   data: T[];
   nextCursor: string | null;
   hasNextPage: boolean;
+  totalCount?: number;
 };
 
 export type MyClaimListRecord = {
@@ -270,6 +271,8 @@ export type MyClaimListRecord = {
   submittedAt: string;
   hodActionDate: string | null;
   financeActionDate: string | null;
+  detailType: ClaimDetailType;
+  submissionType: ClaimSubmissionType;
   submitterEmail: string | null;
   hodEmail: string | null;
   financeEmail: string | null;
@@ -317,6 +320,18 @@ export type PendingApprovalListRecord = {
   submittedAt: string;
 };
 
+export type ClaimListDetail = {
+  detailType: ClaimDetailType;
+  submissionType: ClaimSubmissionType;
+  onBehalfEmail: string | null;
+  submitter: string;
+  categoryName: string;
+  purpose: string | null;
+  expenseReceiptFilePath: string | null;
+  expenseBankStatementFilePath: string | null;
+  advanceSupportingDocumentPath: string | null;
+};
+
 export type ApprovalViewerContext = {
   isHod: boolean;
   isFounder: boolean;
@@ -339,6 +354,7 @@ export type ClaimRepository = {
   existsExpenseByCompositeKey(input: {
     billNo: string;
     transactionDate: string;
+    basicAmount: number;
     totalAmount: number;
   }): Promise<{
     exists: boolean;
@@ -417,6 +433,9 @@ export type ClaimRepository = {
     filePath: string;
     expiresInSeconds: number;
   }): Promise<{ data: string | null; errorMessage: string | null }>;
+  getClaimListDetails(
+    claimIds: string[],
+  ): Promise<{ data: Record<string, ClaimListDetail>; errorMessage: string | null }>;
 };
 
 export type ClaimDomainLogger = {

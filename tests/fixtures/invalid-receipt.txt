@@ -1,0 +1,2 @@
+This is a plain-text file used for E2E testing of the file-type validation guard.
+It must be rejected by validateUploadFile because text/plain is not in ALLOWED_UPLOAD_MIME_TYPES.

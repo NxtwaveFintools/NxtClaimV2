@@ -81,6 +81,7 @@ function createRepository(overrides?: Partial<ClaimRepository>): ClaimRepository
       errorMessage: null,
     })),
     getClaimsForExport: jest.fn(async () => ({ data: [], errorMessage: null })),
+    getClaimListDetails: jest.fn(async () => ({ data: {}, errorMessage: null })),
     getClaimEvidenceSignedUrl: jest.fn(async () => ({ data: null, errorMessage: null })),
   };
 
