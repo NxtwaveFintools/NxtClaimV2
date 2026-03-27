@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -16,6 +16,7 @@ export function ClaimRejectWithReasonForm({
   redirectToHref,
 }: ClaimRejectWithReasonFormProps) {
   const router = useRouter();
+  const [, startTransition] = useTransition();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -39,7 +40,9 @@ export function ClaimRejectWithReasonForm({
       event.currentTarget.reset();
 
       if (redirectToHref) {
-        router.push(redirectToHref);
+        startTransition(() => {
+          router.push(redirectToHref, { scroll: false });
+        });
       }
     } finally {
       setIsSubmitting(false);

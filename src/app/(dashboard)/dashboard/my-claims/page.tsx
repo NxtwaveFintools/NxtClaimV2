@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { BackButton } from "@/components/ui/back-button";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ROUTES } from "@/core/config/route-registry";
 import { DB_CLAIM_STATUSES, type DbClaimStatus } from "@/core/constants/statuses";
@@ -935,6 +937,70 @@ async function ClaimsCommandCenterTable({
   );
 }
 
+function FilterBarSkeleton() {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
+      <div className="grid gap-3 md:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <div key={`filter-placeholder-${index}`} className="space-y-1">
+            <div className="shimmer-sweep h-3 w-20 rounded-md bg-slate-200 dark:bg-gray-800/40" />
+            <div className="shimmer-sweep h-9 w-full rounded-lg bg-slate-200 dark:bg-gray-800/40" />
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 flex items-center gap-2">
+        <div className="shimmer-sweep h-9 w-24 rounded-lg bg-slate-200 dark:bg-gray-800/40" />
+        <div className="shimmer-sweep h-9 w-20 rounded-lg bg-slate-200 dark:bg-gray-800/40" />
+      </div>
+    </section>
+  );
+}
+
+async function FilterBarWithData({
+  exportScope,
+  defaultFiltersExpanded,
+}: {
+  exportScope: ViewMode;
+  defaultFiltersExpanded: boolean;
+}) {
+  const claimRepository = new SupabaseClaimRepository();
+  const [paymentModesResult, departmentsResult, locationsResult, productsResult, categoriesResult] =
+    await Promise.all([
+      claimRepository.getActivePaymentModes(),
+      claimRepository.getActiveDepartments(),
+      claimRepository.getActiveLocations(),
+      claimRepository.getActiveProducts(),
+      claimRepository.getActiveExpenseCategories(),
+    ]);
+
+  const paymentModes = paymentModesResult.data.map((mode) => ({ id: mode.id, name: mode.name }));
+  const departments = departmentsResult.data.map((department) => ({
+    id: department.id,
+    name: department.name,
+  }));
+  const locations = locationsResult.data.map((location) => ({
+    id: location.id,
+    name: location.name,
+  }));
+  const products = productsResult.data.map((product) => ({ id: product.id, name: product.name }));
+  const expenseCategories = categoriesResult.data.map((category) => ({
+    id: category.id,
+    name: category.name,
+  }));
+
+  return (
+    <ClaimsFilterBar
+      exportScope={exportScope}
+      defaultFiltersExpanded={defaultFiltersExpanded}
+      paymentModes={paymentModes}
+      departments={departments}
+      locations={locations}
+      products={products}
+      expenseCategories={expenseCategories}
+    />
+  );
+}
+
 export default async function MyClaimsDashboardPage({
   searchParams,
 }: {
@@ -970,30 +1036,6 @@ export default async function MyClaimsDashboardPage({
   const activeView = resolveView(requestedView, canViewApprovals);
   const submissionsHref = buildViewHref(resolvedSearchParams, "submissions");
   const approvalsHref = buildViewHref(resolvedSearchParams, "approvals");
-
-  const [paymentModesResult, departmentsResult, locationsResult, productsResult, categoriesResult] =
-    await Promise.all([
-      claimRepository.getActivePaymentModes(),
-      claimRepository.getActiveDepartments(),
-      claimRepository.getActiveLocations(),
-      claimRepository.getActiveProducts(),
-      claimRepository.getActiveExpenseCategories(),
-    ]);
-
-  const paymentModes = paymentModesResult.data.map((mode) => ({ id: mode.id, name: mode.name }));
-  const departments = departmentsResult.data.map((department) => ({
-    id: department.id,
-    name: department.name,
-  }));
-  const locations = locationsResult.data.map((location) => ({
-    id: location.id,
-    name: location.name,
-  }));
-  const products = productsResult.data.map((product) => ({ id: product.id, name: product.name }));
-  const expenseCategories = categoriesResult.data.map((category) => ({
-    id: category.id,
-    name: category.name,
-  }));
 
   return (
     <div className="min-h-screen bg-slate-50 px-6 py-8 dark:bg-[#0B0F1A]">
@@ -1049,15 +1091,12 @@ export default async function MyClaimsDashboardPage({
           ) : null}
         </section>
 
-        <ClaimsFilterBar
-          exportScope={activeView}
-          defaultFiltersExpanded={viewerContextResult.activeScope === "finance"}
-          paymentModes={paymentModes}
-          departments={departments}
-          locations={locations}
-          products={products}
-          expenseCategories={expenseCategories}
-        />
+        <Suspense fallback={<FilterBarSkeleton />}>
+          <FilterBarWithData
+            exportScope={activeView}
+            defaultFiltersExpanded={viewerContextResult.activeScope === "finance"}
+          />
+        </Suspense>
 
         {activeView === "approvals" ? (
           <h2 className="sr-only" aria-label="Approvals History">
@@ -1065,13 +1104,15 @@ export default async function MyClaimsDashboardPage({
           </h2>
         ) : null}
 
-        <ClaimsCommandCenterTable
-          userId={currentUserResult.user.id}
-          view={activeView}
-          approvalScope={viewerContextResult.activeScope}
-          searchParams={resolvedSearchParams}
-          filters={filters}
-        />
+        <Suspense fallback={<TableSkeleton rows={10} columns={8} />}>
+          <ClaimsCommandCenterTable
+            userId={currentUserResult.user.id}
+            view={activeView}
+            approvalScope={viewerContextResult.activeScope}
+            searchParams={resolvedSearchParams}
+            filters={filters}
+          />
+        </Suspense>
       </main>
     </div>
   );

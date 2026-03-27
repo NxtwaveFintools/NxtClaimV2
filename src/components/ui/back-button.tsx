@@ -1,5 +1,6 @@
 "use client";
 
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { ROUTES } from "@/core/config/route-registry";
@@ -16,6 +17,7 @@ export function BackButton({
   fallbackHref = ROUTES.dashboard,
 }: BackButtonProps) {
   const router = useRouter();
+  const [, startTransition] = useTransition();
   const variant = "ghost";
 
   const resolveTargetHref = (): string => {
@@ -45,7 +47,9 @@ export function BackButton({
   };
 
   const handleGoBack = () => {
-    router.push(resolveTargetHref());
+    startTransition(() => {
+      router.push(resolveTargetHref(), { scroll: false });
+    });
   };
 
   return (

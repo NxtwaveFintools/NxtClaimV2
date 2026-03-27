@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch, type FieldErrors } from "react-hook-form";
 import { useRouter } from "next/navigation";
@@ -149,6 +149,7 @@ function appendFormDataValue(
 
 export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientProps) {
   const router = useRouter();
+  const [, startNavTransition] = useTransition();
   const [fileError, setFileError] = useState<string | null>(null);
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [bankStatementFile, setBankStatementFile] = useState<File | null>(null);
@@ -473,7 +474,9 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
           },
         );
 
-        router.push("/dashboard/my-claims");
+        startNavTransition(() => {
+          router.push("/dashboard/my-claims", { scroll: false });
+        });
       } catch {
         // Toast already reports the failure; stay on form for correction.
       }
