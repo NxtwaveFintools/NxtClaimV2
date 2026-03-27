@@ -6,7 +6,7 @@ const DEFAULT_ROWS = 8;
 
 export function ClaimsTableSkeleton({ rows = DEFAULT_ROWS }: ClaimsTableSkeletonProps) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="min-h-[600px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
       <div className="border-b border-slate-200 px-4 py-3 dark:border-zinc-800">
         <div className="h-4 w-36 animate-pulse rounded-md bg-muted/60" />
       </div>

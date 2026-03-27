@@ -257,6 +257,7 @@ export type CursorPaginatedResult<T> = {
   data: T[];
   nextCursor: string | null;
   hasNextPage: boolean;
+  totalCount?: number;
 };
 
 export type MyClaimListRecord = {

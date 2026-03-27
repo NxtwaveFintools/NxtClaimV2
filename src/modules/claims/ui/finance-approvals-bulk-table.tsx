@@ -335,7 +335,7 @@ export function FinanceApprovalsBulkTable({
   };
 
   return (
-    <>
+    <div className="min-h-[600px]">
       <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p
@@ -705,6 +705,6 @@ export function FinanceApprovalsBulkTable({
           </div>
         </div>
       ) : null}
-    </>
+    </div>
   );
 }

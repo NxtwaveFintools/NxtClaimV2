@@ -38,6 +38,15 @@ type EvidenceItem = {
   signedUrl: string;
 };
 
+type EvidencePath = {
+  label: string;
+  path: string;
+};
+
+type ClaimDetailRecord = NonNullable<
+  Awaited<ReturnType<SupabaseClaimRepository["getClaimDetailById"]>>["data"]
+>;
+
 function formatDate(value: string | null): string {
   if (!value) {
     return "N/A";
@@ -85,32 +94,29 @@ function isRenderableEvidencePath(path: string | null | undefined): path is stri
   return Boolean(path && path.trim() !== "" && path !== "N/A");
 }
 
-async function resolveEvidenceUrls(
-  claimRepository: SupabaseClaimRepository,
-  items: Array<{ label: string; path: string }>,
-): Promise<EvidenceItem[]> {
-  const validItems = items.filter((item) => isRenderableEvidencePath(item.path));
+function buildEvidencePaths(
+  receiptFilePath: string | null | undefined,
+  bankStatementFilePath: string | null | undefined,
+  supportingDocumentPath: string | null | undefined,
+): EvidencePath[] {
+  const evidencePaths: EvidencePath[] = [];
 
-  const resolved = await Promise.all(
-    validItems.map(async (item) => {
-      const signed = await claimRepository.getClaimEvidenceSignedUrl({
-        filePath: item.path,
-        expiresInSeconds: 60 * 10,
-      });
+  if (isRenderableEvidencePath(receiptFilePath)) {
+    evidencePaths.push({ label: "Receipt", path: receiptFilePath });
+  }
 
-      if (signed.errorMessage || !signed.data) {
-        return null;
-      }
+  if (isRenderableEvidencePath(bankStatementFilePath)) {
+    evidencePaths.push({ label: "Bank Statement", path: bankStatementFilePath });
+  }
 
-      return {
-        label: item.label,
-        path: item.path,
-        signedUrl: signed.data,
-      };
-    }),
-  );
+  if (isRenderableEvidencePath(supportingDocumentPath)) {
+    evidencePaths.push({
+      label: "Supporting Document",
+      path: supportingDocumentPath,
+    });
+  }
 
-  return resolved.filter((item): item is EvidenceItem => item !== null);
+  return evidencePaths;
 }
 
 function ClaimDetailContentSkeleton() {
@@ -168,11 +174,272 @@ function ClaimDetailContentSkeleton() {
   );
 }
 
-async function ClaimDetailContent({ claimId }: { claimId: string }) {
+function ClaimAuditHistorySkeleton() {
+  return (
+    <section className="mt-6 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+      <div className="h-4 w-28 animate-pulse rounded-md bg-muted/60" />
+      <div className="mt-4 space-y-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={`audit-skel-${index}`} className="space-y-2">
+            <div className="h-3 w-36 animate-pulse rounded-md bg-muted/60" />
+            <div className="h-4 w-52 animate-pulse rounded-md bg-muted/60" />
+            <div className="h-3 w-64 animate-pulse rounded-md bg-muted/60" />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+async function FinanceEditClaimSection({ claim }: { claim: ClaimDetailRecord }) {
+  const claimRepository = new SupabaseClaimRepository();
+
+  const [
+    productsResult,
+    departmentsResult,
+    paymentModesResult,
+    expenseCategoriesResult,
+    locationsResult,
+  ] = await Promise.all([
+    claimRepository.getActiveProducts(),
+    claimRepository.getActiveDepartments(),
+    claimRepository.getActivePaymentModes(),
+    claimRepository.getActiveExpenseCategories(),
+    claimRepository.getActiveLocations(),
+  ]);
+
+  const productOptions = productsResult.errorMessage ? [] : productsResult.data;
+  const departmentOptions = departmentsResult.errorMessage ? [] : departmentsResult.data;
+  const paymentModeOptions = paymentModesResult.errorMessage
+    ? []
+    : paymentModesResult.data.map((mode) => ({ id: mode.id, name: mode.name }));
+  const expenseCategoryOptions = expenseCategoriesResult.errorMessage
+    ? []
+    : expenseCategoriesResult.data;
+  const locationOptions = locationsResult.errorMessage ? [] : locationsResult.data;
+
+  const updateFinanceDetailFromPage = async (formData: FormData) => {
+    "use server";
+    const result = await updateClaimByFinanceAction({ claimId: claim.id, formData });
+
+    if (!result.ok) {
+      throw new Error(result.message ?? "Unable to update claim details.");
+    }
+  };
+
+  return (
+    <FinanceEditClaimForm
+      claim={{
+        id: claim.id,
+        employeeName: claim.submitterName ?? claim.submitter,
+        employeeEmail: claim.submitterEmail,
+        detailType: claim.detailType,
+        submissionType: claim.submissionType,
+        departmentId: claim.departmentId,
+        paymentModeId: claim.paymentModeId,
+        expense: claim.expense
+          ? {
+              billNo: claim.expense.billNo,
+              expenseCategoryId: claim.expense.expenseCategoryId,
+              locationId: claim.expense.locationId,
+              transactionDate: claim.expense.transactionDate,
+              isGstApplicable: claim.expense.isGstApplicable,
+              gstNumber: claim.expense.gstNumber,
+              basicAmount: claim.expense.basicAmount,
+              cgstAmount: claim.expense.cgstAmount,
+              sgstAmount: claim.expense.sgstAmount,
+              igstAmount: claim.expense.igstAmount,
+              totalAmount: claim.expense.totalAmount,
+              vendorName: claim.expense.vendorName,
+              purpose: claim.expense.purpose,
+              productId: claim.expense.productId,
+              peopleInvolved: claim.expense.peopleInvolved,
+              remarks: claim.expense.remarks,
+            }
+          : null,
+        advance: claim.advance
+          ? {
+              purpose: claim.advance.purpose,
+              requestedAmount: claim.advance.requestedAmount,
+              expectedUsageDate: claim.advance.expectedUsageDate,
+              productId: claim.advance.productId,
+              locationId: claim.advance.locationId,
+              remarks: claim.advance.remarks,
+            }
+          : null,
+      }}
+      departments={departmentOptions}
+      paymentModes={paymentModeOptions}
+      expenseCategories={expenseCategoryOptions}
+      products={productOptions}
+      locations={locationOptions}
+      action={updateFinanceDetailFromPage}
+    />
+  );
+}
+
+function EvidenceGallerySkeleton() {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
+      <div className="h-4 w-36 animate-pulse rounded-md bg-muted/60" />
+      <div className="mt-4 space-y-6">
+        <div className="h-[240px] w-full animate-pulse rounded-xl bg-muted/60" />
+        <div className="h-[240px] w-full animate-pulse rounded-xl bg-muted/60" />
+      </div>
+    </section>
+  );
+}
+
+function FinanceEditClaimSkeleton() {
+  return (
+    <section className="mt-6 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+      <div className="h-4 w-40 animate-pulse rounded-md bg-muted/60" />
+      <div className="mt-4 h-[420px] w-full animate-pulse rounded-xl bg-muted/60" />
+    </section>
+  );
+}
+
+async function ClaimDetailBackButton({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string | string[] }>;
+}) {
+  const resolvedSearchParams = await searchParams;
+  const viewParam = Array.isArray(resolvedSearchParams.view)
+    ? resolvedSearchParams.view[0]
+    : resolvedSearchParams.view;
+  const backHref =
+    viewParam === "approvals" ? `${ROUTES.claims.myClaims}?view=approvals` : ROUTES.claims.myClaims;
+
+  return <BackButton className="w-fit" fallbackHref={backHref} />;
+}
+
+async function ClaimAuditHistorySection({ claimId }: { claimId: string }) {
+  const claimRepository = new SupabaseClaimRepository();
+  const claimAuditLogsResult = await claimRepository.getClaimAuditLogs(claimId);
+  const claimAuditLogs = claimAuditLogsResult.errorMessage
+    ? []
+    : claimAuditLogsResult.data.map((log) => ({
+        ...log,
+        formattedCreatedAt: formatDateTime(log.createdAt),
+      }));
+
+  return (
+    <section className="mt-6">
+      <ClaimAuditTimeline logs={claimAuditLogs} />
+      {claimAuditLogsResult.errorMessage ? (
+        <p className="mt-2 text-xs text-rose-600 dark:text-rose-300">
+          Unable to load complete audit history. {claimAuditLogsResult.errorMessage}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+async function EvidenceGallerySection({ evidencePaths }: { evidencePaths: EvidencePath[] }) {
+  const claimRepository = new SupabaseClaimRepository();
+  const validItems = evidencePaths.filter((item) => isRenderableEvidencePath(item.path));
+
+  let evidenceItems: EvidenceItem[] = [];
+  let evidenceErrorMessage: string | null = null;
+
+  if (validItems.length > 0) {
+    const uniquePaths = Array.from(new Set(validItems.map((item) => item.path)));
+    const signedUrlsResult = await claimRepository.createBulkSignedUrls({
+      filePaths: uniquePaths,
+      expiresInSeconds: 60 * 10,
+    });
+
+    if (signedUrlsResult.errorMessage) {
+      evidenceErrorMessage = signedUrlsResult.errorMessage;
+    } else {
+      evidenceItems = validItems
+        .map((item) => {
+          const signedUrl = signedUrlsResult.data[item.path];
+          if (!signedUrl) {
+            return null;
+          }
+
+          return {
+            label: item.label,
+            path: item.path,
+            signedUrl,
+          };
+        })
+        .filter((item): item is EvidenceItem => item !== null);
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
+      <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-700 dark:text-slate-300">
+        Evidence Gallery
+      </h2>
+      {evidenceItems.length === 0 ? (
+        <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">
+          {evidenceErrorMessage
+            ? `Unable to load evidence files right now. ${evidenceErrorMessage}`
+            : "No evidence files attached to this claim."}
+        </p>
+      ) : (
+        <div className="mt-4 flex w-full flex-col gap-6">
+          {evidenceItems.map((item) => (
+            <article
+              key={item.path}
+              className="w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800"
+            >
+              <header className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+                <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+                  {item.label}
+                </p>
+                <a
+                  href={item.signedUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Open in New Tab
+                  <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                </a>
+              </header>
+              <div className="w-full bg-slate-950/40 p-2 sm:p-3">
+                {isPdf(item.path) ? (
+                  <iframe
+                    title={item.label}
+                    src={item.signedUrl}
+                    className="h-[70vh] min-h-[420px] w-full rounded-lg border border-slate-800 md:min-h-[600px]"
+                  />
+                ) : (
+                  <div className="flex h-[70vh] min-h-[420px] w-full items-center justify-center rounded-lg border border-slate-800 bg-slate-950/40 p-2 md:min-h-[600px]">
+                    <Image
+                      src={item.signedUrl}
+                      alt={item.label}
+                      width={1800}
+                      height={2200}
+                      unoptimized
+                      className="h-full w-full object-contain"
+                    />
+                  </div>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = await params;
+  const claimId = resolvedParams.id;
   const authRepository = new SupabaseServerAuthRepository();
   const claimRepository = new SupabaseClaimRepository();
 
-  const currentUserResult = await authRepository.getCurrentUser();
+  const [currentUserResult, claimResult] = await Promise.all([
+    authRepository.getCurrentUser(),
+    claimRepository.getClaimDetailById(claimId),
+  ]);
 
   if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
     return (
@@ -191,8 +458,6 @@ async function ClaimDetailContent({ claimId }: { claimId: string }) {
       </section>
     );
   }
-
-  const claimResult = await claimRepository.getClaimDetailById(claimId);
 
   if (claimResult.errorMessage) {
     return (
@@ -216,16 +481,15 @@ async function ClaimDetailContent({ claimId }: { claimId: string }) {
   }
 
   const claim = claimResult.data;
-  const claimAuditLogsResult = await claimRepository.getClaimAuditLogs(claim.id);
-  const claimAuditLogs = claimAuditLogsResult.errorMessage
-    ? []
-    : claimAuditLogsResult.data.map((log) => ({
-        ...log,
-        formattedCreatedAt: formatDateTime(log.createdAt),
-      }));
   const currentUserId = currentUserResult.user.id;
+  const evidencePaths = buildEvidencePaths(
+    claim.expense?.receiptFilePath,
+    claim.expense?.bankStatementFilePath,
+    claim.advance?.supportingDocumentPath,
+  );
   const financeApproverIdsResult =
     await claimRepository.getFinanceApproverIdsForUser(currentUserId);
+
   const isFinanceActor =
     !financeApproverIdsResult.errorMessage && financeApproverIdsResult.data.length > 0;
   const isAssignedL1Approver = currentUserId === claim.assignedL1ApproverId;
@@ -258,55 +522,6 @@ async function ClaimDetailContent({ claimId }: { claimId: string }) {
     effectiveRole === "Finance" && availableActions.canMarkPaid;
   const canTakeDecision =
     canTakeL1Decision || canTakeFinanceAuthorizationDecision || canTakeFinanceExecutionDecision;
-  const [
-    productsResult,
-    departmentsResult,
-    paymentModesResult,
-    expenseCategoriesResult,
-    locationsResult,
-  ] = canEditByFinance
-    ? await Promise.all([
-        claimRepository.getActiveProducts(),
-        claimRepository.getActiveDepartments(),
-        claimRepository.getActivePaymentModes(),
-        claimRepository.getActiveExpenseCategories(),
-        claimRepository.getActiveLocations(),
-      ])
-    : [
-        { data: [], errorMessage: null },
-        { data: [], errorMessage: null },
-        { data: [], errorMessage: null },
-        { data: [], errorMessage: null },
-        { data: [], errorMessage: null },
-      ];
-  const productOptions = productsResult.errorMessage ? [] : productsResult.data;
-  const departmentOptions = departmentsResult.errorMessage ? [] : departmentsResult.data;
-  const paymentModeOptions = paymentModesResult.errorMessage
-    ? []
-    : paymentModesResult.data.map((mode) => ({ id: mode.id, name: mode.name }));
-  const expenseCategoryOptions = expenseCategoriesResult.errorMessage
-    ? []
-    : expenseCategoriesResult.data;
-  const locationOptions = locationsResult.errorMessage ? [] : locationsResult.data;
-
-  const evidencePaths: Array<{ label: string; path: string }> = [];
-
-  if (isRenderableEvidencePath(claim.expense?.receiptFilePath)) {
-    evidencePaths.push({ label: "Receipt", path: claim.expense.receiptFilePath });
-  }
-
-  if (isRenderableEvidencePath(claim.expense?.bankStatementFilePath)) {
-    evidencePaths.push({ label: "Bank Statement", path: claim.expense.bankStatementFilePath });
-  }
-
-  if (isRenderableEvidencePath(claim.advance?.supportingDocumentPath)) {
-    evidencePaths.push({
-      label: "Supporting Document",
-      path: claim.advance.supportingDocumentPath,
-    });
-  }
-
-  const evidenceItems = await resolveEvidenceUrls(claimRepository, evidencePaths);
 
   const approveFromDetail = async () => {
     "use server";
@@ -343,15 +558,6 @@ async function ClaimDetailContent({ claimId }: { claimId: string }) {
   const markPaidFromDetail = async () => {
     "use server";
     await markPaymentDoneAction({ claimId: claim.id });
-  };
-
-  const updateFinanceDetailFromPage = async (formData: FormData) => {
-    "use server";
-    const result = await updateClaimByFinanceAction({ claimId: claim.id, formData });
-
-    if (!result.ok) {
-      throw new Error(result.message ?? "Unable to update claim details.");
-    }
   };
 
   const shouldShowExpenseTaxBreakdown =
@@ -636,53 +842,9 @@ async function ClaimDetailContent({ claimId }: { claimId: string }) {
         ) : null}
 
         {canEditByFinance ? (
-          <FinanceEditClaimForm
-            claim={{
-              id: claim.id,
-              employeeName: claim.submitterName ?? claim.submitter,
-              employeeEmail: claim.submitterEmail,
-              detailType: claim.detailType,
-              submissionType: claim.submissionType,
-              departmentId: claim.departmentId,
-              paymentModeId: claim.paymentModeId,
-              expense: claim.expense
-                ? {
-                    billNo: claim.expense.billNo,
-                    expenseCategoryId: claim.expense.expenseCategoryId,
-                    locationId: claim.expense.locationId,
-                    transactionDate: claim.expense.transactionDate,
-                    isGstApplicable: claim.expense.isGstApplicable,
-                    gstNumber: claim.expense.gstNumber,
-                    basicAmount: claim.expense.basicAmount,
-                    cgstAmount: claim.expense.cgstAmount,
-                    sgstAmount: claim.expense.sgstAmount,
-                    igstAmount: claim.expense.igstAmount,
-                    totalAmount: claim.expense.totalAmount,
-                    vendorName: claim.expense.vendorName,
-                    purpose: claim.expense.purpose,
-                    productId: claim.expense.productId,
-                    peopleInvolved: claim.expense.peopleInvolved,
-                    remarks: claim.expense.remarks,
-                  }
-                : null,
-              advance: claim.advance
-                ? {
-                    purpose: claim.advance.purpose,
-                    requestedAmount: claim.advance.requestedAmount,
-                    expectedUsageDate: claim.advance.expectedUsageDate,
-                    productId: claim.advance.productId,
-                    locationId: claim.advance.locationId,
-                    remarks: claim.advance.remarks,
-                  }
-                : null,
-            }}
-            departments={departmentOptions}
-            paymentModes={paymentModeOptions}
-            expenseCategories={expenseCategoryOptions}
-            products={productOptions}
-            locations={locationOptions}
-            action={updateFinanceDetailFromPage}
-          />
+          <Suspense fallback={<FinanceEditClaimSkeleton />}>
+            <FinanceEditClaimSection claim={claim} />
+          </Suspense>
         ) : null}
 
         <div className="mt-6">
@@ -694,89 +856,27 @@ async function ClaimDetailContent({ claimId }: { claimId: string }) {
           </Link>
         </div>
 
-        <div className="mt-6">
-          <ClaimAuditTimeline logs={claimAuditLogs} />
-          {claimAuditLogsResult.errorMessage ? (
-            <p className="mt-2 text-xs text-rose-600 dark:text-rose-300">
-              Unable to load complete audit history. {claimAuditLogsResult.errorMessage}
-            </p>
-          ) : null}
-        </div>
+        <Suspense fallback={<ClaimAuditHistorySkeleton />}>
+          <ClaimAuditHistorySection claimId={claim.id} />
+        </Suspense>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-zinc-950">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-700 dark:text-slate-300">
-          Evidence Gallery
-        </h2>
-        {evidenceItems.length === 0 ? (
-          <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">
-            No evidence files attached to this claim.
-          </p>
-        ) : (
-          <div className="mt-4 flex w-full flex-col gap-6">
-            {evidenceItems.map((item) => (
-              <article
-                key={item.path}
-                className="w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800"
-              >
-                <header className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-                  <p className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-                    {item.label}
-                  </p>
-                  <a
-                    href={item.signedUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                  >
-                    Open in New Tab
-                    <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-                  </a>
-                </header>
-                <div className="w-full bg-slate-950/40 p-2 sm:p-3">
-                  {isPdf(item.path) ? (
-                    <iframe
-                      title={item.label}
-                      src={item.signedUrl}
-                      className="h-[70vh] min-h-[420px] w-full rounded-lg border border-slate-800 md:min-h-[600px]"
-                    />
-                  ) : (
-                    <div className="flex h-[70vh] min-h-[420px] w-full items-center justify-center rounded-lg border border-slate-800 bg-slate-950/40 p-2 md:min-h-[600px]">
-                      <Image
-                        src={item.signedUrl}
-                        alt={item.label}
-                        width={1800}
-                        height={2200}
-                        unoptimized
-                        className="h-full w-full object-contain"
-                      />
-                    </div>
-                  )}
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
+      <Suspense fallback={<EvidenceGallerySkeleton />}>
+        <EvidenceGallerySection evidencePaths={evidencePaths} />
+      </Suspense>
     </>
   );
 }
 
-export default async function ClaimDetailPage({ params, searchParams }: PageProps) {
-  const resolvedParams = await params;
-  const resolvedSearchParams = await searchParams;
-  const viewParam = Array.isArray(resolvedSearchParams.view)
-    ? resolvedSearchParams.view[0]
-    : resolvedSearchParams.view;
-  const backHref =
-    viewParam === "approvals" ? `${ROUTES.claims.myClaims}?view=approvals` : ROUTES.claims.myClaims;
-
+export default function ClaimDetailPage({ params, searchParams }: PageProps) {
   return (
     <div className="min-h-screen bg-slate-50 px-6 py-8 dark:bg-[#0B0F1A]">
       <main className="mx-auto max-w-7xl space-y-5">
-        <BackButton className="w-fit" fallbackHref={backHref} />
+        <Suspense fallback={<BackButton className="w-fit" fallbackHref={ROUTES.claims.myClaims} />}>
+          <ClaimDetailBackButton searchParams={searchParams} />
+        </Suspense>
         <Suspense fallback={<ClaimDetailContentSkeleton />}>
-          <ClaimDetailContent claimId={resolvedParams.id} />
+          <ClaimDetailCore params={params} />
         </Suspense>
       </main>
     </div>

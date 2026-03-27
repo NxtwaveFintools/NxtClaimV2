@@ -54,6 +54,7 @@ type PendingApprovalsRepository = {
     data: RepositoryApprovalRow[];
     nextCursor: string | null;
     hasNextPage: boolean;
+    totalCount: number;
     errorMessage: string | null;
   }>;
   getPendingApprovalsForFinance(
@@ -65,6 +66,7 @@ type PendingApprovalsRepository = {
     data: RepositoryApprovalRow[];
     nextCursor: string | null;
     hasNextPage: boolean;
+    totalCount: number;
     errorMessage: string | null;
   }>;
 };
@@ -124,6 +126,7 @@ export class GetPendingApprovalsService {
     data: PendingApprovalRecord[];
     nextCursor: string | null;
     hasNextPage: boolean;
+    totalCount: number;
     errorMessage: string | null;
   }> {
     const viewerContext = await this.getViewerContext({ userId: input.userId });
@@ -133,6 +136,7 @@ export class GetPendingApprovalsService {
         data: [],
         nextCursor: null,
         hasNextPage: false,
+        totalCount: 0,
         errorMessage: viewerContext.errorMessage,
       };
     }
@@ -142,6 +146,7 @@ export class GetPendingApprovalsService {
         data: [],
         nextCursor: null,
         hasNextPage: false,
+        totalCount: 0,
         errorMessage: null,
       };
     }
@@ -173,6 +178,7 @@ export class GetPendingApprovalsService {
         data: [],
         nextCursor: null,
         hasNextPage: false,
+        totalCount: 0,
         errorMessage: approvalsResult.errorMessage,
       };
     }
@@ -185,6 +191,7 @@ export class GetPendingApprovalsService {
       })),
       nextCursor: approvalsResult.nextCursor,
       hasNextPage: approvalsResult.hasNextPage,
+      totalCount: approvalsResult.totalCount,
       errorMessage: null,
     };
   }
