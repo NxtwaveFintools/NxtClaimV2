@@ -523,6 +523,9 @@ async function openNewClaimForm(page: Page): Promise<void> {
   await page.goto("/claims/new", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: /new claim/i })).toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("button", { name: /submit claim/i })).toBeVisible({ timeout: 15000 });
+  // Wait for React hydration: hodEmail is set by useEffect only after the component hydrates.
+  // Without this, selectOption calls may be reset when React reconciles the DOM.
+  await expect(page.locator('input[name="hodEmail"]')).not.toHaveValue("", { timeout: 15000 });
 }
 
 async function resolveClaimIdByBillNo(

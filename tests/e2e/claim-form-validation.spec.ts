@@ -127,6 +127,12 @@ async function openClaimForm(page: Page): Promise<void> {
   await expect(page.getByRole("button", { name: /submit claim/i })).toBeVisible({
     timeout: 15_000,
   });
+
+  // Wait for React client-side hydration to complete.
+  // The hodEmail hidden input is populated by useEffect only after the component
+  // has fully hydrated. Interacting with selects before this point causes React
+  // hydration to reset them to their server-rendered default values.
+  await expect(page.locator('input[name="hodEmail"]')).not.toHaveValue("", { timeout: 15_000 });
 }
 
 /**

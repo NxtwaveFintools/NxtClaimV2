@@ -9,6 +9,7 @@ import { AdminSoftDeleteClaimService } from "@/core/domain/admin/AdminSoftDelete
 import { ManageMasterDataService } from "@/core/domain/admin/ManageMasterDataService";
 import { ManageActorsService } from "@/core/domain/admin/ManageActorsService";
 import { ManageAdminsService } from "@/core/domain/admin/ManageAdminsService";
+import { ManageDepartmentViewersService } from "@/core/domain/admin/ManageDepartmentViewersService";
 import type { MasterDataTableName } from "@/core/domain/admin/contracts";
 import { isAdmin } from "@/modules/admin/server/is-admin";
 import { SupabaseAdminRepository } from "@/modules/admin/repositories/SupabaseAdminRepository";
@@ -27,6 +28,10 @@ const manageMasterDataService = new ManageMasterDataService({
 });
 const manageActorsService = new ManageActorsService({ repository: adminRepository, logger });
 const manageAdminsService = new ManageAdminsService({ repository: adminRepository, logger });
+const manageDepartmentViewersService = new ManageDepartmentViewersService({
+  repository: adminRepository,
+  logger,
+});
 
 // ----------------------------------------------------------------
 // Shared Zod schemas
@@ -410,5 +415,67 @@ export async function removeAdminAction(
 
   revalidatePath(ROUTES.admin.settings);
 
+  return { ok: true };
+}
+
+// ----------------------------------------------------------------
+// Department Viewer (POC) actions
+// ----------------------------------------------------------------
+
+export async function addDepartmentViewerAction(
+  departmentId: string,
+  email: string,
+): Promise<{ ok: boolean; message?: string }> {
+  const guard = await requireAdmin();
+  if ("forbidden" in guard) {
+    return { ok: false, message: "Forbidden: admin access required." };
+  }
+
+  const parsedDeptId = idSchema.safeParse(departmentId);
+  if (!parsedDeptId.success) {
+    return { ok: false, message: "Invalid department ID." };
+  }
+
+  const parsedEmail = z.string().trim().email("Invalid email address.").safeParse(email);
+  if (!parsedEmail.success) {
+    return {
+      ok: false,
+      message: parsedEmail.error.flatten().formErrors[0] ?? "Invalid email address.",
+    };
+  }
+
+  const result = await manageDepartmentViewersService.addViewerByEmail(
+    parsedDeptId.data,
+    parsedEmail.data,
+  );
+
+  if (result.errorMessage) {
+    return { ok: false, message: result.errorMessage };
+  }
+
+  revalidatePath(ROUTES.admin.settings);
+  return { ok: true };
+}
+
+export async function removeDepartmentViewerAction(
+  viewerId: string,
+): Promise<{ ok: boolean; message?: string }> {
+  const guard = await requireAdmin();
+  if ("forbidden" in guard) {
+    return { ok: false, message: "Forbidden: admin access required." };
+  }
+
+  const parsed = idSchema.safeParse(viewerId);
+  if (!parsed.success) {
+    return { ok: false, message: "Invalid viewer record ID." };
+  }
+
+  const result = await manageDepartmentViewersService.removeViewer(parsed.data);
+
+  if (!result.success) {
+    return { ok: false, message: result.errorMessage ?? "Failed to remove viewer." };
+  }
+
+  revalidatePath(ROUTES.admin.settings);
   return { ok: true };
 }

@@ -8,6 +8,7 @@ loadEnvConfig(process.cwd());
 const DEFAULT_PASSWORD = process.env.E2E_DEFAULT_PASSWORD ?? "password123";
 const RECEIPT_PATH = path.resolve(process.cwd(), "tests/fixtures/dummy-receipt.pdf");
 const RUN_TAG = process.env.E2E_RUN_TAG ?? `BLKLC-${Date.now()}`;
+const APP_BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 
 type KnownRole = "employee" | "hod" | "founder" | "finance";
 
@@ -146,7 +147,7 @@ async function resolveRuntimeActors(): Promise<RuntimeActors> {
 }
 
 async function loginAs(context: BrowserContext, email: string): Promise<Page> {
-  const loginResponse = await context.request.post("/api/auth/email-login", {
+  const loginResponse = await context.request.post(`${APP_BASE_URL}/api/auth/email-login`, {
     data: { email, password: DEFAULT_PASSWORD },
   });
   expect(loginResponse.ok()).toBeTruthy();
@@ -160,13 +161,13 @@ async function loginAs(context: BrowserContext, email: string): Promise<Page> {
   expect(accessToken).toBeTruthy();
   expect(refreshToken).toBeTruthy();
 
-  const sessionResponse = await context.request.post("/api/auth/session", {
+  const sessionResponse = await context.request.post(`${APP_BASE_URL}/api/auth/session`, {
     data: { accessToken, refreshToken },
   });
   expect(sessionResponse.ok()).toBeTruthy();
 
   const page = await context.newPage();
-  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+  await page.goto(`${APP_BASE_URL}/dashboard`, { waitUntil: "domcontentloaded" });
   await expect(page).not.toHaveURL(/\/auth\/login/i);
   return page;
 }
@@ -180,7 +181,7 @@ async function setupSessions(browser: Browser): Promise<void> {
   };
 
   for (const role of Object.keys(roleToUser) as KnownRole[]) {
-    const context = await browser.newContext();
+    const context = await browser.newContext({ baseURL: APP_BASE_URL });
     const page = await loginAs(context, roleToUser[role].email);
     sessions.set(role, { context, page, user: roleToUser[role] });
   }
@@ -215,6 +216,9 @@ async function submitReimbursementClaim(flowKey: string, amount: number): Promis
 
   await page.goto("/claims/new", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: /new claim/i })).toBeVisible();
+  // Wait for React hydration before interacting with form controls.
+  // The hidden hodEmail field is populated by useEffect only after hydration.
+  await expect(page.locator('input[name="hodEmail"]')).not.toHaveValue("", { timeout: 15000 });
 
   await selectByLabel(page, /department/i, actors.submitterDepartment.name);
   await selectByLabel(page, /payment mode/i, "Reimbursement");

@@ -7,6 +7,7 @@ import type {
   AdminRecord,
   AdminRepository,
   AdminUserRecord,
+  DepartmentViewerAdminRecord,
   DepartmentWithActors,
   FinanceApproverRecord,
   MasterDataItem,
@@ -90,6 +91,16 @@ type AdminRow = {
   user: UserNameRow | UserNameRow[] | null;
 };
 
+type DepartmentViewerRow = {
+  id: string;
+  user_id: string;
+  is_active: boolean;
+  created_at: string;
+  department_id: string;
+  user: UserNameRow | UserNameRow[] | null;
+  department: { name: string } | { name: string }[] | null;
+};
+
 type MasterDataRow = {
   id: string;
   name: string;
@@ -119,7 +130,7 @@ export class SupabaseAdminRepository implements AdminRepository {
     let query = this.client
       .from("vw_enterprise_claims_dashboard")
       .select(
-        "claim_id, employee_name, employee_id, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, detail_type, submission_type, is_active, department_id",
+        "claim_id, employee_name, employee_id, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, detail_type, submission_type, is_active, department_id, payment_mode_id, location_id, product_id, expense_category_id",
       )
       .order("submitted_on", { ascending: false })
       .order("claim_id", { ascending: false })
@@ -134,13 +145,58 @@ export class SupabaseAdminRepository implements AdminRepository {
     }
 
     if (filters.searchQuery) {
-      query = query.or(
-        `claim_id.ilike.%${filters.searchQuery}%,employee_name.ilike.%${filters.searchQuery}%,employee_id.ilike.%${filters.searchQuery}%`,
-      );
+      const sq = filters.searchQuery;
+      if (filters.searchField === "claim_id") {
+        query = query.eq("claim_id", sq);
+      } else if (filters.searchField === "employee_name") {
+        query = query.ilike("employee_name", `%${sq}%`);
+      } else if (filters.searchField === "employee_id") {
+        query = query.ilike("employee_id", `%${sq}%`);
+      } else {
+        query = query.or(
+          `claim_id.ilike.%${sq}%,employee_name.ilike.%${sq}%,employee_id.ilike.%${sq}%`,
+        );
+      }
     }
 
     if (filters.isActive !== undefined) {
       query = query.eq("is_active", filters.isActive);
+    }
+
+    if (filters.submissionType) {
+      query = query.eq("submission_type", filters.submissionType);
+    }
+
+    if (filters.paymentModeId) {
+      query = query.eq("payment_mode_id", filters.paymentModeId);
+    }
+
+    if (filters.locationId) {
+      query = query.eq("location_id", filters.locationId);
+    }
+
+    if (filters.productId) {
+      query = query.eq("product_id", filters.productId);
+    }
+
+    if (filters.expenseCategoryId) {
+      query = query.eq("expense_category_id", filters.expenseCategoryId);
+    }
+
+    if (filters.dateTarget === "finance_closed") {
+      query = query.not("finance_action_date", "is", null);
+    }
+
+    if (filters.dateFrom) {
+      const column =
+        filters.dateTarget === "finance_closed" ? "finance_action_date" : "submitted_on";
+      query = query.gte(column, `${filters.dateFrom}T00:00:00.000Z`);
+    }
+
+    if (filters.dateTo) {
+      const column =
+        filters.dateTarget === "finance_closed" ? "finance_action_date" : "submitted_on";
+      query = query.lte(column, `${filters.dateTo}T23:59:59.999Z`);
     }
 
     if (pagination.cursor) {
@@ -752,6 +808,167 @@ export class SupabaseAdminRepository implements AdminRepository {
 
   async removeAdmin(adminId: string): Promise<{ success: boolean; errorMessage: string | null }> {
     const { error } = await this.client.from("admins").delete().eq("id", adminId);
+
+    if (error) {
+      return { success: false, errorMessage: error.message };
+    }
+
+    return { success: true, errorMessage: null };
+  }
+
+  // ─── Department Viewers (POC) ─────────────────────────────────
+
+  async getDepartmentViewers(): Promise<{
+    data: DepartmentViewerAdminRecord[];
+    errorMessage: string | null;
+  }> {
+    const { data, error } = await this.client
+      .from("department_viewers")
+      .select(
+        "id, user_id, department_id, is_active, created_at, user:users!department_viewers_user_id_fkey(full_name, email), department:master_departments!department_viewers_department_id_fkey(name)",
+      )
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      return { data: [], errorMessage: error.message };
+    }
+
+    return {
+      data: (data ?? []).map((row: DepartmentViewerRow) => {
+        const user = normalizeRelation(row.user);
+        const dept = normalizeRelation(row.department);
+        return {
+          id: row.id,
+          userId: row.user_id,
+          email: user?.email ?? "",
+          fullName: user?.full_name ?? null,
+          departmentId: row.department_id,
+          departmentName: dept?.name ?? "",
+          isActive: row.is_active,
+          createdAt: row.created_at,
+        };
+      }),
+      errorMessage: null,
+    };
+  }
+
+  async addDepartmentViewerByEmail(
+    departmentId: string,
+    email: string,
+  ): Promise<{ data: DepartmentViewerAdminRecord | null; errorMessage: string | null }> {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // 1. Look up user by email — must already exist (user_id is NOT NULL)
+    const { data: existingUser } = await this.client
+      .from("users")
+      .select("id")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
+
+    if (!existingUser) {
+      return {
+        data: null,
+        errorMessage:
+          "No user found with this email. The user must sign in at least once before they can be assigned as a Department Viewer.",
+      };
+    }
+
+    // 2. Duplicate check (same user + department, including inactive)
+    const { data: existing } = await this.client
+      .from("department_viewers")
+      .select("id, is_active")
+      .eq("user_id", existingUser.id)
+      .eq("department_id", departmentId)
+      .maybeSingle();
+
+    if (existing) {
+      if (!existing.is_active) {
+        // Re-activate existing inactive assignment
+        const { error: reactivateError } = await this.client
+          .from("department_viewers")
+          .update({ is_active: true })
+          .eq("id", existing.id);
+
+        if (reactivateError) {
+          return { data: null, errorMessage: reactivateError.message };
+        }
+
+        // Re-fetch the full row
+        const { data: reactivated } = await this.client
+          .from("department_viewers")
+          .select(
+            "id, user_id, department_id, is_active, created_at, user:users!department_viewers_user_id_fkey(full_name, email), department:master_departments!department_viewers_department_id_fkey(name)",
+          )
+          .eq("id", existing.id)
+          .single();
+
+        if (!reactivated) {
+          return { data: null, errorMessage: "Failed to re-fetch reactivated viewer." };
+        }
+
+        const row = reactivated as DepartmentViewerRow;
+        const user = normalizeRelation(row.user);
+        const dept = normalizeRelation(row.department);
+        return {
+          data: {
+            id: row.id,
+            userId: row.user_id,
+            email: user?.email ?? normalizedEmail,
+            fullName: user?.full_name ?? null,
+            departmentId: row.department_id,
+            departmentName: dept?.name ?? "",
+            isActive: row.is_active,
+            createdAt: row.created_at,
+          },
+          errorMessage: null,
+        };
+      }
+
+      return {
+        data: null,
+        errorMessage: "This user is already assigned as a viewer for this department.",
+      };
+    }
+
+    // 3. Insert new assignment
+    const { data: inserted, error: insertError } = await this.client
+      .from("department_viewers")
+      .insert({ user_id: existingUser.id, department_id: departmentId })
+      .select(
+        "id, user_id, department_id, is_active, created_at, user:users!department_viewers_user_id_fkey(full_name, email), department:master_departments!department_viewers_department_id_fkey(name)",
+      )
+      .single();
+
+    if (insertError) {
+      return { data: null, errorMessage: insertError.message };
+    }
+
+    const row = inserted as DepartmentViewerRow;
+    const user = normalizeRelation(row.user);
+    const dept = normalizeRelation(row.department);
+    return {
+      data: {
+        id: row.id,
+        userId: row.user_id,
+        email: user?.email ?? normalizedEmail,
+        fullName: user?.full_name ?? null,
+        departmentId: row.department_id,
+        departmentName: dept?.name ?? "",
+        isActive: row.is_active,
+        createdAt: row.created_at,
+      },
+      errorMessage: null,
+    };
+  }
+
+  async removeDepartmentViewer(
+    viewerId: string,
+  ): Promise<{ success: boolean; errorMessage: string | null }> {
+    // Soft-delete: set is_active = false
+    const { error } = await this.client
+      .from("department_viewers")
+      .update({ is_active: false })
+      .eq("id", viewerId);
 
     if (error) {
       return { success: false, errorMessage: error.message };

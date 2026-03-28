@@ -552,6 +552,10 @@ async function submitPettyCashRequest(
     timeout: 10000,
   });
 
+  // Wait for React hydration: hodEmail is populated by useEffect only after hydration.
+  // Selecting the department before this resets to server-default on React reconciliation.
+  await expect(page.locator('input[name="hodEmail"]')).not.toHaveValue("", { timeout: 10000 });
+
   if (input.onBehalfEmail && input.onBehalfEmployeeCode) {
     const submissionType = page.getByRole("combobox", { name: /submission type/i });
     const onBehalfOption = await submissionType.locator("option").evaluateAll((options) => {
