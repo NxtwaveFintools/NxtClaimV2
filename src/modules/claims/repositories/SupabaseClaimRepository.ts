@@ -110,8 +110,8 @@ type ClaimAuditLogRow = {
 };
 
 type DepartmentApproverRoleRow = {
-  approver_1: string | null;
-  approver_2: string | null;
+  hod_user_id: string | null;
+  founder_user_id: string | null;
 };
 
 type GetPendingApprovalsRow = {
@@ -1656,9 +1656,9 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const [departmentRoleResult, financeRoleResult] = await Promise.all([
       client
         .from("master_departments")
-        .select("approver_1, approver_2")
+        .select("hod_user_id, founder_user_id")
         .eq("is_active", true)
-        .or(`approver_1.eq.${userId},approver_2.eq.${userId}`),
+        .or(`hod_user_id.eq.${userId},founder_user_id.eq.${userId}`),
       client
         .from("master_finance_approvers")
         .select("id")
@@ -1685,8 +1685,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
     return {
       data: {
-        isHod: departmentRows.some((row) => row.approver_1 === userId),
-        isFounder: departmentRows.some((row) => row.approver_2 === userId),
+        isHod: departmentRows.some((row) => row.hod_user_id === userId),
+        isFounder: departmentRows.some((row) => row.founder_user_id === userId),
         isFinance: (financeRoleResult.data ?? []).length > 0,
       },
       errorMessage: null,
@@ -1888,7 +1888,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const client = getServiceRoleSupabaseClient();
     const { data, error } = await client
       .from("master_departments")
-      .select("approver_1, approver_2")
+      .select("hod_user_id, founder_user_id")
       .eq("id", departmentId)
       .eq("is_active", true)
       .maybeSingle();
@@ -1904,8 +1904,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const row = data as DepartmentApproverRoleRow;
     return {
       data: {
-        approver1Id: row.approver_1,
-        approver2Id: row.approver_2,
+        approver1Id: row.hod_user_id,
+        approver2Id: row.founder_user_id,
       },
       errorMessage: null,
     };
@@ -1940,7 +1940,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const { data, error } = await client
       .from("master_departments")
       .select("id")
-      .eq("approver_1", userId)
+      .eq("hod_user_id", userId)
       .eq("is_active", true)
       .limit(1);
 

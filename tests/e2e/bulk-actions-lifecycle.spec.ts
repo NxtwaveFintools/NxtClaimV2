@@ -20,8 +20,8 @@ type UserRecord = {
 type DepartmentRecord = {
   id: string;
   name: string;
-  approver_1: string;
-  approver_2: string;
+  hod_user_id: string;
+  founder_user_id: string;
 };
 
 type RuntimeActors = {
@@ -104,7 +104,7 @@ async function resolveRuntimeActors(): Promise<RuntimeActors> {
 
   const { data: activeDepartments, error: departmentsError } = await client
     .from("master_departments")
-    .select("id, name, approver_1, approver_2")
+    .select("id, name, hod_user_id, founder_user_id")
     .eq("is_active", true);
 
   if (departmentsError) {
@@ -113,8 +113,8 @@ async function resolveRuntimeActors(): Promise<RuntimeActors> {
 
   const departments = (activeDepartments ?? []) as DepartmentRecord[];
   const submitterDepartment =
-    departments.find((department) => department.approver_1 === hod.id) ??
-    departments.find((department) => department.approver_1 === founder.id) ??
+    departments.find((department) => department.hod_user_id === hod.id) ??
+    departments.find((department) => department.hod_user_id === founder.id) ??
     departments[0];
 
   if (!submitterDepartment) {

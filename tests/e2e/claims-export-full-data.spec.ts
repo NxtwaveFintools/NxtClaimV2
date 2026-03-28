@@ -77,7 +77,7 @@ async function seedFinanceClaims(seedTag: string): Promise<void> {
         .maybeSingle(),
       client
         .from("master_departments")
-        .select("id, approver_1")
+        .select("id, hod_user_id")
         .eq("is_active", true)
         .limit(1)
         .maybeSingle(),
@@ -87,7 +87,7 @@ async function seedFinanceClaims(seedTag: string): Promise<void> {
     throw new Error(financeUserError?.message ?? "Finance user not found for export seed.");
   }
 
-  if (deptError || !department?.id || !department?.approver_1) {
+  if (deptError || !department?.id || !department?.hod_user_id) {
     throw new Error(deptError?.message ?? "Department routing not found for export seed.");
   }
 
@@ -137,7 +137,7 @@ async function seedFinanceClaims(seedTag: string): Promise<void> {
     cc_emails: "NA",
     department_id: department.id,
     payment_mode_id: paymentMode.id,
-    assigned_l1_approver_id: department.approver_1,
+    assigned_l1_approver_id: department.hod_user_id,
     assigned_l2_approver_id: null,
     submitted_at: new Date(Date.now() - index * 60_000).toISOString(),
     is_active: true,
@@ -243,10 +243,8 @@ test("Finance user can download full CSV containing all form fields", async ({
 
     expect(worksheet.rowCount).toBeGreaterThan(11);
 
-    const headers = worksheet
-      .getRow(1)
-      .values.slice(1)
-      .map((header) => normalizeCellValue(header).trim());
+    const rowValues = worksheet.getRow(1).values as (string | null | undefined)[];
+    const headers = rowValues.slice(1).map((header) => normalizeCellValue(header).trim());
     expect(headers).toEqual([
       "Claim ID",
       "Transaction ID",

@@ -26,6 +26,8 @@ import {
   getAvailableClaimActions,
   type ClaimActionRole,
 } from "@/modules/claims/utils/get-available-claim-actions";
+import { isAdmin } from "@/modules/admin/server/is-admin";
+import { AdminSoftDeletePanel } from "@/modules/admin/ui/admin-soft-delete-panel";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -436,9 +438,10 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
   const authRepository = new SupabaseServerAuthRepository();
   const claimRepository = new SupabaseClaimRepository();
 
-  const [currentUserResult, claimResult] = await Promise.all([
+  const [currentUserResult, claimResult, isAdminUser] = await Promise.all([
     authRepository.getCurrentUser(),
     claimRepository.getClaimDetailById(claimId),
+    isAdmin(),
   ]);
 
   if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
@@ -502,7 +505,7 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
     canViewAsFinance;
   const canEditByFinance = isFinanceActor;
 
-  if (!canView) {
+  if (!canView && !isAdminUser) {
     notFound();
   }
 
@@ -569,6 +572,7 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
 
   return (
     <>
+      {isAdminUser ? <AdminSoftDeletePanel claimId={claim.id} /> : null}
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>

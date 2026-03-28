@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Suspense, use } from "react";
+import { Suspense } from "react";
 import { BackButton } from "@/components/ui/back-button";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -26,6 +26,8 @@ import {
   rejectFinanceAction,
 } from "@/modules/claims/actions";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
+import { isAdmin } from "@/modules/admin/server/is-admin";
+import { AdminClaimsSection } from "@/modules/admin/ui/admin-claims-section";
 import { ClaimDecisionActionForm } from "@/modules/claims/ui/claim-decision-action-form";
 import { ClaimRejectWithReasonForm } from "@/modules/claims/ui/claim-reject-with-reason-form";
 import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
@@ -37,7 +39,7 @@ import { ClaimSemanticDownloadButton } from "@/modules/claims/ui/claim-semantic-
 
 const PAGE_SIZE = 10;
 type SearchParamsValue = string | string[] | undefined;
-type ViewMode = "submissions" | "approvals";
+type ViewMode = "submissions" | "approvals" | "admin";
 
 export const metadata = {
   title: "My Claims | NxtClaim",
@@ -67,13 +69,17 @@ function toSearchParams(searchParams?: Record<string, SearchParamsValue>): URLSe
   return params;
 }
 
-function resolveView(value: string | undefined, canViewApprovals: boolean): ViewMode {
-  if (value === "approvals" && canViewApprovals) {
-    return "approvals";
+function resolveView(
+  value: string | undefined,
+  canViewApprovals: boolean,
+  isAdminUser: boolean,
+): ViewMode {
+  if (value === "admin" && isAdminUser) {
+    return "admin";
   }
 
-  if (value === "submissions") {
-    return "submissions";
+  if (value === "approvals" && canViewApprovals) {
+    return "approvals";
   }
 
   return "submissions";
@@ -187,11 +193,7 @@ function buildViewHref(
   params.delete("cursor");
   params.delete("prevCursor");
 
-  if (targetView === "approvals") {
-    params.set("view", "approvals");
-  } else {
-    params.set("view", "submissions");
-  }
+  params.set("view", targetView);
 
   const query = params.toString();
   return query ? `${ROUTES.claims.myClaims}?${query}` : ROUTES.claims.myClaims;
@@ -969,7 +971,7 @@ async function FilterBarWithData({
   exportScope,
   defaultFiltersExpanded,
 }: {
-  exportScope: ViewMode;
+  exportScope: "submissions" | "approvals";
   defaultFiltersExpanded: boolean;
 }) {
   const claimRepository = new SupabaseClaimRepository();
@@ -1012,8 +1014,10 @@ async function FilterBarWithData({
 
 async function MyClaimsDashboardPageContent({
   searchParams,
+  isAdminUser,
 }: {
   searchParams: Record<string, SearchParamsValue>;
+  isAdminUser: boolean;
 }) {
   const authRepository = new SupabaseServerAuthRepository();
   const claimRepository = new SupabaseClaimRepository();
@@ -1038,17 +1042,21 @@ async function MyClaimsDashboardPageContent({
   const canViewApprovals = viewerContextResult.canViewApprovals;
   const requestedView = firstParamValue(resolvedSearchParams?.view);
 
-  if (canViewApprovals && !requestedView) {
+  if (canViewApprovals && !requestedView && !isAdminUser) {
     redirect(buildViewHref(resolvedSearchParams, "approvals"));
   }
 
-  const activeView = resolveView(requestedView, canViewApprovals);
+  const activeView = resolveView(requestedView, canViewApprovals, isAdminUser);
+
+  if (activeView === "admin") {
+    return <AdminClaimsSection searchParams={resolvedSearchParams} />;
+  }
 
   return (
     <>
       <Suspense fallback={<FilterBarSkeleton />}>
         <FilterBarWithData
-          exportScope={activeView}
+          exportScope={activeView as "submissions" | "approvals"}
           defaultFiltersExpanded={viewerContextResult.activeScope === "finance"}
         />
       </Suspense>
@@ -1072,16 +1080,24 @@ async function MyClaimsDashboardPageContent({
   );
 }
 
-export default function MyClaimsDashboardPage({
+export default async function MyClaimsDashboardPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, SearchParamsValue>>;
 }) {
-  const resolvedSearchParams = use(searchParams);
+  const [resolvedSearchParams, isAdminUser] = await Promise.all([searchParams, isAdmin()]);
+
   const requestedView = firstParamValue(resolvedSearchParams?.view);
-  const activeView: ViewMode = requestedView === "approvals" ? "approvals" : "submissions";
+  const activeView: ViewMode =
+    requestedView === "admin" && isAdminUser
+      ? "admin"
+      : requestedView === "approvals"
+        ? "approvals"
+        : "submissions";
+
   const submissionsHref = buildViewHref(resolvedSearchParams, "submissions");
   const approvalsHref = buildViewHref(resolvedSearchParams, "approvals");
+  const adminHref = buildViewHref(resolvedSearchParams, "admin");
 
   return (
     <div className="min-h-screen bg-zinc-50 px-6 py-8 dark:bg-[#0B0F1A]">
@@ -1097,6 +1113,14 @@ export default function MyClaimsDashboardPage({
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />
+              {isAdminUser ? (
+                <Link
+                  href={ROUTES.admin.settings}
+                  className="inline-flex items-center rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 transition-all duration-200 hover:bg-zinc-50 active:scale-[0.98] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                >
+                  System Settings
+                </Link>
+              ) : null}
               <Link
                 href={ROUTES.claims.new}
                 className="inline-flex items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:bg-indigo-500 active:scale-[0.98]"
@@ -1127,11 +1151,26 @@ export default function MyClaimsDashboardPage({
             >
               Approvals History
             </Link>
+            {isAdminUser ? (
+              <Link
+                href={adminHref}
+                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                  activeView === "admin"
+                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                    : "text-zinc-700 hover:bg-zinc-200/70 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                }`}
+              >
+                Admin Overview
+              </Link>
+            ) : null}
           </div>
         </section>
 
         <Suspense fallback={<MyClaimsShellSkeleton />}>
-          <MyClaimsDashboardPageContent searchParams={resolvedSearchParams} />
+          <MyClaimsDashboardPageContent
+            searchParams={resolvedSearchParams}
+            isAdminUser={isAdminUser}
+          />
         </Suspense>
       </main>
     </div>

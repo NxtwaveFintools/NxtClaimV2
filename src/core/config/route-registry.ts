@@ -23,4 +23,7 @@ export const ROUTES = {
   exportApi: {
     claims: "/api/export/claims",
   },
+  admin: {
+    settings: "/dashboard/admin/settings",
+  },
 } as const;

@@ -7,6 +7,9 @@ import { GetWalletSummaryService } from "@/core/domain/dashboard/GetWalletSummar
 import { SupabaseServerAuthRepository } from "@/modules/auth/repositories/supabase-server-auth.repository";
 import { SupabaseDashboardRepository } from "@/modules/dashboard/repositories/SupabaseDashboardRepository";
 import { WalletSummary } from "@/modules/dashboard/ui/wallet-summary";
+import { isAdmin } from "@/modules/admin/server/is-admin";
+
+export const dynamic = "force-dynamic";
 
 const authRepository = new SupabaseServerAuthRepository();
 const dashboardRepository = new SupabaseDashboardRepository();
@@ -23,7 +26,10 @@ async function logoutDashboardAction(): Promise<void> {
 }
 
 export default async function DashboardPage() {
-  const currentUserResult = await authRepository.getCurrentUser();
+  const [currentUserResult, isAdminUser] = await Promise.all([
+    authRepository.getCurrentUser(),
+    isAdmin(),
+  ]);
   if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
     redirect(ROUTES.login);
   }
@@ -84,6 +90,15 @@ export default async function DashboardPage() {
           >
             My Claims
           </Link>
+
+          {isAdminUser ? (
+            <Link
+              href={ROUTES.admin.settings}
+              className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-semibold text-zinc-700 transition-all duration-200 hover:bg-zinc-100 active:scale-[0.98] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+            >
+              System Settings
+            </Link>
+          ) : null}
         </div>
       </main>
     </div>

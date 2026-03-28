@@ -30,8 +30,8 @@ type UserRecord = {
 type DepartmentRecord = {
   id: string;
   name: string;
-  approver_1: string;
-  approver_2: string;
+  hod_user_id: string;
+  founder_user_id: string;
 };
 
 type FinanceApproverRecord = {
@@ -117,7 +117,7 @@ async function resolveSubmitterDepartment(submitter: UserRecord): Promise<Depart
   const client = getAdminSupabaseClient();
   const { data, error } = await client
     .from("master_departments")
-    .select("id, name, approver_1, approver_2")
+    .select("id, name, hod_user_id, founder_user_id")
     .eq("is_active", true);
 
   if (error) {
@@ -147,13 +147,13 @@ async function resolveSubmitterDepartment(submitter: UserRecord): Promise<Depart
   const latestDepartmentId = latestClaimDepartmentResult.data?.department_id as string | undefined;
   if (latestDepartmentId) {
     const byLatestClaim = departments.find((department) => department.id === latestDepartmentId);
-    if (byLatestClaim && byLatestClaim.approver_1 !== submitter.id) {
+    if (byLatestClaim && byLatestClaim.hod_user_id !== submitter.id) {
       return byLatestClaim;
     }
   }
 
   const nonSelfHodDepartment = departments.find(
-    (department) => department.approver_1 !== submitter.id,
+    (department) => department.hod_user_id !== submitter.id,
   );
   return nonSelfHodDepartment ?? departments[0];
 }
@@ -202,8 +202,8 @@ async function resolveRuntimeActors(): Promise<RuntimeActors> {
 
   const submitterDepartment = await resolveSubmitterDepartment(submitter);
   const lookupUserIds = new Set<string>([
-    submitterDepartment.approver_1,
-    submitterDepartment.approver_2,
+    submitterDepartment.hod_user_id,
+    submitterDepartment.founder_user_id,
   ]);
 
   const client = getAdminSupabaseClient();
@@ -234,9 +234,9 @@ async function resolveRuntimeActors(): Promise<RuntimeActors> {
 
   const departmentsResult = await client
     .from("master_departments")
-    .select("id, name, approver_1, approver_2")
+    .select("id, name, hod_user_id, founder_user_id")
     .eq("is_active", true)
-    .eq("approver_1", knownHod?.id ?? submitterDepartment.approver_1)
+    .eq("hod_user_id", knownHod?.id ?? submitterDepartment.hod_user_id)
     .limit(1)
     .maybeSingle();
 
@@ -244,14 +244,14 @@ async function resolveRuntimeActors(): Promise<RuntimeActors> {
     throw new Error(`Failed to resolve HOD department: ${departmentsResult.error.message}`);
   }
 
-  const fallbackHodId = knownHod?.id ?? submitterDepartment.approver_1;
+  const fallbackHodId = knownHod?.id ?? submitterDepartment.hod_user_id;
   const hodDepartment = (departmentsResult.data as DepartmentRecord | null) ?? {
     ...submitterDepartment,
-    approver_1: fallbackHodId,
+    hod_user_id: fallbackHodId,
   };
 
-  lookupUserIds.add(hodDepartment.approver_1);
-  lookupUserIds.add(hodDepartment.approver_2);
+  lookupUserIds.add(hodDepartment.hod_user_id);
+  lookupUserIds.add(hodDepartment.founder_user_id);
 
   const usersByIdResult = await client
     .from("users")
@@ -269,8 +269,8 @@ async function resolveRuntimeActors(): Promise<RuntimeActors> {
 
   const effectiveSubmitterDepartment = hodDepartment;
 
-  const submitterHod = usersById.get(effectiveSubmitterDepartment.approver_1);
-  const hodFounder = usersById.get(hodDepartment.approver_2);
+  const submitterHod = usersById.get(effectiveSubmitterDepartment.hod_user_id);
+  const hodFounder = usersById.get(hodDepartment.founder_user_id);
 
   if (!submitterHod || !hodFounder) {
     throw new Error("Unable to resolve HOD/Founder users as active accounts.");
@@ -299,7 +299,7 @@ async function resolveRuntimeActors(): Promise<RuntimeActors> {
 
   const activeDepartmentsResult = await client
     .from("master_departments")
-    .select("id, name, approver_1, approver_2")
+    .select("id, name, hod_user_id, founder_user_id")
     .eq("is_active", true);
 
   if (activeDepartmentsResult.error) {
@@ -310,14 +310,14 @@ async function resolveRuntimeActors(): Promise<RuntimeActors> {
 
   const activeDepartments = (activeDepartmentsResult.data ?? []) as DepartmentRecord[];
   const founderDepartment =
-    activeDepartments.find((department) => department.approver_2 === hodFounder.id) ?? null;
+    activeDepartments.find((department) => department.founder_user_id === hodFounder.id) ?? null;
 
   const knownApproverIds = new Set([submitterHod.id, hodFounder.id, finance1.id, finance2.id]);
   const crossCandidate =
     activeDepartments
       .filter((department) => department.id !== effectiveSubmitterDepartment.id)
-      .filter((department) => department.approver_1 !== effectiveSubmitterDepartment.approver_1)
-      .find((department) => knownApproverIds.has(department.approver_1)) ?? null;
+      .filter((department) => department.hod_user_id !== effectiveSubmitterDepartment.hod_user_id)
+      .find((department) => knownApproverIds.has(department.hod_user_id)) ?? null;
 
   const crossDepartmentCandidate =
     crossCandidate === null
@@ -325,7 +325,7 @@ async function resolveRuntimeActors(): Promise<RuntimeActors> {
       : {
           department: crossCandidate,
           approverRole: (resolveRoleByUserIdFromKnownUsers(
-            crossCandidate.approver_1,
+            crossCandidate.hod_user_id,
             submitterHod,
             hodFounder,
             finance1,
@@ -1842,7 +1842,7 @@ test.describe("Claims Workflow Multi-Role E2E", () => {
 
     const routing = await getClaimRouting(submitted.claimId);
     expect(routing.departmentId).toBe(candidate.department.id);
-    expect(routing.assignedL1ApproverId).toBe(candidate.department.approver_1);
+    expect(routing.assignedL1ApproverId).toBe(candidate.department.hod_user_id);
 
     await expectClaimVisibleInApprovals(originalHodPage, submitted.claimId, false);
     await expectClaimVisibleInApprovals(targetApproverPage, submitted.claimId, true);

@@ -15,8 +15,8 @@ type DepartmentJoinRow = {
   id: string;
   name: string;
   is_active: boolean;
-  approver_1: string | null;
-  approver_2: string | null;
+  hod_user_id: string | null;
+  founder_user_id: string | null;
 };
 
 export class SupabaseDepartmentRepository implements DepartmentRepository {
@@ -28,7 +28,7 @@ export class SupabaseDepartmentRepository implements DepartmentRepository {
 
     const { data, error } = await client
       .from("master_departments")
-      .select("id, name, is_active, approver_1, approver_2")
+      .select("id, name, is_active, hod_user_id, founder_user_id")
       .eq("is_active", true)
       .order("name", { ascending: true });
 
@@ -43,7 +43,7 @@ export class SupabaseDepartmentRepository implements DepartmentRepository {
     const approverIds = Array.from(
       new Set(
         rows
-          .flatMap((row) => [row.approver_1, row.approver_2])
+          .flatMap((row) => [row.hod_user_id, row.founder_user_id])
           .filter((id): id is string => Boolean(id)),
       ),
     );
@@ -74,8 +74,10 @@ export class SupabaseDepartmentRepository implements DepartmentRepository {
 
     const mapped = rows
       .map((row) => {
-        const hodUser = row.approver_1 ? (usersById.get(row.approver_1) ?? null) : null;
-        const founderUser = row.approver_2 ? (usersById.get(row.approver_2) ?? null) : null;
+        const hodUser = row.hod_user_id ? (usersById.get(row.hod_user_id) ?? null) : null;
+        const founderUser = row.founder_user_id
+          ? (usersById.get(row.founder_user_id) ?? null)
+          : null;
 
         if (!hodUser || !founderUser) {
           return null;
