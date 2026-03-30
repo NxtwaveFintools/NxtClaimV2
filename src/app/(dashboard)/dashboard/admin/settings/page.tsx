@@ -6,12 +6,14 @@ import { isAdmin } from "@/modules/admin/server/is-admin";
 import { ManageMasterDataService } from "@/core/domain/admin/ManageMasterDataService";
 import { ManageActorsService } from "@/core/domain/admin/ManageActorsService";
 import { ManageAdminsService } from "@/core/domain/admin/ManageAdminsService";
+import { ManageDepartmentViewersService } from "@/core/domain/admin/ManageDepartmentViewersService";
 import { SupabaseAdminRepository } from "@/modules/admin/repositories/SupabaseAdminRepository";
 import { MasterDataTable } from "@/modules/admin/ui/settings/master-data-table";
 import { DepartmentsManagement } from "@/modules/admin/ui/settings/departments-management";
 import { FinanceApproversManagement } from "@/modules/admin/ui/settings/finance-approvers-management";
 import { UsersManagement } from "@/modules/admin/ui/settings/users-management";
 import { AdminsManagement } from "@/modules/admin/ui/settings/admins-management";
+import { DepartmentViewersManagement } from "@/modules/admin/ui/settings/department-viewers-management";
 import { BackButton } from "@/components/ui/back-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { MasterDataTableName } from "@/core/domain/admin/contracts";
@@ -47,6 +49,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
     items: [
       { key: "departments", label: "Departments & Actors" },
       { key: "finance", label: "Finance Approvers" },
+      { key: "viewers", label: "Department Viewers" },
     ],
   },
   {
@@ -88,6 +91,10 @@ export default async function AdminSettingsPage({
   const masterDataService = new ManageMasterDataService({ repository: adminRepository, logger });
   const actorsService = new ManageActorsService({ repository: adminRepository, logger });
   const adminsService = new ManageAdminsService({ repository: adminRepository, logger });
+  const viewersService = new ManageDepartmentViewersService({
+    repository: adminRepository,
+    logger,
+  });
 
   const cursor = firstParam(resolvedParams?.cursor) ?? null;
   const previousCursor = firstParam(resolvedParams?.prevCursor) ?? null;
@@ -95,20 +102,27 @@ export default async function AdminSettingsPage({
   const isMasterDataTab = activeTab in MASTER_DATA_MAP;
   const masterMeta = MASTER_DATA_MAP[activeTab];
 
-  const [masterDataResult, departmentsResult, financeResult, usersResult, adminsResult] =
-    await Promise.all([
-      isMasterDataTab
-        ? masterDataService.getItems({ tableName: masterMeta.tableName })
-        : Promise.resolve(null),
-      activeTab === "departments"
-        ? actorsService.getDepartmentsWithActors()
-        : Promise.resolve(null),
-      activeTab === "finance" ? actorsService.getFinanceApprovers() : Promise.resolve(null),
-      activeTab === "users"
-        ? adminsService.getAllUsers({ cursor, limit: PAGE_SIZE })
-        : Promise.resolve(null),
-      activeTab === "admins" ? adminsService.getAdmins() : Promise.resolve(null),
-    ]);
+  const [
+    masterDataResult,
+    departmentsResult,
+    financeResult,
+    usersResult,
+    adminsResult,
+    viewersResult,
+  ] = await Promise.all([
+    isMasterDataTab
+      ? masterDataService.getItems({ tableName: masterMeta.tableName })
+      : Promise.resolve(null),
+    activeTab === "departments" || activeTab === "viewers"
+      ? actorsService.getDepartmentsWithActors()
+      : Promise.resolve(null),
+    activeTab === "finance" ? actorsService.getFinanceApprovers() : Promise.resolve(null),
+    activeTab === "users"
+      ? adminsService.getAllUsers({ cursor, limit: PAGE_SIZE })
+      : Promise.resolve(null),
+    activeTab === "admins" ? adminsService.getAdmins() : Promise.resolve(null),
+    activeTab === "viewers" ? viewersService.getDepartmentViewers() : Promise.resolve(null),
+  ]);
 
   const allUsersResult =
     activeTab === "finance" ? await adminsService.getAllUsers({ cursor: null, limit: 500 }) : null;
@@ -220,6 +234,20 @@ export default async function AdminSettingsPage({
                   <ErrorBox message={adminsResult.errorMessage} />
                 ) : (
                   <AdminsManagement admins={adminsResult.data} />
+                )
+              ) : null}
+
+              {activeTab === "viewers" && viewersResult ? (
+                viewersResult.errorMessage ? (
+                  <ErrorBox message={viewersResult.errorMessage} />
+                ) : (
+                  <DepartmentViewersManagement
+                    viewers={viewersResult.data}
+                    departments={(departmentsResult?.data ?? []).map((d) => ({
+                      id: d.id,
+                      name: d.name,
+                    }))}
+                  />
                 )
               ) : null}
             </div>

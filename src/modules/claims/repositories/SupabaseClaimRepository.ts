@@ -2679,6 +2679,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     filters?: GetMyClaimsFilters;
     limit: number;
     cursor?: { createdAt: string; claimId: string };
+    departmentIds?: string[];
   }): Promise<{ data: ClaimFullExportRecord[]; errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
     const normalizedStatuses = normalizeStatusFilter(input.filters?.status);
@@ -2731,6 +2732,17 @@ export class SupabaseClaimRepository implements ClaimRepository {
       idsQuery = idsQuery.or(
         `status.in.${financeNonRejectedStatusesFilter},and(status.eq.Rejected,assigned_l2_approver_id.not.is.null)`,
       );
+    }
+
+    // Admin scope: no user-level filter — return all claims
+    // (authorization is verified in the domain service)
+
+    if (input.fetchScope === "department_viewer") {
+      if (input.departmentIds && input.departmentIds.length > 0) {
+        idsQuery = idsQuery.in("department_id", input.departmentIds);
+      } else {
+        return { data: [], errorMessage: null };
+      }
     }
 
     idsQuery = applyEnterpriseDashboardFilters({
@@ -3014,5 +3026,39 @@ export class SupabaseClaimRepository implements ClaimRepository {
     }
 
     return { data: result, errorMessage: null };
+  }
+
+  async isUserAdmin(userId: string): Promise<{ data: boolean; errorMessage: string | null }> {
+    const client = getServiceRoleSupabaseClient();
+    const { count, error } = await client
+      .from("admins")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId);
+
+    if (error) {
+      return { data: false, errorMessage: error.message };
+    }
+
+    return { data: (count ?? 0) > 0, errorMessage: null };
+  }
+
+  async getViewerDepartmentIds(
+    userId: string,
+  ): Promise<{ data: string[]; errorMessage: string | null }> {
+    const client = getServiceRoleSupabaseClient();
+    const { data, error } = await client
+      .from("department_viewers")
+      .select("department_id")
+      .eq("user_id", userId)
+      .eq("is_active", true);
+
+    if (error) {
+      return { data: [], errorMessage: error.message };
+    }
+
+    return {
+      data: (data ?? []).map((row) => row.department_id as string),
+      errorMessage: null,
+    };
   }
 }

@@ -132,6 +132,9 @@ async function openClaimForm(page: Page, email: string): Promise<void> {
   const failedHydrationBanner = page.getByText(/Unable to load claim form data/i);
   await expect(failedHydrationBanner).toHaveCount(0);
   await expect(submitButton).toBeVisible();
+  // Wait for React hydration before interacting with form controls.
+  // The hidden hodEmail field is populated by useEffect only after hydration.
+  await expect(page.locator('input[name="hodEmail"]')).not.toHaveValue("", { timeout: 15000 });
 }
 
 async function selectOptionByLabel(page: Page, label: string | RegExp, optionLabel: string) {

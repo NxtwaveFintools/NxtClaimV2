@@ -17,7 +17,7 @@ import { withAuth, type AuthenticatedContext } from "@/core/http/with-auth";
 import { logger } from "@/core/infra/logging/logger";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
 
-const scopeSchema = z.enum(["submissions", "approvals"]);
+const scopeSchema = z.enum(["submissions", "approvals", "admin", "department"]);
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
 function normalizeSubmissionType(value: string | null): ClaimSubmissionType | undefined {
@@ -105,7 +105,7 @@ const exportClaimsHandler = async (request: NextRequest, context: AuthenticatedC
         data: null,
         error: {
           code: "INVALID_EXPORT_SCOPE",
-          message: "scope must be either submissions or approvals",
+          message: "scope must be one of: submissions, approvals, admin, department",
         },
         meta: { correlationId: context.correlationId },
       },

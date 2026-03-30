@@ -27,7 +27,9 @@ import {
 } from "@/modules/claims/actions";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
 import { isAdmin } from "@/modules/admin/server/is-admin";
+import { isDepartmentViewer } from "@/modules/claims/server/is-department-viewer";
 import { AdminClaimsSection } from "@/modules/admin/ui/admin-claims-section";
+import { DepartmentClaimsSection } from "@/modules/claims/ui/department-claims-section";
 import { ClaimDecisionActionForm } from "@/modules/claims/ui/claim-decision-action-form";
 import { ClaimRejectWithReasonForm } from "@/modules/claims/ui/claim-reject-with-reason-form";
 import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
@@ -39,7 +41,7 @@ import { ClaimSemanticDownloadButton } from "@/modules/claims/ui/claim-semantic-
 
 const PAGE_SIZE = 10;
 type SearchParamsValue = string | string[] | undefined;
-type ViewMode = "submissions" | "approvals" | "admin";
+type ViewMode = "submissions" | "approvals" | "admin" | "department";
 
 export const metadata = {
   title: "My Claims | NxtClaim",
@@ -73,9 +75,14 @@ function resolveView(
   value: string | undefined,
   canViewApprovals: boolean,
   isAdminUser: boolean,
+  isDeptViewer: boolean,
 ): ViewMode {
   if (value === "admin" && isAdminUser) {
     return "admin";
+  }
+
+  if (value === "department" && isDeptViewer) {
+    return "department";
   }
 
   if (value === "approvals" && canViewApprovals) {
@@ -971,7 +978,7 @@ async function FilterBarWithData({
   exportScope,
   defaultFiltersExpanded,
 }: {
-  exportScope: "submissions" | "approvals";
+  exportScope: "submissions" | "approvals" | "admin" | "department";
   defaultFiltersExpanded: boolean;
 }) {
   const claimRepository = new SupabaseClaimRepository();
@@ -1015,9 +1022,11 @@ async function FilterBarWithData({
 async function MyClaimsDashboardPageContent({
   searchParams,
   isAdminUser,
+  isDeptViewer,
 }: {
   searchParams: Record<string, SearchParamsValue>;
   isAdminUser: boolean;
+  isDeptViewer: boolean;
 }) {
   const authRepository = new SupabaseServerAuthRepository();
   const claimRepository = new SupabaseClaimRepository();
@@ -1046,10 +1055,14 @@ async function MyClaimsDashboardPageContent({
     redirect(buildViewHref(resolvedSearchParams, "approvals"));
   }
 
-  const activeView = resolveView(requestedView, canViewApprovals, isAdminUser);
+  const activeView = resolveView(requestedView, canViewApprovals, isAdminUser, isDeptViewer);
 
   if (activeView === "admin") {
     return <AdminClaimsSection searchParams={resolvedSearchParams} />;
+  }
+
+  if (activeView === "department") {
+    return <DepartmentClaimsSection searchParams={resolvedSearchParams} />;
   }
 
   return (
@@ -1085,19 +1098,26 @@ export default async function MyClaimsDashboardPage({
 }: {
   searchParams: Promise<Record<string, SearchParamsValue>>;
 }) {
-  const [resolvedSearchParams, isAdminUser] = await Promise.all([searchParams, isAdmin()]);
+  const [resolvedSearchParams, isAdminUser, isDeptViewer] = await Promise.all([
+    searchParams,
+    isAdmin(),
+    isDepartmentViewer(),
+  ]);
 
   const requestedView = firstParamValue(resolvedSearchParams?.view);
   const activeView: ViewMode =
     requestedView === "admin" && isAdminUser
       ? "admin"
-      : requestedView === "approvals"
-        ? "approvals"
-        : "submissions";
+      : requestedView === "department" && isDeptViewer
+        ? "department"
+        : requestedView === "approvals"
+          ? "approvals"
+          : "submissions";
 
   const submissionsHref = buildViewHref(resolvedSearchParams, "submissions");
   const approvalsHref = buildViewHref(resolvedSearchParams, "approvals");
   const adminHref = buildViewHref(resolvedSearchParams, "admin");
+  const departmentHref = buildViewHref(resolvedSearchParams, "department");
 
   return (
     <div className="min-h-screen bg-zinc-50 px-6 py-8 dark:bg-[#0B0F1A]">
@@ -1130,7 +1150,7 @@ export default async function MyClaimsDashboardPage({
             </div>
           </div>
 
-          <div className="mt-4 inline-flex rounded-xl border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-700 dark:bg-zinc-900/60">
+          <div className="mt-4 inline-flex flex-wrap rounded-xl border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-700 dark:bg-zinc-900/60">
             <Link
               href={submissionsHref}
               className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
@@ -1163,6 +1183,18 @@ export default async function MyClaimsDashboardPage({
                 Admin Overview
               </Link>
             ) : null}
+            {isDeptViewer ? (
+              <Link
+                href={departmentHref}
+                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                  activeView === "department"
+                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                    : "text-zinc-700 hover:bg-zinc-200/70 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                }`}
+              >
+                Department Overview
+              </Link>
+            ) : null}
           </div>
         </section>
 
@@ -1170,6 +1202,7 @@ export default async function MyClaimsDashboardPage({
           <MyClaimsDashboardPageContent
             searchParams={resolvedSearchParams}
             isAdminUser={isAdminUser}
+            isDeptViewer={isDeptViewer}
           />
         </Suspense>
       </main>

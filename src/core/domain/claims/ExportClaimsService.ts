@@ -17,11 +17,14 @@ type ExportClaimsRepository = {
     filters?: GetMyClaimsFilters;
     limit: number;
     cursor?: { createdAt: string; claimId: string };
+    departmentIds?: string[];
   }): Promise<{ data: ClaimFullExportRecord[]; errorMessage: string | null }>;
   createBulkSignedUrls(input: {
     filePaths: string[];
     expiresInSeconds: number;
   }): Promise<{ data: Record<string, string>; errorMessage: string | null }>;
+  isUserAdmin(userId: string): Promise<{ data: boolean; errorMessage: string | null }>;
+  getViewerDepartmentIds(userId: string): Promise<{ data: string[]; errorMessage: string | null }>;
 };
 
 type ExportClaimsServiceDependencies = {
@@ -31,7 +34,7 @@ type ExportClaimsServiceDependencies = {
 
 type ExportClaimsServiceInput = {
   userId: string;
-  scope: "submissions" | "approvals";
+  scope: "submissions" | "approvals" | "admin" | "department";
   filters?: GetMyClaimsFilters;
 };
 
@@ -215,6 +218,14 @@ function resolveExportScope(
     return "submissions";
   }
 
+  if (input.scope === "admin") {
+    return "admin";
+  }
+
+  if (input.scope === "department") {
+    return "department_viewer";
+  }
+
   if (viewerContext.isFinance) {
     return "finance_approvals";
   }
@@ -253,6 +264,51 @@ export class ExportClaimsService {
   }
 
   async execute(input: ExportClaimsServiceInput): Promise<ExportClaimsServiceResult> {
+    // ── Admin scope: verify the user is an admin ──
+    if (input.scope === "admin") {
+      const adminResult = await this.repository.isUserAdmin(input.userId);
+      if (adminResult.errorMessage) {
+        return {
+          rows: [],
+          fileName: `claims_export_${resolveFilenameDateTag()}.xlsx`,
+          rowCount: 0,
+          errorMessage: adminResult.errorMessage,
+        };
+      }
+      if (!adminResult.data) {
+        return {
+          rows: [],
+          fileName: `claims_export_${resolveFilenameDateTag()}.xlsx`,
+          rowCount: 0,
+          errorMessage: "Forbidden: user is not an admin.",
+        };
+      }
+    }
+
+    // ── Department scope: resolve viewer department IDs ──
+    let departmentIds: string[] | undefined;
+    if (input.scope === "department") {
+      const deptResult = await this.repository.getViewerDepartmentIds(input.userId);
+      if (deptResult.errorMessage) {
+        return {
+          rows: [],
+          fileName: `claims_export_${resolveFilenameDateTag()}.xlsx`,
+          rowCount: 0,
+          errorMessage: deptResult.errorMessage,
+        };
+      }
+      if (deptResult.data.length === 0) {
+        return {
+          rows: [],
+          fileName: `claims_export_${resolveFilenameDateTag()}.xlsx`,
+          rowCount: 0,
+          errorMessage: null,
+        };
+      }
+      departmentIds = deptResult.data;
+    }
+
+    // ── Standard viewer context for submissions / approvals scopes ──
     const viewerContextResult = await this.repository.getApprovalViewerContext(input.userId);
 
     if (viewerContextResult.errorMessage) {
@@ -285,6 +341,7 @@ export class ExportClaimsService {
         filters: input.filters,
         limit: EXPORT_BATCH_SIZE,
         cursor,
+        departmentIds,
       });
 
       if (batchResult.errorMessage) {

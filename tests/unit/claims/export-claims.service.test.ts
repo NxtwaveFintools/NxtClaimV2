@@ -78,6 +78,8 @@ function createRepository(overrides?: {
   getClaimsForFullExport?: jest.Mock;
   getApprovalViewerContext?: jest.Mock;
   createBulkSignedUrls?: jest.Mock;
+  isUserAdmin?: jest.Mock;
+  getViewerDepartmentIds?: jest.Mock;
 }) {
   return {
     getApprovalViewerContext:
@@ -101,6 +103,10 @@ function createRepository(overrides?: {
         }
         return { data, errorMessage: null };
       }),
+    isUserAdmin:
+      overrides?.isUserAdmin ?? jest.fn(async () => ({ data: false, errorMessage: null })),
+    getViewerDepartmentIds:
+      overrides?.getViewerDepartmentIds ?? jest.fn(async () => ({ data: [], errorMessage: null })),
   };
 }
 

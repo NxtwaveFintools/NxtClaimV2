@@ -1,32 +1,24 @@
 import { Suspense } from "react";
 import { logger } from "@/core/infra/logging/logger";
-import { GetAdminClaimsService } from "@/core/domain/admin/GetAdminClaimsService";
-import { SupabaseAdminRepository } from "@/modules/admin/repositories/SupabaseAdminRepository";
+import { GetDepartmentViewClaimsService } from "@/core/domain/claims/GetDepartmentViewClaimsService";
+import { SupabaseDepartmentViewerRepository } from "@/modules/claims/repositories/SupabaseDepartmentViewerRepository";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
-import { AdminClaimsTable } from "@/modules/admin/ui/admin-claims-table";
+import { DepartmentClaimsTable } from "@/modules/claims/ui/department-claims-table";
 import { MyClaimsPaginationControls } from "@/modules/claims/ui/my-claims-pagination-controls";
 import { ClaimsFilterBar } from "@/modules/claims/ui/claims-filter-bar";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { SupabaseServerAuthRepository } from "@/modules/auth/repositories/supabase-server-auth.repository";
 import type { DbClaimStatus } from "@/core/constants/statuses";
-import type { AdminClaimsFilters } from "@/core/domain/admin/contracts";
-import type { ClaimSubmissionType } from "@/core/domain/claims/contracts";
+import type { DepartmentViewerFilters, ClaimSubmissionType } from "@/core/domain/claims/contracts";
 import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
+import { ROUTES } from "@/core/config/route-registry";
+import { redirect } from "next/navigation";
 
 type SearchParamsValue = string | string[] | undefined;
 
 function firstParamValue(value: SearchParamsValue): string | undefined {
   if (Array.isArray(value)) return value[0];
   return value;
-}
-
-function toSearchParams(searchParams?: Record<string, SearchParamsValue>): URLSearchParams {
-  const params = new URLSearchParams();
-  if (!searchParams) return params;
-  for (const [key, value] of Object.entries(searchParams)) {
-    const normalized = firstParamValue(value);
-    if (normalized) params.set(key, normalized);
-  }
-  return params;
 }
 
 function normalizeStatusFilter(value: string | undefined): DbClaimStatus[] | undefined {
@@ -40,24 +32,31 @@ function normalizeStatusFilter(value: string | undefined): DbClaimStatus[] | und
 
 const PAGE_SIZE = 10;
 
-async function AdminClaimsTableSection({
+async function DepartmentClaimsTableSection({
   searchParams,
 }: {
   searchParams?: Record<string, SearchParamsValue>;
 }) {
-  const adminRepository = new SupabaseAdminRepository();
-  const service = new GetAdminClaimsService({ repository: adminRepository, logger });
+  const authRepository = new SupabaseServerAuthRepository();
+  const currentUserResult = await authRepository.getCurrentUser();
+
+  if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
+    redirect(ROUTES.login);
+  }
+
+  const repository = new SupabaseDepartmentViewerRepository();
+  const service = new GetDepartmentViewClaimsService({ repository, logger });
 
   const cursor = firstParamValue(searchParams?.cursor) ?? null;
   const previousCursor = firstParamValue(searchParams?.prevCursor) ?? null;
   const previousCursorToken = previousCursor ?? (cursor ? "__first__" : null);
 
-  const filters: AdminClaimsFilters = {
+  const filters: DepartmentViewerFilters = {
     status: normalizeStatusFilter(firstParamValue(searchParams?.status)),
     departmentId: firstParamValue(searchParams?.department_id)?.trim() || undefined,
     searchQuery: firstParamValue(searchParams?.search_query)?.trim() || undefined,
     searchField:
-      (firstParamValue(searchParams?.search_field) as AdminClaimsFilters["searchField"]) ||
+      (firstParamValue(searchParams?.search_field) as DepartmentViewerFilters["searchField"]) ||
       undefined,
     submissionType:
       (firstParamValue(searchParams?.submission_type) as ClaimSubmissionType) || undefined,
@@ -66,12 +65,14 @@ async function AdminClaimsTableSection({
     productId: firstParamValue(searchParams?.product_id)?.trim() || undefined,
     expenseCategoryId: firstParamValue(searchParams?.expense_category_id)?.trim() || undefined,
     dateTarget:
-      (firstParamValue(searchParams?.date_target) as AdminClaimsFilters["dateTarget"]) || undefined,
+      (firstParamValue(searchParams?.date_target) as DepartmentViewerFilters["dateTarget"]) ||
+      undefined,
     dateFrom: firstParamValue(searchParams?.from)?.trim() || undefined,
     dateTo: firstParamValue(searchParams?.to)?.trim() || undefined,
   };
 
   const result = await service.execute({
+    userId: currentUserResult.user.id,
     filters,
     pagination: { cursor, limit: PAGE_SIZE },
   });
@@ -90,7 +91,7 @@ async function AdminClaimsTableSection({
 
   return (
     <>
-      <AdminClaimsTable rows={rows} />
+      <DepartmentClaimsTable rows={rows} />
       <MyClaimsPaginationControls
         hasNextPage={hasNextPage}
         hasPreviousPage={Boolean(previousCursorToken)}
@@ -103,7 +104,7 @@ async function AdminClaimsTableSection({
   );
 }
 
-async function AdminFilterBarWithData() {
+async function DeptFilterBarWithData() {
   const claimRepository = new SupabaseClaimRepository();
   const [paymentModesResult, departmentsResult, locationsResult, productsResult, categoriesResult] =
     await Promise.all([
@@ -116,7 +117,7 @@ async function AdminFilterBarWithData() {
 
   return (
     <ClaimsFilterBar
-      exportScope="admin"
+      exportScope="department"
       defaultFiltersExpanded
       paymentModes={paymentModesResult.data.map((m) => ({ id: m.id, name: m.name }))}
       departments={departmentsResult.data.map((d) => ({ id: d.id, name: d.name }))}
@@ -127,7 +128,7 @@ async function AdminFilterBarWithData() {
   );
 }
 
-export function AdminClaimsSection({
+export function DepartmentClaimsSection({
   searchParams,
 }: {
   searchParams?: Record<string, SearchParamsValue>;
@@ -135,16 +136,16 @@ export function AdminClaimsSection({
   return (
     <section className="space-y-4">
       <Suspense fallback={null}>
-        <AdminFilterBarWithData />
+        <DeptFilterBarWithData />
       </Suspense>
       <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900">
         <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
           <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-zinc-700 dark:text-zinc-300">
-            Admin Overview — All Claims
+            Department Overview — Assigned Claims
           </h2>
         </div>
         <Suspense fallback={<TableSkeleton />}>
-          <AdminClaimsTableSection searchParams={searchParams} />
+          <DepartmentClaimsTableSection searchParams={searchParams} />
         </Suspense>
       </div>
     </section>

@@ -139,7 +139,12 @@ export type GetMyClaimsFilters = {
   searchQuery?: string;
 };
 
-export type ClaimsExportFetchScope = "submissions" | "l1_approvals" | "finance_approvals";
+export type ClaimsExportFetchScope =
+  | "submissions"
+  | "l1_approvals"
+  | "finance_approvals"
+  | "admin"
+  | "department_viewer";
 
 export type ClaimExportRecord = {
   claimId: string;
@@ -443,3 +448,69 @@ export type ClaimDomainLogger = {
   warn(event: string, payload?: Record<string, unknown>): void;
   error(event: string, payload?: Record<string, unknown>): void;
 };
+
+// ----------------------------------------------------------------
+// Department Viewer (POC) types
+// ----------------------------------------------------------------
+
+export type DepartmentViewerClaimRecord = {
+  claimId: string;
+  employeeName: string;
+  employeeId: string;
+  departmentName: string;
+  typeOfClaim: string;
+  amount: number;
+  status: DbClaimStatus;
+  submittedOn: string;
+  hodActionDate: string | null;
+  financeActionDate: string | null;
+  detailType: "expense" | "advance";
+  submissionType: "Self" | "On Behalf";
+  departmentId: string | null;
+};
+
+export type DepartmentViewerFilters = {
+  status?: DbClaimStatus[];
+  departmentId?: string;
+  searchQuery?: string;
+  searchField?: "claim_id" | "employee_name" | "employee_id";
+  submissionType?: "Self" | "On Behalf";
+  paymentModeId?: string;
+  locationId?: string;
+  productId?: string;
+  expenseCategoryId?: string;
+  dateTarget?: "submitted" | "finance_closed";
+  dateFrom?: string;
+  dateTo?: string;
+};
+
+export type DepartmentViewerPaginationInput = {
+  cursor: string | null;
+  limit: number;
+};
+
+export type DepartmentViewerPaginatedResult<T> = {
+  data: T[];
+  nextCursor: string | null;
+  hasNextPage: boolean;
+};
+
+export type DepartmentViewerDepartment = {
+  id: string;
+  name: string;
+};
+
+export interface DepartmentViewerRepository {
+  getViewerDepartments(
+    userId: string,
+  ): Promise<{ data: DepartmentViewerDepartment[]; errorMessage: string | null }>;
+
+  getClaims(
+    departmentIds: string[],
+    filters: DepartmentViewerFilters,
+    pagination: DepartmentViewerPaginationInput,
+  ): Promise<{
+    data: DepartmentViewerPaginatedResult<DepartmentViewerClaimRecord> | null;
+    errorMessage: string | null;
+  }>;
+}

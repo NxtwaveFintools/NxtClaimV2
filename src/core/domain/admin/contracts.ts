@@ -53,6 +53,17 @@ export type AdminRecord = {
   provisionalEmail: string | null;
 };
 
+export type DepartmentViewerAdminRecord = {
+  id: string;
+  userId: string;
+  email: string;
+  fullName: string | null;
+  departmentId: string;
+  departmentName: string;
+  isActive: boolean;
+  createdAt: string;
+};
+
 export type DepartmentWithActors = {
   id: string;
   name: string;
@@ -96,7 +107,16 @@ export type AdminClaimsFilters = {
   status?: DbClaimStatus[];
   departmentId?: string;
   searchQuery?: string;
+  searchField?: "claim_id" | "employee_name" | "employee_id";
   isActive?: boolean;
+  submissionType?: "Self" | "On Behalf";
+  paymentModeId?: string;
+  locationId?: string;
+  productId?: string;
+  expenseCategoryId?: string;
+  dateTarget?: "submitted" | "finance_closed";
+  dateFrom?: string;
+  dateTo?: string;
 };
 
 // ----------------------------------------------------------------
@@ -200,4 +220,19 @@ export interface AdminRepository {
   ): Promise<{ data: AdminRecord | null; errorMessage: string | null }>;
 
   removeAdmin(adminId: string): Promise<{ success: boolean; errorMessage: string | null }>;
+
+  // Department viewers (POC)
+  getDepartmentViewers(): Promise<{
+    data: DepartmentViewerAdminRecord[];
+    errorMessage: string | null;
+  }>;
+
+  addDepartmentViewerByEmail(
+    departmentId: string,
+    email: string,
+  ): Promise<{ data: DepartmentViewerAdminRecord | null; errorMessage: string | null }>;
+
+  removeDepartmentViewer(
+    viewerId: string,
+  ): Promise<{ success: boolean; errorMessage: string | null }>;
 }

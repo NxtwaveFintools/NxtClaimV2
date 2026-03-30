@@ -27,6 +27,7 @@ import {
   type ClaimActionRole,
 } from "@/modules/claims/utils/get-available-claim-actions";
 import { isAdmin } from "@/modules/admin/server/is-admin";
+import { getViewerDepartmentIds } from "@/modules/claims/server/is-department-viewer";
 import { AdminSoftDeletePanel } from "@/modules/admin/ui/admin-soft-delete-panel";
 
 type PageProps = {
@@ -492,18 +493,28 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
   );
   const financeApproverIdsResult =
     await claimRepository.getFinanceApproverIdsForUser(currentUserId);
+  const viewerDeptIds = await getViewerDepartmentIds(currentUserId);
 
   const isFinanceActor =
     !financeApproverIdsResult.errorMessage && financeApproverIdsResult.data.length > 0;
   const isAssignedL1Approver = currentUserId === claim.assignedL1ApproverId;
   const isAssignedL2Approver = currentUserId === claim.assignedL2ApproverId;
+  const isDepartmentViewerForClaim =
+    claim.departmentId != null && viewerDeptIds.includes(claim.departmentId);
   const canViewAsFinance = isFinanceActor && claim.status !== DB_CLAIM_STATUSES[0];
   const canView =
     currentUserId === claim.submittedBy ||
     isAssignedL1Approver ||
     isAssignedL2Approver ||
-    canViewAsFinance;
+    canViewAsFinance ||
+    isDepartmentViewerForClaim;
   const canEditByFinance = isFinanceActor;
+  const isDeptViewerOnly =
+    isDepartmentViewerForClaim &&
+    currentUserId !== claim.submittedBy &&
+    !isAssignedL1Approver &&
+    !isFinanceActor &&
+    !isAdminUser;
 
   if (!canView && !isAdminUser) {
     notFound();
@@ -573,6 +584,13 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
   return (
     <>
       {isAdminUser ? <AdminSoftDeletePanel claimId={claim.id} /> : null}
+      {isDeptViewerOnly ? (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 dark:border-slate-700 dark:bg-slate-800/50">
+          <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+            View Only: Department POC
+          </span>
+        </div>
+      ) : null}
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>

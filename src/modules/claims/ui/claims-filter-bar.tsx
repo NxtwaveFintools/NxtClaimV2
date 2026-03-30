@@ -95,7 +95,7 @@ function hasActiveFilterParams(params: URLSearchParams): boolean {
 }
 
 type ClaimsFilterBarProps = {
-  exportScope: "submissions" | "approvals";
+  exportScope?: "submissions" | "approvals" | "admin" | "department";
   defaultFiltersExpanded?: boolean;
   paymentModes: Array<{ id: string; name: string }>;
   departments: Array<{ id: string; name: string }>;
@@ -278,7 +278,7 @@ export function ClaimsFilterBar({
   }
 
   async function handleExportCsv(): Promise<void> {
-    if (isExporting) {
+    if (isExporting || !exportScope) {
       return;
     }
 
@@ -288,7 +288,7 @@ export function ClaimsFilterBar({
       const params = new URLSearchParams(searchParams.toString());
       params.delete("cursor");
       params.delete("prevCursor");
-      params.set("scope", exportScope);
+      params.set("scope", exportScope!);
 
       const accessToken = await getAccessTokenAction();
       if (!accessToken) {
@@ -432,28 +432,30 @@ export function ClaimsFilterBar({
             ) : null}
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              void handleExportCsv();
-            }}
-            disabled={isExporting}
-            className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-70 dark:border-emerald-700/60 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
+          {exportScope ? (
+            <button
+              type="button"
+              onClick={() => {
+                void handleExportCsv();
+              }}
+              disabled={isExporting}
+              className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-70 dark:border-emerald-700/60 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
             >
-              <path d="M12 3v11" />
-              <path d="m7.5 10.5 4.5 4.5 4.5-4.5" />
-              <path d="M4 17.5A1.5 1.5 0 0 0 5.5 19h13a1.5 1.5 0 0 0 1.5-1.5" />
-            </svg>
-            {isExporting ? "Exporting..." : "Export CSV"}
-          </button>
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
+                <path d="M12 3v11" />
+                <path d="m7.5 10.5 4.5 4.5 4.5-4.5" />
+                <path d="M4 17.5A1.5 1.5 0 0 0 5.5 19h13a1.5 1.5 0 0 0 1.5-1.5" />
+              </svg>
+              {isExporting ? "Exporting..." : "Export CSV"}
+            </button>
+          ) : null}
 
           <button
             type="button"
