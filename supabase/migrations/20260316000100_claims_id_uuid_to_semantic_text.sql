@@ -22,7 +22,6 @@ alter table public.expense_details
 alter table public.advance_details
   alter column claim_id type text using claim_id::text;
 
-alter table public.expense_details
 create temporary table tmp_claim_id_map (
   old_claim_id text primary key,
   new_claim_id text not null unique

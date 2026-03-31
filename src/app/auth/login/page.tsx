@@ -13,6 +13,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { EmailLoginForm } from "@/modules/auth/ui/email-login-form";
 import { OAuthButtons } from "@/modules/auth/ui/oauth-buttons";
 import type { LoginFormValues } from "@/modules/auth/validators/login-schema";
+import { Banknote } from "lucide-react";
 
 function LoginPageContent() {
   const router = useRouter();
@@ -86,48 +87,53 @@ function LoginPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,#dbeafe_0%,#f8fafc_45%,#e2e8f0_100%)] px-6 py-10 transition-colors dark:bg-[radial-gradient(circle_at_top_right,#0f172a_0%,#111827_45%,#1f2937_100%)]">
-      <div className="mx-auto mb-4 flex max-w-md justify-end">
+    <div className="flex min-h-screen flex-col bg-zinc-50 transition-colors dark:bg-[#0B0F1A]">
+      <div className="flex w-full items-center justify-end p-6 absolute top-0 right-0">
         <ThemeToggle />
       </div>
 
-      <div className="mx-auto grid max-w-md gap-6 rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-xl shadow-zinc-900/5 backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/90 dark:shadow-black/20">
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600 dark:text-indigo-300">
-            NxtClaim V2
-          </p>
-          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
-            Sign in to continue
-          </h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-300">
-            Use your official NxtWave account to access the reimbursement portal.
-          </p>
-        </div>
-
-        {error || queryError ? (
-          <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">
-            {error ?? queryError}
-          </p>
-        ) : null}
-
-        <OAuthButtons
-          loading={loading}
-          onMicrosoftClick={handleMicrosoftLogin}
-          onGoogleClick={handleGoogleLogin}
-        />
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-zinc-200 dark:border-zinc-700" />
+      <div className="flex flex-1 flex-col items-center justify-center px-6 pb-20">
+        <div className="w-full max-w-[380px]">
+          {/* Header */}
+          <div className="mb-10 flex flex-col items-center text-center">
+            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm dark:bg-indigo-500">
+              <Banknote className="h-7 w-7 stroke-[2]" />
+            </div>
+            <h1 className="mb-2 text-lg font-bold tracking-wide text-zinc-900 dark:text-zinc-100">
+              NxtClaim V2
+            </h1>
+            <h2 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+              Sign in to continue
+            </h2>
           </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-white px-2 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
-              Or continue with email
-            </span>
+
+          <div className="w-full rounded-2xl border border-zinc-200 bg-white p-6 sm:p-8 shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900">
+            {error || queryError ? (
+              <p className="mb-6 rounded-xl bg-rose-50 px-4 py-3 text-sm text-center text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-100 dark:border-rose-900/50">
+                {error ?? queryError}
+              </p>
+            ) : null}
+
+            <OAuthButtons
+              loading={loading}
+              onMicrosoftClick={handleMicrosoftLogin}
+              onGoogleClick={handleGoogleLogin}
+            />
+
+            <div className="relative my-8">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-zinc-200 dark:border-zinc-800" />
+              </div>
+              <div className="relative flex justify-center text-xs font-medium uppercase tracking-wider">
+                <span className="bg-white px-4 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+                  Or continue with email
+                </span>
+              </div>
+            </div>
+
+            <EmailLoginForm loading={loading} onSubmit={handleEmailSubmit} />
           </div>
         </div>
-
-        <EmailLoginForm loading={loading} onSubmit={handleEmailSubmit} />
       </div>
     </div>
   );
