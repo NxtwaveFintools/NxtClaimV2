@@ -90,7 +90,7 @@ function sanitizeEmployeeId(employeeId: string): string {
 function generateClaimId(employeeId: string): string {
   const datePart = formatClaimDate(new Date());
   const employeePart = sanitizeEmployeeId(employeeId);
-  const suffix = randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase();
+  const suffix = randomUUID().replace(/-/g, "").slice(0, 4).toUpperCase();
   return `CLAIM-${employeePart}-${datePart}-${suffix}`;
 }
 
