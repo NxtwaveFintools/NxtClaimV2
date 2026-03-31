@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CircleUser, LayoutDashboard } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { SignOutButton } from "@/components/sign-out-button";
 import { ROUTES } from "@/core/config/route-registry";
 
 type AppShellHeaderProps = {
@@ -35,7 +36,7 @@ export function AppShellHeader({ currentEmail, actions }: AppShellHeaderProps) {
             </div>
           ) : null}
           <ThemeToggle />
-          {actions}
+          {actions || <SignOutButton />}
         </div>
       </div>
     </header>

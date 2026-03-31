@@ -1,16 +1,9 @@
 import Link from "next/link";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { redirect } from "next/navigation";
-import {
-  CalendarDays,
-  CirclePlus,
-  CircleUser,
-  FileText,
-  LayoutDashboard,
-  Settings,
-} from "lucide-react";
+import { CalendarDays, CirclePlus, FileText, LayoutDashboard, Settings } from "lucide-react";
 import { ROUTES } from "@/core/config/route-registry";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { AppShellHeader } from "@/components/app-shell-header";
 import { logger } from "@/core/infra/logging/logger";
 import { GetWalletSummaryService } from "@/core/domain/dashboard/GetWalletSummaryService";
 import { SupabaseServerAuthRepository } from "@/modules/auth/repositories/supabase-server-auth.repository";
@@ -50,13 +43,6 @@ const indiaHourFormatter = new Intl.DateTimeFormat("en-IN", {
   hour12: false,
   timeZone: "Asia/Kolkata",
 });
-
-async function logoutDashboardAction(): Promise<void> {
-  "use server";
-
-  await authRepository.signOut();
-  redirect(ROUTES.login);
-}
 
 export default async function DashboardPage() {
   const [currentUserResult, isAdminUser] = await Promise.all([
@@ -116,42 +102,7 @@ export default async function DashboardPage() {
         <div className="absolute right-[-10%] top-16 h-80 w-80 rounded-full bg-sky-200/30 blur-3xl dark:bg-sky-500/10" />
       </div>
 
-      <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/85 backdrop-blur-xl dark:border-zinc-800/80 dark:bg-slate-950/88">
-        <div className="mx-auto flex h-[72px] max-w-[1600px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-500 to-sky-500 text-white shadow-sm shadow-indigo-500/20 dark:border-indigo-500/30 dark:shadow-indigo-500/10">
-              <LayoutDashboard className="h-5 w-5" aria-hidden="true" />
-            </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">
-                Internal Finance
-              </p>
-              <h1 className="dashboard-font-display text-lg font-semibold text-zinc-950 dark:text-zinc-50">
-                NxtClaim V2
-              </h1>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-            <div className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">
-              <CircleUser
-                className="h-4 w-4 shrink-0 text-zinc-500 dark:text-zinc-400"
-                aria-hidden="true"
-              />
-              <span className="max-w-[180px] truncate sm:max-w-[240px]">{userEmail}</span>
-            </div>
-            <ThemeToggle />
-            <form action={logoutDashboardAction}>
-              <button
-                type="submit"
-                className="inline-flex h-10 items-center justify-center rounded-xl border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900"
-              >
-                Sign Out
-              </button>
-            </form>
-          </div>
-        </div>
-      </header>
+      <AppShellHeader currentEmail={userEmail} />
 
       <div className="relative mx-auto flex max-w-[1600px] gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <aside className="hidden lg:sticky lg:top-24 lg:block lg:h-[calc(100vh-7rem)] lg:w-72">
@@ -164,14 +115,14 @@ export default async function DashboardPage() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-start gap-3 rounded-2xl border px-4 py-3 transition-all duration-200 ${
+                    className={`flex items-center gap-3 rounded-2xl border px-4 py-3 transition-all duration-200 ${
                       item.isActive
                         ? "border-indigo-200 bg-gradient-to-r from-indigo-50 to-sky-50 text-indigo-700 shadow-sm dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200"
                         : "border-transparent text-zinc-700 hover:border-zinc-200 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/70"
                     }`}
                   >
                     <span
-                      className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
                         item.isActive
                           ? "bg-white text-indigo-600 shadow-sm dark:bg-slate-950 dark:text-indigo-300"
                           : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300"
@@ -192,7 +143,7 @@ export default async function DashboardPage() {
             <div className="relative p-6 sm:p-8">
               <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-r from-indigo-100/70 via-sky-100/40 to-transparent dark:from-indigo-500/10 dark:via-sky-500/5 dark:to-transparent" />
               <div className="relative">
-                <h2 className="dashboard-font-display text-4xl font-semibold tracking-[-0.04em] text-zinc-950 sm:text-5xl dark:text-zinc-50">
+                <h2 className="dashboard-font-display text-2xl font-semibold tracking-[-0.02em] text-zinc-950 sm:text-3xl dark:text-zinc-50">
                   {greeting}, {userEmail}
                 </h2>
 

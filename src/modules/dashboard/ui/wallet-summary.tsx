@@ -92,7 +92,7 @@ export function WalletSummary({ summary }: WalletSummaryProps) {
                     {metric.label}
                   </p>
                   <p
-                    className={`dashboard-font-display mt-4 text-3xl font-semibold tracking-[-0.04em] sm:text-[2.15rem] ${metric.valueClassName}`}
+                    className={`dashboard-font-display mt-4 text-xl font-semibold tracking-[-0.02em] sm:text-2xl ${metric.valueClassName}`}
                   >
                     {metric.value}
                   </p>
