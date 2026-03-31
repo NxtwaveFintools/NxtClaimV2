@@ -25,9 +25,9 @@ export function DepartmentClaimsTable({ rows }: Props) {
   }
 
   return (
-    <div className="w-full overflow-x-auto">
-      <table className="min-w-[1400px] divide-y divide-zinc-200 text-left text-sm dark:divide-zinc-800">
-        <thead className="bg-zinc-50 text-xs uppercase tracking-[0.12em] text-zinc-600 dark:bg-zinc-900/50 dark:text-zinc-400">
+    <div className="nxt-scroll w-full overflow-x-auto">
+      <table className="min-w-[1400px] divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
+        <thead className="bg-zinc-50/80 text-[11px] uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
           <tr>
             <th className="whitespace-nowrap px-4 py-3 font-semibold">CLAIM ID</th>
             <th className="whitespace-nowrap px-4 py-3 font-semibold">EMPLOYEE ID</th>
@@ -39,7 +39,7 @@ export function DepartmentClaimsTable({ rows }: Props) {
             <th className="whitespace-nowrap px-4 py-3 font-semibold">SUBMITTED ON</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-100 bg-white text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+        <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
           {rows.map((claim) => (
             <DepartmentClaimRow key={claim.claimId} claim={claim} />
           ))}
