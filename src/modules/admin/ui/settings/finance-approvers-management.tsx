@@ -51,21 +51,25 @@ export function FinanceApproversManagement({ approvers }: Props) {
   }
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+    <div className="overflow-hidden rounded-[26px] border border-zinc-200/80 bg-zinc-50/50 dark:border-zinc-800/80 dark:bg-zinc-950/40">
+      <div className="border-b border-zinc-200/80 px-5 py-4 dark:border-zinc-800/80">
         <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-700 dark:text-zinc-300">
           Finance Approvers
         </h3>
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+          Configure the active finance reviewers and keep one approver designated as the primary
+          processing owner.
+        </p>
       </div>
 
       {approvers.length === 0 ? (
         <p className="px-4 py-6 text-sm text-zinc-500">No finance approvers configured.</p>
       ) : (
-        <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+        <div className="divide-y divide-zinc-100/80 dark:divide-zinc-800/80">
           {approvers.map((approver) => (
             <div
               key={approver.id}
-              className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+              className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
             >
               <div>
                 <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
@@ -90,13 +94,13 @@ export function FinanceApproversManagement({ approvers }: Props) {
                 <p className="text-xs text-zinc-500">{approver.email}</p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {!approver.provisionalEmail && !approver.isPrimary ? (
                   <button
                     type="button"
                     disabled={isPending}
                     onClick={() => handleSetPrimary(approver.id)}
-                    className="rounded-lg border border-indigo-300 px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 dark:border-indigo-700 dark:text-indigo-300 dark:hover:bg-indigo-950/30"
+                    className="rounded-xl border border-indigo-300 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 dark:border-indigo-700 dark:text-indigo-300 dark:hover:bg-indigo-950/30"
                   >
                     Set Primary
                   </button>
@@ -106,7 +110,7 @@ export function FinanceApproversManagement({ approvers }: Props) {
                   type="button"
                   disabled={isPending}
                   onClick={() => handleToggle(approver.id, approver.isActive)}
-                  className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors disabled:opacity-50 ${
+                  className={`rounded-xl border px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-50 ${
                     approver.isActive
                       ? "border-zinc-300 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                       : "border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
@@ -120,7 +124,7 @@ export function FinanceApproversManagement({ approvers }: Props) {
         </div>
       )}
 
-      <div className="border-t border-zinc-200 px-4 py-3 dark:border-zinc-800">
+      <div className="border-t border-zinc-200/80 bg-white/70 px-5 py-4 dark:border-zinc-800/80 dark:bg-zinc-950/40">
         <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
           Add Finance Approver
         </p>
@@ -128,7 +132,7 @@ export function FinanceApproversManagement({ approvers }: Props) {
           Enter their email. If they haven&apos;t logged in yet, they&apos;ll be granted access
           automatically when they do.
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <input
             type="email"
             value={email}
@@ -137,13 +141,13 @@ export function FinanceApproversManagement({ approvers }: Props) {
               if (e.key === "Enter") handleAdd();
             }}
             placeholder="finance@example.com"
-            className="flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 outline-none transition-colors focus:border-indigo-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:focus:border-indigo-500"
+            className="nxt-input flex-1 rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
           />
           <button
             type="button"
             disabled={isPending || !email.trim()}
             onClick={handleAdd}
-            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Add
           </button>

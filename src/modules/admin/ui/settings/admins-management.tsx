@@ -43,21 +43,24 @@ export function AdminsManagement({ admins }: Props) {
   }
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+    <div className="overflow-hidden rounded-[26px] border border-zinc-200/80 bg-zinc-50/50 dark:border-zinc-800/80 dark:bg-zinc-950/40">
+      <div className="border-b border-zinc-200/80 px-5 py-4 dark:border-zinc-800/80">
         <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-700 dark:text-zinc-300">
           Administrators
         </h3>
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+          Keep privileged access intentional by limiting who can manage the admin workspace.
+        </p>
       </div>
 
       {admins.length === 0 ? (
         <p className="px-4 py-6 text-sm text-zinc-500">No admins configured yet.</p>
       ) : (
-        <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+        <div className="divide-y divide-zinc-100/80 dark:divide-zinc-800/80">
           {admins.map((admin) => (
             <div
               key={admin.id}
-              className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5"
+              className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
             >
               <div>
                 <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
@@ -71,7 +74,7 @@ export function AdminsManagement({ admins }: Props) {
                 ) : null}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {confirmRemoveId === admin.id ? (
                   <>
                     <span className="text-xs text-zinc-500">Remove this admin?</span>
@@ -79,14 +82,14 @@ export function AdminsManagement({ admins }: Props) {
                       type="button"
                       disabled={isPending}
                       onClick={() => handleRemove(admin.id)}
-                      className="rounded-lg bg-rose-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-rose-500 disabled:opacity-50"
+                      className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-500 disabled:opacity-50"
                     >
                       {isPending ? "Removing…" : "Confirm"}
                     </button>
                     <button
                       type="button"
                       onClick={() => setConfirmRemoveId(null)}
-                      className="rounded-lg border border-zinc-300 px-2.5 py-1 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      className="rounded-xl border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
                     >
                       Cancel
                     </button>
@@ -95,7 +98,7 @@ export function AdminsManagement({ admins }: Props) {
                   <button
                     type="button"
                     onClick={() => setConfirmRemoveId(admin.id)}
-                    className="rounded-lg border border-rose-300 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-300 dark:hover:bg-rose-950/30"
+                    className="rounded-xl border border-rose-300 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-300 dark:hover:bg-rose-950/30"
                   >
                     Remove
                   </button>
@@ -106,7 +109,7 @@ export function AdminsManagement({ admins }: Props) {
         </div>
       )}
 
-      <div className="border-t border-zinc-200 px-4 py-3 dark:border-zinc-800">
+      <div className="border-t border-zinc-200/80 bg-white/70 px-5 py-4 dark:border-zinc-800/80 dark:bg-zinc-950/40">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
           Promote user to Admin
         </p>
@@ -114,20 +117,20 @@ export function AdminsManagement({ admins }: Props) {
           Enter the user&apos;s email address. If they haven&apos;t signed in yet, they will be
           granted admin access automatically on their first login.
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <input
             type="email"
             placeholder="user@example.com"
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-            className="flex-1 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm outline-none transition-colors focus:border-indigo-400 dark:border-zinc-700 dark:bg-zinc-800 dark:focus:border-indigo-500"
+            className="nxt-input flex-1 rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none dark:border-zinc-700 dark:bg-zinc-900"
           />
           <button
             type="button"
             disabled={isPending}
             onClick={handleAdd}
-            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+            className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             Promote
           </button>

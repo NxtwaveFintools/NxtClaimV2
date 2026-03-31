@@ -39,17 +39,21 @@ export function UsersManagement({
   }
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+    <div className="overflow-hidden rounded-[26px] border border-zinc-200/80 bg-zinc-50/50 dark:border-zinc-800/80 dark:bg-zinc-950/40">
+      <div className="border-b border-zinc-200/80 px-5 py-4 dark:border-zinc-800/80">
         <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-700 dark:text-zinc-300">
           Users &amp; Roles
         </h3>
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+          Review the current workspace roster and align each account with the right permission
+          scope.
+        </p>
       </div>
 
       {users.length === 0 ? (
         <p className="px-4 py-6 text-sm text-zinc-500">No users found.</p>
       ) : (
-        <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+        <div className="divide-y divide-zinc-100/80 dark:divide-zinc-800/80">
           {users.map((user) => (
             <UserRoleRow key={user.id} user={user} onUpdated={() => router.refresh()} />
           ))}
@@ -57,7 +61,7 @@ export function UsersManagement({
       )}
 
       {hasPreviousPage || hasNextPage ? (
-        <div className="flex items-center justify-between border-t border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <div className="flex items-center justify-between border-t border-zinc-200/80 bg-white/70 px-5 py-4 dark:border-zinc-800/80 dark:bg-zinc-950/40">
           <a
             href={
               hasPreviousPage && previousCursor
@@ -101,7 +105,7 @@ function UserRoleRow({ user, onUpdated }: { user: AdminUserRecord; onUpdated: ()
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
+    <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
           {user.fullName ?? "—"}
@@ -113,7 +117,7 @@ function UserRoleRow({ user, onUpdated }: { user: AdminUserRecord; onUpdated: ()
         value={user.role}
         disabled={isPending}
         onChange={(e) => handleRoleChange(e.target.value)}
-        className="rounded-lg border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-800 outline-none transition-colors focus:border-indigo-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:focus:border-indigo-500"
+        className="nxt-input rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
       >
         {ROLE_OPTIONS.map((opt) => (
           <option key={opt.value} value={opt.value}>

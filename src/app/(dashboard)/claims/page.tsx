@@ -7,6 +7,10 @@ import type { ClaimSubmissionType, GetMyClaimsFilters } from "@/core/domain/clai
 import { logger } from "@/core/infra/logging/logger";
 import { SupabaseServerAuthRepository } from "@/modules/auth/repositories/supabase-server-auth.repository";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
+import {
+  CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
+  ClaimStatusBadge,
+} from "@/modules/claims/ui/claim-status-badge";
 
 const SUBMISSION_TYPES: ClaimSubmissionType[] = ["Self", "On Behalf"];
 
@@ -90,7 +94,7 @@ export default async function MyClaimsPage({
     return (
       <div className="nxt-page-bg">
         <AppShellHeader />
-        <div className="relative mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
+        <div className="relative mx-auto max-w-400 px-4 py-6 sm:px-6 lg:px-8">
           <main className="mx-auto max-w-6xl rounded-[28px] border border-rose-200 bg-white/92 p-6 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-rose-900/40 dark:bg-zinc-900/92">
             <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">My Claims</h1>
             <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
@@ -141,11 +145,11 @@ export default async function MyClaimsPage({
   return (
     <div className="nxt-page-bg">
       <AppShellHeader currentEmail={currentEmail} />
-      <div className="relative z-0 mx-auto w-full max-w-[1600px] px-4 pb-16 pt-6 sm:px-6 lg:px-8">
+      <div className="relative z-0 mx-auto w-full max-w-400 px-4 pb-16 pt-6 sm:px-6 lg:px-8">
         <main className="mx-auto max-w-6xl space-y-5">
           <section className="overflow-hidden rounded-[28px] border border-zinc-200/70 bg-white/88 shadow-[0_24px_70px_-30px_rgba(15,23,42,0.14),0_8px_24px_-8px_rgba(99,102,241,0.05)] backdrop-blur-lg transition-colors dark:border-zinc-800/80 dark:bg-zinc-900/88 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.40)]">
             {/* Gradient top stripe */}
-            <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-sky-500" />
+            <div className="h-1 w-full bg-linear-to-r from-indigo-500 via-violet-500 to-sky-500" />
             <div className="p-6 sm:p-8">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
@@ -323,7 +327,11 @@ export default async function MyClaimsPage({
                       <th className="px-5 py-3.5 font-semibold">Claim ID</th>
                       <th className="px-5 py-3.5 font-semibold">Department</th>
                       <th className="px-5 py-3.5 font-semibold">Total Amount</th>
-                      <th className="px-5 py-3.5 font-semibold">Status</th>
+                      <th
+                        className={`${CLAIM_STATUS_COLUMN_WIDTH_CLASSES} px-5 py-3.5 font-semibold`}
+                      >
+                        Status
+                      </th>
                       <th className="px-5 py-3.5 font-semibold">Submitted On</th>
                       <th className="px-5 py-3.5 font-semibold">Actions</th>
                     </tr>
@@ -341,7 +349,11 @@ export default async function MyClaimsPage({
                         <td className="px-5 py-3.5 font-semibold text-zinc-900 dark:text-zinc-100">
                           {formatAmount(claim.totalAmount)}
                         </td>
-                        <td className="px-5 py-3.5">{claim.status}</td>
+                        <td
+                          className={`${CLAIM_STATUS_COLUMN_WIDTH_CLASSES} px-5 py-3.5 align-top`}
+                        >
+                          <ClaimStatusBadge status={claim.status} fullWidth />
+                        </td>
                         <td className="px-5 py-3.5">{formatSubmittedDate(claim.submittedOn)}</td>
                         <td className="px-5 py-3.5">
                           <span className="inline-flex rounded-xl border border-zinc-300 bg-zinc-50 px-3 py-1.5 text-xs font-semibold text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">

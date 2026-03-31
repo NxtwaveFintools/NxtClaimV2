@@ -34,12 +34,14 @@ import { AdminClaimsSection } from "@/modules/admin/ui/admin-claims-section";
 import { DepartmentClaimsSection } from "@/modules/claims/ui/department-claims-section";
 import { ClaimDecisionActionForm } from "@/modules/claims/ui/claim-decision-action-form";
 import { ClaimRejectWithReasonForm } from "@/modules/claims/ui/claim-reject-with-reason-form";
-import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
+import {
+  CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
+  ClaimStatusBadge,
+} from "@/modules/claims/ui/claim-status-badge";
 import { ClaimsFilterBar } from "@/modules/claims/ui/claims-filter-bar";
 import { FinanceApprovalsBulkTable } from "@/modules/claims/ui/finance-approvals-bulk-table";
 import { MyClaimsPaginationControls } from "@/modules/claims/ui/my-claims-pagination-controls";
 import { ApprovalsAuditModeDialog } from "@/modules/claims/ui/approvals-quick-view-sheet";
-import { ClaimSemanticDownloadButton } from "@/modules/claims/ui/claim-semantic-download-button";
 
 const pageBodyFont = Inter({
   subsets: ["latin"],
@@ -388,18 +390,22 @@ function TableHeader({ showActions }: { showActions: boolean }) {
   return (
     <thead className="bg-zinc-50/80 text-[11px] uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
       <tr>
-        <th className="whitespace-nowrap px-5 py-3.5 font-semibold">CLAIM ID</th>
-        <th className="whitespace-nowrap px-5 py-3.5 font-semibold">EMPLOYEE ID</th>
-        <th className="whitespace-nowrap px-5 py-3.5 font-semibold">EMPLOYEE NAME</th>
-        <th className="whitespace-nowrap px-5 py-3.5 font-semibold">DEPARTMENT</th>
-        <th className="whitespace-nowrap px-5 py-3.5 font-semibold">TYPE OF CLAIM</th>
-        <th className="whitespace-nowrap px-5 py-3.5 font-semibold">AMOUNT</th>
-        <th className="whitespace-nowrap px-5 py-3.5 font-semibold">STATUS</th>
-        <th className="whitespace-nowrap px-5 py-3.5 font-semibold">SUBMITTED ON</th>
-        <th className="whitespace-nowrap px-5 py-3.5 font-semibold">HOD ACTION DATE</th>
-        <th className="whitespace-nowrap px-5 py-3.5 font-semibold">FINANCE ACTION DATE</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">CLAIM ID</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">EMPLOYEE ID</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">EMPLOYEE NAME</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">DEPARTMENT</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">TYPE OF CLAIM</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">AMOUNT</th>
+        <th
+          className={`${CLAIM_STATUS_COLUMN_WIDTH_CLASSES} whitespace-nowrap px-3 py-2.5 font-semibold`}
+        >
+          STATUS
+        </th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTED ON</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">HOD ACTION DATE</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">FINANCE ACTION DATE</th>
         {showActions ? (
-          <th className="whitespace-nowrap px-5 py-3.5 text-right font-semibold">Actions</th>
+          <th className="whitespace-nowrap px-3 py-2.5 text-right font-semibold">Review</th>
         ) : null}
       </tr>
     </thead>
@@ -563,9 +569,9 @@ async function ClaimsCommandCenterTable({
         ) : (
           <>
             <div className="nxt-scroll w-full overflow-x-auto">
-              <table className="min-w-[1720px] divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
+              <table className="min-w-345 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
                 <TableHeader showActions />
-                <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
+                <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
                   {rows.map((claim) => {
                     const evidenceSignedUrls = evidenceSignedUrlByClaimId[claim.id] ?? {
                       expenseReceiptSignedUrl: null,
@@ -677,7 +683,7 @@ async function ClaimsCommandCenterTable({
                         key={claim.id}
                         className="group transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
                       >
-                        <td className="whitespace-nowrap px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
+                        <td className="whitespace-nowrap px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
                           <Link
                             href={ROUTES.claims.detail(claim.id)}
                             className="text-indigo-500 hover:text-indigo-400 hover:underline"
@@ -685,66 +691,37 @@ async function ClaimsCommandCenterTable({
                             {claim.id}
                           </Link>
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3">
-                          <span className="inline-block max-w-[180px] truncate align-bottom">
-                            {claim.employeeId}
-                          </span>
+                        <td className="whitespace-nowrap px-3 py-2">
+                          <span>{claim.employeeId}</span>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className="inline-block max-w-[220px] truncate align-bottom">
+                        <td className="px-3 py-2">
+                          <span className="inline-block max-w-[150px] truncate align-bottom">
                             {claim.submitter}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className="inline-block max-w-[200px] truncate align-bottom">
+                        <td className="px-3 py-2">
+                          <span className="inline-block max-w-[130px] truncate align-bottom">
                             {claim.departmentName ?? "Unknown Department"}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className="inline-block max-w-[220px] truncate align-bottom">
+                        <td className="px-3 py-2">
+                          <span className="inline-block max-w-[140px] truncate align-bottom">
                             {claim.paymentModeName}
                           </span>
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 font-semibold text-zinc-900 dark:text-zinc-100">
+                        <td className="whitespace-nowrap px-3 py-2 font-semibold text-zinc-900 dark:text-zinc-100">
                           {claim.formattedTotalAmount}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3">
-                          <ClaimStatusBadge status={claim.status} />
+                        <td className={`${CLAIM_STATUS_COLUMN_WIDTH_CLASSES} px-3 py-2 align-top`}>
+                          <ClaimStatusBadge status={claim.status} fullWidth />
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3">
+                        <td className="whitespace-nowrap px-3 py-2">
                           {claim.formattedSubmittedAt}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3">N/A</td>
-                        <td className="whitespace-nowrap px-4 py-3">N/A</td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right">
-                          <div className="flex min-w-[360px] flex-wrap items-start justify-end gap-2">
-                            {claim.detailType === "expense" &&
-                            evidenceSignedUrls.expenseReceiptSignedUrl ? (
-                              <ClaimSemanticDownloadButton
-                                url={evidenceSignedUrls.expenseReceiptSignedUrl}
-                                semanticName={`${claim.id}-EXP`}
-                                label="Expense Receipt"
-                                compact
-                              />
-                            ) : null}
-                            {claim.detailType === "expense" &&
-                            evidenceSignedUrls.expenseBankStatementSignedUrl ? (
-                              <ClaimSemanticDownloadButton
-                                url={evidenceSignedUrls.expenseBankStatementSignedUrl}
-                                semanticName={`${claim.id}-BNK`}
-                                label="Bank Statement"
-                                compact
-                              />
-                            ) : null}
-                            {claim.detailType === "advance" &&
-                            evidenceSignedUrls.advanceSupportingDocumentSignedUrl ? (
-                              <ClaimSemanticDownloadButton
-                                url={evidenceSignedUrls.advanceSupportingDocumentSignedUrl}
-                                semanticName={`${claim.id}-PCR`}
-                                label="Petty Cash Request Document"
-                                compact
-                              />
-                            ) : null}
+                        <td className="whitespace-nowrap px-3 py-2">N/A</td>
+                        <td className="whitespace-nowrap px-3 py-2">N/A</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right">
+                          <div className="flex min-w-28 justify-end">
                             <ApprovalsAuditModeDialog
                               claimId={claim.id}
                               detailType={claim.detailType}
@@ -766,9 +743,8 @@ async function ClaimsCommandCenterTable({
                               }
                               auditLogs={auditLogsByClaimId[claim.id] ?? []}
                             >
-                              {renderActions(false)}
+                              {actionMode !== "none" ? renderActions(false) : undefined}
                             </ApprovalsAuditModeDialog>
-                            {renderActions(true)}
                           </div>
                         </td>
                       </tr>
@@ -844,9 +820,9 @@ async function ClaimsCommandCenterTable({
       ) : (
         <>
           <div className="nxt-scroll overflow-x-auto">
-            <table className="min-w-[1500px] divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
+            <table className="min-w-325 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
               <TableHeader showActions />
-              <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
+              <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
                 {rows.map((claim) => {
                   const detail = submissionDetailsByClaimId[claim.id];
                   const evidenceSignedUrls = submissionEvidenceSignedUrlByClaimId[claim.id] ?? {
@@ -860,59 +836,57 @@ async function ClaimsCommandCenterTable({
                       key={claim.id}
                       className="transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
                     >
-                      <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
+                      <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
                         <Link
                           href={ROUTES.claims.detail(claim.id)}
-                          className="text-indigo-500 hover:text-indigo-400 hover:underline"
+                          className="whitespace-nowrap text-indigo-500 hover:text-indigo-400 hover:underline"
                         >
                           {claim.id}
                         </Link>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="inline-block max-w-[180px] truncate align-bottom">
-                          {claim.employeeId}
-                        </span>
+                      <td className="whitespace-nowrap px-3 py-2">
+                        <span>{claim.employeeId}</span>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="inline-block max-w-[220px] truncate align-bottom">
+                      <td className="px-3 py-2">
+                        <span className="inline-block max-w-[150px] truncate align-bottom">
                           {claim.employeeName}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="inline-block max-w-[200px] truncate align-bottom">
+                      <td className="px-3 py-2">
+                        <span className="inline-block max-w-[130px] truncate align-bottom">
                           {claim.departmentName}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="inline-block max-w-[220px] truncate align-bottom">
+                      <td className="px-3 py-2">
+                        <span className="inline-block max-w-[140px] truncate align-bottom">
                           {claim.typeOfClaim}
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-semibold text-zinc-900 dark:text-zinc-100">
+                      <td className="px-3 py-2 font-semibold text-zinc-900 dark:text-zinc-100">
                         {claim.formattedTotalAmount}
                       </td>
-                      <td className="px-4 py-3">
-                        <ClaimStatusBadge status={claim.status} />
+                      <td className={`${CLAIM_STATUS_COLUMN_WIDTH_CLASSES} px-3 py-2 align-top`}>
+                        <ClaimStatusBadge status={claim.status} fullWidth />
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2">
                         <DateWithActor
                           dateValue={claim.submittedAt}
                           actorEmail={claim.submitterEmail}
                         />
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2">
                         <DateWithActor
                           dateValue={claim.hodActionDate}
                           actorEmail={claim.hodEmail}
                         />
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-2">
                         <DateWithActor
                           dateValue={claim.financeActionDate}
                           actorEmail={claim.financeEmail}
                         />
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-right">
+                      <td className="whitespace-nowrap px-3 py-2 text-right">
                         <div className="flex items-center justify-end gap-2">
                           {detail ? (
                             <ApprovalsAuditModeDialog
@@ -1152,28 +1126,28 @@ export default async function MyClaimsDashboardPage({
             {/* Gradient top stripe */}
             <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-sky-500" />
 
-            <div className="p-6 sm:p-8">
-              <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="p-5 sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h1 className="dashboard-font-display text-2xl font-bold tracking-[-0.03em] text-zinc-950 sm:text-3xl dark:text-zinc-50">
+                  <h1 className="dashboard-font-display text-xl font-bold tracking-[-0.03em] text-zinc-950 sm:text-2xl lg:text-3xl dark:text-zinc-50">
                     My Claims
                   </h1>
-                  <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
+                  <p className="mt-1 text-xs text-zinc-500 sm:text-sm dark:text-zinc-400">
                     Command Center for submissions and approvals
                   </p>
                 </div>
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2">
                   {isAdminUser ? (
                     <Link
                       href={ROUTES.admin.settings}
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white/80 px-5 text-sm font-semibold text-zinc-700 backdrop-blur-sm transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/80 dark:text-zinc-200 dark:hover:bg-zinc-900"
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white/80 px-4 text-sm font-semibold text-zinc-700 backdrop-blur-sm transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/80 dark:text-zinc-200 dark:hover:bg-zinc-900"
                     >
                       System Settings
                     </Link>
                   ) : null}
                   <Link
                     href={ROUTES.claims.new}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-colors hover:bg-indigo-500 active:scale-[0.98]"
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-colors hover:bg-indigo-500 active:scale-[0.98]"
                   >
                     <CirclePlus className="h-4 w-4" aria-hidden="true" />
                     New Claim
@@ -1182,7 +1156,7 @@ export default async function MyClaimsDashboardPage({
               </div>
 
               {/* Tab bar */}
-              <div className="mt-6 inline-flex flex-wrap rounded-2xl border border-zinc-200/80 bg-zinc-50/80 p-1 dark:border-zinc-700/60 dark:bg-zinc-900/60">
+              <div className="mt-4 inline-flex flex-wrap rounded-2xl border border-zinc-200/80 bg-zinc-50/80 p-1 dark:border-zinc-700/60 dark:bg-zinc-900/60">
                 <Link
                   href={submissionsHref}
                   className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${

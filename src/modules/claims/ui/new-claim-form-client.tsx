@@ -284,6 +284,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     igstAmount,
     isGstApplicable,
   );
+  const detailTypeLabel = detailType === "expense" ? "Expense Claim" : "Petty Cash Request";
 
   const selectedDepartment = useMemo(
     () => options.departmentRouting.find((department) => department.id === departmentId) ?? null,
@@ -595,702 +596,849 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
   return (
     <form
-      className="grid gap-6 text-zinc-900 transition-colors dark:text-zinc-100 [&_section]:overflow-hidden [&_section]:rounded-2xl [&_section]:border [&_section]:border-zinc-200/80 [&_section]:bg-white/80 [&_section]:p-5 [&_section]:shadow-[0_4px_24px_-8px_rgba(15,23,42,0.06)] [&_section]:backdrop-blur-sm dark:[&_section]:border-zinc-800 dark:[&_section]:bg-zinc-900/80 dark:[&_section]:shadow-black/10 [&_h2]:text-zinc-900 dark:[&_h2]:text-zinc-100 [&_label]:text-zinc-700 dark:[&_label]:text-zinc-300 [&_input:not([type='checkbox'])]:nxt-input [&_input:not([type='checkbox'])]:border-zinc-300 [&_input:not([type='checkbox'])]:bg-white [&_input:not([type='checkbox'])]:text-zinc-900 dark:[&_input:not([type='checkbox'])]:border-zinc-700 dark:[&_input:not([type='checkbox'])]:bg-zinc-900/70 dark:[&_input:not([type='checkbox'])]:text-zinc-100 [&_select]:nxt-input [&_select]:border-zinc-300 [&_select]:bg-white [&_select]:text-zinc-900 dark:[&_select]:border-zinc-700 dark:[&_select]:bg-zinc-900/70 dark:[&_select]:text-zinc-100 [&_textarea]:nxt-input [&_textarea]:border-zinc-300 [&_textarea]:bg-white [&_textarea]:text-zinc-900 dark:[&_textarea]:border-zinc-700 dark:[&_textarea]:bg-zinc-900/70 dark:[&_textarea]:text-zinc-100 [&_input[type='file']]:file:mr-3 [&_input[type='file']]:file:rounded-lg [&_input[type='file']]:file:border-0 [&_input[type='file']]:file:bg-indigo-50 [&_input[type='file']]:file:px-3 [&_input[type='file']]:file:py-1.5 [&_input[type='file']]:file:text-sm [&_input[type='file']]:file:font-medium [&_input[type='file']]:file:text-indigo-700 dark:[&_input[type='file']]:file:bg-indigo-950/40 dark:[&_input[type='file']]:file:text-indigo-300"
+      className="grid gap-5 text-zinc-900 transition-colors dark:text-zinc-100 [&_section]:overflow-hidden [&_section]:rounded-2xl [&_section]:border [&_section]:border-zinc-200/80 [&_section]:bg-white/80 [&_section]:p-5 [&_section]:shadow-[0_4px_24px_-8px_rgba(15,23,42,0.06)] [&_section]:backdrop-blur-sm dark:[&_section]:border-zinc-800 dark:[&_section]:bg-zinc-900/80 dark:[&_section]:shadow-black/10 [&_h2]:text-zinc-900 dark:[&_h2]:text-zinc-100 [&_label]:text-zinc-700 dark:[&_label]:text-zinc-300 [&_input:not([type='checkbox']):not([type='hidden'])]:nxt-input [&_input:not([type='checkbox']):not([type='hidden'])]:w-full [&_input:not([type='checkbox']):not([type='hidden'])]:min-w-0 [&_input:not([type='checkbox'])]:border-zinc-300 [&_input:not([type='checkbox'])]:bg-white [&_input:not([type='checkbox'])]:text-zinc-900 dark:[&_input:not([type='checkbox'])]:border-zinc-700 dark:[&_input:not([type='checkbox'])]:bg-zinc-900/70 dark:[&_input:not([type='checkbox'])]:text-zinc-100 [&_select]:nxt-input [&_select]:w-full [&_select]:min-w-0 [&_select]:border-zinc-300 [&_select]:bg-white [&_select]:text-zinc-900 dark:[&_select]:border-zinc-700 dark:[&_select]:bg-zinc-900/70 dark:[&_select]:text-zinc-100 [&_textarea]:nxt-input [&_textarea]:w-full [&_textarea]:min-w-0 [&_textarea]:border-zinc-300 [&_textarea]:bg-white [&_textarea]:text-zinc-900 dark:[&_textarea]:border-zinc-700 dark:[&_textarea]:bg-zinc-900/70 dark:[&_textarea]:text-zinc-100 [&_input[type='file']]:file:mr-3 [&_input[type='file']]:file:rounded-lg [&_input[type='file']]:file:border-0 [&_input[type='file']]:file:bg-indigo-50 [&_input[type='file']]:file:px-3 [&_input[type='file']]:file:py-1.5 [&_input[type='file']]:file:text-sm [&_input[type='file']]:file:font-medium [&_input[type='file']]:file:text-indigo-700 dark:[&_input[type='file']]:file:bg-indigo-950/40 dark:[&_input[type='file']]:file:text-indigo-300"
       onSubmit={handleFormSubmit}
     >
       <input type="hidden" {...register("employeeName")} />
       <input type="hidden" {...register("hodName")} />
       <input type="hidden" {...register("hodEmail")} />
 
-      <section className="grid gap-4 rounded-2xl border border-zinc-200/80 p-5">
-        <h2 className="dashboard-font-display text-base font-semibold tracking-[-0.01em] text-zinc-950 dark:text-zinc-50">
-          Employee Details
-        </h2>
-
-        <div className="grid gap-1 sm:grid-cols-2 sm:gap-4">
-          <div className="grid gap-1">
-            <label className="text-sm font-medium text-zinc-700">Employee Name</label>
-            <input
-              value={currentUser.name}
-              readOnly
-              className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700"
-            />
-          </div>
-
-          <div className="grid gap-1">
-            <label className="text-sm font-medium text-zinc-700">Employee Email</label>
-            <input
-              value={currentUser.email}
-              readOnly
-              className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700"
-            />
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-4 rounded-xl border border-zinc-200 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h2 className="dashboard-font-display text-base font-semibold tracking-[-0.01em] text-zinc-950 dark:text-zinc-50">
-              Submission Context
+      <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+        {/* ── Left column: Employee + Submission Context ── */}
+        <div className="grid gap-5">
+          <section className="grid gap-3 rounded-2xl border border-zinc-200/80 p-4 sm:p-5">
+            <h2 className="dashboard-font-display text-sm font-semibold tracking-[-0.01em] text-zinc-950 dark:text-zinc-50">
+              Employee Details
             </h2>
-            {hydrated && wasAutoFilled ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 dark:border-indigo-700/40 dark:bg-indigo-950/30 dark:text-indigo-300">
-                <Sparkles className="h-3 w-3" />
-                Auto-filled from previous submission
-              </span>
-            ) : null}
-          </div>
-          {hydrated && wasAutoFilled ? (
-            <button
-              type="button"
-              onClick={clearDefaults}
-              className="text-xs font-medium text-indigo-600 underline-offset-2 hover:text-indigo-500 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
-            >
-              Clear Defaults
-            </button>
-          ) : null}
-        </div>
 
-        <div className="grid gap-1">
-          <label htmlFor="submissionType" className="text-sm font-medium text-zinc-700">
-            Submission Type <span className="text-rose-600">*</span>
-          </label>
-          <select
-            id="submissionType"
-            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-            {...register("submissionType")}
-          >
-            <option value="Self">Self</option>
-            <option value="On Behalf">On Behalf</option>
-          </select>
-        </div>
-
-        {submissionType === "On Behalf" ? (
-          <>
-            <div className="grid gap-1">
-              <label htmlFor="onBehalfEmail" className="text-sm font-medium text-zinc-700">
-                On Behalf Email (Required for On Behalf)
-              </label>
-              <input
-                id="onBehalfEmail"
-                type="email"
-                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                {...register("onBehalfEmail", {
-                  setValueAs: (value) => toNullable(String(value ?? "")),
-                })}
-              />
-              {errors.onBehalfEmail ? (
-                <p className="text-xs text-rose-600">{errors.onBehalfEmail.message}</p>
-              ) : null}
-            </div>
-
-            <div className="grid gap-1">
-              <label htmlFor="onBehalfEmployeeCode" className="text-sm font-medium text-zinc-700">
-                On Behalf Employee ID (Required for On Behalf)
-              </label>
-              <input
-                id="onBehalfEmployeeCode"
-                type="text"
-                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                {...register("onBehalfEmployeeCode", {
-                  setValueAs: (value) => toNullable(String(value ?? "")),
-                })}
-              />
-              {errors.onBehalfEmployeeCode ? (
-                <p className="text-xs text-rose-600">{errors.onBehalfEmployeeCode.message}</p>
-              ) : null}
-            </div>
-          </>
-        ) : null}
-
-        <div className="grid gap-1">
-          <label htmlFor="departmentId" className="text-sm font-medium text-zinc-700">
-            Department <span className="text-rose-600">*</span>
-          </label>
-          <select
-            id="departmentId"
-            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-            {...register("departmentId")}
-          >
-            {options.departments.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.name}
-              </option>
-            ))}
-          </select>
-          {errors.departmentId ? (
-            <p className="text-xs text-rose-600">{errors.departmentId.message}</p>
-          ) : null}
-        </div>
-
-        <div className="grid gap-1 sm:grid-cols-2 sm:gap-4">
-          <div className="grid gap-1">
-            <label htmlFor="employeeId" className="text-sm font-medium text-zinc-700">
-              Employee ID <span className="text-rose-600">*</span>
-            </label>
-            <input
-              id="employeeId"
-              type="text"
-              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-              {...register("employeeId")}
-            />
-            {errors.employeeId ? (
-              <p className="text-xs text-rose-600">{errors.employeeId.message}</p>
-            ) : null}
-          </div>
-
-          <div className="grid gap-1">
-            <label htmlFor="ccEmails" className="text-sm font-medium text-zinc-700">
-              CC Emails (Optional)
-            </label>
-            <input
-              id="ccEmails"
-              type="text"
-              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-              placeholder="user1@example.com, user2@example.com"
-              {...register("ccEmails", {
-                setValueAs: (value) => toOptional(String(value ?? "")),
-              })}
-            />
-          </div>
-
-          <div className="grid gap-1">
-            <label className="text-sm font-medium text-zinc-700">{l1ApproverLabel}</label>
-            <input
-              value={resolvedL1Approver?.fullName ?? resolvedL1Approver?.email ?? "Not available"}
-              readOnly
-              className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700"
-            />
-            {errors.hodName ? (
-              <p className="text-xs text-rose-600">{errors.hodName.message}</p>
-            ) : null}
-          </div>
-
-          <div className="grid gap-1">
-            <label className="text-sm font-medium text-zinc-700">{l1ApproverEmailLabel}</label>
-            <input
-              value={resolvedL1Approver?.email ?? "Not available"}
-              readOnly
-              className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700"
-            />
-            {errors.hodEmail ? (
-              <p className="text-xs text-rose-600">{errors.hodEmail.message}</p>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="grid gap-1">
-          <label htmlFor="paymentModeId" className="text-sm font-medium text-zinc-700">
-            Payment Mode <span className="text-rose-600">*</span>
-          </label>
-          <select
-            id="paymentModeId"
-            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-            {...register("paymentModeId")}
-          >
-            {options.paymentModes.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.name}
-              </option>
-            ))}
-          </select>
-          {errors.paymentModeId ? (
-            <p className="text-xs text-rose-600">{errors.paymentModeId.message}</p>
-          ) : null}
-        </div>
-      </section>
-
-      {detailType === "expense" ? (
-        <section className="grid gap-4 rounded-xl border border-zinc-200 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="dashboard-font-display text-base font-semibold tracking-[-0.01em] text-zinc-950 dark:text-zinc-50">
-              Expense Details
-            </h2>
-            <button
-              type="button"
-              onClick={handleAutoFillWithAI}
-              disabled={isSubmitting || isAiParsing || !invoiceFile}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-sm font-semibold text-indigo-700 transition-all duration-200 hover:bg-indigo-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 dark:border-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 dark:hover:bg-indigo-900/40"
-            >
-              {isAiParsing ? (
-                <>
-                  <svg
-                    className="h-4 w-4 animate-spin"
-                    viewBox="0 0 20 20"
-                    aria-hidden="true"
-                    fill="none"
-                  >
-                    <circle
-                      cx="10"
-                      cy="10"
-                      r="7"
-                      stroke="currentColor"
-                      strokeOpacity="0.3"
-                      strokeWidth="2"
-                    />
-                    <path
-                      d="M10 3a7 7 0 0 1 7 7"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  Auto-filling...
-                </>
-              ) : (
-                "✨ Auto-fill with AI"
-              )}
-            </button>
-          </div>
-
-          <input type="hidden" {...register("detailType")} value="expense" />
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-1">
-              <label htmlFor="receiptFile" className="text-sm font-medium text-zinc-700">
-                Invoice/Bill <span className="text-rose-600">*</span>
-              </label>
-              <input
-                id="receiptFile"
-                type="file"
-                accept="application/pdf,image/jpeg,image/png,image/webp"
-                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                onChange={(event) => {
-                  const selectedFile = event.target.files?.[0] ?? null;
-                  setInvoiceFile(selectedFile);
-                  setValue("expense.receiptFileName", selectedFile ? selectedFile.name : "", {
-                    shouldDirty: true,
-                    shouldTouch: true,
-                    shouldValidate: true,
-                  });
-                }}
-              />
-              <p className="text-xs text-zinc-500">Allowed: PDF, JPG, PNG, WEBP. Max size: 25MB.</p>
-            </div>
-
-            <div className="grid gap-1">
-              <label htmlFor="bankStatementFile" className="text-sm font-medium text-zinc-700">
-                Bank Statement (Optional)
-              </label>
-              <input
-                id="bankStatementFile"
-                type="file"
-                accept="application/pdf,image/jpeg,image/png,image/webp"
-                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                onChange={(event) => {
-                  const selectedFile = event.target.files?.[0] ?? null;
-                  setBankStatementFile(selectedFile);
-                  setValue(
-                    "expense.bankStatementFileName",
-                    selectedFile ? selectedFile.name : null,
-                    {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                      shouldValidate: true,
-                    },
-                  );
-                  setValue(
-                    "expense.bankStatementFileType",
-                    selectedFile ? selectedFile.type || "application/octet-stream" : null,
-                    {
-                      shouldDirty: true,
-                      shouldTouch: true,
-                      shouldValidate: true,
-                    },
-                  );
-                }}
-              />
-              <p className="text-xs text-zinc-500">Allowed: PDF, JPG, PNG, WEBP. Max size: 25MB.</p>
-            </div>
-          </div>
-
-          <div className="grid gap-1">
-            <label htmlFor="billNo" className="text-sm font-medium text-zinc-700">
-              Bill No <span className="text-rose-600">*</span>
-            </label>
-            <input
-              id="billNo"
-              type="text"
-              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-              {...register("expense.billNo")}
-            />
-            {errors.expense?.billNo ? (
-              <p className="text-xs text-rose-600">{errors.expense.billNo.message}</p>
-            ) : null}
-          </div>
-
-          <div className="grid gap-1">
-            <label htmlFor="expensePurpose" className="text-sm font-medium text-zinc-700">
-              Purpose <span className="text-rose-600">*</span>
-            </label>
-            <input
-              id="expensePurpose"
-              type="text"
-              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-              {...register("expense.purpose")}
-            />
-            {errors.expense?.purpose ? (
-              <p className="text-xs text-rose-600">{errors.expense.purpose.message}</p>
-            ) : null}
-          </div>
-
-          <div className="grid gap-1">
-            <label htmlFor="expenseCategoryId" className="text-sm font-medium text-zinc-700">
-              Expense Category <span className="text-rose-600">*</span>
-            </label>
-            <select
-              id="expenseCategoryId"
-              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-              {...register("expense.expenseCategoryId")}
-            >
-              {options.expenseCategories.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-1">
-              <label htmlFor="expenseProductId" className="text-sm font-medium text-zinc-700">
-                Product <span className="text-rose-600">*</span>
-              </label>
-              <select
-                id="expenseProductId"
-                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                {...register("expense.productId")}
-              >
-                {options.products.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-              {errors.expense?.productId ? (
-                <p className="text-xs text-rose-600">{errors.expense.productId.message}</p>
-              ) : null}
-            </div>
-
-            <div className="grid gap-1">
-              <label htmlFor="expenseLocationId" className="text-sm font-medium text-zinc-700">
-                Location <span className="text-rose-600">*</span>
-              </label>
-              <select
-                id="expenseLocationId"
-                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                {...register("expense.locationId")}
-              >
-                {options.locations.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <input id="isGstApplicable" type="checkbox" {...register("expense.isGstApplicable")} />
-            <label htmlFor="isGstApplicable" className="text-sm text-zinc-700">
-              GST Applicable
-            </label>
-          </div>
-
-          {isGstApplicable ? (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="grid gap-1">
-                <label htmlFor="gstNumber" className="text-sm font-medium text-zinc-700">
-                  GST Number (Optional)
+                <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                  Employee Name
                 </label>
                 <input
-                  id="gstNumber"
+                  value={currentUser.name}
+                  readOnly
+                  className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
+                />
+              </div>
+
+              <div className="grid gap-1">
+                <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                  Employee Email
+                </label>
+                <input
+                  value={currentUser.email}
+                  readOnly
+                  className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="grid gap-3 rounded-xl border border-zinc-200 p-4 sm:p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h2 className="dashboard-font-display text-sm font-semibold tracking-[-0.01em] text-zinc-950 dark:text-zinc-50">
+                  Submission Context
+                </h2>
+                {hydrated && wasAutoFilled ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-700 dark:border-indigo-700/40 dark:bg-indigo-950/30 dark:text-indigo-300">
+                    <Sparkles className="h-3 w-3" />
+                    Auto-filled
+                  </span>
+                ) : null}
+              </div>
+              {hydrated && wasAutoFilled ? (
+                <button
+                  type="button"
+                  onClick={clearDefaults}
+                  className="text-[11px] font-medium text-indigo-600 underline-offset-2 hover:text-indigo-500 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
+                >
+                  Clear Defaults
+                </button>
+              ) : null}
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid gap-1">
+                <label
+                  htmlFor="submissionType"
+                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                >
+                  Submission Type <span className="text-rose-600">*</span>
+                </label>
+                <select
+                  id="submissionType"
+                  className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                  {...register("submissionType")}
+                >
+                  <option value="Self">Self</option>
+                  <option value="On Behalf">On Behalf</option>
+                </select>
+              </div>
+
+              <div className="grid gap-1">
+                <label
+                  htmlFor="departmentId"
+                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                >
+                  Department <span className="text-rose-600">*</span>
+                </label>
+                <select
+                  id="departmentId"
+                  className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                  {...register("departmentId")}
+                >
+                  {options.departments.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.departmentId ? (
+                  <p className="text-xs text-rose-600">{errors.departmentId.message}</p>
+                ) : null}
+              </div>
+            </div>
+
+            {submissionType === "On Behalf" ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="onBehalfEmail"
+                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    On Behalf Email <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    id="onBehalfEmail"
+                    type="email"
+                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    {...register("onBehalfEmail", {
+                      setValueAs: (value) => toNullable(String(value ?? "")),
+                    })}
+                  />
+                  {errors.onBehalfEmail ? (
+                    <p className="text-xs text-rose-600">{errors.onBehalfEmail.message}</p>
+                  ) : null}
+                </div>
+
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="onBehalfEmployeeCode"
+                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    On Behalf Employee ID <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    id="onBehalfEmployeeCode"
+                    type="text"
+                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    {...register("onBehalfEmployeeCode", {
+                      setValueAs: (value) => toNullable(String(value ?? "")),
+                    })}
+                  />
+                  {errors.onBehalfEmployeeCode ? (
+                    <p className="text-xs text-rose-600">{errors.onBehalfEmployeeCode.message}</p>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid gap-1">
+                <label
+                  htmlFor="employeeId"
+                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                >
+                  Employee ID <span className="text-rose-600">*</span>
+                </label>
+                <input
+                  id="employeeId"
                   type="text"
-                  className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                  {...register("expense.gstNumber", {
-                    setValueAs: (value) => toNullable(String(value ?? "")),
+                  className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                  {...register("employeeId")}
+                />
+                {errors.employeeId ? (
+                  <p className="text-xs text-rose-600">{errors.employeeId.message}</p>
+                ) : null}
+              </div>
+
+              <div className="grid gap-1">
+                <label
+                  htmlFor="ccEmails"
+                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                >
+                  CC Emails (Optional)
+                </label>
+                <input
+                  id="ccEmails"
+                  type="text"
+                  className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                  placeholder="user1@example.com, user2@example.com"
+                  {...register("ccEmails", {
+                    setValueAs: (value) => toOptional(String(value ?? "")),
                   })}
                 />
               </div>
 
               <div className="grid gap-1">
-                <label htmlFor="cgstAmount" className="text-sm font-medium text-zinc-700">
-                  CGST Amount <span className="text-rose-600">*</span>
+                <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                  {l1ApproverLabel}
                 </label>
                 <input
-                  id="cgstAmount"
-                  type="number"
-                  step="0.01"
-                  className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                  {...register("expense.cgstAmount", { valueAsNumber: true })}
+                  value={
+                    resolvedL1Approver?.fullName ?? resolvedL1Approver?.email ?? "Not available"
+                  }
+                  readOnly
+                  className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
                 />
+                {errors.hodName ? (
+                  <p className="text-xs text-rose-600">{errors.hodName.message}</p>
+                ) : null}
               </div>
 
               <div className="grid gap-1">
-                <label htmlFor="sgstAmount" className="text-sm font-medium text-zinc-700">
-                  SGST Amount <span className="text-rose-600">*</span>
+                <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                  {l1ApproverEmailLabel}
                 </label>
                 <input
-                  id="sgstAmount"
-                  type="number"
-                  step="0.01"
-                  className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                  {...register("expense.sgstAmount", { valueAsNumber: true })}
+                  value={resolvedL1Approver?.email ?? "Not available"}
+                  readOnly
+                  className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
                 />
+                {errors.hodEmail ? (
+                  <p className="text-xs text-rose-600">{errors.hodEmail.message}</p>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid gap-1">
+                <label
+                  htmlFor="paymentModeId"
+                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                >
+                  Payment Mode <span className="text-rose-600">*</span>
+                </label>
+                <select
+                  id="paymentModeId"
+                  className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                  {...register("paymentModeId")}
+                >
+                  {options.paymentModes.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.paymentModeId ? (
+                  <p className="text-xs text-rose-600">{errors.paymentModeId.message}</p>
+                ) : null}
               </div>
 
               <div className="grid gap-1">
-                <label htmlFor="igstAmount" className="text-sm font-medium text-zinc-700">
-                  IGST Amount <span className="text-rose-600">*</span>
+                <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                  Claim Type
                 </label>
                 <input
-                  id="igstAmount"
-                  type="number"
-                  step="0.01"
-                  className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                  {...register("expense.igstAmount", { valueAsNumber: true })}
+                  value={detailTypeLabel}
+                  readOnly
+                  className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
                 />
               </div>
             </div>
+          </section>
+        </div>
+        {/* end left column */}
+
+        {/* ── Right column: Expense / Advance Details ── */}
+        <div className="grid gap-5">
+          {detailType === "expense" ? (
+            <section className="grid gap-3 rounded-xl border border-zinc-200 p-4 sm:p-5">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="dashboard-font-display text-sm font-semibold tracking-[-0.01em] text-zinc-950 dark:text-zinc-50">
+                  Expense Details
+                </h2>
+                <button
+                  type="button"
+                  onClick={handleAutoFillWithAI}
+                  disabled={isSubmitting || isAiParsing || !invoiceFile}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-indigo-300 bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 transition-all duration-200 hover:bg-indigo-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 dark:border-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 dark:hover:bg-indigo-900/40"
+                >
+                  {isAiParsing ? (
+                    <>
+                      <svg
+                        className="h-4 w-4 animate-spin"
+                        viewBox="0 0 20 20"
+                        aria-hidden="true"
+                        fill="none"
+                      >
+                        <circle
+                          cx="10"
+                          cy="10"
+                          r="7"
+                          stroke="currentColor"
+                          strokeOpacity="0.3"
+                          strokeWidth="2"
+                        />
+                        <path
+                          d="M10 3a7 7 0 0 1 7 7"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      Auto-filling...
+                    </>
+                  ) : (
+                    "✨ Auto-fill with AI"
+                  )}
+                </button>
+              </div>
+
+              <input type="hidden" {...register("detailType")} value="expense" />
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="receiptFile"
+                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    Invoice/Bill <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    id="receiptFile"
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png,image/webp"
+                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm file:text-xs"
+                    onChange={(event) => {
+                      const selectedFile = event.target.files?.[0] ?? null;
+                      setInvoiceFile(selectedFile);
+                      setValue("expense.receiptFileName", selectedFile ? selectedFile.name : "", {
+                        shouldDirty: true,
+                        shouldTouch: true,
+                        shouldValidate: true,
+                      });
+                    }}
+                  />
+                  <p className="text-[10px] text-zinc-500">PDF, JPG, PNG, WEBP. Max: 25MB.</p>
+                </div>
+
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="bankStatementFile"
+                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    Bank Statement (Optional)
+                  </label>
+                  <input
+                    id="bankStatementFile"
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png,image/webp"
+                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm file:text-xs"
+                    onChange={(event) => {
+                      const selectedFile = event.target.files?.[0] ?? null;
+                      setBankStatementFile(selectedFile);
+                      setValue(
+                        "expense.bankStatementFileName",
+                        selectedFile ? selectedFile.name : null,
+                        {
+                          shouldDirty: true,
+                          shouldTouch: true,
+                          shouldValidate: true,
+                        },
+                      );
+                      setValue(
+                        "expense.bankStatementFileType",
+                        selectedFile ? selectedFile.type || "application/octet-stream" : null,
+                        {
+                          shouldDirty: true,
+                          shouldTouch: true,
+                          shouldValidate: true,
+                        },
+                      );
+                    }}
+                  />
+                  <p className="text-[10px] text-zinc-500">PDF, JPG, PNG, WEBP. Max: 25MB.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="billNo"
+                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    Bill No <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    id="billNo"
+                    type="text"
+                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    {...register("expense.billNo")}
+                  />
+                  {errors.expense?.billNo ? (
+                    <p className="text-xs text-rose-600">{errors.expense.billNo.message}</p>
+                  ) : null}
+                </div>
+
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="expensePurpose"
+                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    Purpose <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    id="expensePurpose"
+                    type="text"
+                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    {...register("expense.purpose")}
+                  />
+                  {errors.expense?.purpose ? (
+                    <p className="text-xs text-rose-600">{errors.expense.purpose.message}</p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="expenseCategoryId"
+                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    Expense Category <span className="text-rose-600">*</span>
+                  </label>
+                  <select
+                    id="expenseCategoryId"
+                    className="h-9 w-full rounded-lg border border-zinc-300 px-3 text-sm"
+                    {...register("expense.expenseCategoryId")}
+                  >
+                    {options.expenseCategories.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="expenseProductId"
+                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    Product <span className="text-rose-600">*</span>
+                  </label>
+                  <select
+                    id="expenseProductId"
+                    className="h-9 w-full rounded-lg border border-zinc-300 px-3 text-sm"
+                    {...register("expense.productId")}
+                  >
+                    {options.products.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.expense?.productId ? (
+                    <p className="text-xs text-rose-600">{errors.expense.productId.message}</p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="expenseLocationId"
+                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    Location <span className="text-rose-600">*</span>
+                  </label>
+                  <select
+                    id="expenseLocationId"
+                    className="h-9 w-full rounded-lg border border-zinc-300 px-3 text-sm"
+                    {...register("expense.locationId")}
+                  >
+                    {options.locations.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="isGstApplicable"
+                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    Tax Handling
+                  </label>
+                  <label
+                    htmlFor="isGstApplicable"
+                    className="flex h-9 items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-200"
+                  >
+                    <input
+                      id="isGstApplicable"
+                      type="checkbox"
+                      className="h-4 w-4 rounded"
+                      {...register("expense.isGstApplicable")}
+                    />
+                    <span>GST Applicable</span>
+                  </label>
+                </div>
+              </div>
+
+              {isGstApplicable ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor="gstNumber"
+                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    >
+                      GST Number (Optional)
+                    </label>
+                    <input
+                      id="gstNumber"
+                      type="text"
+                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                      {...register("expense.gstNumber", {
+                        setValueAs: (value) => toNullable(String(value ?? "")),
+                      })}
+                    />
+                  </div>
+
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor="cgstAmount"
+                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    >
+                      CGST Amount <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      id="cgstAmount"
+                      type="number"
+                      step="0.01"
+                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                      {...register("expense.cgstAmount", { valueAsNumber: true })}
+                    />
+                  </div>
+
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor="sgstAmount"
+                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    >
+                      SGST Amount <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      id="sgstAmount"
+                      type="number"
+                      step="0.01"
+                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                      {...register("expense.sgstAmount", { valueAsNumber: true })}
+                    />
+                  </div>
+
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor="igstAmount"
+                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    >
+                      IGST Amount <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      id="igstAmount"
+                      type="number"
+                      step="0.01"
+                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                      {...register("expense.igstAmount", { valueAsNumber: true })}
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="transactionDate"
+                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    Transaction Date <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    id="transactionDate"
+                    type="date"
+                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    {...register("expense.transactionDate")}
+                  />
+                </div>
+
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="basicAmount"
+                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    Basic Amount <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    id="basicAmount"
+                    type="number"
+                    step="0.01"
+                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    {...register("expense.basicAmount", { valueAsNumber: true })}
+                  />
+                  {errors.expense?.basicAmount ? (
+                    <p className="text-xs text-rose-600">{errors.expense.basicAmount.message}</p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="totalAmount"
+                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    Total Amount (Auto)
+                  </label>
+                  <input
+                    id="totalAmount"
+                    type="number"
+                    step="0.01"
+                    readOnly
+                    disabled
+                    className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
+                    value={calculatedTotalAmount.toFixed(2)}
+                  />
+                  {errors.expense?.totalAmount ? (
+                    <p className="text-xs text-rose-600">{errors.expense.totalAmount.message}</p>
+                  ) : null}
+                </div>
+
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="vendorName"
+                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    Vendor (Optional)
+                  </label>
+                  <input
+                    id="vendorName"
+                    type="text"
+                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    {...register("expense.vendorName", {
+                      setValueAs: (value) => toNullable(String(value ?? "")),
+                    })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="expenseRemarks"
+                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    Remarks (Optional)
+                  </label>
+                  <input
+                    id="expenseRemarks"
+                    type="text"
+                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    {...register("expense.remarks", {
+                      setValueAs: (value) => toNullable(String(value ?? "")),
+                    })}
+                  />
+                </div>
+
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="peopleInvolved"
+                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    People Involved (Optional)
+                  </label>
+                  <textarea
+                    id="peopleInvolved"
+                    rows={2}
+                    className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                    {...register("expense.peopleInvolved", {
+                      setValueAs: (value) => toNullable(String(value ?? "")),
+                    })}
+                  />
+                </div>
+              </div>
+            </section>
           ) : null}
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-1">
-              <label htmlFor="transactionDate" className="text-sm font-medium text-zinc-700">
-                Transaction Date <span className="text-rose-600">*</span>
-              </label>
-              <input
-                id="transactionDate"
-                type="date"
-                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                {...register("expense.transactionDate")}
-              />
-            </div>
+          {detailType === "advance" ? (
+            <section className="grid gap-3 rounded-xl border border-zinc-200 p-4 sm:p-5">
+              <h2 className="dashboard-font-display text-sm font-semibold tracking-[-0.01em] text-zinc-950 dark:text-zinc-50">
+                Petty Cash Request Details
+              </h2>
 
-            <div className="grid gap-1">
-              <label htmlFor="basicAmount" className="text-sm font-medium text-zinc-700">
-                Basic Amount <span className="text-rose-600">*</span>
-              </label>
-              <input
-                id="basicAmount"
-                type="number"
-                step="0.01"
-                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                {...register("expense.basicAmount", { valueAsNumber: true })}
-              />
-              {errors.expense?.basicAmount ? (
-                <p className="text-xs text-rose-600">{errors.expense.basicAmount.message}</p>
-              ) : null}
-            </div>
-          </div>
+              <input type="hidden" {...register("detailType")} value="advance" />
 
-          <div className="grid gap-1">
-            <label htmlFor="totalAmount" className="text-sm font-medium text-zinc-700">
-              Total Amount (Auto-calculated)
-            </label>
-            <input
-              id="totalAmount"
-              type="number"
-              step="0.01"
-              readOnly
-              disabled
-              className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700"
-              value={calculatedTotalAmount.toFixed(2)}
-            />
-            {errors.expense?.totalAmount ? (
-              <p className="text-xs text-rose-600">{errors.expense.totalAmount.message}</p>
-            ) : null}
-          </div>
+              <div className="grid gap-1">
+                <label
+                  htmlFor="advanceReceiptFile"
+                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                >
+                  Upload File (Optional)
+                </label>
+                <label
+                  htmlFor="advanceReceiptFile"
+                  className="flex min-h-16 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-4 py-2 text-center text-sm text-zinc-600"
+                >
+                  <span>
+                    {advanceSupportingFile
+                      ? advanceSupportingFile.name
+                      : "Drop file here or click to upload"}
+                  </span>
+                  <span className="text-xs text-zinc-500">PDF, JPG, PNG, WEBP. Max: 25MB.</span>
+                </label>
+                <input
+                  id="advanceReceiptFile"
+                  type="file"
+                  accept="application/pdf,image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  onChange={(event) => {
+                    const selectedFile = event.target.files?.[0] ?? null;
+                    setAdvanceSupportingFile(selectedFile);
+                    setValue("advance.receiptFileName", selectedFile ? selectedFile.name : null, {
+                      shouldDirty: true,
+                      shouldTouch: true,
+                      shouldValidate: true,
+                    });
+                  }}
+                />
+              </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-1">
-              <label htmlFor="vendorName" className="text-sm font-medium text-zinc-700">
-                Vendor (Optional)
-              </label>
-              <input
-                id="vendorName"
-                type="text"
-                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                {...register("expense.vendorName", {
-                  setValueAs: (value) => toNullable(String(value ?? "")),
-                })}
-              />
-            </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="requestedAmount"
+                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    Requested Amount (₹) <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    id="requestedAmount"
+                    type="number"
+                    step="0.01"
+                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    {...register("advance.requestedAmount", { valueAsNumber: true })}
+                  />
+                  {errors.advance?.requestedAmount ? (
+                    <p className="text-xs text-rose-600">
+                      {errors.advance.requestedAmount.message}
+                    </p>
+                  ) : null}
+                </div>
 
-            <div className="grid gap-1">
-              <label htmlFor="expenseRemarks" className="text-sm font-medium text-zinc-700">
-                Remarks (Optional)
-              </label>
-              <input
-                id="expenseRemarks"
-                type="text"
-                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                {...register("expense.remarks", {
-                  setValueAs: (value) => toNullable(String(value ?? "")),
-                })}
-              />
-            </div>
-          </div>
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="expectedUsageDate"
+                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    Expected Usage Date (Optional)
+                  </label>
+                  <input
+                    id="expectedUsageDate"
+                    type="date"
+                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    {...register("advance.expectedUsageDate", {
+                      setValueAs: (value) => toNullable(String(value ?? "")),
+                    })}
+                  />
+                  {errors.advance?.expectedUsageDate ? (
+                    <p className="text-xs text-rose-600">
+                      {errors.advance.expectedUsageDate.message}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
 
-          <div className="grid gap-1">
-            <label htmlFor="peopleInvolved" className="text-sm font-medium text-zinc-700">
-              People Involved (Optional)
-            </label>
-            <textarea
-              id="peopleInvolved"
-              rows={2}
-              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-              {...register("expense.peopleInvolved", {
-                setValueAs: (value) => toNullable(String(value ?? "")),
-              })}
-            />
-          </div>
-        </section>
-      ) : null}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="budgetMonth"
+                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    Budget Request Month <span className="text-rose-600">*</span>
+                  </label>
+                  <select
+                    id="budgetMonth"
+                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    {...register("advance.budgetMonth", {
+                      setValueAs: (value) => Number(value),
+                    })}
+                  >
+                    {MONTH_OPTIONS.map((month) => (
+                      <option key={month.value} value={month.value}>
+                        {month.label}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.advance?.budgetMonth ? (
+                    <p className="text-xs text-rose-600">{errors.advance.budgetMonth.message}</p>
+                  ) : null}
+                </div>
 
-      {detailType === "advance" ? (
-        <section className="grid gap-4 rounded-xl border border-zinc-200 p-4">
-          <h2 className="dashboard-font-display text-base font-semibold tracking-[-0.01em] text-zinc-950 dark:text-zinc-50">
-            Petty Cash Request Details
-          </h2>
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="budgetYear"
+                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    Budget Request Year <span className="text-rose-600">*</span>
+                  </label>
+                  <select
+                    id="budgetYear"
+                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    {...register("advance.budgetYear", {
+                      setValueAs: (value) => Number(value),
+                    })}
+                  >
+                    {Array.from({ length: 11 }, (_, index) => {
+                      const year = new Date().getFullYear() - 2 + index;
+                      return (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {errors.advance?.budgetYear ? (
+                    <p className="text-xs text-rose-600">{errors.advance.budgetYear.message}</p>
+                  ) : null}
+                </div>
+              </div>
 
-          <input type="hidden" {...register("detailType")} value="advance" />
-
-          <div className="grid gap-1">
-            <label htmlFor="advanceReceiptFile" className="text-sm font-medium text-zinc-700">
-              Upload File (Optional - attach any supporting document/image)
-            </label>
-            <label
-              htmlFor="advanceReceiptFile"
-              className="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-4 py-3 text-center text-sm text-zinc-600"
-            >
-              <span>
-                {advanceSupportingFile
-                  ? advanceSupportingFile.name
-                  : "Drop file here or click to upload"}
-              </span>
-              <span className="text-xs text-zinc-500">
-                Allowed: PDF, JPG, PNG, WEBP. Max size: 25MB.
-              </span>
-            </label>
-            <input
-              id="advanceReceiptFile"
-              type="file"
-              accept="application/pdf,image/jpeg,image/png,image/webp"
-              className="sr-only"
-              onChange={(event) => {
-                const selectedFile = event.target.files?.[0] ?? null;
-                setAdvanceSupportingFile(selectedFile);
-                setValue("advance.receiptFileName", selectedFile ? selectedFile.name : null, {
-                  shouldDirty: true,
-                  shouldTouch: true,
-                  shouldValidate: true,
-                });
-              }}
-            />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-1">
-              <label htmlFor="requestedAmount" className="text-sm font-medium text-zinc-700">
-                Requested Amount (₹) <span className="text-rose-600">*</span>
-              </label>
-              <input
-                id="requestedAmount"
-                type="number"
-                step="0.01"
-                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                {...register("advance.requestedAmount", { valueAsNumber: true })}
-              />
-              {errors.advance?.requestedAmount ? (
-                <p className="text-xs text-rose-600">{errors.advance.requestedAmount.message}</p>
-              ) : null}
-            </div>
-
-            <div className="grid gap-1">
-              <label htmlFor="expectedUsageDate" className="text-sm font-medium text-zinc-700">
-                Expected Usage Date (Optional)
-              </label>
-              <input
-                id="expectedUsageDate"
-                type="date"
-                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                {...register("advance.expectedUsageDate", {
-                  setValueAs: (value) => toNullable(String(value ?? "")),
-                })}
-              />
-              {errors.advance?.expectedUsageDate ? (
-                <p className="text-xs text-rose-600">{errors.advance.expectedUsageDate.message}</p>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-1">
-              <label htmlFor="budgetMonth" className="text-sm font-medium text-zinc-700">
-                Budget Request Month <span className="text-rose-600">*</span>
-              </label>
-              <select
-                id="budgetMonth"
-                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                {...register("advance.budgetMonth", {
-                  setValueAs: (value) => Number(value),
-                })}
-              >
-                {MONTH_OPTIONS.map((month) => (
-                  <option key={month.value} value={month.value}>
-                    {month.label}
-                  </option>
-                ))}
-              </select>
-              {errors.advance?.budgetMonth ? (
-                <p className="text-xs text-rose-600">{errors.advance.budgetMonth.message}</p>
-              ) : null}
-            </div>
-
-            <div className="grid gap-1">
-              <label htmlFor="budgetYear" className="text-sm font-medium text-zinc-700">
-                Budget Request Year <span className="text-rose-600">*</span>
-              </label>
-              <select
-                id="budgetYear"
-                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                {...register("advance.budgetYear", {
-                  setValueAs: (value) => Number(value),
-                })}
-              >
-                {Array.from({ length: 11 }, (_, index) => {
-                  const year = new Date().getFullYear() - 2 + index;
-                  return (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  );
-                })}
-              </select>
-              {errors.advance?.budgetYear ? (
-                <p className="text-xs text-rose-600">{errors.advance.budgetYear.message}</p>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="grid gap-1">
-            <label htmlFor="purpose" className="text-sm font-medium text-zinc-700">
-              Purpose/Reason <span className="text-rose-600">*</span>
-            </label>
-            <textarea
-              id="purpose"
-              rows={3}
-              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-              {...register("advance.purpose")}
-            />
-            {errors.advance?.purpose ? (
-              <p className="text-xs text-rose-600">{errors.advance.purpose.message}</p>
-            ) : null}
-          </div>
-        </section>
-      ) : null}
+              <div className="grid gap-1">
+                <label
+                  htmlFor="purpose"
+                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                >
+                  Purpose/Reason <span className="text-rose-600">*</span>
+                </label>
+                <textarea
+                  id="purpose"
+                  rows={2}
+                  className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                  {...register("advance.purpose")}
+                />
+                {errors.advance?.purpose ? (
+                  <p className="text-xs text-rose-600">{errors.advance.purpose.message}</p>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
+        </div>
+        {/* end right column */}
+      </div>
+      {/* end 2-column grid */}
 
       {fileError ? (
         <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
@@ -1301,7 +1449,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       <button
         type="submit"
         disabled={isSubmitting}
-        className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition-all duration-200 hover:bg-indigo-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 dark:shadow-indigo-500/10"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition-all duration-200 hover:bg-indigo-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 dark:shadow-indigo-500/10"
       >
         {isSubmitting ? (
           <>
