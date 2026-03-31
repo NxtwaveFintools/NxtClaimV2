@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { CirclePlus } from "lucide-react";
+import { AppShellHeader } from "@/components/app-shell-header";
 import { BackButton } from "@/components/ui/back-button";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { ROUTES } from "@/core/config/route-registry";
 import { DB_CLAIM_STATUSES, type DbClaimStatus } from "@/core/constants/statuses";
 import type {
@@ -38,6 +40,16 @@ import { FinanceApprovalsBulkTable } from "@/modules/claims/ui/finance-approvals
 import { MyClaimsPaginationControls } from "@/modules/claims/ui/my-claims-pagination-controls";
 import { ApprovalsAuditModeDialog } from "@/modules/claims/ui/approvals-quick-view-sheet";
 import { ClaimSemanticDownloadButton } from "@/modules/claims/ui/claim-semantic-download-button";
+
+const pageBodyFont = Inter({
+  subsets: ["latin"],
+  variable: "--font-dashboard-inter",
+});
+
+const pageDisplayFont = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-dashboard-display",
+});
 
 const PAGE_SIZE = 10;
 type SearchParamsValue = string | string[] | undefined;
@@ -232,11 +244,11 @@ function MyClaimsShellSkeleton() {
         <FilterBarSkeleton />
       </div>
 
-      <section className="min-h-[600px] overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+      <section className="min-h-[600px] overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/92 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
+        <div className="border-b border-zinc-200/80 px-5 py-3.5 dark:border-zinc-800">
           <div className="shimmer-sweep h-4 w-40 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
         </div>
-        <div className="space-y-3 p-4">
+        <div className="space-y-3 p-5">
           {Array.from({ length: 11 }).map((_, index) => (
             <div
               key={`table-shell-row-${index}`}
@@ -374,20 +386,20 @@ function resolveApprovalActionMode(params: {
 
 function TableHeader({ showActions }: { showActions: boolean }) {
   return (
-    <thead className="bg-zinc-50 text-xs uppercase tracking-[0.12em] text-zinc-600 dark:bg-zinc-900/50 dark:text-zinc-400">
+    <thead className="bg-zinc-50/80 text-[11px] uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
       <tr>
-        <th className="whitespace-nowrap px-4 py-3 font-semibold">CLAIM ID</th>
-        <th className="whitespace-nowrap px-4 py-3 font-semibold">EMPLOYEE ID</th>
-        <th className="whitespace-nowrap px-4 py-3 font-semibold">EMPLOYEE NAME</th>
-        <th className="whitespace-nowrap px-4 py-3 font-semibold">DEPARTMENT</th>
-        <th className="whitespace-nowrap px-4 py-3 font-semibold">TYPE OF CLAIM</th>
-        <th className="whitespace-nowrap px-4 py-3 font-semibold">AMOUNT</th>
-        <th className="whitespace-nowrap px-4 py-3 font-semibold">STATUS</th>
-        <th className="whitespace-nowrap px-4 py-3 font-semibold">SUBMITTED ON</th>
-        <th className="whitespace-nowrap px-4 py-3 font-semibold">HOD ACTION DATE</th>
-        <th className="whitespace-nowrap px-4 py-3 font-semibold">FINANCE ACTION DATE</th>
+        <th className="whitespace-nowrap px-5 py-3.5 font-semibold">CLAIM ID</th>
+        <th className="whitespace-nowrap px-5 py-3.5 font-semibold">EMPLOYEE ID</th>
+        <th className="whitespace-nowrap px-5 py-3.5 font-semibold">EMPLOYEE NAME</th>
+        <th className="whitespace-nowrap px-5 py-3.5 font-semibold">DEPARTMENT</th>
+        <th className="whitespace-nowrap px-5 py-3.5 font-semibold">TYPE OF CLAIM</th>
+        <th className="whitespace-nowrap px-5 py-3.5 font-semibold">AMOUNT</th>
+        <th className="whitespace-nowrap px-5 py-3.5 font-semibold">STATUS</th>
+        <th className="whitespace-nowrap px-5 py-3.5 font-semibold">SUBMITTED ON</th>
+        <th className="whitespace-nowrap px-5 py-3.5 font-semibold">HOD ACTION DATE</th>
+        <th className="whitespace-nowrap px-5 py-3.5 font-semibold">FINANCE ACTION DATE</th>
         {showActions ? (
-          <th className="whitespace-nowrap px-4 py-3 text-right font-semibold">Actions</th>
+          <th className="whitespace-nowrap px-5 py-3.5 text-right font-semibold">Actions</th>
         ) : null}
       </tr>
     </thead>
@@ -436,7 +448,7 @@ async function ClaimsCommandCenterTable({
       ]);
 
       return (
-        <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900">
+        <section className="overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/92 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
           {approvalsResult.errorMessage ? (
             <div className="px-4 py-6">
               <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
@@ -523,11 +535,11 @@ async function ClaimsCommandCenterTable({
     };
 
     return (
-      <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+      <section className="overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/92 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
+        <div className="border-b border-zinc-200/80 px-5 py-3.5 dark:border-zinc-800">
           <p
             aria-hidden="true"
-            className="text-sm font-semibold uppercase tracking-[0.14em] text-zinc-700 dark:text-zinc-300"
+            className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400"
           >
             Approvals History
           </p>
@@ -550,10 +562,10 @@ async function ClaimsCommandCenterTable({
           </div>
         ) : (
           <>
-            <div className="w-full overflow-x-auto">
-              <table className="min-w-[1720px] divide-y divide-zinc-200 text-left text-sm dark:divide-zinc-800">
+            <div className="nxt-scroll w-full overflow-x-auto">
+              <table className="min-w-[1720px] divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
                 <TableHeader showActions />
-                <tbody className="divide-y divide-zinc-100 bg-white text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+                <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
                   {rows.map((claim) => {
                     const evidenceSignedUrls = evidenceSignedUrlByClaimId[claim.id] ?? {
                       expenseReceiptSignedUrl: null,
@@ -809,9 +821,9 @@ async function ClaimsCommandCenterTable({
   );
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-zinc-700 dark:text-zinc-300">
+    <section className="overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/92 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
+      <div className="border-b border-zinc-200/80 px-5 py-3.5 dark:border-zinc-800">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
           My Submissions
         </h2>
       </div>
@@ -831,10 +843,10 @@ async function ClaimsCommandCenterTable({
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto">
-            <table className="min-w-[1500px] divide-y divide-zinc-200 text-left text-sm dark:divide-zinc-800">
+          <div className="nxt-scroll overflow-x-auto">
+            <table className="min-w-[1500px] divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
               <TableHeader showActions />
-              <tbody className="divide-y divide-zinc-100 bg-white text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+              <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
                 {rows.map((claim) => {
                   const detail = submissionDetailsByClaimId[claim.id];
                   const evidenceSignedUrls = submissionEvidenceSignedUrlByClaimId[claim.id] ?? {
@@ -957,18 +969,18 @@ async function ClaimsCommandCenterTable({
 
 function FilterBarSkeleton() {
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="grid gap-3 md:grid-cols-5">
+    <section className="rounded-[28px] border border-zinc-200/80 bg-white/92 p-5 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
+      <div className="grid gap-4 md:grid-cols-5">
         {Array.from({ length: 5 }).map((_, index) => (
-          <div key={`filter-placeholder-${index}`} className="space-y-1">
+          <div key={`filter-placeholder-${index}`} className="space-y-2">
             <div className="shimmer-sweep h-3 w-20 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-            <div className="shimmer-sweep h-9 w-full rounded-lg bg-zinc-200 dark:bg-gray-800/40" />
+            <div className="shimmer-sweep h-10 w-full rounded-xl bg-zinc-200 dark:bg-gray-800/40" />
           </div>
         ))}
       </div>
-      <div className="mt-3 flex items-center gap-2">
-        <div className="shimmer-sweep h-9 w-24 rounded-lg bg-zinc-200 dark:bg-gray-800/40" />
-        <div className="shimmer-sweep h-9 w-20 rounded-lg bg-zinc-200 dark:bg-gray-800/40" />
+      <div className="mt-4 flex items-center gap-3">
+        <div className="shimmer-sweep h-10 w-28 rounded-xl bg-zinc-200 dark:bg-gray-800/40" />
+        <div className="shimmer-sweep h-10 w-24 rounded-xl bg-zinc-200 dark:bg-gray-800/40" />
       </div>
     </section>
   );
@@ -1098,11 +1110,16 @@ export default async function MyClaimsDashboardPage({
 }: {
   searchParams: Promise<Record<string, SearchParamsValue>>;
 }) {
-  const [resolvedSearchParams, isAdminUser, isDeptViewer] = await Promise.all([
+  const authRepository = new SupabaseServerAuthRepository();
+
+  const [resolvedSearchParams, isAdminUser, isDeptViewer, currentUserResult] = await Promise.all([
     searchParams,
     isAdmin(),
     isDepartmentViewer(),
+    authRepository.getCurrentUser(),
   ]);
+
+  const currentEmail = currentUserResult.user?.email ?? null;
 
   const requestedView = firstParamValue(resolvedSearchParams?.view);
   const activeView: ViewMode =
@@ -1120,92 +1137,109 @@ export default async function MyClaimsDashboardPage({
   const departmentHref = buildViewHref(resolvedSearchParams, "department");
 
   return (
-    <div className="min-h-screen bg-zinc-50 px-6 py-8 dark:bg-[#0B0F1A]">
-      <main className="mx-auto max-w-7xl space-y-5">
-        <BackButton className="w-fit" />
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="text-3xl font-semibold text-zinc-900 dark:text-zinc-100">My Claims</h1>
-              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                Command Center for submissions and approvals
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              {isAdminUser ? (
+    <div
+      className={`${pageBodyFont.variable} ${pageDisplayFont.variable} dashboard-font-body nxt-page-bg`}
+    >
+      <AppShellHeader currentEmail={currentEmail} />
+
+      <div className="relative z-0 mx-auto w-full max-w-[1600px] px-4 pb-16 pt-6 sm:px-6 lg:px-8">
+        <main className="space-y-5">
+          {/* Back button — outside the card, with indigo color */}
+          <BackButton className="w-fit" />
+
+          {/* Header card */}
+          <section className="overflow-hidden rounded-[28px] border border-zinc-200/70 bg-white/88 shadow-[0_24px_70px_-30px_rgba(15,23,42,0.14),0_8px_24px_-8px_rgba(99,102,241,0.05)] backdrop-blur-lg transition-colors dark:border-zinc-800/80 dark:bg-zinc-900/88 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.40)]">
+            {/* Gradient top stripe */}
+            <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-sky-500" />
+
+            <div className="p-6 sm:p-8">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h1 className="dashboard-font-display text-2xl font-bold tracking-[-0.03em] text-zinc-950 sm:text-3xl dark:text-zinc-50">
+                    My Claims
+                  </h1>
+                  <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
+                    Command Center for submissions and approvals
+                  </p>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  {isAdminUser ? (
+                    <Link
+                      href={ROUTES.admin.settings}
+                      className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white/80 px-5 text-sm font-semibold text-zinc-700 backdrop-blur-sm transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/80 dark:text-zinc-200 dark:hover:bg-zinc-900"
+                    >
+                      System Settings
+                    </Link>
+                  ) : null}
+                  <Link
+                    href={ROUTES.claims.new}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-colors hover:bg-indigo-500 active:scale-[0.98]"
+                  >
+                    <CirclePlus className="h-4 w-4" aria-hidden="true" />
+                    New Claim
+                  </Link>
+                </div>
+              </div>
+
+              {/* Tab bar */}
+              <div className="mt-6 inline-flex flex-wrap rounded-2xl border border-zinc-200/80 bg-zinc-50/80 p-1 dark:border-zinc-700/60 dark:bg-zinc-900/60">
                 <Link
-                  href={ROUTES.admin.settings}
-                  className="inline-flex items-center rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 transition-all duration-200 hover:bg-zinc-50 active:scale-[0.98] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  href={submissionsHref}
+                  className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                    activeView === "submissions"
+                      ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
+                      : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                  }`}
                 >
-                  System Settings
+                  My Submissions
                 </Link>
-              ) : null}
-              <Link
-                href={ROUTES.claims.new}
-                className="inline-flex items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:bg-indigo-500 active:scale-[0.98]"
-              >
-                + New Claim
-              </Link>
+                <Link
+                  href={approvalsHref}
+                  className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                    activeView === "approvals"
+                      ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
+                      : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                  }`}
+                >
+                  Approvals History
+                </Link>
+                {isAdminUser ? (
+                  <Link
+                    href={adminHref}
+                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                      activeView === "admin"
+                        ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
+                        : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                    }`}
+                  >
+                    Admin Overview
+                  </Link>
+                ) : null}
+                {isDeptViewer ? (
+                  <Link
+                    href={departmentHref}
+                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                      activeView === "department"
+                        ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
+                        : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                    }`}
+                  >
+                    Department Overview
+                  </Link>
+                ) : null}
+              </div>
             </div>
-          </div>
+          </section>
 
-          <div className="mt-4 inline-flex flex-wrap rounded-xl border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-700 dark:bg-zinc-900/60">
-            <Link
-              href={submissionsHref}
-              className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                activeView === "submissions"
-                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                  : "text-zinc-700 hover:bg-zinc-200/70 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              }`}
-            >
-              My Submissions
-            </Link>
-            <Link
-              href={approvalsHref}
-              className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                activeView === "approvals"
-                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                  : "text-zinc-700 hover:bg-zinc-200/70 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              }`}
-            >
-              Approvals History
-            </Link>
-            {isAdminUser ? (
-              <Link
-                href={adminHref}
-                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                  activeView === "admin"
-                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                    : "text-zinc-700 hover:bg-zinc-200/70 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                }`}
-              >
-                Admin Overview
-              </Link>
-            ) : null}
-            {isDeptViewer ? (
-              <Link
-                href={departmentHref}
-                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                  activeView === "department"
-                    ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                    : "text-zinc-700 hover:bg-zinc-200/70 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                }`}
-              >
-                Department Overview
-              </Link>
-            ) : null}
-          </div>
-        </section>
-
-        <Suspense fallback={<MyClaimsShellSkeleton />}>
-          <MyClaimsDashboardPageContent
-            searchParams={resolvedSearchParams}
-            isAdminUser={isAdminUser}
-            isDeptViewer={isDeptViewer}
-          />
-        </Suspense>
-      </main>
+          <Suspense fallback={<MyClaimsShellSkeleton />}>
+            <MyClaimsDashboardPageContent
+              searchParams={resolvedSearchParams}
+              isAdminUser={isAdminUser}
+              isDeptViewer={isDeptViewer}
+            />
+          </Suspense>
+        </main>
+      </div>
     </div>
   );
 }

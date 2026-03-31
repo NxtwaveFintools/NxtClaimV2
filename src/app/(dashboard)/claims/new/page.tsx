@@ -1,51 +1,73 @@
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { getClaimFormHydrationAction } from "@/modules/claims/actions";
+import { AppShellHeader } from "@/components/app-shell-header";
 import { BackButton } from "@/components/ui/back-button";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { NewClaimFormClient } from "@/modules/claims/ui/new-claim-form-client";
 import { ROUTES } from "@/core/config/route-registry";
 
+const pageBodyFont = Inter({
+  subsets: ["latin"],
+  variable: "--font-dashboard-inter",
+});
+
+const pageDisplayFont = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-dashboard-display",
+});
+
 export default async function NewClaimPage() {
   const hydrationResult = await getClaimFormHydrationAction();
+  const currentEmail = hydrationResult.data?.currentUser.email;
 
   return (
-    <div className="min-h-screen bg-zinc-50 px-6 py-8 dark:bg-[#0B0F1A]">
-      <main className="mx-auto max-w-4xl rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900">
-        <BackButton className="mb-3" fallbackHref={ROUTES.claims.myClaims} />
-        <div className="flex flex-wrap items-start justify-between gap-3">
+    <div
+      className={`${pageBodyFont.variable} ${pageDisplayFont.variable} dashboard-font-body nxt-page-bg`}
+    >
+      {/* ── Navbar ── */}
+      <AppShellHeader currentEmail={currentEmail} />
+
+      {/* ── Page content — full width ── */}
+      <div className="relative z-0 mx-auto w-full max-w-[1600px] px-4 pb-16 pt-6 sm:px-6 lg:px-10">
+        {/* ── Back button — outside the card ── */}
+        <BackButton className="mb-5" fallbackHref={ROUTES.claims.myClaims} />
+
+        {/* ── Page header ── */}
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600 dark:text-indigo-400">
+            <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-indigo-600 dark:text-indigo-400">
               NxtClaim V2
             </p>
-            <h1 className="mt-2 text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
+            <h1 className="dashboard-font-display mt-2 text-3xl font-bold tracking-[-0.03em] text-zinc-950 sm:text-4xl dark:text-zinc-50">
               New Claim
             </h1>
-            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
               Submit one claim for one transaction. Draft saving is disabled.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            {hydrationResult.data ? (
-              <span className="inline-flex max-w-[220px] items-center rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
-                {hydrationResult.data.currentUser.email}
-              </span>
-            ) : null}
-            <ThemeToggle />
-          </div>
         </div>
 
+        {/* ── Error state ── */}
         {hydrationResult.errorMessage || !hydrationResult.data ? (
-          <p className="mt-6 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
-            Unable to load claim form data. {hydrationResult.errorMessage ?? "Unknown error."}
-          </p>
+          <div className="overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/90 p-8 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-900/90">
+            <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
+              Unable to load claim form data. {hydrationResult.errorMessage ?? "Unknown error."}
+            </p>
+          </div>
         ) : (
-          <div className="mt-6">
-            <NewClaimFormClient
-              currentUser={hydrationResult.data.currentUser}
-              options={hydrationResult.data.options}
-            />
+          /* ── Form card — full-width ── */
+          <div className="overflow-hidden rounded-[28px] border border-zinc-200/70 bg-white/88 shadow-[0_32px_80px_-24px_rgba(15,23,42,0.16),0_8px_24px_-8px_rgba(99,102,241,0.06)] backdrop-blur-lg transition-all dark:border-zinc-800/80 dark:bg-zinc-900/88 dark:shadow-[0_32px_80px_-24px_rgba(0,0,0,0.40)]">
+            {/* Coloured top accent stripe */}
+            <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-sky-500" />
+
+            <div className="p-6 sm:p-8 lg:p-10">
+              <NewClaimFormClient
+                currentUser={hydrationResult.data.currentUser}
+                options={hydrationResult.data.options}
+              />
+            </div>
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }

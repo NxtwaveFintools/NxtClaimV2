@@ -97,7 +97,7 @@ export function MyClaimsPaginationControls({
 
   return (
     <div
-      className={`flex items-center justify-end gap-2 border-t border-zinc-200 px-4 py-3 transition-opacity dark:border-zinc-800 ${
+      className={`flex items-center justify-end gap-2.5 border-t border-zinc-200/80 px-5 py-3.5 transition-opacity dark:border-zinc-800 ${
         isPending ? "opacity-80" : "opacity-100"
       }`}
     >
@@ -133,12 +133,12 @@ export function MyClaimsPaginationControls({
             navigateTo(previousHref);
           }}
           disabled={isPending}
-          className="inline-flex rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-700 transition-all duration-200 hover:bg-zinc-50 active:scale-[0.98] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          className="inline-flex rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 transition-all duration-200 hover:bg-zinc-50 active:scale-[0.98] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >
           Previous
         </button>
       ) : (
-        <span className="inline-flex cursor-not-allowed rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-400 opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-500">
+        <span className="inline-flex cursor-not-allowed rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-semibold text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-600">
           Previous
         </span>
       )}
@@ -149,12 +149,12 @@ export function MyClaimsPaginationControls({
             navigateTo(nextHref);
           }}
           disabled={isPending}
-          className="inline-flex rounded-lg bg-zinc-900 px-3 py-2 text-sm font-semibold text-white transition-all duration-200 hover:bg-zinc-700 active:scale-[0.98] dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+          className="inline-flex rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-indigo-500/20 transition-all duration-200 hover:bg-indigo-500 active:scale-[0.98] dark:shadow-indigo-500/10"
         >
           Next
         </button>
       ) : (
-        <span className="inline-flex cursor-not-allowed rounded-lg bg-zinc-900 px-3 py-2 text-sm font-semibold text-white opacity-50 dark:bg-zinc-100 dark:text-zinc-900">
+        <span className="inline-flex cursor-not-allowed rounded-xl bg-indigo-600/50 px-4 py-2 text-sm font-semibold text-white/60 dark:bg-indigo-500/40">
           Next
         </span>
       )}
