@@ -595,15 +595,17 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
   return (
     <form
-      className="grid gap-5 text-zinc-900 transition-colors dark:text-zinc-100 [&_section]:rounded-xl [&_section]:border [&_section]:border-zinc-200 [&_section]:bg-white [&_section]:p-4 dark:[&_section]:border-zinc-800 dark:[&_section]:bg-zinc-900 [&_h2]:text-zinc-900 dark:[&_h2]:text-zinc-100 [&_label]:text-zinc-700 dark:[&_label]:text-zinc-300 [&_input:not([type='checkbox'])]:border-zinc-300 [&_input:not([type='checkbox'])]:bg-white [&_input:not([type='checkbox'])]:text-zinc-900 dark:[&_input:not([type='checkbox'])]:border-zinc-700 dark:[&_input:not([type='checkbox'])]:bg-zinc-900/70 dark:[&_input:not([type='checkbox'])]:text-zinc-100 [&_select]:border-zinc-300 [&_select]:bg-white [&_select]:text-zinc-900 dark:[&_select]:border-zinc-700 dark:[&_select]:bg-zinc-900/70 dark:[&_select]:text-zinc-100 [&_textarea]:border-zinc-300 [&_textarea]:bg-white [&_textarea]:text-zinc-900 dark:[&_textarea]:border-zinc-700 dark:[&_textarea]:bg-zinc-900/70 dark:[&_textarea]:text-zinc-100 [&_input[type='file']]:file:mr-3 [&_input[type='file']]:file:rounded-md [&_input[type='file']]:file:border-0 [&_input[type='file']]:file:bg-zinc-100 [&_input[type='file']]:file:px-3 [&_input[type='file']]:file:py-1 [&_input[type='file']]:file:text-zinc-700 dark:[&_input[type='file']]:file:bg-zinc-800 dark:[&_input[type='file']]:file:text-zinc-200"
+      className="grid gap-6 text-zinc-900 transition-colors dark:text-zinc-100 [&_section]:overflow-hidden [&_section]:rounded-2xl [&_section]:border [&_section]:border-zinc-200/80 [&_section]:bg-white/80 [&_section]:p-5 [&_section]:shadow-[0_4px_24px_-8px_rgba(15,23,42,0.06)] [&_section]:backdrop-blur-sm dark:[&_section]:border-zinc-800 dark:[&_section]:bg-zinc-900/80 dark:[&_section]:shadow-black/10 [&_h2]:text-zinc-900 dark:[&_h2]:text-zinc-100 [&_label]:text-zinc-700 dark:[&_label]:text-zinc-300 [&_input:not([type='checkbox'])]:nxt-input [&_input:not([type='checkbox'])]:border-zinc-300 [&_input:not([type='checkbox'])]:bg-white [&_input:not([type='checkbox'])]:text-zinc-900 dark:[&_input:not([type='checkbox'])]:border-zinc-700 dark:[&_input:not([type='checkbox'])]:bg-zinc-900/70 dark:[&_input:not([type='checkbox'])]:text-zinc-100 [&_select]:nxt-input [&_select]:border-zinc-300 [&_select]:bg-white [&_select]:text-zinc-900 dark:[&_select]:border-zinc-700 dark:[&_select]:bg-zinc-900/70 dark:[&_select]:text-zinc-100 [&_textarea]:nxt-input [&_textarea]:border-zinc-300 [&_textarea]:bg-white [&_textarea]:text-zinc-900 dark:[&_textarea]:border-zinc-700 dark:[&_textarea]:bg-zinc-900/70 dark:[&_textarea]:text-zinc-100 [&_input[type='file']]:file:mr-3 [&_input[type='file']]:file:rounded-lg [&_input[type='file']]:file:border-0 [&_input[type='file']]:file:bg-indigo-50 [&_input[type='file']]:file:px-3 [&_input[type='file']]:file:py-1.5 [&_input[type='file']]:file:text-sm [&_input[type='file']]:file:font-medium [&_input[type='file']]:file:text-indigo-700 dark:[&_input[type='file']]:file:bg-indigo-950/40 dark:[&_input[type='file']]:file:text-indigo-300"
       onSubmit={handleFormSubmit}
     >
       <input type="hidden" {...register("employeeName")} />
       <input type="hidden" {...register("hodName")} />
       <input type="hidden" {...register("hodEmail")} />
 
-      <section className="grid gap-4 rounded-xl border border-zinc-200 p-4">
-        <h2 className="text-sm font-semibold text-zinc-900">Employee Details</h2>
+      <section className="grid gap-4 rounded-2xl border border-zinc-200/80 p-5">
+        <h2 className="dashboard-font-display text-base font-semibold tracking-[-0.01em] text-zinc-950 dark:text-zinc-50">
+          Employee Details
+        </h2>
 
         <div className="grid gap-1 sm:grid-cols-2 sm:gap-4">
           <div className="grid gap-1">
@@ -629,9 +631,11 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       <section className="grid gap-4 rounded-xl border border-zinc-200 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-zinc-900">Submission Context</h2>
+            <h2 className="dashboard-font-display text-base font-semibold tracking-[-0.01em] text-zinc-950 dark:text-zinc-50">
+              Submission Context
+            </h2>
             {hydrated && wasAutoFilled ? (
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 dark:border-indigo-700/40 dark:bg-indigo-950/30 dark:text-indigo-300">
                 <Sparkles className="h-3 w-3" />
                 Auto-filled from previous submission
               </span>
@@ -641,7 +645,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
             <button
               type="button"
               onClick={clearDefaults}
-              className="text-xs text-muted-foreground underline-offset-2 hover:text-zinc-700 hover:underline dark:hover:text-zinc-300"
+              className="text-xs font-medium text-indigo-600 underline-offset-2 hover:text-indigo-500 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
             >
               Clear Defaults
             </button>
@@ -800,7 +804,9 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       {detailType === "expense" ? (
         <section className="grid gap-4 rounded-xl border border-zinc-200 p-4">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold text-zinc-900">Expense Details</h2>
+            <h2 className="dashboard-font-display text-base font-semibold tracking-[-0.01em] text-zinc-950 dark:text-zinc-50">
+              Expense Details
+            </h2>
             <button
               type="button"
               onClick={handleAutoFillWithAI}
@@ -1145,7 +1151,9 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
       {detailType === "advance" ? (
         <section className="grid gap-4 rounded-xl border border-zinc-200 p-4">
-          <h2 className="text-sm font-semibold text-zinc-900">Petty Cash Request Details</h2>
+          <h2 className="dashboard-font-display text-base font-semibold tracking-[-0.01em] text-zinc-950 dark:text-zinc-50">
+            Petty Cash Request Details
+          </h2>
 
           <input type="hidden" {...register("detailType")} value="advance" />
 
@@ -1293,7 +1301,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       <button
         type="submit"
         disabled={isSubmitting}
-        className="inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-zinc-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+        className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition-all duration-200 hover:bg-indigo-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 dark:shadow-indigo-500/10"
       >
         {isSubmitting ? (
           <>

@@ -40,6 +40,8 @@ body {
   font-family: var(--font-dashboard-display), var(--font-geist-sans), sans-serif;
 }
 
+/* ─── Shimmer skeleton animation ────────────────────────────────────────────── */
+
 @keyframes shimmer {
   0% {
     transform: translateX(-100%);
@@ -79,4 +81,149 @@ body {
     rgba(255, 255, 255, 0.04) 60%,
     transparent 100%
   );
+}
+
+/* ─── Premium form focus rings (indigo brand) ───────────────────────────────── */
+
+.nxt-input {
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease,
+    background-color 200ms ease;
+}
+
+.nxt-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow:
+    0 0 0 3px rgba(99, 102, 241, 0.15),
+    0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.dark .nxt-input:focus {
+  border-color: #818cf8;
+  box-shadow:
+    0 0 0 3px rgba(129, 140, 248, 0.12),
+    0 1px 2px 0 rgba(0, 0, 0, 0.15);
+}
+
+/* ─── Premium card elevation matching dashboard ─────────────────────────────── */
+
+.nxt-card {
+  border-radius: 24px;
+  border: 1px solid rgba(228, 228, 231, 0.8);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow:
+    0 20px 60px -20px rgba(15, 23, 42, 0.12),
+    0 4px 16px -4px rgba(15, 23, 42, 0.04);
+  backdrop-filter: blur(8px);
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease,
+    background-color 200ms ease;
+}
+
+.dark .nxt-card {
+  border-color: rgba(63, 63, 70, 0.7);
+  background: rgba(24, 24, 27, 0.92);
+  box-shadow:
+    0 20px 60px -20px rgba(0, 0, 0, 0.35),
+    0 4px 16px -4px rgba(0, 0, 0, 0.15);
+}
+
+/* ─── Ambient page background — world-class gradient ────────────────────────── */
+/*
+ * The ::before uses position: fixed so the gradient always fills
+ * the entire viewport regardless of page scroll height.
+ * The ::after adds a second layer of depth with a bottom vignette.
+ */
+
+.nxt-page-bg {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  background-color: #f6f7fb;
+}
+
+.dark .nxt-page-bg {
+  background-color: #060912;
+}
+
+/* Primary gradient layer — fills entire viewport (fixed) */
+.nxt-page-bg::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    /* Top-left indigo haze */
+    radial-gradient(ellipse 80% 55% at -5% -10%, rgba(165, 180, 252, 0.45) 0%, transparent 65%),
+    /* Top-right sky haze */
+    radial-gradient(ellipse 65% 45% at 105% 5%, rgba(147, 210, 250, 0.3) 0%, transparent 60%),
+    /* Center-left violet depth */
+    radial-gradient(ellipse 55% 40% at 10% 55%, rgba(196, 181, 253, 0.22) 0%, transparent 65%),
+    /* Bottom-right warm accent */
+    radial-gradient(ellipse 50% 35% at 90% 85%, rgba(165, 180, 252, 0.18) 0%, transparent 60%),
+    /* Subtle base linear wash */
+    linear-gradient(
+        160deg,
+        rgba(238, 242, 255, 0.7) 0%,
+        rgba(248, 250, 252, 0.4) 50%,
+        rgba(240, 244, 255, 0.5) 100%
+      );
+}
+
+.dark .nxt-page-bg::before {
+  background:
+    /* Top-left indigo aurora */
+    radial-gradient(ellipse 80% 55% at -5% -10%, rgba(67, 56, 202, 0.2) 0%, transparent 65%),
+    /* Top-right blue aurora */
+    radial-gradient(ellipse 65% 45% at 105% 5%, rgba(14, 116, 144, 0.12) 0%, transparent 60%),
+    /* Center-left violet depth */
+    radial-gradient(ellipse 55% 40% at 10% 55%, rgba(88, 28, 235, 0.1) 0%, transparent 65%),
+    /* Bottom accent */
+    radial-gradient(ellipse 50% 35% at 90% 85%, rgba(49, 46, 129, 0.12) 0%, transparent 60%),
+    /* Dark base */
+    linear-gradient(
+        160deg,
+        rgba(15, 10, 40, 0.95) 0%,
+        rgba(6, 9, 18, 0.98) 50%,
+        rgba(10, 5, 30, 0.95) 100%
+      );
+}
+
+/* Secondary layer — subtle noise texture feel via soft grain overlay */
+.nxt-page-bg::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    /* Thin bottom fade */ linear-gradient(
+    to top,
+    rgba(99, 102, 241, 0.04) 0%,
+    transparent 30%
+  );
+}
+
+/* ─── Smooth scrollbar styling ───────────────────────────────────────────────── */
+
+.nxt-scroll::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.nxt-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.nxt-scroll::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: rgba(161, 161, 170, 0.35);
+}
+
+.dark .nxt-scroll::-webkit-scrollbar-thumb {
+  background: rgba(113, 113, 122, 0.3);
 }
