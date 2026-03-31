@@ -1,5 +1,16 @@
 import Link from "next/link";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { notFound } from "next/navigation";
+import {
+  ArrowRight,
+  Building2,
+  Database,
+  ShieldCheck,
+  type LucideIcon,
+  UserCog,
+  Users,
+} from "lucide-react";
+import { AppShellHeader } from "@/components/app-shell-header";
 import { logger } from "@/core/infra/logging/logger";
 import { ROUTES } from "@/core/config/route-registry";
 import { isAdmin } from "@/modules/admin/server/is-admin";
@@ -15,8 +26,18 @@ import { UsersManagement } from "@/modules/admin/ui/settings/users-management";
 import { AdminsManagement } from "@/modules/admin/ui/settings/admins-management";
 import { DepartmentViewersManagement } from "@/modules/admin/ui/settings/department-viewers-management";
 import { BackButton } from "@/components/ui/back-button";
-import { ThemeToggle } from "@/components/theme-toggle";
 import type { MasterDataTableName } from "@/core/domain/admin/contracts";
+import { SupabaseServerAuthRepository } from "@/modules/auth/repositories/supabase-server-auth.repository";
+
+const pageBodyFont = Inter({
+  subsets: ["latin"],
+  variable: "--font-dashboard-inter",
+});
+
+const pageDisplayFont = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-dashboard-display",
+});
 
 export const metadata = {
   title: "System Settings | NxtClaim",
@@ -71,19 +92,109 @@ const MASTER_DATA_MAP: Record<string, { tableName: MasterDataTableName; displayN
   "payment-modes": { tableName: "master_payment_modes", displayName: "Payment Modes" },
 };
 
+const TAB_META: Record<
+  string,
+  {
+    eyebrow: string;
+    description: string;
+    spotlight: string;
+    icon: LucideIcon;
+  }
+> = {
+  categories: {
+    eyebrow: "Master Data",
+    description:
+      "Control the dropdown datasets that power claim capture without hardcoding values into the UI.",
+    spotlight: "Keep expense categories consistent for every new submission.",
+    icon: Database,
+  },
+  products: {
+    eyebrow: "Master Data",
+    description:
+      "Maintain the product list used across finance workflows with clean, audit-safe updates.",
+    spotlight: "Add, rename, or retire products without affecting historical claims.",
+    icon: Database,
+  },
+  locations: {
+    eyebrow: "Master Data",
+    description:
+      "Manage active office and travel locations available during claim submission and review.",
+    spotlight: "Keep location choices current while preserving old records.",
+    icon: Database,
+  },
+  "payment-modes": {
+    eyebrow: "Master Data",
+    description:
+      "Standardize how payment modes appear across the app so finance reporting stays clean.",
+    spotlight: "One source of truth for reimbursement and advance payment modes.",
+    icon: Database,
+  },
+  departments: {
+    eyebrow: "Routing",
+    description:
+      "Configure department ownership and approval routing so each claim lands with the correct approver.",
+    spotlight: "Department actor assignments control who becomes the permanent L1 approver.",
+    icon: Building2,
+  },
+  finance: {
+    eyebrow: "Routing",
+    description:
+      "Manage the finance approval roster and designate the primary approver for downstream processing.",
+    spotlight: "Primary finance approver selection determines who anchors the finance queue.",
+    icon: ShieldCheck,
+  },
+  viewers: {
+    eyebrow: "Routing",
+    description:
+      "Assign department viewers who need read-only oversight over claims without decision permissions.",
+    spotlight: "Useful for departmental POCs and operational visibility.",
+    icon: Users,
+  },
+  users: {
+    eyebrow: "Access",
+    description:
+      "Review users and align each account with the right organizational role for claim permissions.",
+    spotlight: "Role updates here shape access across approvals, dashboards, and admin controls.",
+    icon: Users,
+  },
+  admins: {
+    eyebrow: "Access",
+    description:
+      "Promote or remove administrators who can manage system settings and privileged workflows.",
+    spotlight: "Keep the admin surface intentionally small and well governed.",
+    icon: UserCog,
+  },
+};
+
 const PAGE_SIZE = 20;
+
+function getActiveGroup(tabKey: TabKey): SidebarGroup {
+  return (
+    SIDEBAR_GROUPS.find((group) => group.items.some((item) => item.key === tabKey)) ??
+    SIDEBAR_GROUPS[0]
+  );
+}
+
+function getActiveItem(group: SidebarGroup, tabKey: TabKey) {
+  return group.items.find((item) => item.key === tabKey) ?? group.items[0];
+}
 
 export default async function AdminSettingsPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, SearchParamsValue>>;
 }) {
-  const adminCheck = await isAdmin();
+  const authRepository = new SupabaseServerAuthRepository();
+  const [adminCheck, currentUserResult, resolvedParams] = await Promise.all([
+    isAdmin(),
+    authRepository.getCurrentUser(),
+    searchParams,
+  ]);
+
   if (!adminCheck) {
     notFound();
   }
 
-  const resolvedParams = await searchParams;
   const rawTab = firstParam(resolvedParams?.tab);
   const activeTab: TabKey = ALL_KEYS.includes(rawTab ?? "") ? (rawTab as TabKey) : "categories";
 
@@ -124,69 +235,139 @@ export default async function AdminSettingsPage({
     activeTab === "viewers" ? viewersService.getDepartmentViewers() : Promise.resolve(null),
   ]);
 
-  const allUsersResult =
-    activeTab === "finance" ? await adminsService.getAllUsers({ cursor: null, limit: 500 }) : null;
-
-  const allUsers = allUsersResult?.data?.data ?? [];
-
   function tabHref(key: string) {
     return `${ROUTES.admin.settings}?tab=${key}`;
   }
 
+  const activeGroup = getActiveGroup(activeTab);
+  const activeItem = getActiveItem(activeGroup, activeTab);
+  const activeMeta = TAB_META[activeTab] ?? TAB_META.categories;
+  const ActiveIcon = activeMeta.icon;
+  const currentEmail = currentUserResult.user?.email ?? null;
+
   return (
-    <div className="min-h-screen bg-zinc-50 px-4 py-8 dark:bg-[#0B0F1A] sm:px-6">
-      <main className="mx-auto max-w-6xl space-y-6">
-        {/* Top bar */}
-        <div className="flex items-center justify-between">
-          <BackButton fallbackHref={ROUTES.claims.myClaims} className="w-fit" />
-          <ThemeToggle />
-        </div>
+    <div
+      className={`${pageBodyFont.variable} ${pageDisplayFont.variable} dashboard-font-body nxt-page-bg`}
+    >
+      <AppShellHeader currentEmail={currentEmail} />
 
-        {/* Page header */}
-        <div>
-          <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">System Settings</h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Manage master data, departments, and system roles.
-          </p>
-        </div>
+      <main className="mx-auto max-w-400 px-4 py-6 sm:px-6 lg:px-8">
+        <section className="overflow-hidden rounded-4xl border border-zinc-200/80 bg-white/92 shadow-[0_24px_80px_-28px_rgba(15,23,42,0.18)] backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/30">
+          <div className="px-6 py-6">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-3">
+                <BackButton fallbackHref={ROUTES.dashboard} className="w-fit" />
+                <span className="inline-flex rounded-full border border-indigo-200/80 bg-indigo-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-indigo-700 dark:border-indigo-700/60 dark:bg-indigo-950/30 dark:text-indigo-300">
+                  Admin Control Center
+                </span>
+              </div>
 
-        {/* Sidebar + content layout */}
-        <div className="flex flex-col gap-6 md:flex-row md:gap-8">
-          {/* Left sidebar */}
-          <aside className="w-full flex-shrink-0 md:w-56">
-            <nav className="space-y-5" aria-label="Settings navigation">
-              {SIDEBAR_GROUPS.map((group) => (
-                <div key={group.groupLabel}>
-                  <p className="mb-1.5 px-2 text-[11px] font-semibold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
-                    {group.groupLabel}
-                  </p>
-                  <ul className="space-y-0.5">
-                    {group.items.map((item) => {
-                      const isActive = activeTab === item.key;
-                      return (
-                        <li key={item.key}>
-                          <Link
-                            href={tabHref(item.key)}
-                            className={`flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150 ${
-                              isActive
-                                ? "bg-indigo-600 text-white shadow-sm"
-                                : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-                            }`}
-                          >
-                            {item.label}
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ))}
-            </nav>
+              <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-400 dark:text-zinc-500">
+                {activeMeta.eyebrow}
+              </p>
+              <h1 className="dashboard-font-display mt-3 text-3xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50 sm:text-4xl">
+                System Settings
+              </h1>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                <span className="inline-flex rounded-full border border-zinc-200/80 bg-zinc-50 px-3 py-1.5 text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">
+                  {activeGroup.groupLabel}
+                </span>
+                <span className="inline-flex rounded-full border border-zinc-200/80 bg-zinc-50 px-3 py-1.5 text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">
+                  {activeItem.label}
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="mt-6 grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
+          <aside className="xl:sticky xl:top-24 xl:self-start">
+            <div className="overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/92 shadow-[0_20px_60px_-24px_rgba(15,23,42,0.14)] backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
+              <div className="border-b border-zinc-200/80 px-5 py-5 dark:border-zinc-800">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500">
+                  Workspace Sections
+                </p>
+              </div>
+
+              <nav className="space-y-6 p-4" aria-label="Settings navigation">
+                {SIDEBAR_GROUPS.map((group) => (
+                  <div key={group.groupLabel}>
+                    <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-500">
+                      {group.groupLabel}
+                    </p>
+
+                    <ul className="mt-2 space-y-2">
+                      {group.items.map((item) => {
+                        const isActive = activeTab === item.key;
+                        const ItemIcon = TAB_META[item.key]?.icon ?? Database;
+
+                        return (
+                          <li key={item.key}>
+                            <Link
+                              href={tabHref(item.key)}
+                              className={`group flex items-center gap-3 rounded-2xl border px-3 py-3 transition-all duration-200 ${
+                                isActive
+                                  ? "border-indigo-200/80 bg-indigo-50 text-indigo-900 shadow-sm dark:border-indigo-700/60 dark:bg-indigo-950/30 dark:text-indigo-100"
+                                  : "border-transparent text-zinc-600 hover:border-zinc-200/80 hover:bg-zinc-50/80 hover:text-zinc-900 dark:text-zinc-400 dark:hover:border-zinc-700 dark:hover:bg-zinc-950/60 dark:hover:text-zinc-100"
+                              }`}
+                            >
+                              <div
+                                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${
+                                  isActive
+                                    ? "border-indigo-200 bg-white text-indigo-600 dark:border-indigo-700/60 dark:bg-indigo-950/40 dark:text-indigo-300"
+                                    : "border-zinc-200/80 bg-white text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
+                                }`}
+                              >
+                                <ItemIcon className="h-4 w-4" aria-hidden="true" />
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-semibold">{item.label}</p>
+                                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                                  {TAB_META[item.key]?.eyebrow ?? group.groupLabel}
+                                </p>
+                              </div>
+
+                              <ArrowRight
+                                className={`h-4 w-4 shrink-0 transition-transform duration-200 ${
+                                  isActive
+                                    ? "text-indigo-500"
+                                    : "text-zinc-300 group-hover:translate-x-0.5 group-hover:text-zinc-500 dark:text-zinc-600 dark:group-hover:text-zinc-300"
+                                }`}
+                                aria-hidden="true"
+                              />
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </nav>
+            </div>
           </aside>
 
-          {/* Right content */}
-          <div className="min-w-0 flex-1">
-            <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <section className="min-w-0 overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/92 shadow-[0_20px_60px_-24px_rgba(15,23,42,0.14)] backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
+            <div className="border-b border-zinc-200/80 px-6 py-5 dark:border-zinc-800">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400 dark:text-zinc-500">
+                  {activeMeta.eyebrow}
+                </p>
+                <div className="mt-3 flex items-center gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-indigo-200/80 bg-linear-to-br from-indigo-50 to-sky-50 text-indigo-600 dark:border-indigo-700/60 dark:from-indigo-950/40 dark:to-sky-950/30 dark:text-indigo-300">
+                    <ActiveIcon className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="dashboard-font-display truncate text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50">
+                      {activeItem.label}
+                    </h2>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-4 py-4 sm:px-6 sm:py-6">
               {isMasterDataTab && masterDataResult ? (
                 masterDataResult.errorMessage ? (
                   <ErrorBox message={masterDataResult.errorMessage} />
@@ -243,15 +424,15 @@ export default async function AdminSettingsPage({
                 ) : (
                   <DepartmentViewersManagement
                     viewers={viewersResult.data}
-                    departments={(departmentsResult?.data ?? []).map((d) => ({
-                      id: d.id,
-                      name: d.name,
+                    departments={(departmentsResult?.data ?? []).map((department) => ({
+                      id: department.id,
+                      name: department.name,
                     }))}
                   />
                 )
               ) : null}
             </div>
-          </div>
+          </section>
         </div>
       </main>
     </div>
@@ -260,7 +441,7 @@ export default async function AdminSettingsPage({
 
 function ErrorBox({ message }: { message: string }) {
   return (
-    <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
+    <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-200">
       {message}
     </p>
   );

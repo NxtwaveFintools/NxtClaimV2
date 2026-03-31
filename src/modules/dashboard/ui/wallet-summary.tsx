@@ -67,21 +67,21 @@ export function WalletSummary({ summary }: WalletSummaryProps) {
   ];
 
   return (
-    <section className="overflow-hidden rounded-[30px] border border-zinc-200/80 bg-white/90 p-6 shadow-[0_24px_70px_-34px_rgba(15,23,42,0.34)] backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/90 dark:shadow-black/25">
+    <section className="overflow-hidden rounded-[30px] border border-zinc-200/80 bg-white/90 p-5 lg:p-6 shadow-[0_24px_70px_-34px_rgba(15,23,42,0.34)] backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/90 dark:shadow-black/25">
       <div>
-        <h2 className="dashboard-font-display text-2xl font-semibold tracking-[-0.03em] text-zinc-950 dark:text-zinc-50">
+        <h2 className="dashboard-font-display text-xl font-semibold tracking-[-0.03em] text-zinc-950 xl:text-2xl dark:text-zinc-50">
           Wallet Summary
         </h2>
       </div>
 
-      <div className="mt-6 grid gap-4 xl:grid-cols-3">
+      <div className="mt-4 grid gap-3 lg:grid-cols-3">
         {metrics.map((metric) => {
           const Icon = metric.icon;
 
           return (
             <article
               key={metric.label}
-              className={`relative overflow-hidden rounded-[26px] border p-5 shadow-sm shadow-zinc-900/5 ${metric.cardClassName}`}
+              className={`relative overflow-hidden rounded-[22px] border p-4 xl:p-5 shadow-sm shadow-zinc-900/5 ${metric.cardClassName}`}
             >
               <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/60 to-transparent dark:from-white/5 dark:to-transparent" />
               <div className="flex items-start justify-between gap-4">
@@ -92,7 +92,7 @@ export function WalletSummary({ summary }: WalletSummaryProps) {
                     {metric.label}
                   </p>
                   <p
-                    className={`dashboard-font-display mt-4 text-xl font-semibold tracking-[-0.02em] sm:text-2xl ${metric.valueClassName}`}
+                    className={`dashboard-font-display mt-3 text-lg font-semibold tracking-[-0.02em] xl:text-2xl ${metric.valueClassName}`}
                   >
                     {metric.value}
                   </p>
@@ -104,8 +104,10 @@ export function WalletSummary({ summary }: WalletSummaryProps) {
                 </span>
               </div>
 
-              <div className="relative mt-5 border-t border-white/50 pt-4 dark:border-white/10">
-                <p className={`text-sm leading-6 ${metric.supportingClassName}`}>
+              <div className="relative mt-3 border-t border-white/50 pt-3 dark:border-white/10">
+                <p
+                  className={`text-xs leading-5 xl:text-sm xl:leading-6 ${metric.supportingClassName}`}
+                >
                   {metric.supportingText}
                 </p>
               </div>

@@ -63,10 +63,10 @@ function DepartmentActorRow({ department }: { department: DepartmentWithActors }
   const founderIsPending = !department.founderUserId && Boolean(department.founderProvisionalEmail);
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="rounded-[26px] border border-zinc-200/80 bg-zinc-50/60 p-5 dark:border-zinc-800/80 dark:bg-zinc-950/40">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          <span className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
             {department.name}
           </span>
           {!department.isActive ? (
@@ -77,7 +77,7 @@ function DepartmentActorRow({ department }: { department: DepartmentWithActors }
         </div>
       </div>
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div>
           <label className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
             HOD
@@ -95,7 +95,7 @@ function DepartmentActorRow({ department }: { department: DepartmentWithActors }
               setSaved(false);
             }}
             placeholder="hod@company.com"
-            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 outline-none transition-colors focus:border-indigo-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:focus:border-indigo-500"
+            className="nxt-input w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
           />
         </div>
 
@@ -116,17 +116,17 @@ function DepartmentActorRow({ department }: { department: DepartmentWithActors }
               setSaved(false);
             }}
             placeholder="founder@company.com"
-            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm text-zinc-800 outline-none transition-colors focus:border-indigo-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:focus:border-indigo-500"
+            className="nxt-input w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
           />
         </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-3">
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
           type="button"
           disabled={isPending || !hodEmail || !founderEmail}
           onClick={handleSave}
-          className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isPending ? "Saving…" : "Save Actors"}
         </button>

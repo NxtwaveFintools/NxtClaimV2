@@ -19,16 +19,6 @@ function firstParamValue(value: SearchParamsValue): string | undefined {
   return value;
 }
 
-function toSearchParams(searchParams?: Record<string, SearchParamsValue>): URLSearchParams {
-  const params = new URLSearchParams();
-  if (!searchParams) return params;
-  for (const [key, value] of Object.entries(searchParams)) {
-    const normalized = firstParamValue(value);
-    if (normalized) params.set(key, normalized);
-  }
-  return params;
-}
-
 function normalizeStatusFilter(value: string | undefined): DbClaimStatus[] | undefined {
   if (!value) return undefined;
   const parsed = value
@@ -137,9 +127,9 @@ export function AdminClaimsSection({
       <Suspense fallback={null}>
         <AdminFilterBarWithData />
       </Suspense>
-      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-zinc-700 dark:text-zinc-300">
+      <div className="overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/92 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
+        <div className="border-b border-zinc-200/80 px-5 py-3.5 dark:border-zinc-800">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
             Admin Overview — All Claims
           </h2>
         </div>

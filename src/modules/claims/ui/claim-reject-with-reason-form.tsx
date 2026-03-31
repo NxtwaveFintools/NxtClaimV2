@@ -76,7 +76,7 @@ export function ClaimRejectWithReasonForm({
               setIsModalOpen(false);
             }}
           />
-          <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-lg -tranzinc-x-1/2 -tranzinc-y-1/2 rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 sm:p-6">
+          <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 sm:p-6">
             <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
               Reject Claim
             </h3>

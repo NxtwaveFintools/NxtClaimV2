@@ -1,8 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { ExternalLink } from "lucide-react";
+import { AppShellHeader } from "@/components/app-shell-header";
 import { BackButton } from "@/components/ui/back-button";
 import { ROUTES } from "@/core/config/route-registry";
 import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
@@ -29,6 +31,16 @@ import {
 import { isAdmin } from "@/modules/admin/server/is-admin";
 import { getViewerDepartmentIds } from "@/modules/claims/server/is-department-viewer";
 import { AdminSoftDeletePanel } from "@/modules/admin/ui/admin-soft-delete-panel";
+
+const pageBodyFont = Inter({
+  subsets: ["latin"],
+  variable: "--font-dashboard-inter",
+});
+
+const pageDisplayFont = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-dashboard-display",
+});
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -585,303 +597,352 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
     <>
       {isAdminUser ? <AdminSoftDeletePanel claimId={claim.id} /> : null}
       {isDeptViewerOnly ? (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 dark:border-slate-700 dark:bg-slate-800/50">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/50">
           <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
             View Only: Department POC
           </span>
         </div>
       ) : null}
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-              Claim
+
+      {/* ── Header Card ── */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+              Audit Monitoring
             </p>
-            <h1 className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+            <h1 className="mt-1 truncate text-lg font-bold text-slate-900 dark:text-slate-100">
               {claim.id}
             </h1>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-              Employee: {claim.submitter}
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              {claim.submitterName ?? claim.submitter} ({claim.submitterEmail ?? claim.submitter})
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <ClaimStatusBadge status={claim.status} />
-          </div>
+          <ClaimStatusBadge status={claim.status} />
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
-          <article className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-            <p className="text-xs uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+        {/* ── Key Info Grid ── */}
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+          <article className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Amount
+            </p>
+            <p className="mt-1 text-sm font-bold text-slate-900 dark:text-slate-100">
+              {formatAmount(claim.expense?.totalAmount ?? claim.advance?.requestedAmount ?? null)}
+            </p>
+          </article>
+          <article className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Category
+            </p>
+            <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+              {formatOptionalText(
+                claim.expense?.expenseCategoryName ?? (claim.advance ? "Advance" : null),
+              )}
+            </p>
+          </article>
+          <article className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
               Department
             </p>
-            <p className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">
+            <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
               {claim.departmentName ?? "Unknown"}
             </p>
           </article>
-          <article className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-            <p className="text-xs uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
-              Payment Mode
-            </p>
-            <p className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">
-              {claim.paymentModeName ?? "Unknown"}
-            </p>
-          </article>
-          <article className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-            <p className="text-xs uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+          <article className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
               Submitted On
             </p>
-            <p className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">
+            <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
               {formatDate(claim.submittedAt)}
             </p>
           </article>
         </div>
 
-        <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <article className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-            <p className="text-xs uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+        {/* ── Supplementary Info ── */}
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="px-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Payment Mode
+            </p>
+            <p className="mt-0.5 text-xs font-medium text-slate-700 dark:text-slate-300">
+              {claim.paymentModeName ?? "Unknown"}
+            </p>
+          </div>
+          <div className="px-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
               Employee ID
             </p>
-            <p className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">
+            <p className="mt-0.5 text-xs font-medium text-slate-700 dark:text-slate-300">
               {claim.employeeId}
             </p>
-          </article>
-          <article className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-            <p className="text-xs uppercase tracking-[0.1em] text-slate-500 dark:text-slate-400">
+          </div>
+          <div className="px-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
               Submission Type
             </p>
-            <p className="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">
+            <p className="mt-0.5 text-xs font-medium text-slate-700 dark:text-slate-300">
               {claim.submissionType}
             </p>
-          </article>
+          </div>
         </div>
+      </section>
 
-        {claim.status === DB_CLAIM_STATUSES[4] && claim.rejectionReason ? (
-          <section className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-700/40 dark:bg-rose-900/10">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-rose-700 dark:text-rose-300">
-              Rejection Reason
-            </h2>
-            <p className="mt-2 text-sm text-rose-700 dark:text-rose-200">{claim.rejectionReason}</p>
-          </section>
-        ) : null}
+      {claim.status === DB_CLAIM_STATUSES[4] && claim.rejectionReason ? (
+        <section className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 dark:border-rose-700/40 dark:bg-rose-900/10">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-rose-700 dark:text-rose-300">
+            Rejection Reason
+          </h2>
+          <p className="mt-1 text-sm text-rose-700 dark:text-rose-200">{claim.rejectionReason}</p>
+        </section>
+      ) : null}
 
-        {claim.expense ? (
-          <section className="mt-5 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-700 dark:text-slate-300">
-              Expense Detail
-            </h2>
-            <div className="mt-3 grid gap-3 md:grid-cols-3">
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Bill No:{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  {formatOptionalText(claim.expense.billNo, "-")}
-                </span>
+      {claim.expense ? (
+        <section className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-400">
+            Expense Detail
+          </h2>
+          <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2.5 md:grid-cols-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Bill No
               </p>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Vendor:{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  {formatOptionalText(claim.expense.vendorName)}
-                </span>
-              </p>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Expense Category:{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  {formatOptionalText(claim.expense.expenseCategoryName)}
-                </span>
-              </p>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Product:{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  {formatOptionalText(claim.expense.productName)}
-                </span>
-              </p>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Location:{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  {formatOptionalText(claim.expense.locationName)}
-                </span>
-              </p>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Transaction Date:{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  {formatDate(claim.expense.transactionDate)}
-                </span>
-              </p>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                GST Applicable:{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  {claim.expense.isGstApplicable === null
-                    ? "N/A"
-                    : claim.expense.isGstApplicable
-                      ? "Yes"
-                      : "No"}
-                </span>
-              </p>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                GST Number:{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  {formatOptionalText(claim.expense.gstNumber)}
-                </span>
-              </p>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Total Amount:{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  {formatAmount(claim.expense.totalAmount)}
-                </span>
-              </p>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Basic Amount:{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  {formatAmount(claim.expense.basicAmount)}
-                </span>
-              </p>
-              {shouldShowExpenseTaxBreakdown ? (
-                <>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    CGST Amount:{" "}
-                    <span className="font-medium text-slate-900 dark:text-slate-100">
-                      {formatAmount(claim.expense.cgstAmount)}
-                    </span>
-                  </p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    SGST Amount:{" "}
-                    <span className="font-medium text-slate-900 dark:text-slate-100">
-                      {formatAmount(claim.expense.sgstAmount)}
-                    </span>
-                  </p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    IGST Amount:{" "}
-                    <span className="font-medium text-slate-900 dark:text-slate-100">
-                      {formatAmount(claim.expense.igstAmount)}
-                    </span>
-                  </p>
-                </>
-              ) : null}
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Purpose:{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  {formatOptionalText(claim.expense.purpose)}
-                </span>
-              </p>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Remarks:{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  {formatOptionalText(claim.expense.remarks)}
-                </span>
-              </p>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                People Involved:{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  {formatOptionalText(claim.expense.peopleInvolved)}
-                </span>
+              <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                {formatOptionalText(claim.expense.billNo, "-")}
               </p>
             </div>
-          </section>
-        ) : null}
-
-        {claim.advance ? (
-          <section className="mt-5 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-slate-700 dark:text-slate-300">
-              Advance Detail
-            </h2>
-            <div className="mt-3 grid gap-3 md:grid-cols-2">
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Purpose:{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  {claim.advance.purpose}
-                </span>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Vendor
               </p>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Requested Amount:{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  {formatAmount(claim.advance.requestedAmount)}
-                </span>
-              </p>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Expected Usage Date:{" "}
-                <span className="font-medium text-slate-900 dark:text-slate-100">
-                  {formatDate(claim.advance.expectedUsageDate)}
-                </span>
+              <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                {formatOptionalText(claim.expense.vendorName)}
               </p>
             </div>
-          </section>
-        ) : null}
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Expense Category
+              </p>
+              <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                {formatOptionalText(claim.expense.expenseCategoryName)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Product
+              </p>
+              <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                {formatOptionalText(claim.expense.productName)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Location
+              </p>
+              <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                {formatOptionalText(claim.expense.locationName)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Transaction Date
+              </p>
+              <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                {formatDate(claim.expense.transactionDate)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                GST Applicable
+              </p>
+              <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                {claim.expense.isGstApplicable === null
+                  ? "N/A"
+                  : claim.expense.isGstApplicable
+                    ? "Yes"
+                    : "No"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                GST Number
+              </p>
+              <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                {formatOptionalText(claim.expense.gstNumber)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Basic Amount
+              </p>
+              <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                {formatAmount(claim.expense.basicAmount)}
+              </p>
+            </div>
+            {shouldShowExpenseTaxBreakdown ? (
+              <>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    CGST
+                  </p>
+                  <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                    {formatAmount(claim.expense.cgstAmount)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    SGST
+                  </p>
+                  <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                    {formatAmount(claim.expense.sgstAmount)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    IGST
+                  </p>
+                  <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                    {formatAmount(claim.expense.igstAmount)}
+                  </p>
+                </div>
+              </>
+            ) : null}
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">
+                Total Amount
+              </p>
+              <p className="mt-0.5 text-sm font-bold text-slate-900 dark:text-slate-100">
+                {formatAmount(claim.expense.totalAmount)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Purpose
+              </p>
+              <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                {formatOptionalText(claim.expense.purpose)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Remarks
+              </p>
+              <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                {formatOptionalText(claim.expense.remarks)}
+              </p>
+            </div>
+            <div className="col-span-2 md:col-span-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                People Involved
+              </p>
+              <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                {formatOptionalText(claim.expense.peopleInvolved)}
+              </p>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
-        {canTakeDecision ? (
-          <section className="mt-6 rounded-xl border border-amber-700/50 bg-amber-900/10 p-4">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-amber-300">
-              {canTakeL1Decision ? "L1 Decision" : "Finance Decision"}
-            </h2>
-            <p className="mt-2 text-sm text-amber-100/80">
-              {canTakeL1Decision
-                ? "Approve to route this claim to Finance. Reject to close this claim."
-                : canTakeFinanceExecutionDecision
-                  ? "Mark this claim as paid to close payout execution."
-                  : "Approve to move to payment processing, or reject to close this claim."}
-            </p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              {canTakeFinanceExecutionDecision ? (
+      {claim.advance ? (
+        <section className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-400">
+            Advance Detail
+          </h2>
+          <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2.5 md:grid-cols-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Purpose
+              </p>
+              <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                {claim.advance.purpose}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">
+                Requested Amount
+              </p>
+              <p className="mt-0.5 text-sm font-bold text-slate-900 dark:text-slate-100">
+                {formatAmount(claim.advance.requestedAmount)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Expected Usage Date
+              </p>
+              <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                {formatDate(claim.advance.expectedUsageDate)}
+              </p>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {canTakeDecision ? (
+        <section className="mt-4 rounded-xl border border-amber-700/50 bg-amber-900/10 p-4">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-300">
+            {canTakeL1Decision ? "L1 Decision" : "Finance Decision"}
+          </h2>
+          <p className="mt-1.5 text-xs text-amber-100/80">
+            {canTakeL1Decision
+              ? "Approve to route this claim to Finance. Reject to close this claim."
+              : canTakeFinanceExecutionDecision
+                ? "Mark this claim as paid to close payout execution."
+                : "Approve to move to payment processing, or reject to close this claim."}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            {canTakeFinanceExecutionDecision ? (
+              <ClaimDecisionActionForm
+                action={markPaidFromDetail}
+                decision="mark-paid"
+                loadingMessage="Marking payment as done..."
+                successMessage="Claim marked as paid."
+                errorMessage="Unable to mark payment as done."
+                redirectToHref={`${ROUTES.claims.myClaims}?view=approvals`}
+              />
+            ) : canTakeFinanceAuthorizationDecision ? (
+              <>
                 <ClaimDecisionActionForm
-                  action={markPaidFromDetail}
-                  decision="mark-paid"
-                  loadingMessage="Marking payment as done..."
-                  successMessage="Claim marked as paid."
-                  errorMessage="Unable to mark payment as done."
+                  action={approveFinanceFromDetail}
+                  decision="approve"
+                  loadingMessage="Approving finance step..."
+                  successMessage="Finance decision approved."
+                  errorMessage="Unable to approve finance step."
                   redirectToHref={`${ROUTES.claims.myClaims}?view=approvals`}
                 />
-              ) : canTakeFinanceAuthorizationDecision ? (
-                <>
-                  <ClaimDecisionActionForm
-                    action={approveFinanceFromDetail}
-                    decision="approve"
-                    loadingMessage="Approving finance step..."
-                    successMessage="Finance decision approved."
-                    errorMessage="Unable to approve finance step."
-                    redirectToHref={`${ROUTES.claims.myClaims}?view=approvals`}
-                  />
-                  <ClaimRejectWithReasonForm
-                    action={rejectFinanceFromDetail}
-                    redirectToHref={`${ROUTES.claims.myClaims}?view=approvals`}
-                  />
-                </>
-              ) : (
-                <>
-                  <ClaimDecisionActionForm
-                    action={approveFromDetail}
-                    decision="approve"
-                    loadingMessage="Approving claim..."
-                    successMessage="Claim approved."
-                    errorMessage="Unable to approve claim."
-                    redirectToHref={`${ROUTES.claims.myClaims}?view=approvals`}
-                  />
-                  <ClaimRejectWithReasonForm
-                    action={rejectFromDetail}
-                    redirectToHref={`${ROUTES.claims.myClaims}?view=approvals`}
-                  />
-                </>
-              )}
-            </div>
-          </section>
-        ) : null}
+                <ClaimRejectWithReasonForm
+                  action={rejectFinanceFromDetail}
+                  redirectToHref={`${ROUTES.claims.myClaims}?view=approvals`}
+                />
+              </>
+            ) : (
+              <>
+                <ClaimDecisionActionForm
+                  action={approveFromDetail}
+                  decision="approve"
+                  loadingMessage="Approving claim..."
+                  successMessage="Claim approved."
+                  errorMessage="Unable to approve claim."
+                  redirectToHref={`${ROUTES.claims.myClaims}?view=approvals`}
+                />
+                <ClaimRejectWithReasonForm
+                  action={rejectFromDetail}
+                  redirectToHref={`${ROUTES.claims.myClaims}?view=approvals`}
+                />
+              </>
+            )}
+          </div>
+        </section>
+      ) : null}
 
-        {canEditByFinance ? (
-          <Suspense fallback={<FinanceEditClaimSkeleton />}>
-            <FinanceEditClaimSection claim={claim} />
-          </Suspense>
-        ) : null}
-
-        <div className="mt-6">
-          <Link
-            href={`${ROUTES.claims.myClaims}?view=approvals`}
-            className="text-sm font-medium text-indigo-500 transition-all duration-200 hover:text-indigo-400 active:scale-[0.98]"
-          >
-            Back to My Claims approvals
-          </Link>
-        </div>
-
-        <Suspense fallback={<ClaimAuditHistorySkeleton />}>
-          <ClaimAuditHistorySection claimId={claim.id} />
+      {canEditByFinance ? (
+        <Suspense fallback={<FinanceEditClaimSkeleton />}>
+          <FinanceEditClaimSection claim={claim} />
         </Suspense>
-      </section>
+      ) : null}
+
+      <Suspense fallback={<ClaimAuditHistorySkeleton />}>
+        <ClaimAuditHistorySection claimId={claim.id} />
+      </Suspense>
 
       <Suspense fallback={<EvidenceGallerySkeleton />}>
         <EvidenceGallerySection evidencePaths={evidencePaths} />
@@ -890,17 +951,52 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
   );
 }
 
-export default function ClaimDetailPage({ params, searchParams }: PageProps) {
+export default async function ClaimDetailPage({ params, searchParams }: PageProps) {
+  const authRepository = new SupabaseServerAuthRepository();
+  const currentUserResult = await authRepository.getCurrentUser();
+  const currentEmail = currentUserResult.user?.email ?? null;
+
   return (
-    <div className="min-h-screen bg-slate-50 px-6 py-8 dark:bg-[#0B0F1A]">
-      <main className="mx-auto max-w-7xl space-y-5">
-        <Suspense fallback={<BackButton className="w-fit" fallbackHref={ROUTES.claims.myClaims} />}>
-          <ClaimDetailBackButton searchParams={searchParams} />
-        </Suspense>
-        <Suspense fallback={<ClaimDetailContentSkeleton />}>
-          <ClaimDetailCore params={params} />
-        </Suspense>
-      </main>
+    <div
+      className={`${pageBodyFont.variable} ${pageDisplayFont.variable} dashboard-font-body nxt-page-bg`}
+    >
+      <AppShellHeader currentEmail={currentEmail} />
+
+      <div className="relative z-0 mx-auto w-full max-w-[1600px] px-4 pb-16 pt-6 sm:px-6 lg:px-8">
+        <main className="space-y-5">
+          {/* Back button */}
+          <Suspense
+            fallback={<BackButton className="w-fit" fallbackHref={ROUTES.claims.myClaims} />}
+          >
+            <ClaimDetailBackButton searchParams={searchParams} />
+          </Suspense>
+
+          {/* Page header card */}
+          <section className="overflow-hidden rounded-[28px] border border-zinc-200/70 bg-white/88 shadow-[0_24px_70px_-30px_rgba(15,23,42,0.14),0_8px_24px_-8px_rgba(99,102,241,0.05)] backdrop-blur-lg transition-colors dark:border-zinc-800/80 dark:bg-zinc-900/88 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.40)]">
+            <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-sky-500" />
+            <div className="px-5 py-4 sm:px-6">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+                    Claim Detail
+                  </p>
+                  <h1 className="dashboard-font-display mt-1 text-xl font-bold tracking-[-0.03em] text-zinc-950 sm:text-2xl dark:text-zinc-50">
+                    Audit &amp; Review
+                  </h1>
+                  <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                    Full claim information, evidence, and audit trail
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Claim detail content */}
+          <Suspense fallback={<ClaimDetailContentSkeleton />}>
+            <ClaimDetailCore params={params} />
+          </Suspense>
+        </main>
+      </div>
     </div>
   );
 }

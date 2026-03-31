@@ -25,7 +25,10 @@ import type {
 import { ApprovalsAuditModeDialog } from "@/modules/claims/ui/approvals-quick-view-sheet";
 import { ClaimDecisionActionForm } from "@/modules/claims/ui/claim-decision-action-form";
 import { ClaimRejectWithReasonForm } from "@/modules/claims/ui/claim-reject-with-reason-form";
-import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
+import {
+  CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
+  ClaimStatusBadge,
+} from "@/modules/claims/ui/claim-status-badge";
 import { getAvailableClaimActions } from "@/modules/claims/utils/get-available-claim-actions";
 
 type FinanceApprovalRow = {
@@ -335,15 +338,22 @@ export function FinanceApprovalsBulkTable({
   };
 
   return (
-    <div className="min-h-[600px]">
-      <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+    <div className="min-h-150">
+      <div className="border-b border-zinc-200/80 px-5 py-3.5 dark:border-zinc-800">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p
-            aria-hidden="true"
-            className="text-sm font-semibold uppercase tracking-[0.14em] text-zinc-700 dark:text-zinc-300"
-          >
-            Approvals History
-          </p>
+          <div className="flex items-center gap-3">
+            <p
+              aria-hidden="true"
+              className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400"
+            >
+              Approvals History
+            </p>
+            {selectedCount > 0 ? (
+              <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+                {selectedCount} selected
+              </span>
+            ) : null}
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -380,16 +390,10 @@ export function FinanceApprovalsBulkTable({
             ) : null}
           </div>
         </div>
-
-        {selectedCount > 0 ? (
-          <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
-            {selectedCount} claim(s) selected
-          </p>
-        ) : null}
       </div>
 
       {isPageFullySelected && !isGlobalSelect && totalSelectableCount > actionableIds.length ? (
-        <div className="mx-4 mt-3 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/20 dark:text-indigo-300">
+        <div className="mx-5 mt-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-xs text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/20 dark:text-indigo-300">
           All {actionableIds.length} claims on this page are selected.{" "}
           <button
             type="button"
@@ -404,7 +408,7 @@ export function FinanceApprovalsBulkTable({
       ) : null}
 
       {isGlobalSelect ? (
-        <div className="mx-4 mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300">
+        <div className="mx-5 mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300">
           All {totalSelectableCount} matching claims are selected.
           <button
             type="button"
@@ -419,11 +423,11 @@ export function FinanceApprovalsBulkTable({
         </div>
       ) : null}
 
-      <div className="w-full overflow-x-auto">
-        <table className="min-w-[1720px] divide-y divide-zinc-200 text-left text-sm dark:divide-zinc-800">
-          <thead className="bg-zinc-50 text-xs uppercase tracking-[0.12em] text-zinc-600 dark:bg-zinc-900/50 dark:text-zinc-400">
+      <div className="nxt-scroll w-full overflow-x-auto">
+        <table className="min-w-370 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
+          <thead className="bg-zinc-50/80 text-[11px] uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
             <tr>
-              <th className="px-4 py-3">
+              <th className="px-3 py-2.5">
                 <input
                   type="checkbox"
                   checked={isPageFullySelected}
@@ -436,20 +440,24 @@ export function FinanceApprovalsBulkTable({
                   className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 dark:border-zinc-700"
                 />
               </th>
-              <th className="whitespace-nowrap px-4 py-3 font-semibold">CLAIM ID</th>
-              <th className="whitespace-nowrap px-4 py-3 font-semibold">EMPLOYEE ID</th>
-              <th className="whitespace-nowrap px-4 py-3 font-semibold">EMPLOYEE NAME</th>
-              <th className="whitespace-nowrap px-4 py-3 font-semibold">DEPARTMENT</th>
-              <th className="whitespace-nowrap px-4 py-3 font-semibold">TYPE OF CLAIM</th>
-              <th className="whitespace-nowrap px-4 py-3 font-semibold">AMOUNT</th>
-              <th className="whitespace-nowrap px-4 py-3 font-semibold">STATUS</th>
-              <th className="whitespace-nowrap px-4 py-3 font-semibold">SUBMITTED ON</th>
-              <th className="whitespace-nowrap px-4 py-3 font-semibold">HOD ACTION DATE</th>
-              <th className="whitespace-nowrap px-4 py-3 font-semibold">FINANCE ACTION DATE</th>
-              <th className="whitespace-nowrap px-4 py-3 text-right font-semibold">Actions</th>
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">CLAIM ID</th>
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">EMPLOYEE ID</th>
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">EMPLOYEE NAME</th>
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">DEPARTMENT</th>
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">TYPE OF CLAIM</th>
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">AMOUNT</th>
+              <th
+                className={`${CLAIM_STATUS_COLUMN_WIDTH_CLASSES} whitespace-nowrap px-3 py-2.5 font-semibold`}
+              >
+                STATUS
+              </th>
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTED ON</th>
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">HOD DATE</th>
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">FINANCE DATE</th>
+              <th className="whitespace-nowrap px-3 py-2.5 text-right font-semibold">Review</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-100 bg-white text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+          <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
             {rows.map((claim) => {
               const isChecked = isGlobalSelect || selectedIds.includes(claim.id);
               const userRole = approvalScope === "l1" ? "HOD" : "Finance";
@@ -542,7 +550,7 @@ export function FinanceApprovalsBulkTable({
                   key={claim.id}
                   className="group transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
                 >
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2">
                     {isActionable ? (
                       <input
                         type="checkbox"
@@ -560,7 +568,7 @@ export function FinanceApprovalsBulkTable({
                       />
                     )}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100">
+                  <td className="whitespace-nowrap px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
                     <Link
                       href={ROUTES.claims.detail(claim.id)}
                       className="text-indigo-500 hover:text-indigo-400 hover:underline"
@@ -568,27 +576,35 @@ export function FinanceApprovalsBulkTable({
                       {claim.id}
                     </Link>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3">{claim.employeeId}</td>
-                  <td className="px-4 py-3">
-                    <span className="inline-block max-w-[220px] truncate align-bottom">
+                  <td className="whitespace-nowrap px-3 py-2">{claim.employeeId}</td>
+                  <td className="px-3 py-2">
+                    <span className="inline-block max-w-37.5 truncate align-bottom">
                       {claim.submitter}
                     </span>
                   </td>
-                  <td className="px-4 py-3">{claim.departmentName ?? "Unknown Department"}</td>
-                  <td className="px-4 py-3">{claim.paymentModeName}</td>
-                  <td className="whitespace-nowrap px-4 py-3 font-semibold text-zinc-900 dark:text-zinc-100">
+                  <td className="px-3 py-2">
+                    <span className="inline-block max-w-32.5 truncate align-bottom">
+                      {claim.departmentName ?? "Unknown Department"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className="inline-block max-w-35 truncate align-bottom">
+                      {claim.paymentModeName}
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 font-semibold text-zinc-900 dark:text-zinc-100">
                     {claim.formattedTotalAmount}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3">
-                    <ClaimStatusBadge status={claim.status} />
+                  <td className={`${CLAIM_STATUS_COLUMN_WIDTH_CLASSES} px-3 py-2 align-top`}>
+                    <ClaimStatusBadge status={claim.status} fullWidth />
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3">{claim.formattedSubmittedAt}</td>
-                  <td className="whitespace-nowrap px-4 py-3">{claim.formattedHodActionDate}</td>
-                  <td className="whitespace-nowrap px-4 py-3">
+                  <td className="whitespace-nowrap px-3 py-2">{claim.formattedSubmittedAt}</td>
+                  <td className="whitespace-nowrap px-3 py-2">{claim.formattedHodActionDate}</td>
+                  <td className="whitespace-nowrap px-3 py-2">
                     {claim.formattedFinanceActionDate}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right">
-                    <div className="flex min-w-[280px] flex-wrap items-start justify-end gap-2">
+                  <td className="whitespace-nowrap px-3 py-2 text-right">
+                    <div className="flex min-w-28 justify-end">
                       <ApprovalsAuditModeDialog
                         claimId={claim.id}
                         detailType={claim.detailType}
@@ -614,9 +630,8 @@ export function FinanceApprovalsBulkTable({
                         }
                         auditLogs={auditLogsByClaimId[claim.id] ?? []}
                       >
-                        {renderRowActions(false)}
+                        {isActionable ? renderRowActions(false) : undefined}
                       </ApprovalsAuditModeDialog>
-                      {renderRowActions(true)}
                     </div>
                   </td>
                 </tr>
@@ -637,7 +652,7 @@ export function FinanceApprovalsBulkTable({
               setIsRejectModalOpen(false);
             }}
           />
-          <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-lg -tranzinc-x-1/2 -tranzinc-y-1/2 rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 sm:p-6">
+          <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 sm:p-6">
             <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
               Bulk Reject Claims
             </h3>
