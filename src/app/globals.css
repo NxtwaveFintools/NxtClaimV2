@@ -32,6 +32,14 @@ body {
     color 180ms ease;
 }
 
+.dashboard-font-body {
+  font-family: var(--font-dashboard-inter), var(--font-geist-sans), sans-serif;
+}
+
+.dashboard-font-display {
+  font-family: var(--font-dashboard-display), var(--font-geist-sans), sans-serif;
+}
+
 @keyframes shimmer {
   0% {
     transform: translateX(-100%);

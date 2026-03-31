@@ -162,15 +162,27 @@ export class SupabaseDepartmentViewerRepository implements DepartmentViewerRepos
       query = query.not("finance_action_date", "is", null);
     }
 
+    if (filters.dateTarget === "hod_action") {
+      query = query.not("hod_action_date", "is", null);
+    }
+
     if (filters.dateFrom) {
       const column =
-        filters.dateTarget === "finance_closed" ? "finance_action_date" : "submitted_on";
+        filters.dateTarget === "hod_action"
+          ? "hod_action_date"
+          : filters.dateTarget === "finance_closed"
+            ? "finance_action_date"
+            : "submitted_on";
       query = query.gte(column, `${filters.dateFrom}T00:00:00.000Z`);
     }
 
     if (filters.dateTo) {
       const column =
-        filters.dateTarget === "finance_closed" ? "finance_action_date" : "submitted_on";
+        filters.dateTarget === "hod_action"
+          ? "hod_action_date"
+          : filters.dateTarget === "finance_closed"
+            ? "finance_action_date"
+            : "submitted_on";
       query = query.lte(column, `${filters.dateTo}T23:59:59.999Z`);
     }
 

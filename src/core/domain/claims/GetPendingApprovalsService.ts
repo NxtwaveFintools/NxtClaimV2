@@ -25,13 +25,20 @@ type PendingApprovalRecord = {
   totalAmount: number;
   status: DbClaimStatus;
   submittedAt: string;
+  hodActionAt: string | null;
+  financeActionAt: string | null;
   formattedTotalAmount: string;
   formattedSubmittedAt: string;
+  formattedHodActionDate: string;
+  formattedFinanceActionDate: string;
 };
 
 type RepositoryApprovalRow = Omit<
   PendingApprovalRecord,
-  "formattedTotalAmount" | "formattedSubmittedAt"
+  | "formattedTotalAmount"
+  | "formattedSubmittedAt"
+  | "formattedHodActionDate"
+  | "formattedFinanceActionDate"
 >;
 
 type ApprovalViewerContext = {
@@ -188,6 +195,8 @@ export class GetPendingApprovalsService {
         ...row,
         formattedTotalAmount: formatCurrency(row.totalAmount),
         formattedSubmittedAt: formatDate(row.submittedAt),
+        formattedHodActionDate: formatDate(row.hodActionAt),
+        formattedFinanceActionDate: formatDate(row.financeActionAt),
       })),
       nextCursor: approvalsResult.nextCursor,
       hasNextPage: approvalsResult.hasNextPage,

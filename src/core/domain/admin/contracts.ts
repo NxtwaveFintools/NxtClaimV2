@@ -114,7 +114,7 @@ export type AdminClaimsFilters = {
   locationId?: string;
   productId?: string;
   expenseCategoryId?: string;
-  dateTarget?: "submitted" | "finance_closed";
+  dateTarget?: "submitted" | "hod_action" | "finance_closed";
   dateFrom?: string;
   dateTo?: string;
 };

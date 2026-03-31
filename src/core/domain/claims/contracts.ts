@@ -8,7 +8,7 @@ export type MyClaimsDateType = "claim_date";
 
 export type ClaimSearchField = "claim_id" | "employee_name" | "employee_id";
 
-export type ClaimDateTarget = "submitted" | "finance_closed";
+export type ClaimDateTarget = "submitted" | "hod_action" | "finance_closed";
 
 export type ClaimPaymentMode = {
   id: string;
@@ -479,7 +479,7 @@ export type DepartmentViewerFilters = {
   locationId?: string;
   productId?: string;
   expenseCategoryId?: string;
-  dateTarget?: "submitted" | "finance_closed";
+  dateTarget?: "submitted" | "hod_action" | "finance_closed";
   dateFrom?: string;
   dateTo?: string;
 };

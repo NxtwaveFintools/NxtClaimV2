@@ -101,7 +101,7 @@ function normalizeSubmissionType(value: string | undefined): ClaimSubmissionType
 }
 
 function normalizeDateTarget(value: string | undefined): ClaimDateTarget {
-  if (value === "finance_closed") {
+  if (value === "finance_closed" || value === "hod_action") {
     return value;
   }
 
@@ -475,8 +475,8 @@ async function ClaimsCommandCenterTable({
                     formattedTotalAmount: claim.formattedTotalAmount,
                     status: claim.status,
                     formattedSubmittedAt: claim.formattedSubmittedAt,
-                    formattedHodActionDate: "N/A",
-                    formattedFinanceActionDate: "N/A",
+                    formattedHodActionDate: claim.formattedHodActionDate,
+                    formattedFinanceActionDate: claim.formattedFinanceActionDate,
                   }))}
                   actionableIds={rows
                     .filter((row) => {

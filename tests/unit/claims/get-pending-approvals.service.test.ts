@@ -144,6 +144,8 @@ describe("GetPendingApprovalsService", () => {
             totalAmount: 999.5,
             status: "Submitted - Awaiting HOD approval",
             submittedAt: "2026-03-14T10:00:00.000Z",
+            hodActionAt: null,
+            financeActionAt: null,
           },
         ],
         nextCursor: "next-typed",
@@ -166,6 +168,8 @@ describe("GetPendingApprovalsService", () => {
       detailType: "expense",
       formattedTotalAmount: formatCurrency(999.5),
       formattedSubmittedAt: formatDate("2026-03-14T10:00:00.000Z"),
+      formattedHodActionDate: "N/A",
+      formattedFinanceActionDate: "N/A",
       expenseBankStatementFilePath: "expenses/bank.pdf",
     });
   });
@@ -234,6 +238,7 @@ describe("GetPendingApprovalsService", () => {
       data: [],
       nextCursor: null,
       hasNextPage: false,
+      totalCount: 0,
       errorMessage: "viewer context failed",
     });
     expect(logger.error).toHaveBeenCalledWith(
@@ -264,6 +269,7 @@ describe("GetPendingApprovalsService", () => {
       data: [],
       nextCursor: null,
       hasNextPage: false,
+      totalCount: 0,
       errorMessage: "fetch failed",
     });
     expect(logger.error).toHaveBeenCalledWith(

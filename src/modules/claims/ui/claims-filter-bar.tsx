@@ -47,6 +47,7 @@ const SUBMISSION_TYPE_OPTIONS: Array<{ value: ClaimSubmissionType; label: string
 
 const DATE_TARGET_OPTIONS: Array<{ value: ClaimDateTarget; label: string }> = [
   { value: "submitted", label: "Submitted Date" },
+  { value: "hod_action", label: "HOD Action Date" },
   { value: "finance_closed", label: "Finance Approved/Closed" },
 ];
 

@@ -34,8 +34,8 @@ function normalizeSubmissionType(value: string | null): ClaimSubmissionType | un
 }
 
 function normalizeDateTarget(value: string | null): ClaimDateTarget {
-  if (value === "finance_closed") {
-    return "finance_closed";
+  if (value === "finance_closed" || value === "hod_action") {
+    return value;
   }
 
   return "submitted";
