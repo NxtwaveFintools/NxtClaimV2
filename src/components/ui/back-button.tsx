@@ -54,11 +54,11 @@ export function BackButton({
       href={targetHref}
       scroll={false}
       data-variant={variant}
-      className={`group inline-flex items-center gap-2 rounded-xl border border-transparent px-3 py-2 text-sm font-medium text-zinc-700 transition-all duration-200 hover:bg-zinc-100 active:scale-[0.98] dark:text-zinc-200 dark:hover:bg-zinc-900 ${className}`.trim()}
+      className={`group inline-flex items-center gap-2 rounded-xl border border-indigo-200/60 bg-indigo-50/60 px-3 py-2 text-sm font-semibold text-indigo-700 transition-all duration-200 hover:border-indigo-300 hover:bg-indigo-100/80 hover:text-indigo-800 active:scale-[0.98] dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:border-indigo-400/30 dark:hover:bg-indigo-500/20 dark:hover:text-indigo-200 ${className}`.trim()}
       aria-label="Go back"
     >
       <ArrowLeft
-        className="h-4 w-4 transition-transform duration-200 group-hover:-tranzinc-x-1"
+        className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-0.5"
         aria-hidden="true"
       />
       <span>{label}</span>
