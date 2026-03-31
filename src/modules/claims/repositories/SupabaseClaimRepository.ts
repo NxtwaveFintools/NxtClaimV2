@@ -7,6 +7,7 @@ import {
 import type {
   ClaimAuditActionType,
   ClaimAuditLogRecord,
+  ClaimDateTarget,
   ClaimDepartmentApprovers,
   ClaimExportRecord,
   ClaimFullExportRecord,
@@ -553,6 +554,7 @@ function applyEnterpriseDashboardFilters<
 type PendingApprovalsQueryChain<TQuery> = {
   eq(column: string, value: string): TQuery;
   in(column: string, values: DbClaimStatus[]): TQuery;
+  not(column: string, operator: string, value: null): TQuery;
   gte(column: string, value: string): TQuery;
   lte(column: string, value: string): TQuery;
   ilike(column: string, pattern: string): TQuery;
@@ -2390,6 +2392,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
       totalAmount: number;
       status: DbClaimStatus;
       submittedAt: string;
+      hodActionAt: string | null;
+      financeActionAt: string | null;
     }>;
     nextCursor: string | null;
     hasNextPage: boolean;
@@ -2502,6 +2506,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
       totalAmount: number;
       status: DbClaimStatus;
       submittedAt: string;
+      hodActionAt: string | null;
+      financeActionAt: string | null;
     }>;
     nextCursor: string | null;
     hasNextPage: boolean;
