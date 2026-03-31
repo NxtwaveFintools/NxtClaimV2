@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch, type FieldErrors } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Sparkles } from "lucide-react";
 import {
   submitClaimAction,
   type ClaimFormOptions,
@@ -12,13 +13,14 @@ import {
 } from "@/modules/claims/actions";
 import { parseReceiptAction } from "@/modules/claims/actions/parse-receipt";
 import { newClaimSubmitSchema } from "@/modules/claims/validators/new-claim-schema";
+import { useClaimFormAutofill } from "@/hooks/use-claim-form-autofill";
 
 type NewClaimFormClientProps = {
   currentUser: CurrentUserHydration;
   options: ClaimFormOptions;
 };
 
-type ClaimFormDraftValues = {
+export type ClaimFormDraftValues = {
   employeeName: string;
   employeeId: string;
   ccEmails?: string;
@@ -159,13 +161,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
   const defaultPaymentMode = options.paymentModes[0];
 
-  const {
-    register,
-    control,
-    setValue,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<ClaimFormDraftValues>({
+  const form = useForm<ClaimFormDraftValues>({
     resolver: zodResolver(newClaimSubmitSchema as never),
     defaultValues: {
       employeeName: currentUser.name,
@@ -219,6 +215,14 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     },
   });
 
+  const {
+    register,
+    control,
+    setValue,
+    handleSubmit,
+    formState: { errors },
+  } = form;
+
   const submissionType = useWatch({ control, name: "submissionType" });
   const paymentModeId = useWatch({ control, name: "paymentModeId" });
   const detailType = useWatch({ control, name: "detailType" });
@@ -228,6 +232,11 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   const cgstAmount = useWatch({ control, name: "expense.cgstAmount" });
   const sgstAmount = useWatch({ control, name: "expense.sgstAmount" });
   const igstAmount = useWatch({ control, name: "expense.igstAmount" });
+
+  const { hydrated, wasAutoFilled, clearDefaults } = useClaimFormAutofill(form, {
+    departments: options.departments,
+    paymentModes: options.paymentModes,
+  });
 
   useEffect(() => {
     const mode = options.paymentModes.find((item) => item.id === paymentModeId);
@@ -618,7 +627,26 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       </section>
 
       <section className="grid gap-4 rounded-xl border border-zinc-200 p-4">
-        <h2 className="text-sm font-semibold text-zinc-900">Submission Context</h2>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-zinc-900">Submission Context</h2>
+            {hydrated && wasAutoFilled ? (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Sparkles className="h-3 w-3" />
+                Auto-filled from previous submission
+              </span>
+            ) : null}
+          </div>
+          {hydrated && wasAutoFilled ? (
+            <button
+              type="button"
+              onClick={clearDefaults}
+              className="text-xs text-muted-foreground underline-offset-2 hover:text-zinc-700 hover:underline dark:hover:text-zinc-300"
+            >
+              Clear Defaults
+            </button>
+          ) : null}
+        </div>
 
         <div className="grid gap-1">
           <label htmlFor="submissionType" className="text-sm font-medium text-zinc-700">
