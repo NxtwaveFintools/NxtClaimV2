@@ -19,10 +19,15 @@ const ACTORS = {
     email: process.env.E2E_SUBMITTER_EMAIL ?? "user@nxtwave.co.in",
     employeeCodePrefix: "EMP-E2E-NAV",
   },
+  founder: {
+    email: process.env.E2E_FOUNDER_EMAIL ?? "founder@nxtwave.co.in",
+  },
   finance: {
     email: process.env.E2E_FINANCE_EMAIL ?? "finance@nxtwave.co.in",
   },
 } as const;
+
+let insertedFounderAdminId: string | null = null;
 
 function getAdminSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -263,6 +268,50 @@ async function fastForwardToFinance(claimId: string): Promise<void> {
   }
 }
 
+async function ensureFounderAdminAccess(): Promise<void> {
+  const client = getAdminSupabaseClient();
+  const founderEmail = ACTORS.founder.email.trim().toLowerCase();
+
+  const { data: founderUser, error: founderError } = await client
+    .from("users")
+    .select("id")
+    .eq("email", founderEmail)
+    .eq("is_active", true)
+    .limit(1)
+    .maybeSingle();
+
+  if (founderError || !founderUser?.id) {
+    throw new Error(founderError?.message ?? `Founder user not found: ${founderEmail}`);
+  }
+
+  const { data: existingAdmin, error: existingError } = await client
+    .from("admins")
+    .select("id")
+    .eq("user_id", founderUser.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingError) {
+    throw new Error(existingError.message);
+  }
+
+  if (existingAdmin?.id) {
+    return;
+  }
+
+  const { data: insertedAdmin, error: insertError } = await client
+    .from("admins")
+    .insert({ user_id: founderUser.id })
+    .select("id")
+    .single();
+
+  if (insertError || !insertedAdmin?.id) {
+    throw new Error(insertError?.message ?? "Failed to insert founder admin row.");
+  }
+
+  insertedFounderAdminId = insertedAdmin.id;
+}
+
 test.describe("Navigation Filter Stability & Finance Edit", () => {
   test.describe.configure({ mode: "serial" });
   test.setTimeout(240000);
@@ -274,6 +323,16 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
     const resolved = await resolveDepartmentAndCategory();
     departmentName = resolved.departmentName;
     expenseCategoryName = resolved.expenseCategoryName;
+    await ensureFounderAdminAccess();
+  });
+
+  test.afterAll(async () => {
+    if (!insertedFounderAdminId) {
+      return;
+    }
+
+    const client = getAdminSupabaseClient();
+    await client.from("admins").delete().eq("id", insertedFounderAdminId);
   });
 
   test("NAV-1: search debounce updates URL params without unmounting layout", async ({
@@ -506,5 +565,89 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
     expect(Number(data!.cgst_amount)).toBe(67.5);
     expect(Number(data!.sgst_amount)).toBe(67.5);
     expect(Number(data!.total_amount)).toBe(885);
+  });
+
+  test("NAV-3: advanced filters are admin-only and apply/reset URL keys", async ({ browser }) => {
+    await withActorPage(browser, ACTORS.employee.email, async (page) => {
+      await page.goto("/dashboard/my-claims", { waitUntil: "domcontentloaded" });
+      await expect(page.getByRole("button", { name: /advanced filters/i })).toHaveCount(0);
+    });
+
+    await withActorPage(browser, ACTORS.founder.email, async (page) => {
+      await page.goto("/dashboard/my-claims?view=admin", { waitUntil: "domcontentloaded" });
+
+      await expect(page.getByText(/Admin Overview/i)).toBeVisible({ timeout: 15000 });
+
+      const advancedTrigger = page.getByRole("button", { name: /advanced filters/i });
+      await expect(advancedTrigger).toBeVisible({ timeout: 10000 });
+      await advancedTrigger.click();
+
+      await expect(page.getByRole("heading", { name: /advanced filters/i })).toBeVisible({
+        timeout: 10000,
+      });
+
+      const advancedDialog = page.getByRole("dialog");
+
+      const submittedDateSection = advancedDialog.locator("section", {
+        hasText: /Submitted Date/i,
+      });
+      await submittedDateSection.getByLabel(/^From$/i).fill("2026-03-01");
+
+      const financeDateSection = advancedDialog.locator("section", {
+        hasText: /Finance Action Date/i,
+      });
+      await financeDateSection.getByLabel(/^To$/i).fill("2026-03-30");
+
+      await advancedDialog.getByLabel(/Min Amount/i).fill("100");
+      await advancedDialog.getByLabel(/Max Amount/i).fill("500");
+
+      await advancedDialog.getByRole("button", { name: /apply/i }).click();
+
+      await expect
+        .poll(() => {
+          const url = new URL(page.url());
+          return {
+            advSubFrom: url.searchParams.get("adv_sub_from"),
+            advFinTo: url.searchParams.get("adv_fin_to"),
+            minAmt: url.searchParams.get("min_amt"),
+            maxAmt: url.searchParams.get("max_amt"),
+            hasDateTarget: url.searchParams.has("date_target"),
+            hasFrom: url.searchParams.has("from"),
+            hasTo: url.searchParams.has("to"),
+          };
+        })
+        .toEqual({
+          advSubFrom: "2026-03-01",
+          advFinTo: "2026-03-30",
+          minAmt: "100",
+          maxAmt: "500",
+          hasDateTarget: false,
+          hasFrom: false,
+          hasTo: false,
+        });
+
+      await advancedTrigger.click();
+      await page
+        .getByRole("dialog")
+        .getByRole("button", { name: /reset advanced/i })
+        .click();
+
+      await expect
+        .poll(() => {
+          const url = new URL(page.url());
+          return {
+            hasAdvSubFrom: url.searchParams.has("adv_sub_from"),
+            hasAdvFinTo: url.searchParams.has("adv_fin_to"),
+            hasMinAmt: url.searchParams.has("min_amt"),
+            hasMaxAmt: url.searchParams.has("max_amt"),
+          };
+        })
+        .toEqual({
+          hasAdvSubFrom: false,
+          hasAdvFinTo: false,
+          hasMinAmt: false,
+          hasMaxAmt: false,
+        });
+    });
   });
 });

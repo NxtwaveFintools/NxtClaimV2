@@ -136,6 +136,98 @@ describe("SupabaseAdminRepository", () => {
     ]);
   });
 
+  test("getAllClaims uses advanced date keys instead of standard date target branch", async () => {
+    const claimsChain = createQueryChain({
+      data: [
+        {
+          claim_id: "claim-1",
+          employee_name: "Alice",
+          employee_id: "EMP-1",
+          department_name: "Engineering",
+          type_of_claim: "Expense",
+          amount: 90,
+          status: "Submitted - Awaiting HOD approval",
+          submitted_on: "2026-03-19T10:00:00.000Z",
+          hod_action_date: null,
+          finance_action_date: null,
+          detail_type: "expense",
+          submission_type: "On Behalf",
+          is_active: true,
+          department_id: "dep-1",
+        },
+      ],
+      error: null,
+    });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "vw_enterprise_claims_dashboard") {
+        return claimsChain;
+      }
+      return createQueryChain({ data: null, error: null });
+    });
+
+    const repository = new SupabaseAdminRepository();
+    await repository.getAllClaims(
+      {
+        dateTarget: "hod_action",
+        dateFrom: "2026-01-01",
+        dateTo: "2026-01-31",
+        submittedFrom: "2026-03-10",
+        financeActionTo: "2026-03-21",
+      },
+      { cursor: null, limit: 10 },
+    );
+
+    expect(claimsChain.gte).toHaveBeenCalledWith("submitted_on", "2026-03-10T00:00:00.000Z");
+    expect(claimsChain.lte).toHaveBeenCalledWith("finance_action_date", "2026-03-21T23:59:59.999Z");
+
+    expect(claimsChain.gte).not.toHaveBeenCalledWith("hod_action_date", "2026-01-01T00:00:00.000Z");
+    expect(claimsChain.lte).not.toHaveBeenCalledWith("hod_action_date", "2026-01-31T23:59:59.999Z");
+  });
+
+  test("getAllClaims applies amount range filters", async () => {
+    const claimsChain = createQueryChain({
+      data: [
+        {
+          claim_id: "claim-1",
+          employee_name: "Alice",
+          employee_id: "EMP-1",
+          department_name: "Engineering",
+          type_of_claim: "Expense",
+          amount: 250,
+          status: "Submitted - Awaiting HOD approval",
+          submitted_on: "2026-03-19T10:00:00.000Z",
+          hod_action_date: null,
+          finance_action_date: null,
+          detail_type: "expense",
+          submission_type: "Self",
+          is_active: true,
+          department_id: "dep-1",
+        },
+      ],
+      error: null,
+    });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "vw_enterprise_claims_dashboard") {
+        return claimsChain;
+      }
+      return createQueryChain({ data: null, error: null });
+    });
+
+    const repository = new SupabaseAdminRepository();
+    await repository.getAllClaims(
+      {
+        minAmount: 100,
+        maxAmount: 500,
+      },
+      { cursor: null, limit: 10 },
+    );
+
+    expect(claimsChain.gte).toHaveBeenCalledWith("amount", 100);
+    expect(claimsChain.lte).toHaveBeenCalledWith("amount", 500);
+  });
+
   test("softDeleteClaim is idempotent when claim is already inactive", async () => {
     const fetchChain = createQueryChain({ data: { is_active: false }, error: null });
 
@@ -155,12 +247,16 @@ describe("SupabaseAdminRepository", () => {
 
   test("softDeleteClaim returns success with warning when audit log write fails", async () => {
     const fetchChain = createQueryChain({ data: { is_active: true }, error: null });
-    const updateChain = createQueryChain({ data: null, error: null });
+    const updateClaimChain = createQueryChain({ data: null, error: null });
+    const updateExpenseDetailsChain = createQueryChain({ data: null, error: null });
+    const updateAdvanceDetailsChain = createQueryChain({ data: null, error: null });
     const auditChain = createQueryChain({ data: null, error: { message: "audit failed" } });
 
     mockFrom
       .mockImplementationOnce(() => fetchChain)
-      .mockImplementationOnce(() => updateChain)
+      .mockImplementationOnce(() => updateClaimChain)
+      .mockImplementationOnce(() => updateExpenseDetailsChain)
+      .mockImplementationOnce(() => updateAdvanceDetailsChain)
       .mockImplementationOnce(() => auditChain);
 
     const repository = new SupabaseAdminRepository();

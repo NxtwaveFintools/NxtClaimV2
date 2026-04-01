@@ -444,6 +444,25 @@ function normalizeDateRange(filters?: GetMyClaimsFilters): { fromDate?: string; 
   };
 }
 
+function hasAdvancedEnterpriseDateFilters(filters?: GetMyClaimsFilters): boolean {
+  return Boolean(
+    filters?.submittedFrom ||
+    filters?.submittedTo ||
+    filters?.hodActionFrom ||
+    filters?.hodActionTo ||
+    filters?.financeActionFrom ||
+    filters?.financeActionTo,
+  );
+}
+
+function toStartOfDayIso(date: string): string {
+  return `${date}T00:00:00.000Z`;
+}
+
+function toEndOfDayIso(date: string): string {
+  return `${date}T23:59:59.999Z`;
+}
+
 function normalizeSearchInput(filters?: GetMyClaimsFilters): {
   field: GetMyClaimsFilters["searchField"];
   query: string;
@@ -471,8 +490,8 @@ type EnterpriseDashboardQueryChain<TQuery> = {
   eq(column: string, value: string): TQuery;
   in(column: string, values: DbClaimStatus[]): TQuery;
   not(column: string, operator: string, value: null): TQuery;
-  gte(column: string, value: string): TQuery;
-  lte(column: string, value: string): TQuery;
+  gte(column: string, value: string | number): TQuery;
+  lte(column: string, value: string | number): TQuery;
   ilike(column: string, pattern: string): TQuery;
 };
 
@@ -516,22 +535,56 @@ function applyEnterpriseDashboardFilters<
     query = query.in("status", params.normalizedStatuses);
   }
 
-  if (params.filters?.dateTarget === "finance_closed") {
-    query = query.not("finance_action_date", "is", null);
+  if (hasAdvancedEnterpriseDateFilters(params.filters)) {
+    if (params.filters?.submittedFrom) {
+      query = query.gte("submitted_on", toStartOfDayIso(params.filters.submittedFrom));
+    }
+
+    if (params.filters?.submittedTo) {
+      query = query.lte("submitted_on", toEndOfDayIso(params.filters.submittedTo));
+    }
+
+    if (params.filters?.hodActionFrom) {
+      query = query.gte("hod_action_date", toStartOfDayIso(params.filters.hodActionFrom));
+    }
+
+    if (params.filters?.hodActionTo) {
+      query = query.lte("hod_action_date", toEndOfDayIso(params.filters.hodActionTo));
+    }
+
+    if (params.filters?.financeActionFrom) {
+      query = query.gte("finance_action_date", toStartOfDayIso(params.filters.financeActionFrom));
+    }
+
+    if (params.filters?.financeActionTo) {
+      query = query.lte("finance_action_date", toEndOfDayIso(params.filters.financeActionTo));
+    }
+  } else {
+    if (params.filters?.dateTarget === "finance_closed") {
+      query = query.not("finance_action_date", "is", null);
+    }
+
+    if (params.filters?.dateTarget === "hod_action") {
+      query = query.not("hod_action_date", "is", null);
+    }
+
+    if (params.fromDate) {
+      const column = resolveEnterpriseDateColumn(params.filters?.dateTarget);
+      query = query.gte(column, toStartOfDayIso(params.fromDate));
+    }
+
+    if (params.toDate) {
+      const column = resolveEnterpriseDateColumn(params.filters?.dateTarget);
+      query = query.lte(column, toEndOfDayIso(params.toDate));
+    }
   }
 
-  if (params.filters?.dateTarget === "hod_action") {
-    query = query.not("hod_action_date", "is", null);
+  if (typeof params.filters?.minAmount === "number" && Number.isFinite(params.filters.minAmount)) {
+    query = query.gte("amount", params.filters.minAmount);
   }
 
-  if (params.fromDate) {
-    const column = resolveEnterpriseDateColumn(params.filters?.dateTarget);
-    query = query.gte(column, `${params.fromDate}T00:00:00.000Z`);
-  }
-
-  if (params.toDate) {
-    const column = resolveEnterpriseDateColumn(params.filters?.dateTarget);
-    query = query.lte(column, `${params.toDate}T23:59:59.999Z`);
+  if (typeof params.filters?.maxAmount === "number" && Number.isFinite(params.filters.maxAmount)) {
+    query = query.lte("amount", params.filters.maxAmount);
   }
 
   if (params.normalizedSearch.query && params.normalizedSearch.field) {
@@ -599,12 +652,38 @@ function applyPendingApprovalsFilters<TQuery extends PendingApprovalsQueryChain<
     query = query.not("hod_action_at", "is", null);
   }
 
-  if (params.fromDate) {
-    query = query.gte(params.dateColumn, `${params.fromDate}T00:00:00.000Z`);
-  }
+  if (hasAdvancedEnterpriseDateFilters(params.filters)) {
+    if (params.filters?.submittedFrom) {
+      query = query.gte("submitted_at", toStartOfDayIso(params.filters.submittedFrom));
+    }
 
-  if (params.toDate) {
-    query = query.lte(params.dateColumn, `${params.toDate}T23:59:59.999Z`);
+    if (params.filters?.submittedTo) {
+      query = query.lte("submitted_at", toEndOfDayIso(params.filters.submittedTo));
+    }
+
+    if (params.filters?.hodActionFrom) {
+      query = query.gte("hod_action_at", toStartOfDayIso(params.filters.hodActionFrom));
+    }
+
+    if (params.filters?.hodActionTo) {
+      query = query.lte("hod_action_at", toEndOfDayIso(params.filters.hodActionTo));
+    }
+
+    if (params.filters?.financeActionFrom) {
+      query = query.gte("finance_action_at", toStartOfDayIso(params.filters.financeActionFrom));
+    }
+
+    if (params.filters?.financeActionTo) {
+      query = query.lte("finance_action_at", toEndOfDayIso(params.filters.financeActionTo));
+    }
+  } else {
+    if (params.fromDate) {
+      query = query.gte(params.dateColumn, `${params.fromDate}T00:00:00.000Z`);
+    }
+
+    if (params.toDate) {
+      query = query.lte(params.dateColumn, `${params.toDate}T23:59:59.999Z`);
+    }
   }
 
   if (params.normalizedSearch.query && params.normalizedSearch.field) {

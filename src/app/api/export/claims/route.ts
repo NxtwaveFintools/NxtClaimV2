@@ -49,6 +49,19 @@ function normalizeDate(value: string | null): string | undefined {
   return value;
 }
 
+function normalizeAmount(value: string | null): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+
+  return parsed;
+}
+
 function normalizeSearchField(value: string | null): ClaimSearchField | undefined {
   if (value === "claim_id" || value === "employee_name" || value === "employee_id") {
     return value;
@@ -91,6 +104,14 @@ function buildClaimFilters(searchParams: URLSearchParams): GetMyClaimsFilters {
     dateTo: normalizeDate(searchParams.get("to")),
     searchField: normalizeSearchField(searchParams.get("search_field")),
     searchQuery: searchQueryRaw ? searchQueryRaw : undefined,
+    submittedFrom: normalizeDate(searchParams.get("adv_sub_from")),
+    submittedTo: normalizeDate(searchParams.get("adv_sub_to")),
+    hodActionFrom: normalizeDate(searchParams.get("adv_hod_from")),
+    hodActionTo: normalizeDate(searchParams.get("adv_hod_to")),
+    financeActionFrom: normalizeDate(searchParams.get("adv_fin_from")),
+    financeActionTo: normalizeDate(searchParams.get("adv_fin_to")),
+    minAmount: normalizeAmount(searchParams.get("min_amt")),
+    maxAmount: normalizeAmount(searchParams.get("max_amt")),
   };
 }
 

@@ -148,6 +148,19 @@ function normalizeLookupId(value: string | undefined): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
+function normalizeAmountFilter(value: string | undefined): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+
+  return parsed;
+}
+
 function normalizeStatusFilter(value: string | undefined): DbClaimStatus[] | undefined {
   if (!value) {
     return undefined;
@@ -171,6 +184,14 @@ function buildClaimFilters(searchParams?: Record<string, SearchParamsValue>): Ge
   const dateTarget = normalizeDateTarget(firstParamValue(searchParams?.date_target));
   const dateFrom = normalizeDate(firstParamValue(searchParams?.from));
   const dateTo = normalizeDate(firstParamValue(searchParams?.to));
+  const submittedFrom = normalizeDate(firstParamValue(searchParams?.adv_sub_from));
+  const submittedTo = normalizeDate(firstParamValue(searchParams?.adv_sub_to));
+  const hodActionFrom = normalizeDate(firstParamValue(searchParams?.adv_hod_from));
+  const hodActionTo = normalizeDate(firstParamValue(searchParams?.adv_hod_to));
+  const financeActionFrom = normalizeDate(firstParamValue(searchParams?.adv_fin_from));
+  const financeActionTo = normalizeDate(firstParamValue(searchParams?.adv_fin_to));
+  const minAmount = normalizeAmountFilter(firstParamValue(searchParams?.min_amt));
+  const maxAmount = normalizeAmountFilter(firstParamValue(searchParams?.max_amt));
   const searchField = normalizeSearchField(firstParamValue(searchParams?.search_field));
   const paymentModeId = normalizePaymentModeId(firstParamValue(searchParams?.payment_mode_id));
   const departmentId = normalizeDepartmentId(firstParamValue(searchParams?.department_id));
@@ -191,6 +212,14 @@ function buildClaimFilters(searchParams?: Record<string, SearchParamsValue>): Ge
     dateTarget,
     dateFrom,
     dateTo,
+    submittedFrom,
+    submittedTo,
+    hodActionFrom,
+    hodActionTo,
+    financeActionFrom,
+    financeActionTo,
+    minAmount,
+    maxAmount,
     searchField,
     searchQuery,
   };
@@ -953,9 +982,11 @@ function FilterBarSkeleton() {
 async function FilterBarWithData({
   exportScope,
   defaultFiltersExpanded,
+  showAdvancedFilters,
 }: {
   exportScope: "submissions" | "approvals" | "admin" | "department";
   defaultFiltersExpanded: boolean;
+  showAdvancedFilters?: boolean;
 }) {
   const claimRepository = new SupabaseClaimRepository();
   const [paymentModesResult, departmentsResult, locationsResult, productsResult, categoriesResult] =
@@ -986,6 +1017,7 @@ async function FilterBarWithData({
     <ClaimsFilterBar
       exportScope={exportScope}
       defaultFiltersExpanded={defaultFiltersExpanded}
+      isAdmin={showAdvancedFilters === true}
       paymentModes={paymentModes}
       departments={departments}
       locations={locations}
@@ -1042,6 +1074,7 @@ async function MyClaimsDashboardPageContent({
         <FilterBarWithData
           exportScope={activeView as "submissions" | "approvals"}
           defaultFiltersExpanded={viewerContextResult.activeScope === "finance"}
+          showAdvancedFilters={viewerContextResult.activeScope === "finance"}
         />
       </Suspense>
 
