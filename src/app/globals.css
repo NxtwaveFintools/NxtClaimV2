@@ -42,6 +42,15 @@ body {
 
 /* ─── Shimmer skeleton animation ────────────────────────────────────────────── */
 
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
 @keyframes shimmer {
   0% {
     transform: translateX(-100%);
