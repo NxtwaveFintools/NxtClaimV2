@@ -1,5 +1,7 @@
 /** @jest-environment node */
 
+export {};
+
 const mockGetCurrentUser = jest.fn();
 const mockGetUserSummary = jest.fn();
 const mockGetActivePaymentModes = jest.fn();

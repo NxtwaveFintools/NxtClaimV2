@@ -69,8 +69,11 @@ function createRepository(overrides?: Partial<AdminRepository>): AdminRepository
     getAllUsers: jest.fn(),
     updateUserRole: jest.fn(),
     getAdmins: jest.fn(),
-    addAdmin: jest.fn(),
+    addAdminByEmail: jest.fn(),
     removeAdmin: jest.fn(),
+    getDepartmentViewers: jest.fn(),
+    addDepartmentViewerByEmail: jest.fn(),
+    removeDepartmentViewer: jest.fn(),
     ...overrides,
   };
 }
