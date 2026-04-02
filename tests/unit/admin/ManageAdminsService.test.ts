@@ -39,7 +39,7 @@ const PAGINATED_USERS: AdminCursorPaginatedResult<AdminUserRecord> = {
 };
 
 function createRepository(overrides?: Partial<AdminRepository>): AdminRepository {
-  return {
+  const baseRepository: AdminRepository = {
     getAllClaims: jest.fn(),
     softDeleteClaim: jest.fn(),
     getMasterDataItems: jest.fn(),
@@ -57,8 +57,12 @@ function createRepository(overrides?: Partial<AdminRepository>): AdminRepository
     getAdmins: jest.fn(async () => ({ data: [SAMPLE_ADMIN], errorMessage: null })),
     addAdminByEmail: jest.fn(async () => ({ data: SAMPLE_ADMIN, errorMessage: null })),
     removeAdmin: jest.fn(async () => ({ success: true, errorMessage: null })),
-    ...overrides,
+    getDepartmentViewers: jest.fn(async () => ({ data: [], errorMessage: null })),
+    addDepartmentViewerByEmail: jest.fn(async () => ({ data: null, errorMessage: null })),
+    removeDepartmentViewer: jest.fn(async () => ({ success: true, errorMessage: null })),
   };
+
+  return { ...baseRepository, ...overrides } as AdminRepository;
 }
 
 describe("ManageAdminsService", () => {

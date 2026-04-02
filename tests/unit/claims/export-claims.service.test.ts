@@ -150,13 +150,13 @@ describe("ExportClaimsService", () => {
     expect(row.pettyCashPhotoUrl).toBe(row.billUrl);
   });
 
-  it("EXPORT_HEADERS has 38 columns matching the ClaimExportRow field order", () => {
-    expect(EXPORT_HEADERS).toHaveLength(38);
+  it("EXPORT_HEADERS has 37 columns matching the ClaimExportRow field order", () => {
+    expect(EXPORT_HEADERS).toHaveLength(37);
     expect(EXPORT_HEADERS[0]).toBe("Claim ID");
-    expect(EXPORT_HEADERS[31]).toBe("Bank Statement URL");
-    expect(EXPORT_HEADERS[32]).toBe("Bill URL");
-    expect(EXPORT_HEADERS[33]).toBe("Petty Cash Photo URL");
-    expect(EXPORT_HEADERS[37]).toBe("Transaction Remarks");
+    expect(EXPORT_HEADERS[30]).toBe("Bank Statement URL");
+    expect(EXPORT_HEADERS[31]).toBe("Bill URL");
+    expect(EXPORT_HEADERS[32]).toBe("Petty Cash Photo URL");
+    expect(EXPORT_HEADERS[36]).toBe("Transaction Remarks");
   });
 
   it("bypasses pagination by requesting multiple backend batches", async () => {

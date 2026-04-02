@@ -45,9 +45,12 @@ function createRepository(overrides?: Partial<AdminRepository>): AdminRepository
     getAllUsers: jest.fn(),
     updateUserRole: jest.fn(),
     getAdmins: jest.fn(),
-    addAdmin: jest.fn(),
+    addAdminByEmail: jest.fn(),
     removeAdmin: jest.fn(),
     addFinanceApproverByEmail: jest.fn(),
+    getDepartmentViewers: jest.fn(),
+    addDepartmentViewerByEmail: jest.fn(),
+    removeDepartmentViewer: jest.fn(),
     ...overrides,
   };
 }
@@ -74,12 +77,26 @@ describe("GetAdminClaimsService", () => {
     const service = new GetAdminClaimsService({ repository, logger: createLogger() });
 
     await service.execute({
-      filters: { departmentId: "dept-1", searchQuery: "alice" },
+      filters: {
+        departmentId: "dept-1",
+        searchQuery: "alice",
+        submittedFrom: "2026-03-01",
+        submittedTo: "2026-03-31",
+        minAmount: 100,
+        maxAmount: 1000,
+      },
       pagination: { cursor: "cursor-1", limit: 5 },
     });
 
     expect(repository.getAllClaims).toHaveBeenCalledWith(
-      { departmentId: "dept-1", searchQuery: "alice" },
+      {
+        departmentId: "dept-1",
+        searchQuery: "alice",
+        submittedFrom: "2026-03-01",
+        submittedTo: "2026-03-31",
+        minAmount: 100,
+        maxAmount: 1000,
+      },
       { cursor: "cursor-1", limit: 5 },
     );
   });

@@ -30,6 +30,25 @@ function normalizeAmount(value: number | string | null): number {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
+function hasAdvancedDateFilters(filters: AdminClaimsFilters): boolean {
+  return Boolean(
+    filters.submittedFrom ||
+    filters.submittedTo ||
+    filters.hodActionFrom ||
+    filters.hodActionTo ||
+    filters.financeActionFrom ||
+    filters.financeActionTo,
+  );
+}
+
+function toStartOfDayIso(date: string): string {
+  return `${date}T00:00:00.000Z`;
+}
+
+function toEndOfDayIso(date: string): string {
+  return `${date}T23:59:59.999Z`;
+}
+
 // ----------------------------------------------------------------
 // Raw row types (Supabase response shapes)
 // ----------------------------------------------------------------
@@ -183,32 +202,66 @@ export class SupabaseAdminRepository implements AdminRepository {
       query = query.eq("expense_category_id", filters.expenseCategoryId);
     }
 
-    if (filters.dateTarget === "finance_closed") {
-      query = query.not("finance_action_date", "is", null);
+    if (hasAdvancedDateFilters(filters)) {
+      if (filters.submittedFrom) {
+        query = query.gte("submitted_on", toStartOfDayIso(filters.submittedFrom));
+      }
+
+      if (filters.submittedTo) {
+        query = query.lte("submitted_on", toEndOfDayIso(filters.submittedTo));
+      }
+
+      if (filters.hodActionFrom) {
+        query = query.gte("hod_action_date", toStartOfDayIso(filters.hodActionFrom));
+      }
+
+      if (filters.hodActionTo) {
+        query = query.lte("hod_action_date", toEndOfDayIso(filters.hodActionTo));
+      }
+
+      if (filters.financeActionFrom) {
+        query = query.gte("finance_action_date", toStartOfDayIso(filters.financeActionFrom));
+      }
+
+      if (filters.financeActionTo) {
+        query = query.lte("finance_action_date", toEndOfDayIso(filters.financeActionTo));
+      }
+    } else {
+      if (filters.dateTarget === "finance_closed") {
+        query = query.not("finance_action_date", "is", null);
+      }
+
+      if (filters.dateTarget === "hod_action") {
+        query = query.not("hod_action_date", "is", null);
+      }
+
+      if (filters.dateFrom) {
+        const column =
+          filters.dateTarget === "hod_action"
+            ? "hod_action_date"
+            : filters.dateTarget === "finance_closed"
+              ? "finance_action_date"
+              : "submitted_on";
+        query = query.gte(column, toStartOfDayIso(filters.dateFrom));
+      }
+
+      if (filters.dateTo) {
+        const column =
+          filters.dateTarget === "hod_action"
+            ? "hod_action_date"
+            : filters.dateTarget === "finance_closed"
+              ? "finance_action_date"
+              : "submitted_on";
+        query = query.lte(column, toEndOfDayIso(filters.dateTo));
+      }
     }
 
-    if (filters.dateTarget === "hod_action") {
-      query = query.not("hod_action_date", "is", null);
+    if (filters.minAmount !== undefined) {
+      query = query.gte("amount", filters.minAmount);
     }
 
-    if (filters.dateFrom) {
-      const column =
-        filters.dateTarget === "hod_action"
-          ? "hod_action_date"
-          : filters.dateTarget === "finance_closed"
-            ? "finance_action_date"
-            : "submitted_on";
-      query = query.gte(column, `${filters.dateFrom}T00:00:00.000Z`);
-    }
-
-    if (filters.dateTo) {
-      const column =
-        filters.dateTarget === "hod_action"
-          ? "hod_action_date"
-          : filters.dateTarget === "finance_closed"
-            ? "finance_action_date"
-            : "submitted_on";
-      query = query.lte(column, `${filters.dateTo}T23:59:59.999Z`);
+    if (filters.maxAmount !== undefined) {
+      query = query.lte("amount", filters.maxAmount);
     }
 
     if (pagination.cursor) {

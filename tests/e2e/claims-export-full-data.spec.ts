@@ -247,7 +247,6 @@ test("Finance user can download full CSV containing all form fields", async ({
     const headers = rowValues.slice(1).map((header) => normalizeCellValue(header).trim());
     expect(headers).toEqual([
       "Claim ID",
-      "Transaction ID",
       "Employee Email",
       "Employee Name",
       "Department",

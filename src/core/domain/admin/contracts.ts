@@ -117,6 +117,14 @@ export type AdminClaimsFilters = {
   dateTarget?: "submitted" | "hod_action" | "finance_closed";
   dateFrom?: string;
   dateTo?: string;
+  submittedFrom?: string;
+  submittedTo?: string;
+  hodActionFrom?: string;
+  hodActionTo?: string;
+  financeActionFrom?: string;
+  financeActionTo?: string;
+  minAmount?: number;
+  maxAmount?: number;
 };
 
 // ----------------------------------------------------------------

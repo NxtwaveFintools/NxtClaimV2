@@ -137,6 +137,14 @@ export type GetMyClaimsFilters = {
   dateTo?: string;
   searchField?: ClaimSearchField;
   searchQuery?: string;
+  submittedFrom?: string;
+  submittedTo?: string;
+  hodActionFrom?: string;
+  hodActionTo?: string;
+  financeActionFrom?: string;
+  financeActionTo?: string;
+  minAmount?: number;
+  maxAmount?: number;
 };
 
 export type ClaimsExportFetchScope =

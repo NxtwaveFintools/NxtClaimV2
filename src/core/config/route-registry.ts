@@ -3,6 +3,7 @@ export const DASHBOARD_MY_CLAIMS = "/dashboard/my-claims";
 export const ROUTES = {
   home: "/",
   dashboard: "/dashboard",
+  dashboardAnalytics: "/dashboard/analytics",
   claims: {
     list: "/claims",
     dashboardList: "/dashboard/claims",

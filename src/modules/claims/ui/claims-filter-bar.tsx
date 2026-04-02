@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ROUTES } from "@/core/config/route-registry";
 import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
 import { getAccessTokenAction } from "@/modules/auth/actions";
+import { AdvancedFiltersSheet } from "@/modules/claims/ui/advanced-filters-sheet";
 import type {
   ClaimDateTarget,
   ClaimSearchField,
@@ -45,12 +46,6 @@ const SUBMISSION_TYPE_OPTIONS: Array<{ value: ClaimSubmissionType; label: string
   { value: "On Behalf", label: "On Behalf" },
 ];
 
-const DATE_TARGET_OPTIONS: Array<{ value: ClaimDateTarget; label: string }> = [
-  { value: "submitted", label: "Submitted Date" },
-  { value: "hod_action", label: "HOD Action Date" },
-  { value: "finance_closed", label: "Finance Approved/Closed" },
-];
-
 function updateUrlWithMutation(
   params: URLSearchParams,
   pathname: string,
@@ -59,6 +54,18 @@ function updateUrlWithMutation(
   const query = params.toString();
   const nextHref = query ? `${pathname}?${query}` : pathname;
   router.replace(nextHref, { scroll: false });
+}
+
+function resolveSmartDateTarget(status: string): ClaimDateTarget {
+  if (status === "HOD approved - Awaiting finance approval") {
+    return "hod_action";
+  }
+
+  if (status === "Finance Approved - Payment under process" || status === "Payment Done - Closed") {
+    return "finance_closed";
+  }
+
+  return "submitted";
 }
 
 function hasActiveFilterParams(params: URLSearchParams): boolean {
@@ -88,6 +95,14 @@ function hasActiveFilterParams(params: URLSearchParams): boolean {
     "status",
     "from",
     "to",
+    "adv_sub_from",
+    "adv_sub_to",
+    "adv_hod_from",
+    "adv_hod_to",
+    "adv_fin_from",
+    "adv_fin_to",
+    "min_amt",
+    "max_amt",
   ];
   return trackedFilterKeys.some((key) => {
     const value = params.get(key);
@@ -98,6 +113,7 @@ function hasActiveFilterParams(params: URLSearchParams): boolean {
 type ClaimsFilterBarProps = {
   exportScope?: "submissions" | "approvals" | "admin" | "department";
   defaultFiltersExpanded?: boolean;
+  isAdmin?: boolean;
   paymentModes: Array<{ id: string; name: string }>;
   departments: Array<{ id: string; name: string }>;
   locations: Array<{ id: string; name: string }>;
@@ -108,6 +124,7 @@ type ClaimsFilterBarProps = {
 export function ClaimsFilterBar({
   exportScope,
   defaultFiltersExpanded = false,
+  isAdmin = false,
   paymentModes,
   departments,
   locations,
@@ -132,9 +149,6 @@ export function ClaimsFilterBar({
 
   const [localSearchField, setLocalSearchField] = useState(
     searchParams.get("search_field") ?? "claim_id",
-  );
-  const [localDateTarget, setLocalDateTarget] = useState<ClaimDateTarget>(
-    (searchParams.get("date_target") as ClaimDateTarget | null) ?? "submitted",
   );
   const [localSubmissionType, setLocalSubmissionType] = useState(
     searchParams.get("submission_type") ?? "",
@@ -168,7 +182,6 @@ export function ClaimsFilterBar({
   useEffect(() => {
     setSearchInput(searchParams.get("search_query") ?? "");
     setLocalSearchField(searchParams.get("search_field") ?? "claim_id");
-    setLocalDateTarget((searchParams.get("date_target") as ClaimDateTarget | null) ?? "submitted");
     setLocalSubmissionType(searchParams.get("submission_type") ?? "");
     setLocalPaymentModeId(searchParams.get("payment_mode_id") ?? "");
     setLocalDepartmentId(searchParams.get("department_id") ?? "");
@@ -232,6 +245,19 @@ export function ClaimsFilterBar({
       nextParams.delete(name);
     }
 
+    if (name === "status" || name === "from" || name === "to") {
+      const fromDate = (name === "from" ? value : (nextParams.get("from") ?? "")).trim();
+      const toDate = (name === "to" ? value : (nextParams.get("to") ?? "")).trim();
+      const activeStatus = (name === "status" ? value : (nextParams.get("status") ?? "")).trim();
+
+      if (fromDate || toDate) {
+        const inferredTarget = resolveSmartDateTarget(activeStatus);
+        nextParams.set("date_target", inferredTarget);
+      } else {
+        nextParams.delete("date_target");
+      }
+    }
+
     nextParams.delete("cursor");
     nextParams.delete("prevCursor");
     startTransition(() => {
@@ -251,24 +277,6 @@ export function ClaimsFilterBar({
       nextParams.delete("search_query");
       setSearchInput("");
       setDebouncedSearchInput("");
-    }
-
-    nextParams.delete("cursor");
-    nextParams.delete("prevCursor");
-    startTransition(() => {
-      updateUrlWithMutation(nextParams, pathname, router);
-    });
-  }
-
-  function handleDateTargetChange(value: ClaimDateTarget): void {
-    setLocalDateTarget(value);
-
-    const nextParams = new URLSearchParams(searchParams.toString());
-
-    if (value === "submitted") {
-      nextParams.delete("date_target");
-    } else {
-      nextParams.set("date_target", value);
     }
 
     nextParams.delete("cursor");
@@ -378,25 +386,6 @@ export function ClaimsFilterBar({
       ) : null}
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex rounded-xl border border-zinc-200/80 bg-zinc-50/80 p-0.5 dark:border-zinc-700 dark:bg-zinc-900/60">
-          {DATE_TARGET_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => {
-                handleDateTargetChange(option.value);
-              }}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
-                localDateTarget === option.value
-                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
-                  : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-
         <div className="inline-flex items-center gap-1.5">
           <button
             type="button"
@@ -458,13 +447,14 @@ export function ClaimsFilterBar({
             </button>
           ) : null}
 
+          {isAdmin ? <AdvancedFiltersSheet /> : null}
+
           <button
             type="button"
             onClick={() => {
               setSearchInput("");
               setDebouncedSearchInput("");
               setLocalSearchField("claim_id");
-              setLocalDateTarget("submitted");
               setLocalSubmissionType("");
               setLocalPaymentModeId("");
               setLocalDepartmentId("");

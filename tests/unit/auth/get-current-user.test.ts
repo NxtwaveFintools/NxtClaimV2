@@ -1,3 +1,5 @@
+export {};
+
 const mockGetCurrentUser = jest.fn();
 const mockRepositoryConstructor = jest.fn();
 

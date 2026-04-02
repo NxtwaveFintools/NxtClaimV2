@@ -28,6 +28,34 @@ function normalizeStatusFilter(value: string | undefined): DbClaimStatus[] | und
   return parsed.length === 0 ? undefined : parsed;
 }
 
+const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+function normalizeDate(value: string | undefined): string | undefined {
+  if (!value || !dateRegex.test(value)) {
+    return undefined;
+  }
+
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    return undefined;
+  }
+
+  return value;
+}
+
+function normalizeAmountFilter(value: string | undefined): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+
+  return parsed;
+}
+
 const PAGE_SIZE = 10;
 
 async function AdminClaimsTableSection({
@@ -57,8 +85,18 @@ async function AdminClaimsTableSection({
     expenseCategoryId: firstParamValue(searchParams?.expense_category_id)?.trim() || undefined,
     dateTarget:
       (firstParamValue(searchParams?.date_target) as AdminClaimsFilters["dateTarget"]) || undefined,
-    dateFrom: firstParamValue(searchParams?.from)?.trim() || undefined,
-    dateTo: firstParamValue(searchParams?.to)?.trim() || undefined,
+    dateFrom: normalizeDate(firstParamValue(searchParams?.from)?.trim() || undefined),
+    dateTo: normalizeDate(firstParamValue(searchParams?.to)?.trim() || undefined),
+    submittedFrom: normalizeDate(firstParamValue(searchParams?.adv_sub_from)?.trim() || undefined),
+    submittedTo: normalizeDate(firstParamValue(searchParams?.adv_sub_to)?.trim() || undefined),
+    hodActionFrom: normalizeDate(firstParamValue(searchParams?.adv_hod_from)?.trim() || undefined),
+    hodActionTo: normalizeDate(firstParamValue(searchParams?.adv_hod_to)?.trim() || undefined),
+    financeActionFrom: normalizeDate(
+      firstParamValue(searchParams?.adv_fin_from)?.trim() || undefined,
+    ),
+    financeActionTo: normalizeDate(firstParamValue(searchParams?.adv_fin_to)?.trim() || undefined),
+    minAmount: normalizeAmountFilter(firstParamValue(searchParams?.min_amt)?.trim() || undefined),
+    maxAmount: normalizeAmountFilter(firstParamValue(searchParams?.max_amt)?.trim() || undefined),
   };
 
   const result = await service.execute({
@@ -108,6 +146,7 @@ async function AdminFilterBarWithData() {
     <ClaimsFilterBar
       exportScope="admin"
       defaultFiltersExpanded
+      isAdmin
       paymentModes={paymentModesResult.data.map((m) => ({ id: m.id, name: m.name }))}
       departments={departmentsResult.data.map((d) => ({ id: d.id, name: d.name }))}
       locations={locationsResult.data.map((l) => ({ id: l.id, name: l.name }))}
