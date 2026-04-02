@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CalendarDays, CirclePlus, FileText, LayoutDashboard, Settings } from "lucide-react";
+import {
+  BarChart3,
+  CalendarDays,
+  CirclePlus,
+  FileText,
+  LayoutDashboard,
+  Settings,
+} from "lucide-react";
 import { ROUTES } from "@/core/config/route-registry";
 import { AppShellHeader } from "@/components/app-shell-header";
 import { logger } from "@/core/infra/logging/logger";
@@ -64,6 +71,12 @@ export default async function DashboardPage() {
       href: ROUTES.claims.myClaims,
       label: "My Claims",
       icon: FileText,
+      isActive: false,
+    },
+    {
+      href: ROUTES.dashboardAnalytics,
+      label: "Analytics",
+      icon: BarChart3,
       isActive: false,
     },
     ...(isAdminUser
