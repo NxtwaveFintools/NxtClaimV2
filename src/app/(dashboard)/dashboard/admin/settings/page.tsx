@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Building2,
   Database,
+  FileText,
   ShieldCheck,
   type LucideIcon,
   UserCog,
@@ -24,9 +25,11 @@ import { FinanceApproversManagement } from "@/modules/admin/ui/settings/finance-
 import { UsersManagement } from "@/modules/admin/ui/settings/users-management";
 import { AdminsManagement } from "@/modules/admin/ui/settings/admins-management";
 import { DepartmentViewersManagement } from "@/modules/admin/ui/settings/department-viewers-management";
+import { PolicyManagement } from "@/modules/admin/ui/settings/policy-management";
 import { BackButton } from "@/components/ui/back-button";
 import type { MasterDataTableName } from "@/core/domain/admin/contracts";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
+import { getPolicyGateState } from "@/modules/policies/server/get-policy-gate-state";
 import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
 
 export const metadata = {
@@ -69,6 +72,10 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
       { key: "users", label: "Users" },
       { key: "admins", label: "Administrators" },
     ],
+  },
+  {
+    groupLabel: "Governance",
+    items: [{ key: "policy", label: "Company Policy" }],
   },
 ];
 
@@ -154,6 +161,13 @@ const TAB_META: Record<
     spotlight: "Keep the admin surface intentionally small and well governed.",
     icon: UserCog,
   },
+  policy: {
+    eyebrow: "Governance",
+    description:
+      "Publish policy revisions and enforce mandatory acceptance across all users before dashboard access.",
+    spotlight: "Every publish forces re-acceptance and preserves historical acceptance records.",
+    icon: FileText,
+  },
 };
 
 const PAGE_SIZE = 20;
@@ -209,6 +223,7 @@ export default async function AdminSettingsPage({
     departmentsResult,
     financeResult,
     usersResult,
+    policyGateStateResult,
   ] = await Promise.all([
     activeTab === "admins" ? adminsService.getAdmins() : Promise.resolve(null),
     activeTab === "viewers" ? viewersService.getDepartmentViewers() : Promise.resolve(null),
@@ -222,6 +237,7 @@ export default async function AdminSettingsPage({
     activeTab === "users"
       ? adminsService.getAllUsers({ cursor, limit: PAGE_SIZE })
       : Promise.resolve(null),
+    activeTab === "policy" ? getPolicyGateState() : Promise.resolve(null),
   ]);
 
   function tabHref(key: string) {
@@ -419,6 +435,10 @@ export default async function AdminSettingsPage({
                     }))}
                   />
                 )
+              ) : null}
+
+              {activeTab === "policy" && policyGateStateResult ? (
+                <PolicyManagement initialState={policyGateStateResult} />
               ) : null}
             </div>
           </section>

@@ -246,3 +246,15 @@ on conflict (name) do update
 set
 	is_active = excluded.is_active,
 	updated_at = now();
+
+update public.master_policies
+set is_active = false
+where is_active = true
+  and version_name <> 'FIN-POL-002';
+
+insert into public.master_policies (version_name, file_url, is_active)
+values ('FIN-POL-002', '/policies/fin-pol-002.pdf', true)
+on conflict (version_name) do update
+set
+	file_url = excluded.file_url,
+	is_active = true;

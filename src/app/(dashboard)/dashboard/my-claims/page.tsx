@@ -1034,36 +1034,22 @@ async function FilterBarWithData({
 
 async function MyClaimsDashboardPageContent({
   searchParams,
-  isAdminUser,
-  isDeptViewer,
+  activeView,
+  viewerContextResult,
   userId,
 }: {
   searchParams: Record<string, SearchParamsValue>;
-  isAdminUser: boolean;
-  isDeptViewer: boolean;
+  activeView: ViewMode;
+  viewerContextResult: {
+    canViewApprovals: boolean;
+    activeScope: "l1" | "finance" | null;
+    errorMessage: string | null;
+  };
   userId: string;
 }) {
-  const claimRepository = new SupabaseClaimRepository();
-  const pendingApprovalsService = new GetPendingApprovalsService({
-    repository: claimRepository,
-    logger,
-  });
-
   const resolvedSearchParams = searchParams;
 
   const filters = buildClaimFilters(resolvedSearchParams);
-
-  const viewerContextResult = await pendingApprovalsService.getViewerContext({
-    userId,
-  });
-  const canViewApprovals = viewerContextResult.canViewApprovals;
-  const requestedView = firstParamValue(resolvedSearchParams?.view);
-
-  if (canViewApprovals && !requestedView && !isAdminUser) {
-    redirect(buildViewHref(resolvedSearchParams, "approvals"));
-  }
-
-  const activeView = resolveView(requestedView, canViewApprovals, isAdminUser, isDeptViewer);
 
   if (activeView === "admin") {
     return <AdminClaimsSection searchParams={resolvedSearchParams} />;
@@ -1120,15 +1106,27 @@ export default async function MyClaimsDashboardPage({
     redirect(ROUTES.login);
   }
 
+  const claimRepository = new SupabaseClaimRepository();
+  const pendingApprovalsService = new GetPendingApprovalsService({
+    repository: claimRepository,
+    logger,
+  });
+  const viewerContextResult = await pendingApprovalsService.getViewerContext({
+    userId: currentUserResult.user.id,
+  });
+
   const requestedView = firstParamValue(resolvedSearchParams?.view);
-  const activeView: ViewMode =
-    requestedView === "admin" && isAdminUser
-      ? "admin"
-      : requestedView === "department" && isDeptViewer
-        ? "department"
-        : requestedView === "approvals"
-          ? "approvals"
-          : "submissions";
+  const requestedOrDefaultView =
+    !requestedView && viewerContextResult.canViewApprovals && !isAdminUser
+      ? "approvals"
+      : requestedView;
+
+  const activeView = resolveView(
+    requestedOrDefaultView,
+    viewerContextResult.canViewApprovals,
+    isAdminUser,
+    isDeptViewer,
+  );
 
   const submissionsHref = buildViewHref(resolvedSearchParams, "submissions");
   const approvalsHref = buildViewHref(resolvedSearchParams, "approvals");
@@ -1233,8 +1231,8 @@ export default async function MyClaimsDashboardPage({
           <Suspense fallback={<MyClaimsShellSkeleton />}>
             <MyClaimsDashboardPageContent
               searchParams={resolvedSearchParams}
-              isAdminUser={isAdminUser}
-              isDeptViewer={isDeptViewer}
+              activeView={activeView}
+              viewerContextResult={viewerContextResult}
               userId={currentUserResult.user.id}
             />
           </Suspense>

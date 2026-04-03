@@ -197,7 +197,7 @@ async function cleanupSeedFinanceClaims(seedTag: string): Promise<void> {
   }
 }
 
-test("Finance user can download full CSV containing all form fields", async ({
+test("Finance user can download full Excel containing all form fields", async ({
   page,
 }, testInfo) => {
   test.setTimeout(180_000);
@@ -214,7 +214,7 @@ test("Finance user can download full CSV containing all form fields", async ({
 
     await page.goto("/dashboard/my-claims?view=submissions", { waitUntil: "networkidle" });
 
-    const exportButton = page.getByRole("button", { name: /Export CSV/i });
+    const exportButton = page.getByRole("button", { name: /Export Excel/i });
     await expect(exportButton).toBeVisible();
 
     await fs.mkdir(testInfo.outputDir, { recursive: true });
@@ -247,6 +247,7 @@ test("Finance user can download full CSV containing all form fields", async ({
     const headers = rowValues.slice(1).map((header) => normalizeCellValue(header).trim());
     expect(headers).toEqual([
       "Claim ID",
+      "Employee ID",
       "Employee Email",
       "Employee Name",
       "Department",

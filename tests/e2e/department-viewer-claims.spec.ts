@@ -179,7 +179,7 @@ test.describe("department viewer claims", () => {
     await page.goto("/dashboard/my-claims?view=department", { waitUntil: "domcontentloaded" });
 
     const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: /export csv/i }).click();
+    await page.getByRole("button", { name: /export excel/i }).click();
     const download = await downloadPromise;
 
     expect(download.suggestedFilename()).toMatch(/\.xlsx$/i);

@@ -182,9 +182,18 @@ const exportClaimsHandler = async (request: NextRequest, context: AuthenticatedC
 };
 
 // Column indices (1-based) for the three document URL columns.
-const COL_BANK_STATEMENT = 31;
-const COL_BILL_URL = 32;
-const COL_PETTY_CASH_PHOTO = 33;
+const COL_BANK_STATEMENT = 32;
+const COL_BILL_URL = 33;
+const COL_PETTY_CASH_PHOTO = 34;
+const MAX_EXPORT_ROWS_PER_SHEET = 5000;
+
+function addClaimsSheet(workbook: ExcelJS.Workbook, sheetNumber: number): ExcelJS.Worksheet {
+  const worksheet = workbook.addWorksheet(sheetNumber === 1 ? "Claims" : `Claims ${sheetNumber}`);
+  const headerRow = worksheet.addRow([...EXPORT_HEADERS]);
+  headerRow.font = { bold: true };
+
+  return worksheet;
+}
 
 function applyHyperlinkCell(row: ExcelJS.Row, colIndex: number, url: string | null): void {
   const cell = row.getCell(colIndex);
@@ -198,14 +207,20 @@ function applyHyperlinkCell(row: ExcelJS.Row, colIndex: number, url: string | nu
 
 async function buildExcelWorkbook(rows: ClaimExportRow[]): Promise<ArrayBuffer> {
   const workbook = new ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet("Claims");
-
-  const headerRow = worksheet.addRow([...EXPORT_HEADERS]);
-  headerRow.font = { bold: true };
+  let sheetNumber = 1;
+  let worksheet = addClaimsSheet(workbook, sheetNumber);
+  let sheetRowCount = 0;
 
   for (const rowData of rows) {
+    if (sheetRowCount >= MAX_EXPORT_ROWS_PER_SHEET) {
+      sheetNumber += 1;
+      worksheet = addClaimsSheet(workbook, sheetNumber);
+      sheetRowCount = 0;
+    }
+
     const excelRow = worksheet.addRow([
       rowData.claimId,
+      rowData.employeeId,
       rowData.employeeEmail,
       rowData.employeeName,
       rowData.department,
@@ -247,6 +262,7 @@ async function buildExcelWorkbook(rows: ClaimExportRow[]): Promise<ArrayBuffer> 
     applyHyperlinkCell(excelRow, COL_BANK_STATEMENT, rowData.bankStatementUrl);
     applyHyperlinkCell(excelRow, COL_BILL_URL, rowData.billUrl);
     applyHyperlinkCell(excelRow, COL_PETTY_CASH_PHOTO, rowData.pettyCashPhotoUrl);
+    sheetRowCount += 1;
   }
 
   return workbook.xlsx.writeBuffer();
