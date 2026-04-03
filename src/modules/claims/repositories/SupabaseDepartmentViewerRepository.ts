@@ -21,6 +21,7 @@ type EnterpriseDashboardRow = {
   claim_id: string;
   employee_name: string;
   employee_id: string;
+  submitter_email: string | null;
   department_name: string;
   type_of_claim: string;
   amount: number | string;
@@ -107,7 +108,7 @@ export class SupabaseDepartmentViewerRepository implements DepartmentViewerRepos
     let query = this.client
       .from("vw_enterprise_claims_dashboard")
       .select(
-        "claim_id, employee_name, employee_id, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, detail_type, submission_type, department_id, payment_mode_id, location_id, product_id, expense_category_id",
+        "claim_id, employee_name, employee_id, submitter_email, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, detail_type, submission_type, department_id, payment_mode_id, location_id, product_id, expense_category_id",
       )
       .in("department_id", departmentIds)
       .order("submitted_on", { ascending: false })
@@ -131,9 +132,11 @@ export class SupabaseDepartmentViewerRepository implements DepartmentViewerRepos
         query = query.ilike("employee_name", `%${sq}%`);
       } else if (filters.searchField === "employee_id") {
         query = query.ilike("employee_id", `%${sq}%`);
+      } else if (filters.searchField === "employee_email") {
+        query = query.ilike("submitter_email", `%${sq}%`);
       } else {
         query = query.or(
-          `claim_id.ilike.%${sq}%,employee_name.ilike.%${sq}%,employee_id.ilike.%${sq}%`,
+          `claim_id.ilike.%${sq}%,employee_name.ilike.%${sq}%,employee_id.ilike.%${sq}%,submitter_email.ilike.%${sq}%`,
         );
       }
     }

@@ -599,6 +599,10 @@ function applyEnterpriseDashboardFilters<
     if (params.normalizedSearch.field === "employee_id") {
       query = query.ilike("employee_id", `%${params.normalizedSearch.query}%`);
     }
+
+    if (params.normalizedSearch.field === "employee_email") {
+      query = query.ilike("submitter_email", `%${params.normalizedSearch.query}%`);
+    }
   }
 
   return query;
@@ -697,6 +701,10 @@ function applyPendingApprovalsFilters<TQuery extends PendingApprovalsQueryChain<
 
     if (params.normalizedSearch.field === "employee_id") {
       query = query.ilike("employee_id", `%${params.normalizedSearch.query}%`);
+    }
+
+    if (params.normalizedSearch.field === "employee_email") {
+      query = query.ilike("submitter_user.email", `%${params.normalizedSearch.query}%`);
     }
   }
 
@@ -1050,7 +1058,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
     let query = client
       .from("claims")
-      .select("id, submitter_user:users!claims_submitted_by_fkey!inner(full_name)", {
+      .select("id, submitter_user:users!claims_submitted_by_fkey!inner(full_name, email)", {
         count: "exact",
         head: true,
       })
@@ -1105,6 +1113,10 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
       if (normalizedSearch.field === "employee_id") {
         query = query.ilike("employee_id", `%${normalizedSearch.query}%`);
+      }
+
+      if (normalizedSearch.field === "employee_email") {
+        query = query.ilike("submitter_user.email", `%${normalizedSearch.query}%`);
       }
     }
 
@@ -2302,6 +2314,10 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
       if (normalizedSearch.field === "employee_id") {
         query = query.ilike("employee_id", `%${normalizedSearch.query}%`);
+      }
+
+      if (normalizedSearch.field === "employee_email") {
+        query = query.ilike("submitter_user.email", `%${normalizedSearch.query}%`);
       }
     }
 

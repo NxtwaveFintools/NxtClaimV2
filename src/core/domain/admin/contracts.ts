@@ -107,7 +107,7 @@ export type AdminClaimsFilters = {
   status?: DbClaimStatus[];
   departmentId?: string;
   searchQuery?: string;
-  searchField?: "claim_id" | "employee_name" | "employee_id";
+  searchField?: "claim_id" | "employee_name" | "employee_id" | "employee_email";
   isActive?: boolean;
   submissionType?: "Self" | "On Behalf";
   paymentModeId?: string;

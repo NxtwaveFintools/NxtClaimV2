@@ -39,6 +39,7 @@ const SEARCH_FIELD_OPTIONS: Array<{ value: ClaimSearchField; label: string }> = 
   { value: "claim_id", label: "Claim ID" },
   { value: "employee_name", label: "Employee Name" },
   { value: "employee_id", label: "Employee ID" },
+  { value: "employee_email", label: "Employee Email" },
 ];
 
 const SUBMISSION_TYPE_OPTIONS: Array<{ value: ClaimSubmissionType; label: string }> = [
@@ -360,7 +361,9 @@ export function ClaimsFilterBar({
       ? "Search by Claim ID..."
       : localSearchField === "employee_name"
         ? "Search by Employee Name..."
-        : "Search by Employee ID...";
+        : localSearchField === "employee_id"
+          ? "Search by Employee ID..."
+          : "Search by Employee Email...";
 
   return (
     <section className="rounded-2xl border border-zinc-200/80 bg-white/92 p-4 shadow-[0_8px_32px_-12px_rgba(15,23,42,0.08)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">

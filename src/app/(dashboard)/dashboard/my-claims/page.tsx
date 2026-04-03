@@ -126,7 +126,12 @@ function normalizeDate(value: string | undefined): string | undefined {
 }
 
 function normalizeSearchField(value: string | undefined): ClaimSearchField | undefined {
-  if (value === "claim_id" || value === "employee_name" || value === "employee_id") {
+  if (
+    value === "claim_id" ||
+    value === "employee_name" ||
+    value === "employee_id" ||
+    value === "employee_email"
+  ) {
     return value;
   }
 

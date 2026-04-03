@@ -63,7 +63,12 @@ function normalizeAmount(value: string | null): number | undefined {
 }
 
 function normalizeSearchField(value: string | null): ClaimSearchField | undefined {
-  if (value === "claim_id" || value === "employee_name" || value === "employee_id") {
+  if (
+    value === "claim_id" ||
+    value === "employee_name" ||
+    value === "employee_id" ||
+    value === "employee_email"
+  ) {
     return value;
   }
 
