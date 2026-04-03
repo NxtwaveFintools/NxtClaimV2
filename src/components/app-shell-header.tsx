@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { CircleUser } from "lucide-react";
+import { CompanyPolicyButton, type CompanyPolicyState } from "@/components/company-policy-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ROUTES } from "@/core/config/route-registry";
+import { getPolicyGateState } from "@/modules/policies/server/get-policy-gate-state";
 
 function NxtClaimLogo({ className }: { className?: string }) {
   return (
@@ -36,7 +38,35 @@ type AppShellHeaderProps = {
   actions?: React.ReactNode;
 };
 
-export function AppShellHeader({ currentEmail, actions }: AppShellHeaderProps) {
+function toCompanyPolicyState(
+  gateState: Awaited<ReturnType<typeof getPolicyGateState>>,
+): CompanyPolicyState {
+  return {
+    policy: gateState.policy
+      ? {
+          id: gateState.policy.id,
+          versionName: gateState.policy.versionName,
+          fileUrl: gateState.policy.fileUrl,
+          createdAt: gateState.policy.createdAt,
+        }
+      : null,
+    accepted: gateState.accepted,
+    acceptedAt: gateState.acceptedAt,
+    message: gateState.errorMessage,
+  };
+}
+
+export async function AppShellHeader({ currentEmail, actions }: AppShellHeaderProps) {
+  const companyPolicyState =
+    !actions && currentEmail ? toCompanyPolicyState(await getPolicyGateState()) : null;
+
+  const resolvedActions = actions ?? (
+    <>
+      {currentEmail ? <CompanyPolicyButton initialState={companyPolicyState} /> : null}
+      <SignOutButton />
+    </>
+  );
+
   return (
     <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/85 backdrop-blur-xl dark:border-zinc-800/80 dark:bg-slate-950/88">
       <div className="mx-auto flex h-18 max-w-400 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
@@ -63,7 +93,7 @@ export function AppShellHeader({ currentEmail, actions }: AppShellHeaderProps) {
             </div>
           ) : null}
           <ThemeToggle />
-          {actions || <SignOutButton />}
+          {resolvedActions}
         </div>
       </div>
     </header>

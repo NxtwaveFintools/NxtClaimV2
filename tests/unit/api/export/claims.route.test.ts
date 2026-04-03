@@ -65,6 +65,7 @@ function buildRequest(url: string): NextRequest {
 function buildExportRow() {
   return {
     claimId: "CLAIM-1",
+    employeeId: "EMP-1",
     transactionId: "TXN-1",
     employeeEmail: "user@nxtwave.co.in",
     employeeName: "Alice",
@@ -204,5 +205,31 @@ describe("GET /api/export/claims", () => {
     });
     expect(mockWorkbookCtor).toHaveBeenCalledTimes(1);
     expect(mockWriteBuffer).toHaveBeenCalledTimes(1);
+  });
+
+  test("splits export into multiple worksheets for very large datasets", async () => {
+    const rows = Array.from({ length: 5001 }, (_, index) => ({
+      ...buildExportRow(),
+      claimId: `CLAIM-${index + 1}`,
+      employeeId: `EMP-${index + 1}`,
+    }));
+
+    mockExecute.mockResolvedValue({
+      rows,
+      fileName: "claims_export_large.xlsx",
+      rowCount: rows.length,
+      errorMessage: null,
+    });
+
+    const { GET } = await import("@/app/api/export/claims/route");
+
+    const response = await (
+      GET as (req: NextRequest, ctx: ReturnType<typeof createContext>) => Promise<Response>
+    )(buildRequest("http://localhost/api/export/claims?scope=submissions"), createContext());
+
+    expect(response.status).toBe(200);
+    expect(mockAddWorksheet).toHaveBeenCalledTimes(2);
+    expect(mockAddWorksheet).toHaveBeenNthCalledWith(1, "Claims");
+    expect(mockAddWorksheet).toHaveBeenNthCalledWith(2, "Claims 2");
   });
 });

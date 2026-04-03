@@ -287,7 +287,7 @@ export function ClaimsFilterBar({
     });
   }
 
-  async function handleExportCsv(): Promise<void> {
+  async function handleExportXlsx(): Promise<void> {
     if (isExporting || !exportScope) {
       return;
     }
@@ -429,7 +429,7 @@ export function ClaimsFilterBar({
             <button
               type="button"
               onClick={() => {
-                void handleExportCsv();
+                void handleExportXlsx();
               }}
               disabled={isExporting}
               className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-70 dark:border-emerald-700/60 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
@@ -446,7 +446,7 @@ export function ClaimsFilterBar({
                 <path d="m7.5 10.5 4.5 4.5 4.5-4.5" />
                 <path d="M4 17.5A1.5 1.5 0 0 0 5.5 19h13a1.5 1.5 0 0 0 1.5-1.5" />
               </svg>
-              {isExporting ? "Exporting..." : "Export CSV"}
+              {isExporting ? "Exporting..." : "Export Excel"}
             </button>
           ) : null}
 

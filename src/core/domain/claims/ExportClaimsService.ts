@@ -40,6 +40,7 @@ type ExportClaimsServiceInput = {
 
 export type ClaimExportRow = {
   claimId: string;
+  employeeId: string;
   employeeEmail: string;
   employeeName: string;
   department: string;
@@ -92,6 +93,7 @@ const EXPORT_BATCH_SIZE = 500;
 
 export const EXPORT_HEADERS = [
   "Claim ID",
+  "Employee ID",
   "Employee Email",
   "Employee Name",
   "Department",
@@ -420,6 +422,7 @@ export class ExportClaimsService {
 
       return {
         claimId: row.claimId,
+        employeeId: toTextValue(row.employeeId),
         employeeEmail: toTextValue(beneficiaryEmail),
         employeeName: toTextValue(beneficiaryName),
         department: toTextValue(row.departmentName),
