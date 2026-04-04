@@ -578,6 +578,22 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
       (claim.expense.cgstAmount ?? 0) > 0 ||
       (claim.expense.sgstAmount ?? 0) > 0 ||
       (claim.expense.igstAmount ?? 0) > 0);
+  const submitterDisplayName = formatOptionalText(claim.submitterName ?? claim.submitter);
+  const submitterDisplayEmail = formatOptionalText(claim.submitterEmail ?? claim.submitter);
+  const claimForDisplayName =
+    claim.submissionType === "On Behalf"
+      ? formatOptionalText(claim.beneficiaryName ?? claim.onBehalfEmail, submitterDisplayName)
+      : submitterDisplayName;
+  const claimForDisplayEmail =
+    claim.submissionType === "On Behalf"
+      ? formatOptionalText(claim.beneficiaryEmail ?? claim.onBehalfEmail, submitterDisplayEmail)
+      : submitterDisplayEmail;
+  const employeeIdLabel =
+    claim.submissionType === "On Behalf" ? "Beneficiary Employee ID" : "Employee ID";
+  const employeeIdValue =
+    claim.submissionType === "On Behalf"
+      ? formatOptionalText(claim.onBehalfEmployeeCode, claim.employeeId)
+      : claim.employeeId;
 
   return (
     <>
@@ -601,7 +617,7 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
               {claim.id}
             </h1>
             <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-              {claim.submitterName ?? claim.submitter} ({claim.submitterEmail ?? claim.submitter})
+              Submitted by {submitterDisplayName} ({submitterDisplayEmail})
             </p>
           </div>
           <ClaimStatusBadge status={claim.status} />
@@ -646,7 +662,7 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
         </div>
 
         {/* ── Supplementary Info ── */}
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <div className="px-1">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
               Payment Mode
@@ -657,10 +673,10 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
           </div>
           <div className="px-1">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              Employee ID
+              {employeeIdLabel}
             </p>
             <p className="mt-0.5 text-xs font-medium text-slate-700 dark:text-slate-300">
-              {claim.employeeId}
+              {employeeIdValue}
             </p>
           </div>
           <div className="px-1">
@@ -669,6 +685,14 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
             </p>
             <p className="mt-0.5 text-xs font-medium text-slate-700 dark:text-slate-300">
               {claim.submissionType}
+            </p>
+          </div>
+          <div className="col-span-2 px-1 lg:col-span-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Claim For
+            </p>
+            <p className="mt-0.5 text-xs font-medium text-slate-700 dark:text-slate-300">
+              {claimForDisplayName} ({claimForDisplayEmail})
             </p>
           </div>
         </div>

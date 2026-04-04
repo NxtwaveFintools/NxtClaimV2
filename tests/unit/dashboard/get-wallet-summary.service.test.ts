@@ -115,7 +115,7 @@ describe("GetWalletSummaryService", () => {
     });
   });
 
-  test("returns integrity error when petty cash balance is negative", async () => {
+  test("allows negative petty cash balance when spent exceeds received", async () => {
     const repository = createRepository({
       getWalletTotals: jest.fn(async () => ({
         data: {
@@ -132,7 +132,14 @@ describe("GetWalletSummaryService", () => {
 
     const result = await service.execute("user-5");
 
-    expect(result.data).toBeNull();
-    expect(result.errorMessage).toContain("pettyCashBalance cannot be negative");
+    expect(result.errorMessage).toBeNull();
+    expect(result.data).toEqual({
+      totalPettyCashReceived: 1000,
+      totalPettyCashSpent: 1200,
+      totalReimbursements: 300,
+      amountReceived: 1300,
+      amountSpent: 1200,
+      pettyCashBalance: -200,
+    });
   });
 });
