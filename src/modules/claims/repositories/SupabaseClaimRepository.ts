@@ -115,6 +115,11 @@ type DepartmentApproverRoleRow = {
   founder_user_id: string | null;
 };
 
+type UserLookupRow = {
+  id: string;
+  is_active: boolean;
+};
+
 type GetPendingApprovalsRow = {
   id: string;
   employee_id: string;
@@ -209,7 +214,9 @@ type ClaimDetailRow = {
   employee_id: string;
   submission_type: "Self" | "On Behalf";
   detail_type: "expense" | "advance";
+  on_behalf_of_id: string | null;
   on_behalf_email: string | null;
+  on_behalf_employee_code: string | null;
   status: DbClaimStatus;
   rejection_reason: string | null;
   is_resubmission_allowed: boolean;
@@ -220,6 +227,7 @@ type ClaimDetailRow = {
   assigned_l2_approver_id: string | null;
   submitted_by: string;
   submitter_user: ClaimSubmitterRow | ClaimSubmitterRow[] | null;
+  beneficiary_user: ClaimSubmitterRow | ClaimSubmitterRow[] | null;
   master_departments: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
   master_payment_modes: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
   expense_details: ClaimDetailExpenseRow | ClaimDetailExpenseRow[] | null;
@@ -826,6 +834,31 @@ function buildMyClaimsOwnershipWithCursorOrFilter(userId: string, cursor: Claims
 }
 
 export class SupabaseClaimRepository implements ClaimRepository {
+  private isAlreadyRegisteredError(message: string): boolean {
+    const normalized = message.trim().toLowerCase();
+    return normalized.includes("already registered") || normalized.includes("already exists");
+  }
+
+  private async getUserByEmail(
+    email: string,
+  ): Promise<{ data: UserLookupRow | null; errorMessage: string | null }> {
+    const client = getServiceRoleSupabaseClient();
+    const { data, error } = await client
+      .from("users")
+      .select("id, is_active")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (error) {
+      return { data: null, errorMessage: error.message };
+    }
+
+    return {
+      data: (data as UserLookupRow | null) ?? null,
+      errorMessage: null,
+    };
+  }
+
   private async updateWalletTotalsForClosedClaim(
     claimId: string,
   ): Promise<{ errorMessage: string | null }> {
@@ -1483,7 +1516,9 @@ export class SupabaseClaimRepository implements ClaimRepository {
       paymentModeId: string;
       submissionType: "Self" | "On Behalf";
       detailType: "expense" | "advance";
+      onBehalfOfId: string | null;
       onBehalfEmail: string | null;
+      onBehalfEmployeeCode: string | null;
       status: DbClaimStatus;
       rejectionReason: string | null;
       submittedAt: string;
@@ -1495,6 +1530,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
       submitter: string;
       submitterName: string | null;
       submitterEmail: string | null;
+      beneficiaryName: string | null;
+      beneficiaryEmail: string | null;
       expense: {
         billNo: string;
         purpose: string | null;
@@ -1534,7 +1571,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const { data, error } = await client
       .from("claims")
       .select(
-        "id, employee_id, submission_type, detail_type, on_behalf_email, status, rejection_reason, submitted_at, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(bill_no, purpose, expense_category_id, product_id, location_id, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(purpose, requested_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
+        "id, employee_id, submission_type, detail_type, on_behalf_of_id, on_behalf_email, on_behalf_employee_code, status, rejection_reason, submitted_at, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(bill_no, purpose, expense_category_id, product_id, location_id, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(purpose, requested_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
       )
       .eq("id", claimId)
       .eq("is_active", true)
@@ -1550,8 +1587,11 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
     const row = data as ClaimDetailRow;
     const submitter = getSingleRelation(row.submitter_user);
+    const beneficiary = getSingleRelation(row.beneficiary_user);
     const submitterName = submitter?.full_name?.trim();
     const submitterEmail = submitter?.email?.trim();
+    const beneficiaryName = beneficiary?.full_name?.trim();
+    const beneficiaryEmail = beneficiary?.email?.trim();
     const submitterLabel =
       submitterName && submitterEmail
         ? `${submitterName} (${submitterEmail})`
@@ -1572,7 +1612,9 @@ export class SupabaseClaimRepository implements ClaimRepository {
         paymentModeId: row.payment_mode_id,
         submissionType: row.submission_type,
         detailType: row.detail_type,
+        onBehalfOfId: row.on_behalf_of_id,
         onBehalfEmail: row.on_behalf_email,
+        onBehalfEmployeeCode: row.on_behalf_employee_code,
         status: row.status,
         rejectionReason: row.rejection_reason,
         submittedAt: row.submitted_at,
@@ -1584,6 +1626,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
         submitter: submitterLabel,
         submitterName: submitterName ?? null,
         submitterEmail: submitterEmail ?? null,
+        beneficiaryName: beneficiaryName ?? null,
+        beneficiaryEmail: beneficiaryEmail ?? null,
         expense: expense
           ? {
               billNo: expense.bill_no,
@@ -2031,19 +2075,80 @@ export class SupabaseClaimRepository implements ClaimRepository {
   ): Promise<{ data: string | null; errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
     const normalizedEmail = email.trim().toLowerCase();
-    const { data, error } = await client
-      .from("users")
-      .select("id")
-      .eq("email", normalizedEmail)
-      .eq("is_active", true)
-      .maybeSingle();
 
-    if (error) {
-      return { data: null, errorMessage: error.message };
+    const existingLookup = await this.getUserByEmail(normalizedEmail);
+    if (existingLookup.errorMessage) {
+      return { data: null, errorMessage: existingLookup.errorMessage };
+    }
+
+    if (existingLookup.data?.is_active) {
+      return { data: existingLookup.data.id, errorMessage: null };
+    }
+
+    if (existingLookup.data && !existingLookup.data.is_active) {
+      return {
+        data: null,
+        errorMessage: "On-behalf beneficiary exists but is inactive.",
+      };
+    }
+
+    const { data: createdUserData, error: createUserError } = await client.auth.admin.createUser({
+      email: normalizedEmail,
+      password: "password123",
+      email_confirm: true,
+    });
+
+    if (createUserError) {
+      if (this.isAlreadyRegisteredError(createUserError.message)) {
+        const retryLookup = await this.getUserByEmail(normalizedEmail);
+        if (retryLookup.errorMessage) {
+          return { data: null, errorMessage: retryLookup.errorMessage };
+        }
+
+        if (retryLookup.data?.is_active) {
+          return { data: retryLookup.data.id, errorMessage: null };
+        }
+
+        if (retryLookup.data && !retryLookup.data.is_active) {
+          return {
+            data: null,
+            errorMessage: "On-behalf beneficiary exists but is inactive.",
+          };
+        }
+      }
+
+      return {
+        data: null,
+        errorMessage: `Unable to provision on-behalf beneficiary: ${createUserError.message}`,
+      };
+    }
+
+    const createdUserId = createdUserData.user?.id;
+    if (!createdUserId) {
+      return {
+        data: null,
+        errorMessage: "Unable to provision on-behalf beneficiary.",
+      };
+    }
+
+    const syncedLookup = await this.getUserByEmail(normalizedEmail);
+    if (syncedLookup.errorMessage) {
+      return { data: null, errorMessage: syncedLookup.errorMessage };
+    }
+
+    if (syncedLookup.data?.is_active) {
+      return { data: syncedLookup.data.id, errorMessage: null };
+    }
+
+    if (syncedLookup.data && !syncedLookup.data.is_active) {
+      return {
+        data: null,
+        errorMessage: "On-behalf beneficiary exists but is inactive.",
+      };
     }
 
     return {
-      data: (data?.id as string | undefined) ?? null,
+      data: createdUserId,
       errorMessage: null,
     };
   }

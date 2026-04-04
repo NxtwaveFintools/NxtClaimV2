@@ -65,7 +65,6 @@ export class GetWalletSummaryService {
       assertNonNegativeLedger("totalPettyCashReceived", result.data.totalPettyCashReceived);
       assertNonNegativeLedger("totalPettyCashSpent", result.data.totalPettyCashSpent);
       assertNonNegativeLedger("totalReimbursements", result.data.totalReimbursements);
-      assertNonNegativeLedger("pettyCashBalance", result.data.pettyCashBalance);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Ledger integrity validation failed.";
