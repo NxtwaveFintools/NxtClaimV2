@@ -985,6 +985,22 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
 
     expect(afterEmployeeAReceived - beforeEmployeeAReceived).toBeGreaterThanOrEqual(-0.01);
     expect(afterEmployeeBReceived - beforeEmployeeBReceived).toBeGreaterThanOrEqual(amount - 0.01);
+
+    await withActorPage(browser, ACTORS.employeeB.email, async (page) => {
+      await expectClaimVisibleInMyClaims(page, onBehalfSubmission.claimId, true);
+
+      const claimLink = page.getByRole("link", { name: onBehalfSubmission.claimId }).first();
+      await expect(claimLink).toBeVisible({ timeout: 30000 });
+      await claimLink.click();
+
+      await expect(page).toHaveURL(new RegExp(`/dashboard/claims/${onBehalfSubmission.claimId}$`), {
+        timeout: 30000,
+      });
+      await expect(page.getByRole("heading", { name: onBehalfSubmission.claimId })).toBeVisible({
+        timeout: 30000,
+      });
+      await expect(page.getByRole("heading", { name: /page not found/i })).toHaveCount(0);
+    });
   });
 
   test("leapfrog routing sends HOD self-submission directly to finance", async ({ browser }) => {

@@ -377,8 +377,8 @@ export class SubmitClaimService {
     if (!beneficiaryResult.data) {
       return {
         effectiveUserId: null,
-        errorCode: "ON_BEHALF_USER_NOT_FOUND",
-        errorMessage: "On-behalf beneficiary is not an active user.",
+        errorCode: "BENEFICIARY_RESOLUTION_FAILED",
+        errorMessage: "Unable to resolve or provision on-behalf beneficiary.",
       };
     }
 

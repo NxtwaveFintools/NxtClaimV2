@@ -349,7 +349,7 @@ describe("SubmitClaimService", () => {
     expect(repository.createClaimWithDetail).not.toHaveBeenCalled();
   });
 
-  test("returns ON_BEHALF_USER_NOT_FOUND when on-behalf email cannot be resolved", async () => {
+  test("returns BENEFICIARY_RESOLUTION_FAILED when on-behalf beneficiary cannot be resolved", async () => {
     const repository = createRepository({
       getActiveUserIdByEmail: jest.fn(async () => ({
         data: null,
@@ -368,8 +368,8 @@ describe("SubmitClaimService", () => {
 
     expect(result).toEqual({
       claimId: null,
-      errorCode: "ON_BEHALF_USER_NOT_FOUND",
-      errorMessage: "On-behalf beneficiary is not an active user.",
+      errorCode: "BENEFICIARY_RESOLUTION_FAILED",
+      errorMessage: "Unable to resolve or provision on-behalf beneficiary.",
     });
   });
 

@@ -498,7 +498,7 @@ export async function submitClaimAction(input: unknown): Promise<{
     if (!beneficiaryLookup.data) {
       return {
         ok: false,
-        message: "On-behalf beneficiary is not an active user.",
+        message: "Unable to resolve or provision on-behalf beneficiary.",
       };
     }
 
