@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { getAuthStatePathForEmail, registerAuthStateEmail } from "./support/auth-state";
 
@@ -448,6 +448,57 @@ function parseCurrency(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+async function gotoWithRetry(page: Page, url: string, attempts = 2): Promise<void> {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded" });
+      return;
+    } catch (error) {
+      const errorText = String(error);
+      const redirectedToLogin =
+        /interrupted by another navigation/i.test(errorText) && /\/auth\/login/i.test(page.url());
+
+      if (redirectedToLogin) {
+        return;
+      }
+
+      const isNavigationAbort =
+        /ERR_ABORTED/i.test(errorText) || /interrupted by another navigation/i.test(errorText);
+      const isLastAttempt = attempt === attempts;
+
+      if (!isNavigationAbort || isLastAttempt) {
+        throw error;
+      }
+    }
+  }
+}
+
+async function acceptPolicyGateIfPresent(page: Page): Promise<void> {
+  const policyGateHeading = page.getByRole("heading", { name: /company policy gate/i }).first();
+  const isPolicyGateVisible = await policyGateHeading
+    .isVisible({ timeout: 1000 })
+    .catch(() => false);
+
+  if (!isPolicyGateVisible) {
+    return;
+  }
+
+  const confirmationCheckbox = page
+    .getByRole("checkbox", { name: /i have read and agree to this company policy/i })
+    .first();
+
+  await expect(confirmationCheckbox).toBeVisible({ timeout: 10000 });
+  if (!(await confirmationCheckbox.isChecked().catch(() => false))) {
+    await confirmationCheckbox.check({ force: true });
+  }
+
+  const acceptButton = page.getByRole("button", { name: /^i accept$/i }).first();
+  await expect(acceptButton).toBeEnabled({ timeout: 10000 });
+  await acceptButton.click({ force: true });
+
+  await expect(policyGateHeading).toBeHidden({ timeout: 30000 });
+}
+
 async function loginWithEmail(page: Page, email: string): Promise<void> {
   const loginResponse = await page.request.post("/api/auth/email-login", {
     data: {
@@ -497,7 +548,9 @@ async function loginWithEmail(page: Page, email: string): Promise<void> {
     );
   }
 
-  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+  await gotoWithRetry(page, "/dashboard");
+  await acceptPolicyGateIfPresent(page);
+
   const errorToast = page.locator('[data-sonner-toast][data-type="error"], [role="alert"]').first();
   const walletHeading = page.getByRole("heading", { name: /wallet summary/i });
   try {
@@ -514,7 +567,8 @@ async function loginWithEmail(page: Page, email: string): Promise<void> {
 }
 
 async function getAmountReceived(page: Page): Promise<number> {
-  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+  await gotoWithRetry(page, "/dashboard");
+  await acceptPolicyGateIfPresent(page);
   if (/\/auth\/login/i.test(page.url())) {
     throw new Error("Session expired while loading dashboard wallet summary.");
   }
@@ -529,12 +583,40 @@ async function getAmountReceived(page: Page): Promise<number> {
   return parseCurrency(amountText);
 }
 
-async function selectOptionByLabel(
-  selectLocator: ReturnType<Page["getByLabel"]>,
-  label: string,
-): Promise<void> {
+async function selectOptionByLabel(selectLocator: Locator, label: string): Promise<void> {
   await expect(selectLocator).toBeVisible({ timeout: 10000 });
-  await selectLocator.selectOption({ label });
+  await expect
+    .poll(
+      async () => {
+        await selectLocator.selectOption({ label });
+        return selectLocator.evaluate((el) => {
+          const select = el as HTMLSelectElement;
+          const selected = select.selectedOptions?.[0];
+          return selected?.label ?? selected?.textContent?.trim() ?? "";
+        });
+      },
+      {
+        timeout: 10000,
+        message: `waiting for select value to persist as ${label}`,
+      },
+    )
+    .toBe(label);
+}
+
+async function selectOptionByValue(selectLocator: Locator, value: string): Promise<void> {
+  await expect(selectLocator).toBeVisible({ timeout: 10000 });
+  await expect
+    .poll(
+      async () => {
+        await selectLocator.selectOption({ value });
+        return selectLocator.inputValue();
+      },
+      {
+        timeout: 10000,
+        message: `waiting for select value to persist as ${value}`,
+      },
+    )
+    .toBe(value);
 }
 
 async function submitPettyCashRequest(
@@ -549,7 +631,7 @@ async function submitPettyCashRequest(
     onBehalfEmployeeCode?: string;
   },
 ): Promise<{ claimId: string; hodEmail: string }> {
-  await page.goto("/claims/new", { waitUntil: "domcontentloaded" });
+  await gotoWithRetry(page, "/claims/new");
 
   const hydrationBanner = page.getByText(/unable to load claim form data/i);
   if ((await hydrationBanner.count()) > 0) {
@@ -577,8 +659,18 @@ async function submitPettyCashRequest(
       throw new Error("Submission Type does not expose an On Behalf option for this actor.");
     }
 
-    await submissionType.selectOption({ value: onBehalfOption.value });
-    await expect(submissionType).toHaveValue(onBehalfOption.value, { timeout: 5000 });
+    await expect
+      .poll(
+        async () => {
+          await submissionType.selectOption({ value: onBehalfOption.value });
+          return submissionType.inputValue();
+        },
+        {
+          timeout: 10000,
+          message: "waiting for Submission Type to persist as On Behalf",
+        },
+      )
+      .toBe(onBehalfOption.value);
     await expect(page.locator("#onBehalfEmail")).toBeVisible({ timeout: 15000 });
     await page.locator("#onBehalfEmail").fill(input.onBehalfEmail);
     await page.locator("#onBehalfEmployeeCode").fill(input.onBehalfEmployeeCode);
@@ -591,9 +683,9 @@ async function submitPettyCashRequest(
 
   const departmentSelect = page.getByRole("combobox", { name: /department/i });
   if (input.departmentId) {
-    await departmentSelect.selectOption({ value: input.departmentId });
+    await selectOptionByValue(departmentSelect, input.departmentId);
   } else if (input.departmentName) {
-    await departmentSelect.selectOption({ label: input.departmentName });
+    await selectOptionByLabel(departmentSelect, input.departmentName);
   } else {
     const values = await departmentSelect
       .locator("option")
@@ -668,7 +760,7 @@ async function submitPettyCashRequest(
     search_query: claimIdFromDb,
   });
 
-  await page.goto(`/dashboard/my-claims?${params.toString()}`, { waitUntil: "domcontentloaded" });
+  await gotoWithRetry(page, `/dashboard/my-claims?${params.toString()}`);
   await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 10000 });
   await waitForClaimInTableWithRetry(page, claimIdFromDb);
   const claimLink = page.getByRole("link", { name: claimIdFromDb }).first();
@@ -688,7 +780,7 @@ async function openApprovalsPage(page: Page, claimId?: string): Promise<void> {
     params.set("search_query", claimId);
   }
 
-  await page.goto(`/dashboard/my-claims?${params.toString()}`, { waitUntil: "domcontentloaded" });
+  await gotoWithRetry(page, `/dashboard/my-claims?${params.toString()}`);
   await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
   await expect(page.getByRole("heading", { name: /approvals history/i })).toBeVisible();
 }
@@ -697,15 +789,69 @@ async function getClaimRow(page: Page, claimId: string) {
   return page.locator("tbody tr", { has: page.getByRole("link", { name: claimId }) }).first();
 }
 
+async function waitForBlockingOverlayToClear(page: Page): Promise<boolean> {
+  const blockingOverlay = page.locator("div.fixed.inset-0.z-\\[180\\]").first();
+  if ((await blockingOverlay.count()) === 0) {
+    return false;
+  }
+
+  try {
+    await expect(blockingOverlay).toBeHidden({ timeout: 15000 });
+    return false;
+  } catch {
+    return await blockingOverlay.isVisible().catch(() => false);
+  }
+}
+
 async function selectClaimForBulkAction(page: Page, claimId: string): Promise<void> {
   const row = await getClaimRow(page, claimId);
   await expect(row).toBeVisible({ timeout: 30000 });
 
-  const rowCheckbox = row.getByRole("checkbox", {
-    name: new RegExp(`^Select claim ${claimId}$`, "i"),
-  });
-  await expect(rowCheckbox).toBeVisible({ timeout: 10000 });
-  await rowCheckbox.check();
+  let selected = false;
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    await waitForBlockingOverlayToClear(page);
+
+    const currentRow = await getClaimRow(page, claimId);
+    const rowCheckbox = currentRow.getByRole("checkbox", {
+      name: new RegExp(`^Select claim ${claimId}$`, "i"),
+    });
+
+    await expect(rowCheckbox).toBeVisible({ timeout: 10000 });
+
+    if (await rowCheckbox.isChecked().catch(() => false)) {
+      selected = true;
+      break;
+    }
+
+    try {
+      await rowCheckbox.check({ timeout: 5000 });
+    } catch {
+      await rowCheckbox
+        .evaluate((el) => {
+          (el as HTMLInputElement).click();
+        })
+        .catch(() => undefined);
+    }
+
+    selected = await rowCheckbox.isChecked().catch(() => false);
+    if (!selected) {
+      selected = await page
+        .getByText(/\b1 selected\b/i)
+        .isVisible({ timeout: 500 })
+        .catch(() => false);
+    }
+
+    if (selected) {
+      break;
+    }
+
+    await page.waitForTimeout(500);
+  }
+
+  if (!selected) {
+    throw new Error(`Failed to select claim ${claimId} for bulk action.`);
+  }
+
   await expect(page.getByText(/\b1 selected\b/i)).toBeVisible({ timeout: 10000 });
 }
 
@@ -740,7 +886,7 @@ async function expectClaimVisibleInMyClaims(
     search_query: claimId,
   });
 
-  await page.goto(`/dashboard/my-claims?${params.toString()}`, { waitUntil: "domcontentloaded" });
+  await gotoWithRetry(page, `/dashboard/my-claims?${params.toString()}`);
   await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
   if (visible) {
     await waitForClaimInTableWithRetry(page, claimId);
@@ -821,7 +967,8 @@ async function withActorPage<T>(
 
   try {
     if (storageStatePath) {
-      await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+      await gotoWithRetry(page, "/dashboard");
+      await acceptPolicyGateIfPresent(page);
 
       const signOutButton = page.getByRole("button", { name: /sign out/i });
       const hasSession =
@@ -892,7 +1039,7 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
     const amount = 432.75;
 
     const onBehalfSupported = await withActorPage(browser, ACTORS.employeeA.email, async (page) => {
-      await page.goto("/claims/new", { waitUntil: "domcontentloaded" });
+      await gotoWithRetry(page, "/claims/new");
       const submissionType = page.getByRole("combobox", { name: /submission type/i });
       const onBehalfOption = await submissionType
         .locator("option")

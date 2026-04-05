@@ -159,10 +159,11 @@ type ClaimWalletUpdateAdvanceRow = {
   requested_amount: number | string | null;
 };
 
-type ClaimWalletUpdateRow = {
+type ClaimMarkPaidFallbackRow = {
   id: string;
-  on_behalf_of_id: string;
-  detail_type: "expense" | "advance";
+  submitted_by: string;
+  on_behalf_of_id: string | null;
+  status: DbClaimStatus;
   master_payment_modes: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
   expense_details: ClaimWalletUpdateExpenseRow | ClaimWalletUpdateExpenseRow[] | null;
   advance_details: ClaimWalletUpdateAdvanceRow | ClaimWalletUpdateAdvanceRow[] | null;
@@ -839,37 +840,40 @@ export class SupabaseClaimRepository implements ClaimRepository {
     return normalized.includes("already registered") || normalized.includes("already exists");
   }
 
-  private async getUserByEmail(
-    email: string,
-  ): Promise<{ data: UserLookupRow | null; errorMessage: string | null }> {
-    const client = getServiceRoleSupabaseClient();
-    const { data, error } = await client
-      .from("users")
-      .select("id, is_active")
-      .eq("email", email)
-      .maybeSingle();
-
-    if (error) {
-      return { data: null, errorMessage: error.message };
-    }
-
-    return {
-      data: (data as UserLookupRow | null) ?? null,
-      errorMessage: null,
-    };
+  private isRpcNullableJoinLockError(message: string): boolean {
+    return /for update cannot be applied to the nullable side of an outer join/i.test(message);
   }
 
-  private async updateWalletTotalsForClosedClaim(
-    claimId: string,
-  ): Promise<{ errorMessage: string | null }> {
+  private async runMarkPaidFallback(input: {
+    claimId: string;
+    actorUserId: string;
+  }): Promise<{ errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
+
+    const { data: financeApproverData, error: financeApproverError } = await client
+      .from("master_finance_approvers")
+      .select("id")
+      .eq("user_id", input.actorUserId)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (financeApproverError) {
+      return { errorMessage: financeApproverError.message };
+    }
+
+    const financeApproverId = (financeApproverData as { id: string } | null)?.id ?? null;
+    if (!financeApproverId) {
+      return { errorMessage: "p_actor_id is not an active finance approver" };
+    }
 
     const { data: claimData, error: claimError } = await client
       .from("claims")
       .select(
-        "id, on_behalf_of_id, detail_type, master_payment_modes(name), expense_details(total_amount), advance_details(requested_amount)",
+        "id, submitted_by, on_behalf_of_id, status, master_payment_modes(name), expense_details(total_amount), advance_details(requested_amount)",
       )
-      .eq("id", claimId)
+      .eq("id", input.claimId)
       .eq("is_active", true)
       .maybeSingle();
 
@@ -878,13 +882,18 @@ export class SupabaseClaimRepository implements ClaimRepository {
     }
 
     if (!claimData) {
-      return { errorMessage: "Claim not found for wallet update." };
+      return { errorMessage: `Claim not found or inactive: ${input.claimId}` };
     }
 
-    const claim = claimData as ClaimWalletUpdateRow;
+    const claim = claimData as ClaimMarkPaidFallbackRow;
+
+    if (claim.status !== DB_CLAIM_STATUSES[2]) {
+      return { errorMessage: "Claim is not in payment-under-process stage." };
+    }
+
+    const beneficiaryUserId = claim.on_behalf_of_id ?? claim.submitted_by;
     const paymentModeName =
       getSingleRelation(claim.master_payment_modes)?.name?.trim().toLowerCase() ?? "";
-
     const expense = getSingleRelation(claim.expense_details);
     const advance = getSingleRelation(claim.advance_details);
 
@@ -910,61 +919,114 @@ export class SupabaseClaimRepository implements ClaimRepository {
       incrementAmount = toNumber(expense?.total_amount) ?? 0;
     }
 
-    if (!incrementColumn || incrementAmount <= 0) {
-      return { errorMessage: null };
-    }
-
-    const { data: walletData, error: walletReadError } = await client
-      .from("wallets")
-      .select(
-        "id, total_reimbursements_received, total_petty_cash_received, total_petty_cash_spent",
-      )
-      .eq("user_id", claim.on_behalf_of_id)
+    const { data: updatedClaim, error: updateClaimError } = await client
+      .from("claims")
+      .update({
+        status: PAYMENT_DONE_CLOSED_STATUS,
+        assigned_l2_approver_id: financeApproverId,
+        rejection_reason: null,
+        is_resubmission_allowed: false,
+        finance_action_at: new Date().toISOString(),
+      })
+      .eq("id", input.claimId)
+      .eq("is_active", true)
+      .eq("status", DB_CLAIM_STATUSES[2])
+      .select("id")
       .maybeSingle();
 
-    if (walletReadError && walletReadError.code !== "PGRST116") {
-      return { errorMessage: walletReadError.message };
+    if (updateClaimError) {
+      return { errorMessage: updateClaimError.message };
     }
 
-    const wallet = (walletData as WalletRow | null) ?? null;
+    if (!updatedClaim) {
+      return {
+        errorMessage: `Claim state changed during mark-paid transition: ${input.claimId}`,
+      };
+    }
 
-    const nextTotals = {
-      total_reimbursements_received:
-        (toNumber(wallet?.total_reimbursements_received) ?? 0) +
-        (incrementColumn === "total_reimbursements_received" ? incrementAmount : 0),
-      total_petty_cash_received:
-        (toNumber(wallet?.total_petty_cash_received) ?? 0) +
-        (incrementColumn === "total_petty_cash_received" ? incrementAmount : 0),
-      total_petty_cash_spent:
-        (toNumber(wallet?.total_petty_cash_spent) ?? 0) +
-        (incrementColumn === "total_petty_cash_spent" ? incrementAmount : 0),
-    };
+    if (beneficiaryUserId && incrementColumn && incrementAmount > 0) {
+      const { data: walletData, error: walletReadError } = await client
+        .from("wallets")
+        .select(
+          "id, total_reimbursements_received, total_petty_cash_received, total_petty_cash_spent",
+        )
+        .eq("user_id", beneficiaryUserId)
+        .maybeSingle();
 
-    if (!wallet) {
-      const { error: insertError } = await client.from("wallets").insert({
-        user_id: claim.on_behalf_of_id,
-        total_reimbursements_received: nextTotals.total_reimbursements_received,
-        total_petty_cash_received: nextTotals.total_petty_cash_received,
-        total_petty_cash_spent: nextTotals.total_petty_cash_spent,
-      });
-
-      if (insertError) {
-        return { errorMessage: insertError.message };
+      if (walletReadError && walletReadError.code !== "PGRST116") {
+        return { errorMessage: walletReadError.message };
       }
 
-      return { errorMessage: null };
+      const wallet = (walletData as WalletRow | null) ?? null;
+
+      const nextTotals = {
+        total_reimbursements_received:
+          (toNumber(wallet?.total_reimbursements_received) ?? 0) +
+          (incrementColumn === "total_reimbursements_received" ? incrementAmount : 0),
+        total_petty_cash_received:
+          (toNumber(wallet?.total_petty_cash_received) ?? 0) +
+          (incrementColumn === "total_petty_cash_received" ? incrementAmount : 0),
+        total_petty_cash_spent:
+          (toNumber(wallet?.total_petty_cash_spent) ?? 0) +
+          (incrementColumn === "total_petty_cash_spent" ? incrementAmount : 0),
+      };
+
+      if (!wallet) {
+        const { error: insertError } = await client.from("wallets").insert({
+          user_id: beneficiaryUserId,
+          total_reimbursements_received: nextTotals.total_reimbursements_received,
+          total_petty_cash_received: nextTotals.total_petty_cash_received,
+          total_petty_cash_spent: nextTotals.total_petty_cash_spent,
+        });
+
+        if (insertError) {
+          return { errorMessage: insertError.message };
+        }
+      } else {
+        const { error: updateWalletError } = await client
+          .from("wallets")
+          .update(nextTotals)
+          .eq("id", wallet.id);
+
+        if (updateWalletError) {
+          return { errorMessage: updateWalletError.message };
+        }
+      }
     }
 
-    const { error: updateWalletError } = await client
-      .from("wallets")
-      .update(nextTotals)
-      .eq("id", wallet.id);
+    const auditResult = await this.createClaimAuditLog({
+      claimId: input.claimId,
+      actorId: input.actorUserId,
+      actionType: "L2_MARK_PAID",
+      assignedToId: null,
+      remarks: null,
+    });
 
-    if (updateWalletError) {
-      return { errorMessage: updateWalletError.message };
+    if (auditResult.errorMessage) {
+      return { errorMessage: auditResult.errorMessage };
     }
 
     return { errorMessage: null };
+  }
+
+  private async getUserByEmail(
+    email: string,
+  ): Promise<{ data: UserLookupRow | null; errorMessage: string | null }> {
+    const client = getServiceRoleSupabaseClient();
+    const { data, error } = await client
+      .from("users")
+      .select("id, is_active")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (error) {
+      return { data: null, errorMessage: error.message };
+    }
+
+    return {
+      data: (data as UserLookupRow | null) ?? null,
+      errorMessage: null,
+    };
   }
 
   async getClaimEvidenceSignedUrl(input: {
@@ -1432,9 +1494,29 @@ export class SupabaseClaimRepository implements ClaimRepository {
     allowResubmission: boolean;
   }): Promise<{ errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
+
+    if (input.status === PAYMENT_DONE_CLOSED_STATUS) {
+      const { error } = await client.rpc("process_l2_mark_paid_transition", {
+        p_claim_id: input.claimId,
+        p_actor_id: input.actorUserId,
+      });
+
+      if (error) {
+        if (!this.isRpcNullableJoinLockError(error.message)) {
+          return { errorMessage: error.message };
+        }
+
+        return this.runMarkPaidFallback({
+          claimId: input.claimId,
+          actorUserId: input.actorUserId,
+        });
+      }
+
+      return { errorMessage: null };
+    }
+
     const isFinanceTerminalStatus =
       input.status === DB_CLAIM_STATUSES[2] ||
-      input.status === DB_CLAIM_STATUSES[3] ||
       (input.status === "Rejected" && input.assignedL2ApproverId !== null);
 
     const { error } = await client
@@ -1474,13 +1556,6 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
       if (advanceDeactivateError) {
         return { errorMessage: advanceDeactivateError.message };
-      }
-    }
-
-    if (input.status === PAYMENT_DONE_CLOSED_STATUS) {
-      const walletUpdateResult = await this.updateWalletTotalsForClosedClaim(input.claimId);
-      if (walletUpdateResult.errorMessage) {
-        return { errorMessage: walletUpdateResult.errorMessage };
       }
     }
 

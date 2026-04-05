@@ -47,6 +47,57 @@ function getAdminSupabaseClient() {
   });
 }
 
+async function gotoWithRetry(page: Page, url: string, attempts = 2): Promise<void> {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded" });
+      return;
+    } catch (error) {
+      const errorText = String(error);
+      const redirectedToLogin =
+        /interrupted by another navigation/i.test(errorText) && /\/auth\/login/i.test(page.url());
+
+      if (redirectedToLogin) {
+        return;
+      }
+
+      const isNavigationAbort =
+        /ERR_ABORTED/i.test(errorText) || /interrupted by another navigation/i.test(errorText);
+      const isLastAttempt = attempt === attempts;
+
+      if (!isNavigationAbort || isLastAttempt) {
+        throw error;
+      }
+    }
+  }
+}
+
+async function acceptPolicyGateIfPresent(page: Page): Promise<void> {
+  const policyGateHeading = page.getByRole("heading", { name: /company policy gate/i }).first();
+  const isPolicyGateVisible = await policyGateHeading
+    .isVisible({ timeout: 1000 })
+    .catch(() => false);
+
+  if (!isPolicyGateVisible) {
+    return;
+  }
+
+  const confirmationCheckbox = page
+    .getByRole("checkbox", { name: /i have read and agree to this company policy/i })
+    .first();
+
+  await expect(confirmationCheckbox).toBeVisible({ timeout: 10000 });
+  if (!(await confirmationCheckbox.isChecked().catch(() => false))) {
+    await confirmationCheckbox.check({ force: true });
+  }
+
+  const acceptButton = page.getByRole("button", { name: /^i accept$/i }).first();
+  await expect(acceptButton).toBeEnabled({ timeout: 10000 });
+  await acceptButton.click({ force: true });
+
+  await expect(policyGateHeading).toBeHidden({ timeout: 30000 });
+}
+
 async function loginWithEmail(page: Page, email: string): Promise<void> {
   const loginResponse = await page.request.post("/api/auth/email-login", {
     data: {
@@ -93,7 +144,8 @@ async function loginWithEmail(page: Page, email: string): Promise<void> {
     );
   }
 
-  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+  await gotoWithRetry(page, "/dashboard");
+  await acceptPolicyGateIfPresent(page);
   const walletHeading = page.getByRole("heading", { name: /wallet summary/i });
   await expect(walletHeading).toBeVisible({ timeout: 15000 });
 }
@@ -111,7 +163,8 @@ async function withActorPage<T>(
 
   try {
     if (storageStatePath) {
-      await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+      await gotoWithRetry(page, "/dashboard");
+      await acceptPolicyGateIfPresent(page);
 
       const signOutButton = page.getByRole("button", { name: /sign out/i });
       const hasSession =
@@ -201,12 +254,12 @@ async function submitReimbursementClaim(
 ): Promise<string> {
   const { departmentName, expenseCategoryName, marker, amount } = options;
 
-  await page.goto("/claims/new", { waitUntil: "domcontentloaded" });
+  await gotoWithRetry(page, "/claims/new");
 
   const hydrationBanner = page.getByText(/unable to load claim form data/i);
   if ((await hydrationBanner.count()) > 0) {
     await loginWithEmail(page, ACTORS.employee.email);
-    await page.goto("/claims/new", { waitUntil: "domcontentloaded" });
+    await gotoWithRetry(page, "/claims/new");
   }
 
   await expect(page.getByRole("heading", { name: /new claim/i })).toBeVisible({ timeout: 15000 });
@@ -339,7 +392,7 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
     browser,
   }) => {
     await withActorPage(browser, ACTORS.employee.email, async (page) => {
-      await page.goto("/dashboard/my-claims", { waitUntil: "domcontentloaded" });
+      await gotoWithRetry(page, "/dashboard/my-claims");
 
       // Verify the heading and filter bar are present
       const heading = page.getByRole("heading", { name: /my claims|submissions/i }).first();
@@ -403,7 +456,7 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
     });
 
     await withActorPage(browser, ACTORS.employee.email, async (page) => {
-      await page.goto("/dashboard/my-claims", { waitUntil: "domcontentloaded" });
+      await gotoWithRetry(page, "/dashboard/my-claims");
       await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
 
       // Expand filters if collapsed
@@ -438,7 +491,7 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
         .toBeTruthy();
 
       // The table should still be rendered (not unmounted)
-      const tableBody = page.locator("tbody");
+      const tableBody = page.locator("tbody").first();
       await expect(tableBody).toBeVisible({ timeout: 15000 });
 
       // Verify the "Active" filter badge is shown
@@ -487,9 +540,7 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
 
     // Login as finance and navigate to claim detail page
     await withActorPage(browser, ACTORS.finance.email, async (page) => {
-      await page.goto(`/dashboard/claims/${claimId}?view=approvals`, {
-        waitUntil: "domcontentloaded",
-      });
+      await gotoWithRetry(page, `/dashboard/claims/${claimId}?view=approvals`);
 
       // Verify we're on the claim detail page
       await expect(page.getByText(claimId)).toBeVisible({ timeout: 15000 });
@@ -569,14 +620,16 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
 
   test("NAV-3: advanced filters are admin-only and apply/reset URL keys", async ({ browser }) => {
     await withActorPage(browser, ACTORS.employee.email, async (page) => {
-      await page.goto("/dashboard/my-claims", { waitUntil: "domcontentloaded" });
+      await gotoWithRetry(page, "/dashboard/my-claims");
       await expect(page.getByRole("button", { name: /advanced filters/i })).toHaveCount(0);
     });
 
     await withActorPage(browser, ACTORS.founder.email, async (page) => {
-      await page.goto("/dashboard/my-claims?view=admin", { waitUntil: "domcontentloaded" });
+      await gotoWithRetry(page, "/dashboard/my-claims?view=admin");
 
-      await expect(page.getByText(/Admin Overview/i)).toBeVisible({ timeout: 15000 });
+      await expect(
+        page.getByRole("heading", { name: /admin overview\s*[\u2014-]\s*all claims/i }),
+      ).toBeVisible({ timeout: 15000 });
 
       const advancedTrigger = page.getByRole("button", { name: /advanced filters/i });
       await expect(advancedTrigger).toBeVisible({ timeout: 10000 });

@@ -28,7 +28,7 @@
  */
 
 import path from "node:path";
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 import { loadEnvConfig } from "@next/env";
 import { createClient } from "@supabase/supabase-js";
 import { getAuthStatePathByRole } from "./support/auth-state";
@@ -116,13 +116,38 @@ async function resolveFormOptions(): Promise<FormOptions> {
   return formOptionsPromise;
 }
 
+async function gotoWithRetry(page: Page, url: string, attempts = 2): Promise<void> {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded" });
+      return;
+    } catch (error) {
+      const errorText = String(error);
+      const redirectedToLogin =
+        /interrupted by another navigation/i.test(errorText) && /\/auth\/login/i.test(page.url());
+
+      if (redirectedToLogin) {
+        return;
+      }
+
+      const isNavigationAbort =
+        /ERR_ABORTED/i.test(errorText) || /interrupted by another navigation/i.test(errorText);
+      const isLastAttempt = attempt === attempts;
+
+      if (!isNavigationAbort || isLastAttempt) {
+        throw error;
+      }
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Page-object helpers
 // ---------------------------------------------------------------------------
 
 async function ensureAuthenticated(page: Page): Promise<void> {
   const submitterEmail = process.env.E2E_SUBMITTER_EMAIL ?? "user@nxtwave.co.in";
-  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+  await gotoWithRetry(page, "/dashboard");
 
   const signOutButton = page.getByRole("button", { name: /sign out/i });
   const hasSession = await signOutButton.isVisible({ timeout: 3000 }).catch(() => false);
@@ -158,19 +183,19 @@ async function ensureAuthenticated(page: Page): Promise<void> {
     );
   }
 
-  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+  await gotoWithRetry(page, "/dashboard");
   await expect(page).not.toHaveURL(/\/auth\/login/i);
   await expect(signOutButton).toBeVisible({ timeout: 15000 });
 }
 
 async function openClaimForm(page: Page): Promise<void> {
   await ensureAuthenticated(page);
-  await page.goto("/claims/new", { waitUntil: "domcontentloaded" });
+  await gotoWithRetry(page, "/claims/new");
 
   const hydrationBanner = page.getByText(/unable to load claim form data/i);
   if ((await hydrationBanner.count()) > 0) {
     await ensureAuthenticated(page);
-    await page.goto("/claims/new", { waitUntil: "domcontentloaded" });
+    await gotoWithRetry(page, "/claims/new");
   }
 
   // Confirm the form hydrated successfully — no server-error banner present
@@ -181,6 +206,25 @@ async function openClaimForm(page: Page): Promise<void> {
   await expect(page.getByRole("combobox", { name: /payment mode/i })).toBeVisible({
     timeout: 15_000,
   });
+}
+
+async function selectOptionByLabelWithRetry(selectLocator: Locator, label: string): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        await selectLocator.selectOption({ label });
+        return selectLocator.evaluate((el) => {
+          const select = el as HTMLSelectElement;
+          const selected = select.selectedOptions?.[0];
+          return selected?.label ?? selected?.textContent?.trim() ?? "";
+        });
+      },
+      {
+        timeout: 10_000,
+        message: `waiting for select value to persist as ${label}`,
+      },
+    )
+    .toBe(label);
 }
 
 /**
@@ -242,7 +286,7 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
 
     // Ensure the expense detail section is active (reimbursement payment mode)
     const paymentModeSelect = page.getByRole("combobox", { name: /payment mode/i });
-    await paymentModeSelect.selectOption({ label: options.reimbursementPaymentModeName });
+    await selectOptionByLabelWithRetry(paymentModeSelect, options.reimbursementPaymentModeName);
 
     // Fill all required text fields — deliberately skip setInputFiles
     const tag = `${RUN_TAG}-${Date.now()}`;
@@ -293,7 +337,7 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
 
     // ── First submission: must succeed and redirect ───────────────────────
     await openClaimForm(page);
-    await paymentModeSelect.selectOption({ label: options.reimbursementPaymentModeName });
+    await selectOptionByLabelWithRetry(paymentModeSelect, options.reimbursementPaymentModeName);
 
     await page.locator("#employeeId").fill(`EMP-DUP-${RUN_TAG}`);
     await page.locator("#billNo").fill(billNo);
@@ -325,7 +369,7 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
 
     // ── Second submission: identical fingerprint — must be rejected ──────
     await openClaimForm(page);
-    await paymentModeSelect.selectOption({ label: options.reimbursementPaymentModeName });
+    await selectOptionByLabelWithRetry(paymentModeSelect, options.reimbursementPaymentModeName);
 
     await page.locator("#employeeId").fill(`EMP-DUP-${RUN_TAG}`);
     await page.locator("#billNo").fill(billNo); // ← same bill number
@@ -375,7 +419,7 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
     const paymentModeSelect = page.getByRole("combobox", { name: /payment mode/i });
 
     // ── Phase 1: Reimbursement → expense detail section active ───────────
-    await paymentModeSelect.selectOption({ label: options.reimbursementPaymentModeName });
+    await selectOptionByLabelWithRetry(paymentModeSelect, options.reimbursementPaymentModeName);
 
     // Expense-section landmarks must be present (and visible) in the DOM.
     await expect(page.locator("#billNo")).toBeVisible();
@@ -386,7 +430,7 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
     await expect(page.locator("#requestedAmount")).not.toBeAttached();
 
     // ── Phase 2: Petty Cash → advance detail section active ──────────────
-    await paymentModeSelect.selectOption({ label: options.pettyCashRequestPaymentModeName });
+    await selectOptionByLabelWithRetry(paymentModeSelect, options.pettyCashRequestPaymentModeName);
 
     // The useEffect that syncs paymentModeId→detailType must have fired and
     // React must have re-rendered before these assertions run.
@@ -397,7 +441,7 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
     await expect(page.locator("#billNo")).not.toBeAttached({ timeout: 5_000 });
 
     // ── Phase 3: Switch back → expense section restored ──────────────────
-    await paymentModeSelect.selectOption({ label: options.reimbursementPaymentModeName });
+    await selectOptionByLabelWithRetry(paymentModeSelect, options.reimbursementPaymentModeName);
 
     await expect(page.locator("#billNo")).toBeVisible({ timeout: 5_000 });
     await expect(page.locator("#requestedAmount")).not.toBeAttached({ timeout: 5_000 });
@@ -411,7 +455,7 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
     const options = await resolveFormOptions();
 
     const paymentModeSelect = page.getByRole("combobox", { name: /payment mode/i });
-    await paymentModeSelect.selectOption({ label: options.reimbursementPaymentModeName });
+    await selectOptionByLabelWithRetry(paymentModeSelect, options.reimbursementPaymentModeName);
 
     // Fill all mandatory text fields so the only validation failure is the
     // invalid file type — this isolates the validateUploadFile guard.
@@ -458,7 +502,18 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
     await expect(onBehalfEmployeeCode).not.toBeAttached();
 
     // ── Phase 2: Switch to "On Behalf" → fields appear ──────────────────
-    await submissionTypeSelect.selectOption("On Behalf");
+    await expect
+      .poll(
+        async () => {
+          await submissionTypeSelect.selectOption({ label: "On Behalf" });
+          return submissionTypeSelect.inputValue();
+        },
+        {
+          timeout: 10_000,
+          message: "waiting for Submission Type to persist as On Behalf",
+        },
+      )
+      .toBe("On Behalf");
 
     await expect(onBehalfEmail).toBeVisible({ timeout: 5_000 });
     await expect(onBehalfEmployeeCode).toBeVisible({ timeout: 5_000 });
@@ -470,7 +525,18 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
     await expect(onBehalfEmployeeCode).toHaveValue("EMP-PROXY-001");
 
     // ── Phase 3: Switch back to "Self" → fields unmount ─────────────────
-    await submissionTypeSelect.selectOption("Self");
+    await expect
+      .poll(
+        async () => {
+          await submissionTypeSelect.selectOption({ label: "Self" });
+          return submissionTypeSelect.inputValue();
+        },
+        {
+          timeout: 10_000,
+          message: "waiting for Submission Type to persist as Self",
+        },
+      )
+      .toBe("Self");
 
     await expect(onBehalfEmail).not.toBeAttached({ timeout: 5_000 });
     await expect(onBehalfEmployeeCode).not.toBeAttached({ timeout: 5_000 });
@@ -485,7 +551,7 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
 
     // Ensure expense section is active
     const paymentModeSelect = page.getByRole("combobox", { name: /payment mode/i });
-    await paymentModeSelect.selectOption({ label: options.reimbursementPaymentModeName });
+    await selectOptionByLabelWithRetry(paymentModeSelect, options.reimbursementPaymentModeName);
 
     const basicAmountInput = page.locator("#basicAmount");
     const totalAmountInput = page.locator("#totalAmount");

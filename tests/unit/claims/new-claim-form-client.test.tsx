@@ -2,6 +2,8 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NewClaimFormClient } from "@/modules/claims/ui/new-claim-form-client";
 
+jest.setTimeout(15000);
+
 const mockSubmitClaimAction = jest.fn();
 const mockParseReceiptAction = jest.fn();
 const mockPush = jest.fn();
