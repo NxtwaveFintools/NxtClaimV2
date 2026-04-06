@@ -90,8 +90,60 @@ async function resolveRuntimeFormData(): Promise<RuntimeFormData> {
   return runtimeFormDataPromise;
 }
 
+async function gotoWithRetry(page: Page, url: string, attempts = 2): Promise<void> {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded" });
+      return;
+    } catch (error) {
+      const errorText = String(error);
+      const redirectedToLogin =
+        /interrupted by another navigation/i.test(errorText) && /\/auth\/login/i.test(page.url());
+
+      if (redirectedToLogin) {
+        return;
+      }
+
+      const isNavigationAbort =
+        /ERR_ABORTED/i.test(errorText) || /interrupted by another navigation/i.test(errorText);
+      const isLastAttempt = attempt === attempts;
+
+      if (!isNavigationAbort || isLastAttempt) {
+        throw error;
+      }
+    }
+  }
+}
+
+async function acceptPolicyGateIfPresent(page: Page): Promise<void> {
+  const policyGateHeading = page.getByRole("heading", { name: /company policy gate/i }).first();
+  const isPolicyGateVisible = await policyGateHeading
+    .isVisible({ timeout: 1000 })
+    .catch(() => false);
+
+  if (!isPolicyGateVisible) {
+    return;
+  }
+
+  const confirmationCheckbox = page
+    .getByRole("checkbox", { name: /i have read and agree to this company policy/i })
+    .first();
+
+  await expect(confirmationCheckbox).toBeVisible({ timeout: 10000 });
+  if (!(await confirmationCheckbox.isChecked().catch(() => false))) {
+    await confirmationCheckbox.check({ force: true });
+  }
+
+  const acceptButton = page.getByRole("button", { name: /^i accept$/i }).first();
+  await expect(acceptButton).toBeEnabled({ timeout: 10000 });
+  await acceptButton.click({ force: true });
+
+  await expect(policyGateHeading).toBeHidden({ timeout: 30000 });
+}
+
 async function ensureAuthenticated(page: Page, email: string): Promise<void> {
-  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+  await gotoWithRetry(page, "/dashboard");
+  await acceptPolicyGateIfPresent(page);
 
   const signOutButton = page.getByRole("button", { name: /sign out/i });
   const hasSession =
@@ -128,20 +180,23 @@ async function ensureAuthenticated(page: Page, email: string): Promise<void> {
     throw new Error(`Session bootstrap failed for ${email}: HTTP ${sessionResponse.status()}`);
   }
 
-  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+  await gotoWithRetry(page, "/dashboard");
+  await acceptPolicyGateIfPresent(page);
   await expect(page).not.toHaveURL(/\/auth\/login/i);
   await expect(signOutButton).toBeVisible({ timeout: 15000 });
 }
 
 async function openClaimForm(page: Page, email: string): Promise<void> {
   await ensureAuthenticated(page, email);
-  await page.goto("/claims/new", { waitUntil: "domcontentloaded" });
+  await gotoWithRetry(page, "/claims/new");
+  await acceptPolicyGateIfPresent(page);
 
   const submitButton = page.getByRole("button", { name: /submit claim/i });
   const failedHydrationBanner = page.getByText(/Unable to load claim form data/i);
   if ((await failedHydrationBanner.count()) > 0) {
     await ensureAuthenticated(page, email);
-    await page.goto("/claims/new", { waitUntil: "domcontentloaded" });
+    await gotoWithRetry(page, "/claims/new");
+    await acceptPolicyGateIfPresent(page);
   }
 
   await expect(failedHydrationBanner).toHaveCount(0);
@@ -156,7 +211,22 @@ async function selectOptionByLabel(page: Page, label: string | RegExp, optionLab
     name: typeof label === "string" ? new RegExp(label, "i") : label,
   });
   await expect(select).toBeVisible();
-  await select.selectOption({ label: optionLabel });
+  await expect
+    .poll(
+      async () => {
+        await select.selectOption({ label: optionLabel });
+        return select.evaluate((el) => {
+          const selectEl = el as HTMLSelectElement;
+          const selected = selectEl.selectedOptions?.[0];
+          return selected?.label ?? selected?.textContent?.trim() ?? "";
+        });
+      },
+      {
+        timeout: 10000,
+        message: `waiting for select value to persist as ${optionLabel}`,
+      },
+    )
+    .toBe(optionLabel);
 }
 
 async function fillMandatoryExpenseFields(page: Page): Promise<ExpenseFingerprint> {

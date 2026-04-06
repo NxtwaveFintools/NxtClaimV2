@@ -24,8 +24,33 @@ function getAdminSupabaseClient() {
 let insertedViewerId: string | null = null;
 let assignedDepartmentName = "";
 
+async function gotoWithRetry(page: Page, url: string, attempts = 2): Promise<void> {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded" });
+      return;
+    } catch (error) {
+      const errorText = String(error);
+      const redirectedToLogin =
+        /interrupted by another navigation/i.test(errorText) && /\/auth\/login/i.test(page.url());
+
+      if (redirectedToLogin) {
+        return;
+      }
+
+      const isNavigationAbort =
+        /ERR_ABORTED/i.test(errorText) || /interrupted by another navigation/i.test(errorText);
+      const isLastAttempt = attempt === attempts;
+
+      if (!isNavigationAbort || isLastAttempt) {
+        throw error;
+      }
+    }
+  }
+}
+
 async function ensureAuthenticated(page: Page, email: string) {
-  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+  await gotoWithRetry(page, "/dashboard");
 
   const signOutButton = page.getByRole("button", { name: /sign out/i });
   const hasSession = await signOutButton.isVisible({ timeout: 3000 }).catch(() => false);
@@ -59,7 +84,7 @@ async function ensureAuthenticated(page: Page, email: string) {
     throw new Error(`Session bootstrap failed for ${email}: HTTP ${sessionResponse.status()}`);
   }
 
-  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+  await gotoWithRetry(page, "/dashboard");
   await expect(page).not.toHaveURL(/\/auth\/login/i);
   await expect(signOutButton).toBeVisible({ timeout: 15000 });
 }
@@ -152,7 +177,7 @@ test.describe("department viewer claims", () => {
 
   test("shows Department Overview tab and renders assigned claims section", async ({ page }) => {
     await ensureAuthenticated(page, seedEmails.submitter);
-    await page.goto("/dashboard/my-claims", { waitUntil: "domcontentloaded" });
+    await gotoWithRetry(page, "/dashboard/my-claims");
 
     const tab = departmentOverviewTab(page);
     await expect(tab).toBeVisible({ timeout: 10000 });
@@ -165,7 +190,7 @@ test.describe("department viewer claims", () => {
 
   test("filters by assigned department in department overview", async ({ page }) => {
     await ensureAuthenticated(page, seedEmails.submitter);
-    await page.goto("/dashboard/my-claims?view=department", { waitUntil: "domcontentloaded" });
+    await gotoWithRetry(page, "/dashboard/my-claims?view=department");
 
     await page.getByRole("button", { name: /filters/i }).click();
     await page.getByLabel("Department").selectOption({ label: assignedDepartmentName });
@@ -176,7 +201,7 @@ test.describe("department viewer claims", () => {
 
   test("department scope can trigger export from filter bar", async ({ page }) => {
     await ensureAuthenticated(page, seedEmails.submitter);
-    await page.goto("/dashboard/my-claims?view=department", { waitUntil: "domcontentloaded" });
+    await gotoWithRetry(page, "/dashboard/my-claims?view=department");
 
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: /export excel/i }).click();

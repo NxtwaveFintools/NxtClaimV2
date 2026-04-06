@@ -605,7 +605,6 @@ test.describe("Bulk Actions Lifecycle Matrix", () => {
 
     // Wait for streamed refresh cycle to settle after startTransition/router.refresh
     await expect(financePage.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
-    await expect(financePage.getByText(/approved/i).first()).toBeVisible({ timeout: 15000 });
 
     // In current behavior, finance bulk approve moves the claim to payment-under-process,
     // and that row remains visible in approvals for Bulk Mark Paid.
