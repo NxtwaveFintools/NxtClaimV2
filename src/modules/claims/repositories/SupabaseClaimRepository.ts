@@ -1615,6 +1615,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
         productName: string | null;
         locationId: string | null;
         locationName: string | null;
+        locationType: string | null;
+        locationDetails: string | null;
         transactionDate: string;
         isGstApplicable: boolean | null;
         gstNumber: string | null;
