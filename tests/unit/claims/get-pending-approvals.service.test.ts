@@ -201,6 +201,36 @@ describe("GetPendingApprovalsService", () => {
     expect(repository.getPendingApprovalsForFinance).not.toHaveBeenCalled();
   });
 
+  test("uses provided viewer context without re-fetching role scope", async () => {
+    const repository = createRepository({
+      getApprovalViewerContext: jest.fn(async () => ({
+        data: { isHod: false, isFounder: false, isFinance: false },
+        errorMessage: null,
+      })),
+    });
+    const service = new GetPendingApprovalsService({ repository, logger: createLogger() });
+
+    const result = await service.execute({
+      userId: "finance-1",
+      cursor: null,
+      limit: 10,
+      viewerContext: {
+        canViewApprovals: true,
+        activeScope: "finance",
+        errorMessage: null,
+      },
+    });
+
+    expect(result.errorMessage).toBeNull();
+    expect(repository.getApprovalViewerContext).not.toHaveBeenCalled();
+    expect(repository.getPendingApprovalsForFinance).toHaveBeenCalledWith(
+      "finance-1",
+      null,
+      10,
+      undefined,
+    );
+  });
+
   test("prioritizes finance scope for dual-role users", async () => {
     const repository = createRepository({
       getApprovalViewerContext: jest.fn(async () => ({

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, cache } from "react";
 import { CirclePlus } from "lucide-react";
 import { AppShellHeader } from "@/components/app-shell-header";
 import { BackButton } from "@/components/ui/back-button";
@@ -15,7 +15,10 @@ import type {
   GetMyClaimsFilters,
 } from "@/core/domain/claims/contracts";
 import { GetMyClaimsPaginatedService } from "@/core/domain/claims/GetMyClaimsPaginatedService";
-import { GetPendingApprovalsService } from "@/core/domain/claims/GetPendingApprovalsService";
+import {
+  GetPendingApprovalsService,
+  type PendingApprovalsViewerContext,
+} from "@/core/domain/claims/GetPendingApprovalsService";
 import { logger } from "@/core/infra/logging/logger";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
@@ -46,6 +49,18 @@ import { ApprovalsAuditModeDialog } from "@/modules/claims/ui/approvals-quick-vi
 const PAGE_SIZE = 10;
 type SearchParamsValue = string | string[] | undefined;
 type ViewMode = "submissions" | "approvals" | "admin" | "department";
+
+const pendingApprovalsRepository = new SupabaseClaimRepository();
+const pendingApprovalsViewerContextService = new GetPendingApprovalsService({
+  repository: pendingApprovalsRepository,
+  logger,
+});
+
+const getCachedPendingApprovalsViewerContext = cache(
+  async (userId: string): Promise<PendingApprovalsViewerContext> => {
+    return pendingApprovalsViewerContextService.getViewerContext({ userId });
+  },
+);
 
 export const metadata = {
   title: "My Claims | NxtClaim",
@@ -440,12 +455,14 @@ async function ClaimsCommandCenterTable({
   userId,
   view,
   approvalScope,
+  viewerContext,
   searchParams,
   filters,
 }: {
   userId: string;
   view: ViewMode;
   approvalScope: "l1" | "finance" | null;
+  viewerContext: PendingApprovalsViewerContext;
   searchParams?: Record<string, SearchParamsValue>;
   filters: GetMyClaimsFilters;
 }) {
@@ -466,6 +483,7 @@ async function ClaimsCommandCenterTable({
       cursor,
       limit: PAGE_SIZE,
       filters,
+      viewerContext,
     });
 
     const rows = approvalsResult.data;
@@ -1080,6 +1098,7 @@ async function MyClaimsDashboardPageContent({
           userId={userId}
           view={activeView}
           approvalScope={viewerContextResult.activeScope}
+          viewerContext={viewerContextResult}
           searchParams={resolvedSearchParams}
           filters={filters}
         />
@@ -1106,14 +1125,9 @@ export default async function MyClaimsDashboardPage({
     redirect(ROUTES.login);
   }
 
-  const claimRepository = new SupabaseClaimRepository();
-  const pendingApprovalsService = new GetPendingApprovalsService({
-    repository: claimRepository,
-    logger,
-  });
-  const viewerContextResult = await pendingApprovalsService.getViewerContext({
-    userId: currentUserResult.user.id,
-  });
+  const viewerContextResult = await getCachedPendingApprovalsViewerContext(
+    currentUserResult.user.id,
+  );
 
   const requestedView = firstParamValue(resolvedSearchParams?.view);
   const requestedOrDefaultView =
@@ -1190,16 +1204,18 @@ export default async function MyClaimsDashboardPage({
                 >
                   My Submissions
                 </Link>
-                <Link
-                  href={approvalsHref}
-                  className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                    activeView === "approvals"
-                      ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
-                      : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                  }`}
-                >
-                  Approvals History
-                </Link>
+                {viewerContextResult.canViewApprovals ? (
+                  <Link
+                    href={approvalsHref}
+                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                      activeView === "approvals"
+                        ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
+                        : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                    }`}
+                  >
+                    Approvals History
+                  </Link>
+                ) : null}
                 {isAdminUser ? (
                   <Link
                     href={adminHref}

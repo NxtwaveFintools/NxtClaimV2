@@ -888,11 +888,11 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
       ) : null}
 
       {canTakeDecision ? (
-        <section className="mt-4 rounded-xl border border-amber-700/50 bg-amber-900/10 p-4">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-300">
+        <section className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-700/50 dark:bg-amber-900/10">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-800 dark:text-amber-300">
             {canTakeL1Decision ? "L1 Decision" : "Finance Decision"}
           </h2>
-          <p className="mt-1.5 text-xs text-amber-100/80">
+          <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-100/80">
             {canTakeL1Decision
               ? "Approve to route this claim to Finance. Reject to close this claim."
               : canTakeFinanceExecutionDecision

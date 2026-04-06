@@ -5,7 +5,7 @@ import { z } from "zod";
 import { serverEnv } from "@/core/config/server-env";
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
-const CONFIDENCE_THRESHOLD = 90;
+const CONFIDENCE_THRESHOLD = 80;
 const ALLOWED_UPLOAD_MIME_TYPES = new Set([
   "application/pdf",
   "image/jpeg",
@@ -60,20 +60,6 @@ const geminiParseResultSchema = z.object({
   totalAmount: looseNumber,
   expenseCategory: looseNullableString,
   confidenceScore: looseNumber,
-  fraudFlags: z
-    .any()
-    .transform((val) => {
-      if (Array.isArray(val)) {
-        return val.map((item) => String(item ?? "").trim()).filter((item) => item.length > 0);
-      }
-
-      if (typeof val === "string" && val.trim().length > 0) {
-        return [val.trim()];
-      }
-
-      return [] as string[];
-    })
-    .pipe(z.array(z.string())),
 });
 
 const GEMINI_SYSTEM_INSTRUCTION = `You are an expert financial document parser. Extract structured financial data from the attached receipt/invoice.
@@ -85,11 +71,12 @@ EXTRACTION RULES:
 - GST: If percentages (e.g., CGST 9%) appear but amounts do not, calculate the amount from the taxable value.
 - Calculate missing taxes based on standard Indian GST slabs (5%, 12%, 18%, 28%).
 - Math Validation: basicAmount + cgstAmount + sgstAmount + igstAmount MUST equal totalAmount.
-- Flag future dates or mismatched tax math in the fraudFlags array.
 
 CONFIDENCE SCORING (0-100):
 - Base it on text clarity and numerical consistency.
 - If the Math Validation fails, heavily reduce the confidence score to below 80.
+
+CRITICAL: You must return exactly ONE JSON object. If multiple receipts or copies are detected in the document, extract data from the first one only. DO NOT return a JSON array.
 
 Return ONLY valid JSON matching this schema:
 {
@@ -102,8 +89,7 @@ Return ONLY valid JSON matching this schema:
   "igstAmount": number,
   "totalAmount": number,
   "expenseCategory": string | null,
-  "confidenceScore": number,
-  "fraudFlags": string[]
+  "confidenceScore": number
 }`;
 
 export type ParsedReceiptResult = {
@@ -117,7 +103,6 @@ export type ParsedReceiptResult = {
   totalAmount: number;
   expenseCategory: string | null;
   confidenceScore: number;
-  fraudFlags: string[];
 };
 
 export type ParseReceiptActionResult = {
@@ -159,10 +144,6 @@ function normalizeGeminiResult(raw: z.infer<typeof geminiParseResultSchema>): Pa
   const igstAmount = normalizeAmount(raw.igstAmount);
   const totalAmount = normalizeAmount(raw.totalAmount);
 
-  const expectedTotal = normalizeAmount(basicAmount + cgstAmount + sgstAmount + igstAmount);
-  const allTaxesAreZero = cgstAmount === 0 && sgstAmount === 0 && igstAmount === 0;
-  const noTaxPerfectMatch = allTaxesAreZero && Math.abs(totalAmount - basicAmount) <= 0.01;
-  const mathMismatch = !noTaxPerfectMatch && Math.abs(expectedTotal - totalAmount) > 0.01;
   const normalizedConfidence = clampConfidence(raw.confidenceScore);
 
   return {
@@ -175,8 +156,7 @@ function normalizeGeminiResult(raw: z.infer<typeof geminiParseResultSchema>): Pa
     igstAmount,
     totalAmount,
     expenseCategory: normalizeNullableText(raw.expenseCategory),
-    confidenceScore: mathMismatch ? Math.min(normalizedConfidence, 79) : normalizedConfidence,
-    fraudFlags: raw.fraudFlags.map((flag) => flag.trim()).filter((flag) => flag.length > 0),
+    confidenceScore: normalizedConfidence,
   };
 }
 
@@ -270,7 +250,12 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
       .replace(/```json/gi, "")
       .replace(/```/g, "")
       .trim();
-    const parsedJson = JSON.parse(cleanText);
+
+    let parsedJson = JSON.parse(cleanText);
+    if (Array.isArray(parsedJson)) {
+      parsedJson = parsedJson[0];
+    }
+
     const parsedSchemaResult = geminiParseResultSchema.safeParse(parsedJson);
 
     if (!parsedSchemaResult.success) {

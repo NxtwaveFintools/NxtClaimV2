@@ -1,4 +1,5 @@
 import { DB_CLAIM_STATUSES, type DbClaimStatus } from "@/core/constants/statuses";
+import { resolveDashboardAnalyticsScope } from "@/core/domain/dashboard/resolve-analytics-scope";
 import type {
   DashboardAnalyticsAdvancedFilters,
   DashboardAnalyticsAmountSummary,
@@ -8,7 +9,6 @@ import type {
   DashboardAnalyticsFilter,
   DashboardAnalyticsPaymentModeBreakdownItem,
   DashboardAnalyticsRepository,
-  DashboardAnalyticsScope,
   DashboardAnalyticsStatusBreakdownItem,
   DashboardAnalyticsTrendSummary,
   DashboardDomainLogger,
@@ -153,30 +153,6 @@ function resolvePeriod(filter?: DashboardAnalyticsFilter): ResolvedPeriod {
     hasExplicitRange: false,
     previousPeriod: null,
   };
-}
-
-function resolveScope(input: {
-  isAdmin: boolean;
-  userRole: string | null;
-  hodDepartmentIds: string[];
-  financeApproverIds: string[];
-}): DashboardAnalyticsScope | null {
-  if (input.isAdmin) {
-    return "admin";
-  }
-
-  const normalizedRole = (input.userRole ?? "").trim().toLowerCase();
-  const canAccessFinance = normalizedRole === "finance" || input.financeApproverIds.length > 0;
-
-  if (canAccessFinance) {
-    return "finance";
-  }
-
-  if (input.hodDepartmentIds.length > 0) {
-    return "hod";
-  }
-
-  return null;
 }
 
 function initializeStatusBreakdown(): DashboardAnalyticsStatusBreakdownItem[] {
@@ -386,7 +362,7 @@ export class GetAnalyticsService {
       };
     }
 
-    const scope = resolveScope(viewerContextResult.data);
+    const scope = resolveDashboardAnalyticsScope(viewerContextResult.data);
 
     if (!scope) {
       this.logger.warn("dashboard.analytics.viewer_context.unauthorized", {

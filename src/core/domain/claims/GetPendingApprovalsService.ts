@@ -83,6 +83,12 @@ type GetPendingApprovalsServiceDependencies = {
   logger: ClaimDomainLogger;
 };
 
+export type PendingApprovalsViewerContext = {
+  canViewApprovals: boolean;
+  activeScope: "l1" | "finance" | null;
+  errorMessage: string | null;
+};
+
 export class GetPendingApprovalsService {
   private readonly repository: PendingApprovalsRepository;
 
@@ -93,11 +99,7 @@ export class GetPendingApprovalsService {
     this.logger = dependencies.logger;
   }
 
-  async getViewerContext(input: { userId: string }): Promise<{
-    canViewApprovals: boolean;
-    activeScope: "l1" | "finance" | null;
-    errorMessage: string | null;
-  }> {
+  async getViewerContext(input: { userId: string }): Promise<PendingApprovalsViewerContext> {
     const viewerContextResult = await this.repository.getApprovalViewerContext(input.userId);
 
     if (viewerContextResult.errorMessage) {
@@ -129,6 +131,7 @@ export class GetPendingApprovalsService {
     cursor: string | null;
     limit: number;
     filters?: GetMyClaimsFilters;
+    viewerContext?: PendingApprovalsViewerContext;
   }): Promise<{
     data: PendingApprovalRecord[];
     nextCursor: string | null;
@@ -136,7 +139,8 @@ export class GetPendingApprovalsService {
     totalCount: number;
     errorMessage: string | null;
   }> {
-    const viewerContext = await this.getViewerContext({ userId: input.userId });
+    const viewerContext =
+      input.viewerContext ?? (await this.getViewerContext({ userId: input.userId }));
 
     if (viewerContext.errorMessage) {
       return {

@@ -533,12 +533,8 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
       const parsed = result.data;
 
-      if (parsed.fraudFlags.length > 0) {
-        toast.warning(`Receipt anomalies detected: ${parsed.fraudFlags.join(", ")}`);
-      }
-
-      if (parsed.confidenceScore < 90 || !result.autoFillAllowed) {
-        toast.warning("Low confidence parse. Please fill manually.");
+      if (!result.autoFillAllowed) {
+        toast.warning(result.message ?? "Low confidence parse. Please fill manually.");
         return;
       }
 
@@ -595,14 +591,14 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
   return (
     <form
-      className="grid gap-5 text-zinc-900 transition-colors dark:text-zinc-100 [&_section]:overflow-hidden [&_section]:rounded-2xl [&_section]:border [&_section]:border-zinc-200/80 [&_section]:bg-white/80 [&_section]:p-5 [&_section]:shadow-[0_4px_24px_-8px_rgba(15,23,42,0.06)] [&_section]:backdrop-blur-sm dark:[&_section]:border-zinc-800 dark:[&_section]:bg-zinc-900/80 dark:[&_section]:shadow-black/10 [&_h2]:text-zinc-900 dark:[&_h2]:text-zinc-100 [&_label]:text-zinc-700 dark:[&_label]:text-zinc-300 [&_input:not([type='checkbox']):not([type='hidden'])]:nxt-input [&_input:not([type='checkbox']):not([type='hidden'])]:w-full [&_input:not([type='checkbox']):not([type='hidden'])]:min-w-0 [&_input:not([type='checkbox'])]:border-zinc-300 [&_input:not([type='checkbox'])]:bg-white [&_input:not([type='checkbox'])]:text-zinc-900 dark:[&_input:not([type='checkbox'])]:border-zinc-700 dark:[&_input:not([type='checkbox'])]:bg-zinc-900/70 dark:[&_input:not([type='checkbox'])]:text-zinc-100 [&_select]:nxt-input [&_select]:w-full [&_select]:min-w-0 [&_select]:border-zinc-300 [&_select]:bg-white [&_select]:text-zinc-900 dark:[&_select]:border-zinc-700 dark:[&_select]:bg-zinc-900/70 dark:[&_select]:text-zinc-100 [&_textarea]:nxt-input [&_textarea]:w-full [&_textarea]:min-w-0 [&_textarea]:border-zinc-300 [&_textarea]:bg-white [&_textarea]:text-zinc-900 dark:[&_textarea]:border-zinc-700 dark:[&_textarea]:bg-zinc-900/70 dark:[&_textarea]:text-zinc-100 [&_input[type='file']]:file:mr-3 [&_input[type='file']]:file:rounded-lg [&_input[type='file']]:file:border-0 [&_input[type='file']]:file:bg-indigo-50 [&_input[type='file']]:file:px-3 [&_input[type='file']]:file:py-1.5 [&_input[type='file']]:file:text-sm [&_input[type='file']]:file:font-medium [&_input[type='file']]:file:text-indigo-700 dark:[&_input[type='file']]:file:bg-indigo-950/40 dark:[&_input[type='file']]:file:text-indigo-300"
+      className="grid gap-5 text-zinc-900 transition-colors dark:text-zinc-100 [&_section]:overflow-hidden [&_section]:rounded-2xl [&_section]:border [&_section]:border-zinc-200/80 [&_section]:bg-white/80 [&_section]:p-5 [&_section]:shadow-[0_4px_24px_-8px_rgba(15,23,42,0.06)] [&_section]:backdrop-blur-sm dark:[&_section]:border-zinc-800 dark:[&_section]:bg-zinc-900/80 dark:[&_section]:shadow-black/10 [&_h2]:text-zinc-900 dark:[&_h2]:text-zinc-100 [&_label]:text-zinc-700 dark:[&_label]:text-zinc-300 [&_input:not([type='checkbox']):not([type='hidden'])]:nxt-input [&_input:not([type='checkbox']):not([type='hidden'])]:w-full [&_input:not([type='checkbox']):not([type='hidden'])]:min-w-0 [&_input:not([type='checkbox']):not([type='hidden'])]:!h-11 [&_input:not([type='checkbox']):not([type='hidden'])]:!text-base [&_input:not([type='checkbox'])]:border-zinc-300 [&_input:not([type='checkbox'])]:bg-white [&_input:not([type='checkbox'])]:text-zinc-900 dark:[&_input:not([type='checkbox'])]:border-zinc-700 dark:[&_input:not([type='checkbox'])]:bg-zinc-900/70 dark:[&_input:not([type='checkbox'])]:text-zinc-100 [&_select]:nxt-input [&_select]:w-full [&_select]:min-w-0 [&_select]:!h-11 [&_select]:!text-base [&_select]:border-zinc-300 [&_select]:bg-white [&_select]:text-zinc-900 dark:[&_select]:border-zinc-700 dark:[&_select]:bg-zinc-900/70 dark:[&_select]:text-zinc-100 [&_textarea]:nxt-input [&_textarea]:w-full [&_textarea]:min-w-0 [&_textarea]:!text-base [&_textarea]:border-zinc-300 [&_textarea]:bg-white [&_textarea]:text-zinc-900 dark:[&_textarea]:border-zinc-700 dark:[&_textarea]:bg-zinc-900/70 dark:[&_textarea]:text-zinc-100"
       onSubmit={handleFormSubmit}
     >
       <input type="hidden" {...register("employeeName")} />
       <input type="hidden" {...register("hodName")} />
       <input type="hidden" {...register("hodEmail")} />
 
-      <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+      <div className="grid grid-cols-1 gap-y-12 xl:grid-cols-2 xl:items-start xl:gap-x-12">
         {/* ── Left column: Employee + Submission Context ── */}
         <div className="grid gap-5">
           <section className="grid gap-3 rounded-2xl border border-zinc-200/80 p-4 sm:p-5">
@@ -900,7 +896,8 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     id="receiptFile"
                     type="file"
                     accept="application/pdf,image/jpeg,image/png,image/webp"
-                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm file:text-xs"
+                    aria-label="Invoice or bill file upload"
+                    className="hidden"
                     onChange={(event) => {
                       const selectedFile = event.target.files?.[0] ?? null;
                       setInvoiceFile(selectedFile);
@@ -911,6 +908,17 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                       });
                     }}
                   />
+                  <label
+                    htmlFor="receiptFile"
+                    className="flex h-11 cursor-pointer items-center justify-center rounded-lg border border-zinc-300 bg-zinc-50 px-4 text-base font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  >
+                    Choose Invoice/Bill
+                  </label>
+                  <p className="text-xs text-zinc-500">
+                    <span className="block truncate">
+                      {invoiceFile ? invoiceFile.name : "No file selected"}
+                    </span>
+                  </p>
                   <p className="text-[10px] text-zinc-500">PDF, JPG, PNG, WEBP. Max: 25MB.</p>
                 </div>
 
@@ -925,7 +933,8 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     id="bankStatementFile"
                     type="file"
                     accept="application/pdf,image/jpeg,image/png,image/webp"
-                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm file:text-xs"
+                    aria-label="Bank statement file upload"
+                    className="hidden"
                     onChange={(event) => {
                       const selectedFile = event.target.files?.[0] ?? null;
                       setBankStatementFile(selectedFile);
@@ -949,6 +958,17 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                       );
                     }}
                   />
+                  <label
+                    htmlFor="bankStatementFile"
+                    className="flex h-11 cursor-pointer items-center justify-center rounded-lg border border-zinc-300 bg-zinc-50 px-4 text-base font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  >
+                    Choose Bank Statement
+                  </label>
+                  <p className="text-xs text-zinc-500">
+                    <span className="block truncate">
+                      {bankStatementFile ? bankStatementFile.name : "No file selected"}
+                    </span>
+                  </p>
                   <p className="text-[10px] text-zinc-500">PDF, JPG, PNG, WEBP. Max: 25MB.</p>
                 </div>
               </div>
@@ -1065,7 +1085,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   </label>
                   <label
                     htmlFor="isGstApplicable"
-                    className="flex h-9 items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-200"
+                    className="flex h-11 items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 text-base text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-200"
                   >
                     <input
                       id="isGstApplicable"
@@ -1276,22 +1296,12 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                 >
                   Upload File (Optional)
                 </label>
-                <label
-                  htmlFor="advanceReceiptFile"
-                  className="flex min-h-16 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-4 py-2 text-center text-sm text-zinc-600"
-                >
-                  <span>
-                    {advanceSupportingFile
-                      ? advanceSupportingFile.name
-                      : "Drop file here or click to upload"}
-                  </span>
-                  <span className="text-xs text-zinc-500">PDF, JPG, PNG, WEBP. Max: 25MB.</span>
-                </label>
                 <input
                   id="advanceReceiptFile"
                   type="file"
                   accept="application/pdf,image/jpeg,image/png,image/webp"
-                  className="sr-only"
+                  aria-label="Advance supporting document upload"
+                  className="hidden"
                   onChange={(event) => {
                     const selectedFile = event.target.files?.[0] ?? null;
                     setAdvanceSupportingFile(selectedFile);
@@ -1302,6 +1312,18 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     });
                   }}
                 />
+                <label
+                  htmlFor="advanceReceiptFile"
+                  className="flex h-11 cursor-pointer items-center justify-center rounded-lg border border-zinc-300 bg-zinc-50 px-4 text-base font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                >
+                  Choose Supporting Document
+                </label>
+                <p className="text-xs text-zinc-500">
+                  <span className="block truncate">
+                    {advanceSupportingFile ? advanceSupportingFile.name : "No file selected"}
+                  </span>
+                </p>
+                <p className="text-[10px] text-zinc-500">PDF, JPG, PNG, WEBP. Max: 25MB.</p>
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

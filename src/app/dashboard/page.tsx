@@ -11,6 +11,7 @@ import {
 import { ROUTES } from "@/core/config/route-registry";
 import { AppShellHeader } from "@/components/app-shell-header";
 import { PolicyGate } from "@/components/layout/PolicyGate";
+import { resolveDashboardAnalyticsScope } from "@/core/domain/dashboard/resolve-analytics-scope";
 import { logger } from "@/core/infra/logging/logger";
 import { GetWalletSummaryService } from "@/core/domain/dashboard/GetWalletSummaryService";
 import { SupabaseDashboardRepository } from "@/modules/dashboard/repositories/SupabaseDashboardRepository";
@@ -52,7 +53,22 @@ export default async function DashboardPage() {
     redirect(ROUTES.login);
   }
 
-  const walletResult = await getWalletSummaryService.execute(currentUserResult.user.id);
+  const [walletResult, analyticsViewerContextResult] = await Promise.all([
+    getWalletSummaryService.execute(currentUserResult.user.id),
+    dashboardRepository.getAnalyticsViewerContext(currentUserResult.user.id),
+  ]);
+
+  if (analyticsViewerContextResult.errorMessage) {
+    logger.warn("dashboard.navigation.analytics_visibility_check_failed", {
+      userId: currentUserResult.user.id,
+      error: analyticsViewerContextResult.errorMessage,
+    });
+  }
+
+  const canViewAnalytics = analyticsViewerContextResult.data
+    ? resolveDashboardAnalyticsScope(analyticsViewerContextResult.data) !== null
+    : false;
+
   const walletSummary = walletResult.data ?? GetWalletSummaryService.empty();
   const userEmail = currentUserResult.user.email ?? "Unknown User";
   const currentDate = new Date();
@@ -79,12 +95,16 @@ export default async function DashboardPage() {
       icon: FileText,
       isActive: false,
     },
-    {
-      href: ROUTES.dashboardAnalytics,
-      label: "Analytics",
-      icon: BarChart3,
-      isActive: false,
-    },
+    ...(canViewAnalytics
+      ? [
+          {
+            href: ROUTES.dashboardAnalytics,
+            label: "Analytics",
+            icon: BarChart3,
+            isActive: false,
+          },
+        ]
+      : []),
     ...(isAdminUser
       ? [
           {
