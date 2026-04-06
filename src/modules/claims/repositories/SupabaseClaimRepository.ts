@@ -181,6 +181,8 @@ type ClaimDetailExpenseRow = {
   purpose: string | null;
   expense_category_id: string | null;
   location_id: string | null;
+  location_type: string | null;
+  location_details: string | null;
   transaction_date: string;
   is_gst_applicable: boolean | null;
   gst_number: string | null;
@@ -285,6 +287,8 @@ type ExportClaimExpenseRow = {
   expense_category_id: string | null;
   product_id: string | null;
   location_id: string | null;
+  location_type: string | null;
+  location_details: string | null;
   is_gst_applicable: boolean | null;
   gst_number: string | null;
   transaction_date: string | null;
@@ -1615,6 +1619,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
         productName: string | null;
         locationId: string | null;
         locationName: string | null;
+        locationType: string | null;
+        locationDetails: string | null;
         transactionDate: string;
         isGstApplicable: boolean | null;
         gstNumber: string | null;
@@ -1646,7 +1652,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const { data, error } = await client
       .from("claims")
       .select(
-        "id, employee_id, submission_type, detail_type, on_behalf_of_id, on_behalf_email, on_behalf_employee_code, status, rejection_reason, submitted_at, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(bill_no, purpose, expense_category_id, product_id, location_id, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(purpose, requested_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
+        "id, employee_id, submission_type, detail_type, on_behalf_of_id, on_behalf_email, on_behalf_employee_code, status, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(bill_no, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(purpose, requested_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
       )
       .eq("id", claimId)
       .eq("is_active", true)
@@ -1712,6 +1718,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
               productName: expenseProduct?.name ?? null,
               locationId: expense.location_id,
               locationName: expenseLocation?.name ?? null,
+              locationType: expense.location_type ?? null,
+              locationDetails: expense.location_details ?? null,
               transactionDate: expense.transaction_date,
               isGstApplicable: expense.is_gst_applicable,
               gstNumber: expense.gst_number,
@@ -3089,7 +3097,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
       const { data, error } = await client
         .from("claims")
         .select(
-          "id, status, submission_type, detail_type, submitted_by, on_behalf_of_id, employee_id, cc_emails, on_behalf_email, on_behalf_employee_code, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_at, hod_action_at, finance_action_at, rejection_reason, is_resubmission_allowed, created_at, updated_at, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), l1_approver_user:users!claims_assigned_l1_approver_id_fkey(full_name, email), l2_finance_approver:master_finance_approvers!claims_assigned_l2_approver_id_fkey(approver_user:users!master_finance_approvers_user_id_fkey(full_name, email)), master_departments(id, name), master_payment_modes(id, name), expense_details(bill_no, transaction_id, purpose, expense_category_id, product_id, location_id, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, currency_code, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(id, name), master_products(id, name), master_locations(id, name)), advance_details(requested_amount, budget_month, budget_year, expected_usage_date, purpose, product_id, location_id, remarks, supporting_document_path, master_products(id, name), master_locations(id, name))",
+          "id, status, submission_type, detail_type, submitted_by, on_behalf_of_id, employee_id, cc_emails, on_behalf_email, on_behalf_employee_code, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_at, hod_action_at, finance_action_at, rejection_reason, is_resubmission_allowed, created_at, updated_at, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), l1_approver_user:users!claims_assigned_l1_approver_id_fkey(full_name, email), l2_finance_approver:master_finance_approvers!claims_assigned_l2_approver_id_fkey(approver_user:users!master_finance_approvers_user_id_fkey(full_name, email)), master_departments(id, name), master_payment_modes(id, name), expense_details(bill_no, transaction_id, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, currency_code, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(id, name), master_products(id, name), master_locations(id, name)), advance_details(requested_amount, budget_month, budget_year, expected_usage_date, purpose, product_id, location_id, remarks, supporting_document_path, master_products(id, name), master_locations(id, name))",
         )
         .in("id", claimIdChunk)
         .eq("is_active", true);
@@ -3193,6 +3201,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
             expenseProductName: expenseProduct?.name ?? null,
             expenseLocationId: expense?.location_id ?? null,
             expenseLocationName: expenseLocation?.name ?? null,
+            expenseLocationType: expense?.location_type ?? null,
+            expenseLocationDetails: expense?.location_details ?? null,
             expenseIsGstApplicable: expense?.is_gst_applicable ?? null,
             expenseGstNumber: expense?.gst_number ?? null,
             expenseTransactionDate: expense?.transaction_date ?? null,

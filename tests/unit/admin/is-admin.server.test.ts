@@ -6,6 +6,8 @@ const mockCookies = jest.fn();
 const mockCreateServerClient = jest.fn();
 const mockGetUser = jest.fn();
 const mockFrom = jest.fn();
+const mockGetServiceRoleSupabaseClient = jest.fn();
+const mockServiceRoleFrom = jest.fn();
 const mockLoggerWarn = jest.fn();
 const mockLoggerDebug = jest.fn();
 
@@ -15,6 +17,10 @@ jest.mock("next/headers", () => ({
 
 jest.mock("@supabase/ssr", () => ({
   createServerClient: (...args: unknown[]) => mockCreateServerClient(...args),
+}));
+
+jest.mock("@/core/infra/supabase/server-client", () => ({
+  getServiceRoleSupabaseClient: (...args: unknown[]) => mockGetServiceRoleSupabaseClient(...args),
 }));
 
 jest.mock("@/core/config/server-env", () => ({
@@ -34,6 +40,14 @@ jest.mock("@/core/infra/logging/logger", () => ({
   },
 }));
 
+jest.mock("next/cache", () => ({
+  unstable_cache:
+    (fn: (...args: unknown[]) => unknown) =>
+    (...args: unknown[]) =>
+      fn(...args),
+  revalidateTag: jest.fn(),
+}));
+
 describe("isAdmin", () => {
   const cookieStore = {
     getAll: jest.fn(() => []),
@@ -48,6 +62,9 @@ describe("isAdmin", () => {
     mockCreateServerClient.mockReturnValue({
       auth: { getUser: mockGetUser },
       from: mockFrom,
+    });
+    mockGetServiceRoleSupabaseClient.mockReturnValue({
+      from: mockServiceRoleFrom,
     });
   });
 
@@ -70,7 +87,7 @@ describe("isAdmin", () => {
     const query = {
       eq: jest.fn(async () => ({ count: null, error: { message: "query failed", code: "500" } })),
     };
-    mockFrom.mockReturnValue({
+    mockServiceRoleFrom.mockReturnValue({
       select: jest.fn(() => query),
     });
 
@@ -93,7 +110,7 @@ describe("isAdmin", () => {
     const query = {
       eq: jest.fn(async () => ({ count: 1, error: null })),
     };
-    mockFrom.mockReturnValue({
+    mockServiceRoleFrom.mockReturnValue({
       select: jest.fn(() => query),
     });
 

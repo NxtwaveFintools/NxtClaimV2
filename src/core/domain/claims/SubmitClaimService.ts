@@ -260,6 +260,8 @@ export class SubmitClaimService {
           expense_category_id: input.expense.expenseCategoryId,
           product_id: input.expense.productId,
           location_id: input.expense.locationId,
+          location_type: input.expense.locationType,
+          location_details: input.expense.locationDetails,
           is_gst_applicable: input.expense.isGstApplicable,
           gst_number: input.expense.gstNumber,
           cgst_amount: input.expense.cgstAmount,

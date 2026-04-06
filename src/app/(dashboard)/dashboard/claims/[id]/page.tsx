@@ -753,6 +753,26 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
                 {formatOptionalText(claim.expense.locationName)}
               </p>
             </div>
+            {claim.expense.locationType ? (
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Location Type
+                </p>
+                <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                  {claim.expense.locationType}
+                </p>
+              </div>
+            ) : null}
+            {claim.expense.locationDetails ? (
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Location Details
+                </p>
+                <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                  {claim.expense.locationDetails}
+                </p>
+              </div>
+            ) : null}
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 Transaction Date

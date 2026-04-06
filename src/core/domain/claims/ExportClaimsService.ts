@@ -70,6 +70,7 @@ export type ClaimExportRow = {
   product: string;
   expenseLocation: string;
   locationType: string;
+  locationDetails: string;
   /** Raw signed URL, or null if unavailable. Set as a native hyperlink in the workbook. */
   bankStatementUrl: string | null;
   /** Raw signed URL, or null if unavailable. Set as a native hyperlink in the workbook. */
@@ -123,6 +124,7 @@ export const EXPORT_HEADERS = [
   "Product",
   "Expense Location",
   "Location Type",
+  "Location Details",
   "Bank Statement URL",
   "Bill URL",
   "Petty Cash Photo URL",
@@ -463,7 +465,8 @@ export class ExportClaimsService {
         expenseLocation: toTextValue(
           row.detailType === "expense" ? row.expenseLocationName : row.advanceLocationName,
         ),
-        locationType: "N/A",
+        locationType: toTextValue(row.expenseLocationType),
+        locationDetails: toTextValue(row.expenseLocationDetails),
         bankStatementUrl,
         billUrl: receiptUrl,
         pettyCashPhotoUrl: row.detailType === "expense" ? receiptUrl : supportingUrl,

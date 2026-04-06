@@ -1,6 +1,7 @@
 /** @jest-environment node */
 
 const mockRevalidatePath = jest.fn();
+const mockRevalidateTag = jest.fn();
 const mockIsAdmin = jest.fn();
 const mockGetCurrentUser = jest.fn();
 const mockUpdateUserRole = jest.fn();
@@ -20,6 +21,7 @@ const mockRemoveViewer = jest.fn();
 
 jest.mock("next/cache", () => ({
   revalidatePath: (...args: unknown[]) => mockRevalidatePath(...args),
+  revalidateTag: (...args: unknown[]) => mockRevalidateTag(...args),
 }));
 
 jest.mock("@/modules/admin/server/is-admin", () => ({

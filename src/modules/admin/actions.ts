@@ -14,6 +14,10 @@ import type { MasterDataTableName } from "@/core/domain/admin/contracts";
 import { isAdmin } from "@/modules/admin/server/is-admin";
 import { SupabaseAdminRepository } from "@/modules/admin/repositories/SupabaseAdminRepository";
 import { SupabaseServerAuthRepository } from "@/modules/auth/repositories/supabase-server-auth.repository";
+import {
+  revalidateAllUserRoleChecks,
+  revalidateUserRoleChecks,
+} from "@/modules/auth/server/user-role-cache";
 
 // ----------------------------------------------------------------
 // Shared instances (singleton-per-request via module scope)
@@ -65,6 +69,15 @@ async function requireAdmin(): Promise<{ userId: string } | { forbidden: true }>
   }
 
   return { userId: userResult.user.id };
+}
+
+function revalidateRoleChecksForUser(userId: string | null | undefined): void {
+  if (userId) {
+    revalidateUserRoleChecks(userId);
+    return;
+  }
+
+  revalidateAllUserRoleChecks();
 }
 
 // ----------------------------------------------------------------
@@ -367,6 +380,7 @@ export async function updateUserRoleAction(
     return { ok: false, message: result.errorMessage ?? "Failed to update user role." };
   }
 
+  revalidateRoleChecksForUser(idResult.data);
   revalidatePath(ROUTES.admin.settings);
 
   return { ok: true };
@@ -389,6 +403,7 @@ export async function addAdminAction(email: string): Promise<{ ok: boolean; mess
     return { ok: false, message: result.errorMessage };
   }
 
+  revalidateRoleChecksForUser(result.data?.userId);
   revalidatePath(ROUTES.admin.settings);
 
   return { ok: true };
@@ -413,6 +428,7 @@ export async function removeAdminAction(
     return { ok: false, message: result.errorMessage ?? "Failed to remove admin." };
   }
 
+  revalidateAllUserRoleChecks();
   revalidatePath(ROUTES.admin.settings);
 
   return { ok: true };
@@ -453,6 +469,7 @@ export async function addDepartmentViewerAction(
     return { ok: false, message: result.errorMessage };
   }
 
+  revalidateRoleChecksForUser(result.data?.userId);
   revalidatePath(ROUTES.admin.settings);
   return { ok: true };
 }
@@ -476,6 +493,7 @@ export async function removeDepartmentViewerAction(
     return { ok: false, message: result.errorMessage ?? "Failed to remove viewer." };
   }
 
+  revalidateAllUserRoleChecks();
   revalidatePath(ROUTES.admin.settings);
   return { ok: true };
 }

@@ -1,0 +1,200 @@
+-- Update create_claim_with_detail RPC to persist location_type and location_details.
+-- These columns were added to expense_details in migration 20260406000100 but the
+-- function INSERT was not updated. This migration patches the function.
+
+CREATE OR REPLACE FUNCTION public.create_claim_with_detail(p_payload jsonb)
+ RETURNS text
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_claim_id text;
+  v_initial_status public.claim_status;
+  v_payment_mode_name text;
+  v_expected_detail_type text;
+  v_detail_type text;
+  v_basic_amount numeric;
+  v_cgst_amount numeric;
+  v_sgst_amount numeric;
+  v_igst_amount numeric;
+  v_is_gst_applicable boolean;
+  v_advance_requested_amount numeric;
+  v_advance_budget_month integer;
+  v_advance_budget_year integer;
+begin
+  v_claim_id := nullif(trim(p_payload->>'claim_id'), '');
+
+  if v_claim_id is null then
+    raise exception 'claim_id is required';
+  end if;
+
+  if v_claim_id !~ '^CLAIM-[A-Za-z0-9]+-[0-9]{8}-[A-Za-z0-9]+$' then
+    raise exception 'claim_id % does not match required format', v_claim_id;
+  end if;
+
+  v_initial_status := coalesce(
+    nullif(trim(p_payload->>'initial_status'), '')::public.claim_status,
+    'Submitted - Awaiting HOD approval'::public.claim_status
+  );
+
+  select name into v_payment_mode_name
+  from public.master_payment_modes
+  where id = (p_payload->>'payment_mode_id')::uuid
+    and is_active = true;
+
+  if v_payment_mode_name is null then
+    raise exception 'Invalid or inactive payment_mode_id';
+  end if;
+
+  if lower(v_payment_mode_name) in ('reimbursement', 'corporate card', 'happay', 'forex', 'petty cash') then
+    v_expected_detail_type := 'expense';
+  elsif lower(v_payment_mode_name) in ('petty cash request', 'bulk petty cash request') then
+    v_expected_detail_type := 'advance';
+  else
+    raise exception 'Payment mode % is not mapped to a claim detail type', v_payment_mode_name;
+  end if;
+
+  v_detail_type := p_payload->>'detail_type';
+  if v_detail_type is distinct from v_expected_detail_type then
+    raise exception 'detail_type % does not match payment mode %', v_detail_type, v_payment_mode_name;
+  end if;
+
+  insert into public.claims (
+    id,
+    status,
+    submission_type,
+    detail_type,
+    submitted_by,
+    on_behalf_of_id,
+    on_behalf_email,
+    on_behalf_employee_code,
+    department_id,
+    payment_mode_id,
+    assigned_l1_approver_id,
+    assigned_l2_approver_id,
+    submitted_at,
+    is_active
+  )
+  values (
+    v_claim_id,
+    v_initial_status,
+    p_payload->>'submission_type',
+    v_detail_type,
+    (p_payload->>'submitted_by')::uuid,
+    (p_payload->>'on_behalf_of_id')::uuid,
+    coalesce(nullif(trim(p_payload->>'on_behalf_email'), ''), 'N/A'),
+    coalesce(nullif(trim(p_payload->>'on_behalf_employee_code'), ''), 'N/A'),
+    (p_payload->>'department_id')::uuid,
+    (p_payload->>'payment_mode_id')::uuid,
+    (p_payload->>'assigned_l1_approver_id')::uuid,
+    nullif(p_payload->>'assigned_l2_approver_id', '')::uuid,
+    now(),
+    true
+  )
+  returning id into v_claim_id;
+
+  if v_detail_type = 'expense' then
+    v_is_gst_applicable := coalesce((p_payload->'expense'->>'is_gst_applicable')::boolean, false);
+    v_basic_amount := (p_payload->'expense'->>'basic_amount')::numeric;
+    v_cgst_amount := case when v_is_gst_applicable then coalesce((p_payload->'expense'->>'cgst_amount')::numeric, 0) else 0 end;
+    v_sgst_amount := case when v_is_gst_applicable then coalesce((p_payload->'expense'->>'sgst_amount')::numeric, 0) else 0 end;
+    v_igst_amount := case when v_is_gst_applicable then coalesce((p_payload->'expense'->>'igst_amount')::numeric, 0) else 0 end;
+
+    insert into public.expense_details (
+      claim_id,
+      bill_no,
+      transaction_id,
+      expense_category_id,
+      product_id,
+      location_id,
+      location_type,
+      location_details,
+      purpose,
+      is_gst_applicable,
+      gst_number,
+      cgst_amount,
+      sgst_amount,
+      igst_amount,
+      transaction_date,
+      basic_amount,
+      currency_code,
+      vendor_name,
+      receipt_file_path,
+      bank_statement_file_path,
+      people_involved,
+      remarks
+    )
+    values (
+      v_claim_id,
+      p_payload->'expense'->>'bill_no',
+      coalesce(nullif(trim(p_payload->'expense'->>'transaction_id'), ''), 'N/A'),
+      (p_payload->'expense'->>'expense_category_id')::uuid,
+      nullif(p_payload->'expense'->>'product_id', '')::uuid,
+      (p_payload->'expense'->>'location_id')::uuid,
+      nullif(trim(p_payload->'expense'->>'location_type'), ''),
+      nullif(trim(p_payload->'expense'->>'location_details'), ''),
+      coalesce(nullif(trim(p_payload->'expense'->>'purpose'), ''), 'N/A'),
+      v_is_gst_applicable,
+      coalesce(nullif(trim(p_payload->'expense'->>'gst_number'), ''), 'N/A'),
+      v_cgst_amount,
+      v_sgst_amount,
+      v_igst_amount,
+      (p_payload->'expense'->>'transaction_date')::date,
+      v_basic_amount,
+      coalesce(nullif(trim(p_payload->'expense'->>'currency_code'), ''), 'INR'),
+      coalesce(nullif(trim(p_payload->'expense'->>'vendor_name'), ''), 'N/A'),
+      coalesce(nullif(trim(p_payload->'expense'->>'receipt_file_path'), ''), 'N/A'),
+      coalesce(nullif(trim(p_payload->'expense'->>'bank_statement_file_path'), ''), 'N/A'),
+      coalesce(nullif(trim(p_payload->'expense'->>'people_involved'), ''), 'N/A'),
+      coalesce(nullif(trim(p_payload->'expense'->>'remarks'), ''), 'N/A')
+    );
+  end if;
+
+  if v_detail_type = 'advance' then
+    v_advance_requested_amount := (p_payload->'advance'->>'requested_amount')::numeric;
+    v_advance_budget_month := (p_payload->'advance'->>'budget_month')::integer;
+    v_advance_budget_year := (p_payload->'advance'->>'budget_year')::integer;
+
+    if v_advance_requested_amount is null then
+      raise exception 'Advance requested_amount is required';
+    end if;
+    if v_advance_requested_amount <= 0 then
+      raise exception 'Advance requested_amount must be greater than zero';
+    end if;
+    if v_advance_budget_month is null then
+      raise exception 'Advance budget_month is required';
+    end if;
+    if v_advance_budget_year is null then
+      raise exception 'Advance budget_year is required';
+    end if;
+
+    insert into public.advance_details (
+      claim_id,
+      requested_amount,
+      budget_month,
+      budget_year,
+      expected_usage_date,
+      purpose,
+      product_id,
+      location_id,
+      supporting_document_path,
+      remarks
+    )
+    values (
+      v_claim_id,
+      v_advance_requested_amount,
+      v_advance_budget_month,
+      v_advance_budget_year,
+      nullif(p_payload->'advance'->>'expected_usage_date', '')::date,
+      coalesce(nullif(trim(p_payload->'advance'->>'purpose'), ''), 'N/A'),
+      nullif(p_payload->'advance'->>'product_id', '')::uuid,
+      nullif(p_payload->'advance'->>'location_id', '')::uuid,
+      coalesce(nullif(trim(p_payload->'advance'->>'supporting_document_path'), ''), 'N/A'),
+      coalesce(nullif(trim(p_payload->'advance'->>'remarks'), ''), 'N/A')
+    );
+  end if;
+
+  return v_claim_id;
+end;
+$function$;

@@ -14,6 +14,11 @@ import {
 import { parseReceiptAction } from "@/modules/claims/actions/parse-receipt";
 import { newClaimSubmitSchema } from "@/modules/claims/validators/new-claim-schema";
 import { useClaimFormAutofill } from "@/hooks/use-claim-form-autofill";
+import {
+  LOCATION_TYPES,
+  LOCATION_TYPE_OPTIONS,
+  NIAT_OFFLINE_LEAD_GEN_DEPARTMENT,
+} from "@/core/constants/location-types";
 
 type NewClaimFormClientProps = {
   currentUser: CurrentUserHydration;
@@ -38,6 +43,8 @@ export type ClaimFormDraftValues = {
     expenseCategoryId: string;
     productId: string;
     locationId: string;
+    locationType: string | null;
+    locationDetails: string | null;
     isGstApplicable: boolean;
     gstNumber: string | null;
     cgstAmount: number;
@@ -181,6 +188,8 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
         expenseCategoryId: options.expenseCategories[0]?.id ?? "",
         productId: options.products[0]?.id ?? "",
         locationId: options.locations[0]?.id ?? "",
+        locationType: null,
+        locationDetails: null,
         isGstApplicable: false,
         gstNumber: null,
         cgstAmount: 0,
@@ -228,6 +237,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   const detailType = useWatch({ control, name: "detailType" });
   const departmentId = useWatch({ control, name: "departmentId" });
   const isGstApplicable = useWatch({ control, name: "expense.isGstApplicable" });
+  const locationType = useWatch({ control, name: "expense.locationType" });
   const basicAmount = useWatch({ control, name: "expense.basicAmount" });
   const cgstAmount = useWatch({ control, name: "expense.cgstAmount" });
   const sgstAmount = useWatch({ control, name: "expense.sgstAmount" });
@@ -289,6 +299,21 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     () => options.departmentRouting.find((department) => department.id === departmentId) ?? null,
     [departmentId, options.departmentRouting],
   );
+
+  const isNiatDepartment = selectedDepartment?.name === NIAT_OFFLINE_LEAD_GEN_DEPARTMENT;
+
+  useEffect(() => {
+    if (!isNiatDepartment) {
+      setValue("expense.locationType", null, { shouldValidate: true });
+      setValue("expense.locationDetails", null, { shouldValidate: true });
+    }
+  }, [isNiatDepartment, setValue]);
+
+  useEffect(() => {
+    if (locationType !== LOCATION_TYPES.OUT_STATION) {
+      setValue("expense.locationDetails", null, { shouldValidate: true });
+    }
+  }, [locationType, setValue]);
 
   const resolvedL1Approver = useMemo(() => {
     if (!selectedDepartment) {
@@ -418,6 +443,12 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       appendFormDataValue(formData, "expense.expenseCategoryId", values.expense.expenseCategoryId);
       appendFormDataValue(formData, "expense.productId", values.expense.productId);
       appendFormDataValue(formData, "expense.locationId", values.expense.locationId);
+      if (isNiatDepartment) {
+        appendFormDataValue(formData, "expense.locationType", values.expense.locationType);
+        if (values.expense.locationType === LOCATION_TYPES.OUT_STATION) {
+          appendFormDataValue(formData, "expense.locationDetails", values.expense.locationDetails);
+        }
+      }
       appendFormDataValue(formData, "expense.isGstApplicable", values.expense.isGstApplicable);
       appendFormDataValue(formData, "expense.gstNumber", values.expense.gstNumber);
       appendFormDataValue(formData, "expense.cgstAmount", values.expense.cgstAmount);
@@ -1097,6 +1128,56 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   </label>
                 </div>
               </div>
+
+              {isNiatDepartment ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor="expenseLocationType"
+                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    >
+                      Location Type <span className="text-rose-600">*</span>
+                    </label>
+                    <select
+                      id="expenseLocationType"
+                      className="h-9 w-full rounded-lg border border-zinc-300 px-3 text-sm"
+                      {...register("expense.locationType")}
+                    >
+                      <option value="">Select location type</option>
+                      {LOCATION_TYPE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.expense?.locationType ? (
+                      <p className="text-xs text-rose-600">{errors.expense.locationType.message}</p>
+                    ) : null}
+                  </div>
+                  {locationType === LOCATION_TYPES.OUT_STATION ? (
+                    <div className="grid gap-1">
+                      <label
+                        htmlFor="expenseLocationDetails"
+                        className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                      >
+                        Location Details <span className="text-rose-600">*</span>
+                      </label>
+                      <input
+                        id="expenseLocationDetails"
+                        type="text"
+                        placeholder="Enter out-station location details"
+                        className="h-9 w-full rounded-lg border border-zinc-300 px-3 text-sm"
+                        {...register("expense.locationDetails")}
+                      />
+                      {errors.expense?.locationDetails ? (
+                        <p className="text-xs text-rose-600">
+                          {errors.expense.locationDetails.message}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
               {isGstApplicable ? (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LOCATION_TYPES } from "@/core/constants/location-types";
 
 const uuidSchema = z.uuid("Invalid UUID value");
 const emailSchema = z.email("Enter a valid on-behalf email");
@@ -38,6 +39,14 @@ const expenseDetailSchema = z.object({
     expenseCategoryId: uuidSchema,
     productId: uuidSchema,
     locationId: uuidSchema,
+    locationType: z.preprocess(
+      (v) => (v === null || v === undefined || v === "" ? null : v),
+      z.string().nullable(),
+    ),
+    locationDetails: z.preprocess(
+      (v) => (v === null || v === undefined || v === "" ? null : v),
+      z.string().nullable(),
+    ),
     isGstApplicable: z.boolean(),
     gstNumber: optionalTextToNA,
     cgstAmount: z.number().min(0, "CGST amount cannot be negative"),
@@ -189,6 +198,17 @@ export const newClaimSubmitSchema = z
             path: ["expense", "bankStatementFileType"],
           });
         }
+      }
+
+      if (
+        value.expense.locationType === LOCATION_TYPES.OUT_STATION &&
+        !value.expense.locationDetails
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Location details are required when location type is Out Station.",
+          path: ["expense", "locationDetails"],
+        });
       }
     }
 

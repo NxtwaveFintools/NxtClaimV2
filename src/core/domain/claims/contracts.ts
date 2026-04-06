@@ -45,6 +45,8 @@ export type ClaimSubmissionInput = {
     expenseCategoryId: string;
     productId: string;
     locationId: string;
+    locationType: string | null;
+    locationDetails: string | null;
     isGstApplicable: boolean;
     gstNumber: string | null;
     cgstAmount: number;
@@ -209,6 +211,8 @@ export type ClaimFullExportRecord = {
   expenseProductName: string | null;
   expenseLocationId: string | null;
   expenseLocationName: string | null;
+  expenseLocationType: string | null;
+  expenseLocationDetails: string | null;
   expenseIsGstApplicable: boolean | null;
   expenseGstNumber: string | null;
   expenseTransactionDate: string | null;

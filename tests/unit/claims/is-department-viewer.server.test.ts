@@ -6,6 +6,8 @@ const mockCookies = jest.fn();
 const mockCreateServerClient = jest.fn();
 const mockGetUser = jest.fn();
 const mockFrom = jest.fn();
+const mockGetServiceRoleSupabaseClient = jest.fn();
+const mockServiceRoleFrom = jest.fn();
 const mockLoggerWarn = jest.fn();
 
 jest.mock("next/headers", () => ({
@@ -14,6 +16,10 @@ jest.mock("next/headers", () => ({
 
 jest.mock("@supabase/ssr", () => ({
   createServerClient: (...args: unknown[]) => mockCreateServerClient(...args),
+}));
+
+jest.mock("@/core/infra/supabase/server-client", () => ({
+  getServiceRoleSupabaseClient: (...args: unknown[]) => mockGetServiceRoleSupabaseClient(...args),
 }));
 
 jest.mock("@/core/config/server-env", () => ({
@@ -31,6 +37,14 @@ jest.mock("@/core/infra/logging/logger", () => ({
     debug: jest.fn(),
     maskEmail: jest.fn((value: string | null) => value),
   },
+}));
+
+jest.mock("next/cache", () => ({
+  unstable_cache:
+    (fn: (...args: unknown[]) => unknown) =>
+    (...args: unknown[]) =>
+      fn(...args),
+  revalidateTag: jest.fn(),
 }));
 
 function createTwoEqSelect(finalResult: unknown) {
@@ -56,6 +70,9 @@ describe("department viewer server helpers", () => {
       auth: { getUser: mockGetUser },
       from: mockFrom,
     });
+    mockGetServiceRoleSupabaseClient.mockReturnValue({
+      from: mockServiceRoleFrom,
+    });
   });
 
   test("isDepartmentViewer returns false when auth user is missing", async () => {
@@ -72,7 +89,7 @@ describe("department viewer server helpers", () => {
     });
 
     const query = createTwoEqSelect({ count: 2, error: null });
-    mockFrom.mockReturnValue({ select: query.select });
+    mockServiceRoleFrom.mockReturnValue({ select: query.select });
 
     const { isDepartmentViewer } = await import("@/modules/claims/server/is-department-viewer");
     await expect(isDepartmentViewer()).resolves.toBe(true);
@@ -91,7 +108,7 @@ describe("department viewer server helpers", () => {
       count: null,
       error: { message: "lookup failed", code: "500" },
     });
-    mockFrom.mockReturnValue({ select: query.select });
+    mockServiceRoleFrom.mockReturnValue({ select: query.select });
 
     const { isDepartmentViewer } = await import("@/modules/claims/server/is-department-viewer");
     await expect(isDepartmentViewer()).resolves.toBe(false);

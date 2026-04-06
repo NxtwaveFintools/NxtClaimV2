@@ -44,7 +44,6 @@ describe("parseReceiptAction", () => {
       totalAmount: 118,
       expenseCategory: "Travel",
       confidenceScore: 95,
-      fraudFlags: [],
     };
 
     mockGenerateContent.mockResolvedValue({
@@ -62,7 +61,7 @@ describe("parseReceiptAction", () => {
     expect(result.data).toEqual(modelJson);
   });
 
-  test("applies math penalty guard and blocks autofill on inconsistent totals", async () => {
+  test("allows autofill when all critical fields are present even with inconsistent totals", async () => {
     mockGenerateContent.mockResolvedValue({
       response: {
         text: () =>
@@ -86,12 +85,12 @@ describe("parseReceiptAction", () => {
     const result = await parseReceiptAction(createReceiptFormData());
 
     expect(result.ok).toBe(true);
-    expect(result.autoFillAllowed).toBe(false);
-    expect(result.message).toBe("Low confidence parse. Please fill manually.");
-    expect(result.data?.confidenceScore).toBe(79);
+    expect(result.autoFillAllowed).toBe(true);
+    expect(result.message).toBeNull();
+    expect(result.data?.confidenceScore).toBe(99);
   });
 
-  test("blocks autofill when confidence is below 90", async () => {
+  test("allows autofill when confidence is above threshold (80)", async () => {
     mockGenerateContent.mockResolvedValue({
       response: {
         text: () =>
@@ -115,8 +114,8 @@ describe("parseReceiptAction", () => {
     const result = await parseReceiptAction(createReceiptFormData());
 
     expect(result.ok).toBe(true);
-    expect(result.autoFillAllowed).toBe(false);
-    expect(result.message).toBe("Low confidence parse. Please fill manually.");
+    expect(result.autoFillAllowed).toBe(true);
+    expect(result.message).toBeNull();
     expect(result.data?.confidenceScore).toBe(85);
   });
 
@@ -134,7 +133,8 @@ describe("parseReceiptAction", () => {
       ok: false,
       data: null,
       autoFillAllowed: false,
-      message: "Could not auto-read receipt. Please fill manually.",
+      message:
+        "AI could not read the text formatting in this document. Please fill the details manually.",
     });
   });
 
