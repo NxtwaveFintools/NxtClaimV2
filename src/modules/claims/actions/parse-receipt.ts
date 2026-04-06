@@ -246,14 +246,18 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
       };
     }
 
-    const cleanText = modelText
+    let cleanText = modelText
       .replace(/```json/gi, "")
       .replace(/```/g, "")
       .trim();
+    cleanText = cleanText.replace(/\\u(?![0-9a-fA-F]{4})/g, "");
 
     let parsedJson = JSON.parse(cleanText);
     if (Array.isArray(parsedJson)) {
       parsedJson = parsedJson[0];
+    }
+    if (!parsedJson || typeof parsedJson !== "object" || Array.isArray(parsedJson)) {
+      parsedJson = {};
     }
 
     const parsedSchemaResult = geminiParseResultSchema.safeParse(parsedJson);
@@ -264,18 +268,42 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
         ok: false,
         data: null,
         autoFillAllowed: false,
-        message: "Could not auto-read receipt. Please fill manually.",
+        message:
+          "AI could not read the text formatting in this document. Please fill the details manually.",
       };
     }
 
     const normalized = normalizeGeminiResult(parsedSchemaResult.data);
-    const autoFillAllowed = normalized.confidenceScore >= CONFIDENCE_THRESHOLD;
+
+    const hasPartialData =
+      normalized.vendorName !== null ||
+      normalized.totalAmount > 0 ||
+      normalized.transactionDate !== null ||
+      normalized.billNo !== null;
+    const hasMissingCriticalFields =
+      normalized.totalAmount === 0 ||
+      normalized.transactionDate === null ||
+      normalized.billNo === null;
+
+    let autoFillAllowed: boolean;
+    let message: string | null;
+
+    if (normalized.confidenceScore >= CONFIDENCE_THRESHOLD && !hasMissingCriticalFields) {
+      autoFillAllowed = true;
+      message = null;
+    } else if (hasPartialData) {
+      autoFillAllowed = true;
+      message = "Extracted partial data. Please verify and fill the missing fields manually.";
+    } else {
+      autoFillAllowed = false;
+      message = "Low confidence parse. Please fill manually.";
+    }
 
     return {
       ok: true,
       data: normalized,
       autoFillAllowed,
-      message: autoFillAllowed ? null : "Low confidence parse. Please fill manually.",
+      message,
     };
   } catch (error) {
     console.error("\n=== ❌ FATAL SERVER CRASH ===\n", error);
@@ -283,7 +311,8 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
       ok: false,
       data: null,
       autoFillAllowed: false,
-      message: "Could not auto-read receipt. Please fill manually.",
+      message:
+        "AI could not read the text formatting in this document. Please fill the details manually.",
     };
   }
 }
