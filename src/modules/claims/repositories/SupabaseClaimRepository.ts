@@ -108,6 +108,11 @@ type ClaimAuditLogActorRow = {
   email: string | null;
 };
 
+type ClaimAuditLogClaimRow = {
+  assigned_l1_approver_id: string | null;
+  l1_approver_user: ClaimAuditLogActorRow | ClaimAuditLogActorRow[] | null;
+};
+
 type ClaimAuditLogRow = {
   id: string;
   claim_id: string;
@@ -118,6 +123,7 @@ type ClaimAuditLogRow = {
   created_at: string;
   actor: ClaimAuditLogActorRow | ClaimAuditLogActorRow[] | null;
   assigned_to: ClaimAuditLogActorRow | ClaimAuditLogActorRow[] | null;
+  claim?: ClaimAuditLogClaimRow | ClaimAuditLogClaimRow[] | null;
 };
 
 type DepartmentApproverRoleRow = {
@@ -790,6 +796,19 @@ function mapPendingApprovalRows(rows: GetPendingApprovalsRow[]) {
 function mapClaimAuditLogRow(row: ClaimAuditLogRow): ClaimAuditLogRecord {
   const actor = getSingleRelation(row.actor);
   const assignedTo = getSingleRelation(row.assigned_to);
+  const claim = getSingleRelation(row.claim);
+  const claimL1Approver = getSingleRelation(claim?.l1_approver_user);
+  const isSubmittedAction = row.action_type === "SUBMITTED";
+
+  const effectiveAssignedToId = isSubmittedAction
+    ? (claim?.assigned_l1_approver_id ?? row.assigned_to_id)
+    : row.assigned_to_id;
+  const effectiveAssignedToName = isSubmittedAction
+    ? (claimL1Approver?.full_name ?? assignedTo?.full_name ?? null)
+    : (assignedTo?.full_name ?? null);
+  const effectiveAssignedToEmail = isSubmittedAction
+    ? (claimL1Approver?.email ?? assignedTo?.email ?? null)
+    : (assignedTo?.email ?? null);
 
   return {
     id: row.id,
@@ -798,9 +817,9 @@ function mapClaimAuditLogRow(row: ClaimAuditLogRow): ClaimAuditLogRecord {
     actorName: actor?.full_name ?? null,
     actorEmail: actor?.email ?? null,
     actionType: row.action_type,
-    assignedToId: row.assigned_to_id,
-    assignedToName: assignedTo?.full_name ?? null,
-    assignedToEmail: assignedTo?.email ?? null,
+    assignedToId: effectiveAssignedToId,
+    assignedToName: effectiveAssignedToName,
+    assignedToEmail: effectiveAssignedToEmail,
     remarks: row.remarks,
     createdAt: row.created_at,
   };
@@ -2461,7 +2480,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const { data, error } = await client
       .from("claim_audit_logs")
       .select(
-        "id, claim_id, actor_id, action_type, assigned_to_id, remarks, created_at, actor:users!claim_audit_logs_actor_id_fkey(full_name, email), assigned_to:users!claim_audit_logs_assigned_to_id_fkey(full_name, email)",
+        "id, claim_id, actor_id, action_type, assigned_to_id, remarks, created_at, actor:users!claim_audit_logs_actor_id_fkey(full_name, email), assigned_to:users!claim_audit_logs_assigned_to_id_fkey(full_name, email), claim:claims!claim_audit_logs_claim_id_fkey(assigned_l1_approver_id, l1_approver_user:users!claims_assigned_l1_approver_id_fkey(full_name, email))",
       )
       .eq("claim_id", claimId)
       .order("created_at", { ascending: true });
@@ -2490,7 +2509,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const { data, error } = await client
       .from("claim_audit_logs")
       .select(
-        "id, claim_id, actor_id, action_type, assigned_to_id, remarks, created_at, actor:users!claim_audit_logs_actor_id_fkey(full_name, email), assigned_to:users!claim_audit_logs_assigned_to_id_fkey(full_name, email)",
+        "id, claim_id, actor_id, action_type, assigned_to_id, remarks, created_at, actor:users!claim_audit_logs_actor_id_fkey(full_name, email), assigned_to:users!claim_audit_logs_assigned_to_id_fkey(full_name, email), claim:claims!claim_audit_logs_claim_id_fkey(assigned_l1_approver_id, l1_approver_user:users!claims_assigned_l1_approver_id_fkey(full_name, email))",
       )
       .in("claim_id", scopedClaimIds)
       .order("created_at", { ascending: true });

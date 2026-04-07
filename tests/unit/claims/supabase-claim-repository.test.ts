@@ -382,3 +382,53 @@ describe("SupabaseClaimRepository.updateClaimDetailsByFinance", () => {
     expect(result).toEqual({ errorMessage: "Active expense detail not found for claim." });
   });
 });
+
+describe("SupabaseClaimRepository.getClaimAuditLogs", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("uses claim assigned_l1 approver details for SUBMITTED assignee label", async () => {
+    const queryBuilder = createQueryBuilder({
+      data: [
+        {
+          id: "audit-1",
+          claim_id: "claim-1",
+          actor_id: "submitter-1",
+          action_type: "SUBMITTED",
+          assigned_to_id: "hod-1",
+          remarks: null,
+          created_at: "2026-04-07T10:00:00.000Z",
+          actor: { full_name: "Employee One", email: "user@nxtwave.co.in" },
+          assigned_to: { full_name: "Department Head", email: "hod@nxtwave.co.in" },
+          claim: {
+            assigned_l1_approver_id: "founder-1",
+            l1_approver_user: { full_name: "Founder", email: "founder@nxtwave.co.in" },
+          },
+        },
+      ],
+      error: null,
+    });
+
+    mockFrom.mockReturnValue({
+      select: jest.fn(() => queryBuilder),
+    });
+
+    mockGetServiceRoleSupabaseClient.mockReturnValue({
+      from: mockFrom,
+    });
+
+    const repository = new SupabaseClaimRepository();
+    const result = await repository.getClaimAuditLogs("claim-1");
+
+    expect(result.errorMessage).toBeNull();
+    expect(result.data).toEqual([
+      expect.objectContaining({
+        actionType: "SUBMITTED",
+        assignedToId: "founder-1",
+        assignedToName: "Founder",
+        assignedToEmail: "founder@nxtwave.co.in",
+      }),
+    ]);
+  });
+});
