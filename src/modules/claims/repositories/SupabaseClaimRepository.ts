@@ -2436,7 +2436,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
       )
       .or(buildMyClaimsOwnershipOrFilter(userId))
       .eq("is_active", true)
-      .order("submitted_at", { ascending: false });
+      .order("submitted_at", { ascending: false })
+      .limit(MAX_LIST_PAGE_SIZE);
 
     if (filters?.detailType) {
       query = query.eq("detail_type", filters.detailType);

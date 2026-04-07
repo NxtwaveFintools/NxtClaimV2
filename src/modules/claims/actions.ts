@@ -83,6 +83,7 @@ const bulkRejectInputSchema = bulkActionInputSchema.extend({
   rejectionReason: z.string().trim().min(5, "Rejection reason is required."),
   allowResubmission: z.boolean().optional(),
 });
+const MAX_UPLOAD_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 
 class DuplicateTransactionError extends Error {
   constructor(message: string) {
@@ -142,6 +143,14 @@ function classifyDetailType(modeName: string): ClaimDetailType | null {
 
 function sanitizeFilename(filename: string): string {
   return filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+function validateUploadFileSize(file: File, fieldLabel: string): string | null {
+  if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
+    return `${fieldLabel} exceeds 25MB.`;
+  }
+
+  return null;
 }
 
 function buildStoragePath(folder: ClaimStorageFolder, userId: string, fileName: string): string {
@@ -452,6 +461,36 @@ export async function submitClaimAction(input: unknown): Promise<{
       message: "Validation failed.",
       fieldErrors: parseResult.error.flatten().fieldErrors,
     };
+  }
+
+  if (receiptFile) {
+    const fileSizeError = validateUploadFileSize(receiptFile, "Invoice/Bill file");
+    if (fileSizeError) {
+      return {
+        ok: false,
+        message: fileSizeError,
+      };
+    }
+  }
+
+  if (bankStatementFile) {
+    const fileSizeError = validateUploadFileSize(bankStatementFile, "Bank statement file");
+    if (fileSizeError) {
+      return {
+        ok: false,
+        message: fileSizeError,
+      };
+    }
+  }
+
+  if (advanceReceiptFile) {
+    const fileSizeError = validateUploadFileSize(advanceReceiptFile, "Supporting document file");
+    if (fileSizeError) {
+      return {
+        ok: false,
+        message: fileSizeError,
+      };
+    }
   }
 
   const currentUserResult = await authRepository.getCurrentUser();
@@ -864,6 +903,15 @@ export async function updateClaimByFinanceAction(input: {
   let nextAdvanceDocumentPath = claimSnapshotResult.data.advanceSupportingDocumentPath;
 
   if (parseResult.data.receiptFile && parseResult.data.receiptFile.size > 0) {
+    const receiptSizeError = validateUploadFileSize(parseResult.data.receiptFile, "Receipt file");
+
+    if (receiptSizeError) {
+      return {
+        ok: false,
+        message: receiptSizeError,
+      };
+    }
+
     const fileBuffer = Buffer.from(await parseResult.data.receiptFile.arrayBuffer());
 
     const uploadResult = await uploadClaimFile({
@@ -902,6 +950,18 @@ export async function updateClaimByFinanceAction(input: {
     parseResult.data.bankStatementFile &&
     parseResult.data.bankStatementFile.size > 0
   ) {
+    const bankStatementSizeError = validateUploadFileSize(
+      parseResult.data.bankStatementFile,
+      "Bank statement file",
+    );
+
+    if (bankStatementSizeError) {
+      return {
+        ok: false,
+        message: bankStatementSizeError,
+      };
+    }
+
     const fileBuffer = Buffer.from(await parseResult.data.bankStatementFile.arrayBuffer());
 
     const uploadResult = await uploadClaimFile({

@@ -3,6 +3,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 import { serverEnv } from "@/core/config/server-env";
+import { logger } from "@/core/infra/logging/logger";
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const CONFIDENCE_THRESHOLD = 80;
@@ -265,18 +266,7 @@ function createGeminiModel(): ReturnType<GoogleGenerativeAI["getGenerativeModel"
 }
 
 export async function parseReceiptAction(input: FormData): Promise<ParseReceiptActionResult> {
-  console.log("\n=== 🚀 PARSER ACTION TRIGGERED ===");
-
   const fileEntry = input.get("receiptFile");
-  console.log(
-    "File:",
-    fileEntry instanceof File ? fileEntry.name : undefined,
-    "| Type:",
-    fileEntry instanceof File ? fileEntry.type : undefined,
-    "| Size:",
-    fileEntry instanceof File ? fileEntry.size : undefined,
-  );
-  console.log("API Key Exists:", !!serverEnv.GEMINI_API_KEY);
 
   try {
     const receiptFile = fileEntry instanceof File && fileEntry.size > 0 ? fileEntry : null;
@@ -310,7 +300,6 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
 
     const buffer = Buffer.from(await receiptFile.arrayBuffer());
     const model = createGeminiModel();
-    console.log("🛣️ ROUTE: NATIVE GEMINI MULTIMODAL");
     const generationResult = await model.generateContent({
       contents: [
         {
@@ -328,7 +317,6 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
     });
 
     const modelText = generationResult.response.text();
-    console.log("\n=== 🤖 GEMINI RAW OUTPUT ===\n", modelText);
     if (!modelText || modelText.trim().length === 0) {
       return {
         ok: false,
@@ -355,7 +343,10 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
     const parsedSchemaResult = geminiParseResultSchema.safeParse(parsedJson);
 
     if (!parsedSchemaResult.success) {
-      console.error("=== 🚨 ZOD VALIDATION FAILED ===\n", parsedSchemaResult.error);
+      logger.warn("claims.parse_receipt.validation_failed", {
+        errorName: parsedSchemaResult.error.name,
+        errorMessage: parsedSchemaResult.error.issues[0]?.message ?? "Invalid parser output.",
+      });
       return {
         ok: false,
         data: null,
@@ -399,7 +390,10 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
   } catch (error) {
     if (isGeminiQuotaError(error)) {
       const retryDelaySeconds = extractRetryDelaySeconds(error);
-      console.warn("\n=== ⚠️ GEMINI RATE LIMITED ===\n", {
+      logger.warn("claims.parse_receipt.rate_limited", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        errorMessage:
+          error instanceof Error ? error.message : "Gemini request failed due to rate limiting.",
         retryDelaySeconds,
       });
 
@@ -411,7 +405,10 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
       };
     }
 
-    console.error("\n=== ❌ FATAL SERVER CRASH ===\n", error);
+    logger.error("claims.parse_receipt.failed", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+      errorMessage: error instanceof Error ? error.message : "Unexpected parse receipt failure.",
+    });
     return {
       ok: false,
       data: null,
