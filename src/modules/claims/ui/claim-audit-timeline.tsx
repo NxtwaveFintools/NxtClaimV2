@@ -74,6 +74,11 @@ function buildAssigneeLabel(log: ClaimAuditLogRecord): string | null {
     return null;
   }
 
+  // L1 approval moves claims into the shared finance queue, so we mask the individual assignee.
+  if (log.actionType === "L1_APPROVED") {
+    return "Finance Team";
+  }
+
   if (log.assignedToName && log.assignedToEmail) {
     return `${log.assignedToName} (${log.assignedToEmail})`;
   }

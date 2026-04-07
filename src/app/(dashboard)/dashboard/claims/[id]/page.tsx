@@ -7,7 +7,11 @@ import { ExternalLink } from "lucide-react";
 import { AppShellHeader } from "@/components/app-shell-header";
 import { BackButton } from "@/components/ui/back-button";
 import { ROUTES } from "@/core/config/route-registry";
-import { DB_CLAIM_STATUSES, DB_REJECTED_STATUSES } from "@/core/constants/statuses";
+import {
+  DB_CLAIM_STATUSES,
+  DB_REJECTED_STATUSES,
+  isPendingFinanceApprovalStatus,
+} from "@/core/constants/statuses";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
 import {
   approveClaimAction,
@@ -594,6 +598,7 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
     claim.submissionType === "On Behalf"
       ? formatOptionalText(claim.onBehalfEmployeeCode, claim.employeeId)
       : claim.employeeId;
+  const isPendingFinanceApproval = isPendingFinanceApprovalStatus(claim.status);
 
   return (
     <>
@@ -695,6 +700,16 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
               {claimForDisplayName} ({claimForDisplayEmail})
             </p>
           </div>
+          {isPendingFinanceApproval ? (
+            <div className="col-span-2 px-1 lg:col-span-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                Assigned To
+              </p>
+              <span className="mt-0.5 inline-flex w-fit rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                Finance Team
+              </span>
+            </div>
+          ) : null}
         </div>
       </section>
 

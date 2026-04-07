@@ -7,7 +7,11 @@ import { AppShellHeader } from "@/components/app-shell-header";
 import { BackButton } from "@/components/ui/back-button";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { ROUTES } from "@/core/config/route-registry";
-import { DB_CLAIM_STATUSES, type DbClaimStatus } from "@/core/constants/statuses";
+import {
+  DB_CLAIM_STATUSES,
+  isPendingFinanceApprovalStatus,
+  type DbClaimStatus,
+} from "@/core/constants/statuses";
 import type {
   ClaimAuditLogRecord,
   ClaimDateTarget,
@@ -292,6 +296,14 @@ function DateWithActor({
       <span>{formatDate(dateValue)}</span>
       <span className="text-xs text-muted-foreground">{actorEmail ?? "-"}</span>
     </div>
+  );
+}
+
+function FinanceTeamQueueBadge() {
+  return (
+    <span className="inline-flex w-fit rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+      Finance Team
+    </span>
   );
 }
 
@@ -961,10 +973,17 @@ async function ClaimsCommandCenterTable({
                         />
                       </td>
                       <td className="px-3 py-2">
-                        <DateWithActor
-                          dateValue={claim.financeActionDate}
-                          actorEmail={claim.financeEmail}
-                        />
+                        {isPendingFinanceApprovalStatus(claim.status) ? (
+                          <div className="flex flex-col gap-1">
+                            <span>-</span>
+                            <FinanceTeamQueueBadge />
+                          </div>
+                        ) : (
+                          <DateWithActor
+                            dateValue={claim.financeActionDate}
+                            actorEmail={claim.financeEmail}
+                          />
+                        )}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-right">
                         <div className="flex items-center justify-end gap-2">
