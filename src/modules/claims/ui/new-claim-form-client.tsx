@@ -103,6 +103,26 @@ function toOptional(value: string): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function normalizeCategoryName(value: string | null | undefined): string {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function resolveExpenseCategoryIdFromAi(
+  categoryName: string | null,
+  categories: ClaimFormOptions["expenseCategories"],
+): string {
+  const normalizedIncomingName = normalizeCategoryName(categoryName);
+  if (!normalizedIncomingName) {
+    return "";
+  }
+
+  const matchedCategory = categories.find(
+    (category) => normalizeCategoryName(category.name) === normalizedIncomingName,
+  );
+
+  return matchedCategory?.id ?? "";
+}
+
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const ALLOWED_UPLOAD_MIME_TYPES = new Set([
   "application/pdf",
@@ -555,6 +575,9 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     try {
       const formData = new FormData();
       formData.append("receiptFile", invoiceFile);
+      for (const category of options.expenseCategories) {
+        formData.append("expenseCategoryNames", category.name);
+      }
 
       const result = await parseReceiptAction(formData);
       if (!result.ok || !result.data) {
@@ -570,6 +593,10 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       }
 
       const hasGstAmounts = parsed.cgstAmount > 0 || parsed.sgstAmount > 0 || parsed.igstAmount > 0;
+      const matchedExpenseCategoryId = resolveExpenseCategoryIdFromAi(
+        parsed.category_name,
+        options.expenseCategories,
+      );
 
       setValue("expense.billNo", parsed.billNo ?? "", {
         shouldDirty: true,
@@ -582,6 +609,11 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
         shouldValidate: true,
       });
       setValue("expense.basicAmount", parsed.basicAmount, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+      setValue("expense.expenseCategoryId", matchedExpenseCategoryId, {
         shouldDirty: true,
         shouldTouch: true,
         shouldValidate: true,
@@ -1055,6 +1087,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     className="h-9 w-full rounded-lg border border-zinc-300 px-3 text-sm"
                     {...register("expense.expenseCategoryId")}
                   >
+                    <option value="">Select Expense Category</option>
                     {options.expenseCategories.map((option) => (
                       <option key={option.id} value={option.id}>
                         {option.name}

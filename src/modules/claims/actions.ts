@@ -12,6 +12,7 @@ import { ProcessL1ClaimDecisionService } from "@/core/domain/claims/ProcessL1Cla
 import { ProcessL2ClaimDecisionService } from "@/core/domain/claims/ProcessL2ClaimDecisionService";
 import { BulkProcessClaimsService } from "@/core/domain/claims/BulkProcessClaimsService";
 import { UpdateClaimByFinanceService } from "@/core/domain/claims/UpdateClaimByFinanceService";
+import { DeleteOwnClaimService } from "@/core/domain/claims/DeleteOwnClaimService";
 import type {
   ClaimDetailType,
   ClaimDropdownOption,
@@ -37,6 +38,7 @@ const processL1ClaimDecisionService = new ProcessL1ClaimDecisionService({ reposi
 const processL2ClaimDecisionService = new ProcessL2ClaimDecisionService({ repository, logger });
 const bulkProcessClaimsService = new BulkProcessClaimsService({ repository, logger });
 const updateClaimByFinanceService = new UpdateClaimByFinanceService({ repository, logger });
+const deleteOwnClaimService = new DeleteOwnClaimService({ repository, logger });
 
 const expenseModeNames = new Set([
   "reimbursement",
@@ -1050,6 +1052,45 @@ export async function updateClaimByFinanceAction(input: {
     ok: true,
     message: "Claim details updated.",
   };
+}
+
+export async function deleteClaimAction(
+  claimId: string,
+): Promise<{ ok: boolean; message?: string }> {
+  const parseResult = claimIdSchema.safeParse(claimId);
+
+  if (!parseResult.success) {
+    return {
+      ok: false,
+      message: "Invalid claim delete request.",
+    };
+  }
+
+  const currentUserResult = await authRepository.getCurrentUser();
+  if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
+    return {
+      ok: false,
+      message: currentUserResult.errorMessage ?? "Unauthorized session.",
+    };
+  }
+
+  const result = await deleteOwnClaimService.execute({
+    claimId: parseResult.data,
+    actorUserId: currentUserResult.user.id,
+  });
+
+  if (!result.ok) {
+    return {
+      ok: false,
+      message: result.errorMessage ?? "Failed to delete claim.",
+    };
+  }
+
+  revalidatePath(ROUTES.claims.myClaims);
+  revalidatePath(ROUTES.claims.dashboardList);
+  revalidatePath(ROUTES.claims.detail(parseResult.data));
+
+  return { ok: true };
 }
 
 async function processL1ClaimDecisionAction(input: {

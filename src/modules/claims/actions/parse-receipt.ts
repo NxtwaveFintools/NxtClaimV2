@@ -7,6 +7,7 @@ import { logger } from "@/core/infra/logging/logger";
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const CONFIDENCE_THRESHOLD = 80;
+const EXPENSE_CATEGORY_NAMES_FORM_KEY = "expenseCategoryNames";
 const GENERIC_PARSE_FALLBACK_MESSAGE =
   "AI could not read the text formatting in this document. Please fill the details manually.";
 const GEMINI_QUOTA_FALLBACK_PREFIX =
@@ -63,11 +64,51 @@ const geminiParseResultSchema = z.object({
   sgstAmount: looseNumber,
   igstAmount: looseNumber,
   totalAmount: looseNumber,
-  expenseCategory: looseNullableString,
+  category_name: looseNullableString,
   confidenceScore: looseNumber,
 });
 
-const GEMINI_SYSTEM_INSTRUCTION = `You are an expert financial document parser. Extract structured financial data from the attached receipt/invoice.
+function sanitizeCategoryName(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function extractAllowedCategoryNames(input: FormData): string[] {
+  const entries = input.getAll(EXPENSE_CATEGORY_NAMES_FORM_KEY);
+  const uniqueNames: string[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of entries) {
+    const sanitized = sanitizeCategoryName(entry);
+    if (!sanitized) {
+      continue;
+    }
+
+    const dedupeKey = sanitized.toLowerCase();
+    if (seen.has(dedupeKey)) {
+      continue;
+    }
+
+    seen.add(dedupeKey);
+    uniqueNames.push(sanitized);
+  }
+
+  return uniqueNames;
+}
+
+function buildGeminiSystemInstruction(allowedCategoryNames: string[]): string {
+  const categoryInstructionBlock =
+    allowedCategoryNames.length > 0
+      ? `ALLOWED EXPENSE CATEGORY NAMES (EXACT VALUES):\n${allowedCategoryNames
+          .map((name) => `- ${name}`)
+          .join("\n")}`
+      : "ALLOWED EXPENSE CATEGORY NAMES (EXACT VALUES):\n- No categories provided. Set category_name to null.";
+
+  return `You are an expert financial document parser. Extract structured financial data from the attached receipt/invoice.
 The document may be torn, blurred, rotated, or missing edges. Use contextual reasoning.
 
 EXTRACTION RULES:
@@ -76,6 +117,11 @@ EXTRACTION RULES:
 - GST: If percentages (e.g., CGST 9%) appear but amounts do not, calculate the amount from the taxable value.
 - Calculate missing taxes based on standard Indian GST slabs (5%, 12%, 18%, 28%).
 - Math Validation: basicAmount + cgstAmount + sgstAmount + igstAmount MUST equal totalAmount.
+
+CATEGORY RULES:
+${categoryInstructionBlock}
+- Based on the receipt, guess the most appropriate expense category. You MUST return the exact string name from the provided list. If unsure, return null.
+- Never return any UUID, database ID, or generated identifier for category_name.
 
 CONFIDENCE SCORING (0-100):
 - Base it on text clarity and numerical consistency.
@@ -93,9 +139,10 @@ Return ONLY valid JSON matching this schema:
   "sgstAmount": number,
   "igstAmount": number,
   "totalAmount": number,
-  "expenseCategory": string | null,
+  "category_name": string | null,
   "confidenceScore": number
 }`;
+}
 
 export type ParsedReceiptResult = {
   billNo: string | null;
@@ -106,7 +153,7 @@ export type ParsedReceiptResult = {
   sgstAmount: number;
   igstAmount: number;
   totalAmount: number;
-  expenseCategory: string | null;
+  category_name: string | null;
   confidenceScore: number;
 };
 
@@ -248,16 +295,18 @@ function normalizeGeminiResult(raw: z.infer<typeof geminiParseResultSchema>): Pa
     sgstAmount,
     igstAmount,
     totalAmount,
-    expenseCategory: normalizeNullableText(raw.expenseCategory),
+    category_name: normalizeNullableText(raw.category_name),
     confidenceScore: normalizedConfidence,
   };
 }
 
-function createGeminiModel(): ReturnType<GoogleGenerativeAI["getGenerativeModel"]> {
+function createGeminiModel(
+  systemInstruction: string,
+): ReturnType<GoogleGenerativeAI["getGenerativeModel"]> {
   const client = new GoogleGenerativeAI(serverEnv.GEMINI_API_KEY);
   return client.getGenerativeModel({
     model: "gemini-2.5-flash-lite",
-    systemInstruction: GEMINI_SYSTEM_INSTRUCTION,
+    systemInstruction,
     generationConfig: {
       temperature: 0,
       responseMimeType: "application/json",
@@ -267,6 +316,8 @@ function createGeminiModel(): ReturnType<GoogleGenerativeAI["getGenerativeModel"
 
 export async function parseReceiptAction(input: FormData): Promise<ParseReceiptActionResult> {
   const fileEntry = input.get("receiptFile");
+  const allowedCategoryNames = extractAllowedCategoryNames(input);
+  const geminiInstruction = buildGeminiSystemInstruction(allowedCategoryNames);
 
   try {
     const receiptFile = fileEntry instanceof File && fileEntry.size > 0 ? fileEntry : null;
@@ -299,7 +350,7 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
     }
 
     const buffer = Buffer.from(await receiptFile.arrayBuffer());
-    const model = createGeminiModel();
+    const model = createGeminiModel(geminiInstruction);
     const generationResult = await model.generateContent({
       contents: [
         {
@@ -336,6 +387,14 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
     if (Array.isArray(parsedJson)) {
       parsedJson = parsedJson[0];
     }
+    if (parsedJson && typeof parsedJson === "object" && !Array.isArray(parsedJson)) {
+      const parsedRecord = parsedJson as Record<string, unknown>;
+      // Keep a short compatibility window for older prompts/tests that still emit expenseCategory.
+      if (parsedRecord.category_name === undefined && parsedRecord.expenseCategory !== undefined) {
+        parsedRecord.category_name = parsedRecord.expenseCategory;
+      }
+    }
+
     if (!parsedJson || typeof parsedJson !== "object" || Array.isArray(parsedJson)) {
       parsedJson = {};
     }

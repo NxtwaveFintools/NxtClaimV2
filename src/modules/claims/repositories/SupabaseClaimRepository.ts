@@ -276,6 +276,12 @@ type ClaimFinanceEditRow = {
   advance_details: ClaimFinanceEditAdvanceRow | ClaimFinanceEditAdvanceRow[] | null;
 };
 
+type ClaimDeleteSnapshotRow = {
+  id: string;
+  status: DbClaimStatus;
+  submitted_by: string;
+};
+
 type ExportClaimUserRow = {
   full_name: string | null;
   email: string | null;
@@ -1804,6 +1810,92 @@ export class SupabaseClaimRepository implements ClaimRepository {
       },
       errorMessage: null,
     };
+  }
+
+  async getClaimForSubmitterDelete(claimId: string): Promise<{
+    data: {
+      id: string;
+      status: DbClaimStatus;
+      submittedBy: string;
+    } | null;
+    errorMessage: string | null;
+  }> {
+    const client = getServiceRoleSupabaseClient();
+    const { data, error } = await client
+      .from("claims")
+      .select("id, status, submitted_by")
+      .eq("id", claimId)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (error) {
+      return { data: null, errorMessage: error.message };
+    }
+
+    if (!data) {
+      return { data: null, errorMessage: null };
+    }
+
+    const row = data as ClaimDeleteSnapshotRow;
+
+    return {
+      data: {
+        id: row.id,
+        status: row.status,
+        submittedBy: row.submitted_by,
+      },
+      errorMessage: null,
+    };
+  }
+
+  async softDeleteClaimBySubmitter(
+    claimId: string,
+    actorUserId: string,
+  ): Promise<{ success: boolean; errorMessage: string | null }> {
+    const client = getServiceRoleSupabaseClient();
+    const { data: updatedClaim, error: claimError } = await client
+      .from("claims")
+      .update({
+        is_active: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", claimId)
+      .eq("submitted_by", actorUserId)
+      .eq("is_active", true)
+      .select("id")
+      .maybeSingle();
+
+    if (claimError) {
+      return { success: false, errorMessage: claimError.message };
+    }
+
+    if (!updatedClaim) {
+      return { success: false, errorMessage: "Claim not found or already deleted." };
+    }
+
+    const [{ error: expenseDeactivateError }, { error: advanceDeactivateError }] =
+      await Promise.all([
+        client
+          .from("expense_details")
+          .update({ is_active: false })
+          .eq("claim_id", claimId)
+          .eq("is_active", true),
+        client
+          .from("advance_details")
+          .update({ is_active: false })
+          .eq("claim_id", claimId)
+          .eq("is_active", true),
+      ]);
+
+    if (expenseDeactivateError) {
+      return { success: false, errorMessage: expenseDeactivateError.message };
+    }
+
+    if (advanceDeactivateError) {
+      return { success: false, errorMessage: advanceDeactivateError.message };
+    }
+
+    return { success: true, errorMessage: null };
   }
 
   async updateClaimDetailsByFinance(

@@ -11,6 +11,7 @@ import {
   DB_CLAIM_STATUSES,
   DB_REJECTED_STATUSES,
   isPendingFinanceApprovalStatus,
+  isSubmitterDeletableClaimStatus,
 } from "@/core/constants/statuses";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
 import {
@@ -26,6 +27,7 @@ import { ClaimRejectWithReasonForm } from "@/modules/claims/ui/claim-reject-with
 import { ClaimDecisionActionForm } from "@/modules/claims/ui/claim-decision-action-form";
 import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
 import { ClaimAuditTimeline } from "@/modules/claims/ui/claim-audit-timeline";
+import { DeleteClaimButton } from "@/modules/claims/ui/delete-claim-button";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
 import {
@@ -538,6 +540,8 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
     effectiveRole === "Finance" && availableActions.canMarkPaid;
   const canTakeDecision =
     canTakeL1Decision || canTakeFinanceAuthorizationDecision || canTakeFinanceExecutionDecision;
+  const canDeleteClaim =
+    currentUserId === claim.submittedBy && isSubmitterDeletableClaimStatus(claim.status);
 
   const approveFromDetail = async () => {
     "use server";
@@ -625,7 +629,12 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
               Submitted by {submitterDisplayName} ({submitterDisplayEmail})
             </p>
           </div>
-          <ClaimStatusBadge status={claim.status} />
+          <div className="flex items-center gap-2">
+            <ClaimStatusBadge status={claim.status} />
+            {canDeleteClaim ? (
+              <DeleteClaimButton claimId={claim.id} redirectToHref={ROUTES.claims.myClaims} />
+            ) : null}
+          </div>
         </div>
 
         {/* ── Key Info Grid ── */}

@@ -18,12 +18,19 @@ jest.mock("@/core/config/server-env", () => ({
   },
 }));
 
-function createReceiptFormData(): FormData {
+function createReceiptFormData(
+  categoryNames: string[] = ["Travel Domestic", "Internet Expense"],
+): FormData {
   const formData = new FormData();
   formData.append(
     "receiptFile",
     new File(["fake receipt payload"], "receipt.pdf", { type: "application/pdf" }),
   );
+
+  for (const categoryName of categoryNames) {
+    formData.append("expenseCategoryNames", categoryName);
+  }
+
   return formData;
 }
 
@@ -42,7 +49,7 @@ describe("parseReceiptAction", () => {
       sgstAmount: 9,
       igstAmount: 0,
       totalAmount: 118,
-      expenseCategory: "Travel",
+      category_name: "Travel Domestic",
       confidenceScore: 95,
     };
 
@@ -74,7 +81,7 @@ describe("parseReceiptAction", () => {
             sgstAmount: 0,
             igstAmount: 0,
             totalAmount: 500,
-            expenseCategory: "Meals",
+            category_name: "Travel Domestic",
             confidenceScore: 99,
             fraudFlags: [],
           }),
@@ -103,7 +110,7 @@ describe("parseReceiptAction", () => {
             sgstAmount: 18,
             igstAmount: 0,
             totalAmount: 236,
-            expenseCategory: "Office",
+            category_name: "Internet Expense",
             confidenceScore: 85,
             fraudFlags: [],
           }),
@@ -177,7 +184,7 @@ describe("parseReceiptAction", () => {
             sgstAmount: 9,
             igstAmount: 0,
             totalAmount: 118,
-            expenseCategory: null,
+            category_name: null,
             confidenceScore: 95,
             fraudFlags: ["duplicate format"],
           }),
@@ -185,14 +192,50 @@ describe("parseReceiptAction", () => {
     });
 
     const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
-    await parseReceiptAction(createReceiptFormData());
+    await parseReceiptAction(createReceiptFormData(["Travel Domestic", "Internet Expense"]));
 
     expect(mockGoogleGenerativeAI).toHaveBeenCalledWith("test-gemini-key");
     expect(mockGetGenerativeModel).toHaveBeenCalledWith(
       expect.objectContaining({
         model: "gemini-2.5-flash-lite",
+        systemInstruction: expect.stringContaining("Travel Domestic"),
       }),
     );
+
+    const modelConfig = (mockGetGenerativeModel as jest.Mock).mock.calls[0]?.[0] as
+      | { systemInstruction?: string }
+      | undefined;
+    const systemInstruction = modelConfig?.systemInstruction ?? "";
+    expect(systemInstruction).toContain("Internet Expense");
+    expect(systemInstruction).not.toMatch(
+      /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i,
+    );
     expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+  });
+
+  test("maps legacy expenseCategory field into category_name for compatibility", async () => {
+    mockGenerateContent.mockResolvedValue({
+      response: {
+        text: () =>
+          JSON.stringify({
+            billNo: "INV-1006",
+            transactionDate: "2026-03-18",
+            vendorName: "Legacy Format Vendor",
+            basicAmount: 200,
+            cgstAmount: 18,
+            sgstAmount: 18,
+            igstAmount: 0,
+            totalAmount: 236,
+            expenseCategory: "Travel Domestic",
+            confidenceScore: 92,
+          }),
+      },
+    });
+
+    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
+    const result = await parseReceiptAction(createReceiptFormData());
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.category_name).toBe("Travel Domestic");
   });
 });

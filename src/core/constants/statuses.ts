@@ -25,6 +25,11 @@ export const DB_REJECTED_STATUSES = [
   DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
 ] as const;
 
+export const DB_SUBMITTER_DELETABLE_CLAIM_STATUSES = [
+  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
+  DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
+] as const;
+
 export const DB_CLAIM_STATUSES = [
   DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
   DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
@@ -73,4 +78,8 @@ export function mapCanonicalStatusToDbStatuses(status: ClaimStatus): DbClaimStat
 
 export function isPendingFinanceApprovalStatus(status: DbClaimStatus): boolean {
   return status === DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS;
+}
+
+export function isSubmitterDeletableClaimStatus(status: DbClaimStatus): boolean {
+  return DB_SUBMITTER_DELETABLE_CLAIM_STATUSES.some((candidate) => candidate === status);
 }

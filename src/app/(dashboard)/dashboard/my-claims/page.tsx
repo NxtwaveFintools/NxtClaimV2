@@ -10,6 +10,7 @@ import { ROUTES } from "@/core/config/route-registry";
 import {
   DB_CLAIM_STATUSES,
   isPendingFinanceApprovalStatus,
+  isSubmitterDeletableClaimStatus,
   type DbClaimStatus,
 } from "@/core/constants/statuses";
 import type {
@@ -49,6 +50,7 @@ import {
 import { MyClaimsOffsetPaginationControls } from "@/modules/claims/ui/my-claims-offset-pagination-controls";
 import { MyClaimsPaginationControls } from "@/modules/claims/ui/my-claims-pagination-controls";
 import { ApprovalsAuditModeDialog } from "@/modules/claims/ui/approvals-quick-view-sheet";
+import { DeleteClaimButton } from "@/modules/claims/ui/delete-claim-button";
 
 const PAGE_SIZE = 10;
 type SearchParamsValue = string | string[] | undefined;
@@ -922,6 +924,7 @@ async function ClaimsCommandCenterTable({
                     expenseBankStatementSignedUrl: null,
                     advanceSupportingDocumentSignedUrl: null,
                   };
+                  const canDeleteClaim = isSubmitterDeletableClaimStatus(claim.status);
 
                   return (
                     <tr
@@ -987,6 +990,7 @@ async function ClaimsCommandCenterTable({
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          {canDeleteClaim ? <DeleteClaimButton claimId={claim.id} compact /> : null}
                           <ApprovalsAuditModeDialog
                             claimId={claim.id}
                             detailType={claim.detailType}

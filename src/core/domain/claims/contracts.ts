@@ -409,6 +409,18 @@ export type ClaimRepository = {
     data: ClaimFinanceEditSnapshot | null;
     errorMessage: string | null;
   }>;
+  getClaimForSubmitterDelete(claimId: string): Promise<{
+    data: {
+      id: string;
+      status: DbClaimStatus;
+      submittedBy: string;
+    } | null;
+    errorMessage: string | null;
+  }>;
+  softDeleteClaimBySubmitter(
+    claimId: string,
+    actorUserId: string,
+  ): Promise<{ success: boolean; errorMessage: string | null }>;
   updateClaimDetailsByFinance(
     claimId: string,
     payload: FinanceClaimEditPayload,

@@ -16,6 +16,7 @@ const mockSubmitExecute = jest.fn();
 const mockProcessL1DecisionExecute = jest.fn();
 const mockProcessL2DecisionExecute = jest.fn();
 const mockUpdateByFinanceExecute = jest.fn();
+const mockDeleteOwnClaimExecute = jest.fn();
 const mockGetApprovalViewerContext = jest.fn();
 const mockGetClaimForFinanceEdit = jest.fn();
 const mockRevalidatePath = jest.fn();
@@ -104,6 +105,12 @@ jest.mock("@/core/domain/claims/ProcessL2ClaimDecisionService", () => ({
 jest.mock("@/core/domain/claims/UpdateClaimByFinanceService", () => ({
   UpdateClaimByFinanceService: jest.fn().mockImplementation(() => ({
     execute: mockUpdateByFinanceExecute,
+  })),
+}));
+
+jest.mock("@/core/domain/claims/DeleteOwnClaimService", () => ({
+  DeleteOwnClaimService: jest.fn().mockImplementation(() => ({
+    execute: mockDeleteOwnClaimExecute,
   })),
 }));
 
@@ -281,6 +288,11 @@ describe("claims actions", () => {
     });
 
     mockUpdateByFinanceExecute.mockResolvedValue({
+      ok: true,
+      errorMessage: null,
+    });
+
+    mockDeleteOwnClaimExecute.mockResolvedValue({
       ok: true,
       errorMessage: null,
     });
@@ -503,6 +515,50 @@ describe("claims actions", () => {
       decision: "mark-paid",
       rejectionReason: undefined,
       allowResubmission: undefined,
+    });
+  });
+
+  test("deleteClaimAction delegates to delete service and revalidates", async () => {
+    const { deleteClaimAction } = await import("@/modules/claims/actions");
+
+    const result = await deleteClaimAction("11111111-1111-4111-8111-111111111111");
+
+    expect(result).toEqual({ ok: true });
+    expect(mockDeleteOwnClaimExecute).toHaveBeenCalledWith({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      actorUserId: "11111111-1111-4111-8111-111111111111",
+    });
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/my-claims");
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/claims");
+    expect(mockRevalidatePath).toHaveBeenCalledWith(
+      "/dashboard/claims/11111111-1111-4111-8111-111111111111",
+    );
+  });
+
+  test("deleteClaimAction returns unauthorized when current user is missing", async () => {
+    mockGetCurrentUser.mockResolvedValueOnce({ user: null, errorMessage: "Unauthorized session." });
+    const { deleteClaimAction } = await import("@/modules/claims/actions");
+
+    const result = await deleteClaimAction("11111111-1111-4111-8111-111111111111");
+
+    expect(result).toEqual({ ok: false, message: "Unauthorized session." });
+    expect(mockDeleteOwnClaimExecute).not.toHaveBeenCalled();
+  });
+
+  test("deleteClaimAction surfaces service errors", async () => {
+    mockDeleteOwnClaimExecute.mockResolvedValueOnce({
+      ok: false,
+      errorMessage:
+        "Only claims awaiting HOD approval or rejected with resubmission allowed can be deleted.",
+    });
+    const { deleteClaimAction } = await import("@/modules/claims/actions");
+
+    const result = await deleteClaimAction("11111111-1111-4111-8111-111111111111");
+
+    expect(result).toEqual({
+      ok: false,
+      message:
+        "Only claims awaiting HOD approval or rejected with resubmission allowed can be deleted.",
     });
   });
 

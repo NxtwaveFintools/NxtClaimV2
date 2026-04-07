@@ -77,7 +77,10 @@ const options = {
       detailType: "expense" as const,
     },
   ],
-  expenseCategories: [{ id: "66666666-6666-4666-8666-666666666666", name: "Travel" }],
+  expenseCategories: [
+    { id: "66666666-6666-4666-8666-666666666666", name: "Travel Domestic" },
+    { id: "99999999-9999-4999-8999-999999999999", name: "Internet Expense" },
+  ],
   products: [{ id: "77777777-7777-4777-8777-777777777777", name: "NxtWave" }],
   locations: [{ id: "88888888-8888-4888-8888-888888888888", name: "Hyderabad" }],
 };
@@ -185,6 +188,90 @@ describe("NewClaimFormClient", () => {
     await waitFor(() => {
       expect(mockToastError).toHaveBeenCalledWith("Failed to submit claim.");
       expect(mockPush).not.toHaveBeenCalled();
+    });
+  });
+
+  test("maps AI category_name to local category UUID with trimmed case-insensitive matching", async () => {
+    const user = userEvent.setup();
+    mockParseReceiptAction.mockResolvedValueOnce({
+      ok: true,
+      autoFillAllowed: true,
+      message: null,
+      data: {
+        billNo: "AI-BILL-1001",
+        transactionDate: "2026-03-18",
+        vendorName: "AI Vendor",
+        basicAmount: 100,
+        cgstAmount: 0,
+        sgstAmount: 0,
+        igstAmount: 0,
+        totalAmount: 100,
+        category_name: "  internet expense ",
+        confidenceScore: 95,
+      },
+    });
+
+    render(<NewClaimFormClient currentUser={currentUser} options={options} />);
+
+    await user.upload(
+      screen.getByLabelText(/Invoice\/Bill/i),
+      new File(["dummy"], "receipt.pdf", { type: "application/pdf" }),
+    );
+
+    await user.click(screen.getByRole("button", { name: /auto-fill with ai/i }));
+
+    await waitFor(() => {
+      expect(mockParseReceiptAction).toHaveBeenCalledTimes(1);
+    });
+
+    const requestFormData = mockParseReceiptAction.mock.calls[0]?.[0] as FormData;
+    expect(requestFormData.getAll("expenseCategoryNames")).toEqual([
+      "Travel Domestic",
+      "Internet Expense",
+    ]);
+
+    await waitFor(() => {
+      const categorySelect = screen.getByLabelText(/Expense Category/i) as HTMLSelectElement;
+      expect(categorySelect.value).toBe("99999999-9999-4999-8999-999999999999");
+    });
+
+    expect(mockToastSuccess).toHaveBeenCalledWith("Receipt parsed and form fields auto-filled.");
+  });
+
+  test("keeps category unselected when AI returns null or unknown category_name", async () => {
+    const user = userEvent.setup();
+    mockParseReceiptAction.mockResolvedValueOnce({
+      ok: true,
+      autoFillAllowed: true,
+      message: null,
+      data: {
+        billNo: "AI-BILL-1002",
+        transactionDate: "2026-03-19",
+        vendorName: "Unknown Category Vendor",
+        basicAmount: 250,
+        cgstAmount: 0,
+        sgstAmount: 0,
+        igstAmount: 0,
+        totalAmount: 250,
+        category_name: "Non Existent Category",
+        confidenceScore: 91,
+      },
+    });
+
+    render(<NewClaimFormClient currentUser={currentUser} options={options} />);
+
+    const categorySelect = screen.getByLabelText(/Expense Category/i) as HTMLSelectElement;
+    expect(categorySelect.value).toBe("66666666-6666-4666-8666-666666666666");
+
+    await user.upload(
+      screen.getByLabelText(/Invoice\/Bill/i),
+      new File(["dummy"], "receipt.pdf", { type: "application/pdf" }),
+    );
+
+    await user.click(screen.getByRole("button", { name: /auto-fill with ai/i }));
+
+    await waitFor(() => {
+      expect(categorySelect.value).toBe("");
     });
   });
 });
