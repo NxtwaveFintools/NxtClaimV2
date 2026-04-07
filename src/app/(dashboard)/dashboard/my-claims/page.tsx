@@ -1,4 +1,5 @@
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import { Suspense, cache } from "react";
 import { CirclePlus } from "lucide-react";
@@ -41,8 +42,6 @@ import {
   CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
   ClaimStatusBadge,
 } from "@/modules/claims/ui/claim-status-badge";
-import { ClaimsFilterBar } from "@/modules/claims/ui/claims-filter-bar";
-import { FinanceApprovalsBulkTable } from "@/modules/claims/ui/finance-approvals-bulk-table";
 import { MyClaimsOffsetPaginationControls } from "@/modules/claims/ui/my-claims-offset-pagination-controls";
 import { MyClaimsPaginationControls } from "@/modules/claims/ui/my-claims-pagination-controls";
 import { ApprovalsAuditModeDialog } from "@/modules/claims/ui/approvals-quick-view-sheet";
@@ -66,6 +65,23 @@ const getCachedPendingApprovalsViewerContext = cache(
 export const metadata = {
   title: "My Claims | NxtClaim",
 };
+
+const ClaimsFilterBar = dynamic(
+  () => import("@/modules/claims/ui/claims-filter-bar").then((module) => module.ClaimsFilterBar),
+  {
+    loading: () => <FilterBarSkeleton />,
+  },
+);
+
+const FinanceApprovalsBulkTable = dynamic(
+  () =>
+    import("@/modules/claims/ui/finance-approvals-bulk-table").then(
+      (module) => module.FinanceApprovalsBulkTable,
+    ),
+  {
+    loading: () => <TableSkeleton />,
+  },
+);
 
 function firstParamValue(value: SearchParamsValue): string | undefined {
   if (Array.isArray(value)) {
@@ -1111,29 +1127,20 @@ async function MyClaimsDashboardPageContent({
   );
 }
 
-export default async function MyClaimsDashboardPage({
+async function MyClaimsDashboardResolvedContent({
   searchParams,
+  userId,
 }: {
-  searchParams: Promise<Record<string, SearchParamsValue>>;
+  searchParams: Record<string, SearchParamsValue>;
+  userId: string;
 }) {
-  const [resolvedSearchParams, isAdminUser, isDeptViewer, currentUserResult] = await Promise.all([
-    searchParams,
+  const [isAdminUser, isDeptViewer, viewerContextResult] = await Promise.all([
     isAdmin(),
     isDepartmentViewer(),
-    getCachedCurrentUser(),
+    getCachedPendingApprovalsViewerContext(userId),
   ]);
 
-  const currentEmail = currentUserResult.user?.email ?? null;
-
-  if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
-    redirect(ROUTES.login);
-  }
-
-  const viewerContextResult = await getCachedPendingApprovalsViewerContext(
-    currentUserResult.user.id,
-  );
-
-  const requestedView = firstParamValue(resolvedSearchParams?.view);
+  const requestedView = firstParamValue(searchParams?.view);
   const requestedOrDefaultView =
     !requestedView && viewerContextResult.canViewApprovals && !isAdminUser
       ? "approvals"
@@ -1146,10 +1153,123 @@ export default async function MyClaimsDashboardPage({
     isDeptViewer,
   );
 
-  const submissionsHref = buildViewHref(resolvedSearchParams, "submissions");
-  const approvalsHref = buildViewHref(resolvedSearchParams, "approvals");
-  const adminHref = buildViewHref(resolvedSearchParams, "admin");
-  const departmentHref = buildViewHref(resolvedSearchParams, "department");
+  const submissionsHref = buildViewHref(searchParams, "submissions");
+  const approvalsHref = buildViewHref(searchParams, "approvals");
+  const adminHref = buildViewHref(searchParams, "admin");
+  const departmentHref = buildViewHref(searchParams, "department");
+
+  return (
+    <>
+      <section className="overflow-hidden rounded-[28px] border border-zinc-200/70 bg-white/88 shadow-[0_24px_70px_-30px_rgba(15,23,42,0.14),0_8px_24px_-8px_rgba(99,102,241,0.05)] backdrop-blur-lg transition-colors dark:border-zinc-800/80 dark:bg-zinc-900/88 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.40)]">
+        <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-sky-500" />
+
+        <div className="p-5 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="dashboard-font-display text-xl font-bold tracking-[-0.03em] text-zinc-950 sm:text-2xl lg:text-3xl dark:text-zinc-50">
+                My Claims
+              </h1>
+              <p className="mt-1 text-xs text-zinc-500 sm:text-sm dark:text-zinc-400">
+                Command Center for submissions and approvals
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {isAdminUser ? (
+                <Link
+                  href={ROUTES.admin.settings}
+                  className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white/80 px-4 text-sm font-semibold text-zinc-700 backdrop-blur-sm transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/80 dark:text-zinc-200 dark:hover:bg-zinc-900"
+                >
+                  System Settings
+                </Link>
+              ) : null}
+              <Link
+                href={ROUTES.claims.new}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-colors hover:bg-indigo-500 active:scale-[0.98]"
+              >
+                <CirclePlus className="h-4 w-4" aria-hidden="true" />
+                New Claim
+              </Link>
+            </div>
+          </div>
+
+          <div className="mt-4 inline-flex flex-wrap rounded-2xl border border-zinc-200/80 bg-zinc-50/80 p-1 dark:border-zinc-700/60 dark:bg-zinc-900/60">
+            <Link
+              href={submissionsHref}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                activeView === "submissions"
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
+                  : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              }`}
+            >
+              My Submissions
+            </Link>
+            {viewerContextResult.canViewApprovals ? (
+              <Link
+                href={approvalsHref}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                  activeView === "approvals"
+                    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
+                    : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                }`}
+              >
+                Approvals History
+              </Link>
+            ) : null}
+            {isAdminUser ? (
+              <Link
+                href={adminHref}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                  activeView === "admin"
+                    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
+                    : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                }`}
+              >
+                Admin Overview
+              </Link>
+            ) : null}
+            {isDeptViewer ? (
+              <Link
+                href={departmentHref}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                  activeView === "department"
+                    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
+                    : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                }`}
+              >
+                Department Overview
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      </section>
+
+      <Suspense fallback={<MyClaimsShellSkeleton />}>
+        <MyClaimsDashboardPageContent
+          searchParams={searchParams}
+          activeView={activeView}
+          viewerContextResult={viewerContextResult}
+          userId={userId}
+        />
+      </Suspense>
+    </>
+  );
+}
+
+export default async function MyClaimsDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, SearchParamsValue>>;
+}) {
+  const [resolvedSearchParams, currentUserResult] = await Promise.all([
+    searchParams,
+    getCachedCurrentUser(),
+  ]);
+
+  const currentEmail = currentUserResult.user?.email ?? null;
+
+  if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
+    redirect(ROUTES.login);
+  }
 
   return (
     <div
@@ -1159,100 +1279,11 @@ export default async function MyClaimsDashboardPage({
 
       <div className="relative z-0 mx-auto w-full max-w-[1600px] px-4 pb-16 pt-6 sm:px-6 lg:px-8">
         <main className="space-y-5">
-          {/* Back button — outside the card, with indigo color */}
           <BackButton className="w-fit" />
 
-          {/* Header card */}
-          <section className="overflow-hidden rounded-[28px] border border-zinc-200/70 bg-white/88 shadow-[0_24px_70px_-30px_rgba(15,23,42,0.14),0_8px_24px_-8px_rgba(99,102,241,0.05)] backdrop-blur-lg transition-colors dark:border-zinc-800/80 dark:bg-zinc-900/88 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.40)]">
-            {/* Gradient top stripe */}
-            <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-sky-500" />
-
-            <div className="p-5 sm:p-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h1 className="dashboard-font-display text-xl font-bold tracking-[-0.03em] text-zinc-950 sm:text-2xl lg:text-3xl dark:text-zinc-50">
-                    My Claims
-                  </h1>
-                  <p className="mt-1 text-xs text-zinc-500 sm:text-sm dark:text-zinc-400">
-                    Command Center for submissions and approvals
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {isAdminUser ? (
-                    <Link
-                      href={ROUTES.admin.settings}
-                      className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white/80 px-4 text-sm font-semibold text-zinc-700 backdrop-blur-sm transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/80 dark:text-zinc-200 dark:hover:bg-zinc-900"
-                    >
-                      System Settings
-                    </Link>
-                  ) : null}
-                  <Link
-                    href={ROUTES.claims.new}
-                    className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-colors hover:bg-indigo-500 active:scale-[0.98]"
-                  >
-                    <CirclePlus className="h-4 w-4" aria-hidden="true" />
-                    New Claim
-                  </Link>
-                </div>
-              </div>
-
-              {/* Tab bar */}
-              <div className="mt-4 inline-flex flex-wrap rounded-2xl border border-zinc-200/80 bg-zinc-50/80 p-1 dark:border-zinc-700/60 dark:bg-zinc-900/60">
-                <Link
-                  href={submissionsHref}
-                  className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                    activeView === "submissions"
-                      ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
-                      : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                  }`}
-                >
-                  My Submissions
-                </Link>
-                {viewerContextResult.canViewApprovals ? (
-                  <Link
-                    href={approvalsHref}
-                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                      activeView === "approvals"
-                        ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
-                        : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                    }`}
-                  >
-                    Approvals History
-                  </Link>
-                ) : null}
-                {isAdminUser ? (
-                  <Link
-                    href={adminHref}
-                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                      activeView === "admin"
-                        ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
-                        : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                    }`}
-                  >
-                    Admin Overview
-                  </Link>
-                ) : null}
-                {isDeptViewer ? (
-                  <Link
-                    href={departmentHref}
-                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                      activeView === "department"
-                        ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
-                        : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                    }`}
-                  >
-                    Department Overview
-                  </Link>
-                ) : null}
-              </div>
-            </div>
-          </section>
-
           <Suspense fallback={<MyClaimsShellSkeleton />}>
-            <MyClaimsDashboardPageContent
+            <MyClaimsDashboardResolvedContent
               searchParams={resolvedSearchParams}
-              activeView={activeView}
-              viewerContextResult={viewerContextResult}
               userId={currentUserResult.user.id}
             />
           </Suspense>
