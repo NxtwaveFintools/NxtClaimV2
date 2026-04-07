@@ -74,7 +74,7 @@ describe("ProcessL1ClaimDecisionService", () => {
     expect(repository.updateClaimL1Decision).toHaveBeenCalledWith({
       claimId: "claim-1",
       actorUserId: "hod-1",
-      status: "Rejected",
+      status: "Rejected - Resubmission Not Allowed",
       assignedL2ApproverId: null,
       rejectionReason: "Missing policy compliance evidence.",
       allowResubmission: false,
@@ -96,7 +96,7 @@ describe("ProcessL1ClaimDecisionService", () => {
     expect(repository.updateClaimL1Decision).toHaveBeenCalledWith({
       claimId: "claim-1",
       actorUserId: "hod-1",
-      status: "Rejected",
+      status: "Rejected - Resubmission Allowed",
       assignedL2ApproverId: null,
       rejectionReason: "Missing policy compliance evidence.",
       allowResubmission: true,

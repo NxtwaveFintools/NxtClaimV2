@@ -9,8 +9,12 @@ type ClaimStatusBadgeProps = {
 };
 
 function getStatusClasses(status: ClaimStatus | DbClaimStatus): string {
-  if (status === "Rejected") {
+  if (status === "Rejected - Resubmission Not Allowed") {
     return "border-rose-200 bg-rose-50/80 text-rose-700 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/50";
+  }
+
+  if (status === "Rejected - Resubmission Allowed") {
+    return "border-orange-200 bg-orange-50/80 text-orange-700 dark:border-orange-800/60 dark:bg-orange-900/20 dark:text-orange-300";
   }
 
   if (

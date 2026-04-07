@@ -73,7 +73,7 @@ describe("ProcessL2ClaimDecisionService", () => {
     expect(repository.updateClaimL2Decision).toHaveBeenCalledWith({
       claimId: "claim-1",
       actorUserId: "finance-1",
-      status: "Rejected",
+      status: "Rejected - Resubmission Not Allowed",
       assignedL2ApproverId: "finance-approver-id-1",
       rejectionReason: "Insufficient documentation.",
       allowResubmission: false,
@@ -95,7 +95,7 @@ describe("ProcessL2ClaimDecisionService", () => {
     expect(repository.updateClaimL2Decision).toHaveBeenCalledWith({
       claimId: "claim-1",
       actorUserId: "finance-1",
-      status: "Rejected",
+      status: "Rejected - Resubmission Allowed",
       assignedL2ApproverId: "finance-approver-id-1",
       rejectionReason: "Insufficient documentation.",
       allowResubmission: true,

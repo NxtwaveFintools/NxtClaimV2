@@ -473,6 +473,14 @@ export function ApprovalsAuditModeDialog({
                         </div>
                       </div>
 
+                      <div className="mt-3">
+                        <ClaimAuditTimeline
+                          logs={auditLogs}
+                          title="Workflow Timeline"
+                          emptyLabel="No audit history available for this claim yet."
+                        />
+                      </div>
+
                       <div className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
                         <div className="rounded-[20px] border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800/80 dark:bg-zinc-900/80">
                           <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-400 dark:text-zinc-500">
@@ -518,14 +526,6 @@ export function ApprovalsAuditModeDialog({
                         <p className="mt-2 text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300">
                           {purpose ?? "No purpose was provided for this claim."}
                         </p>
-                      </div>
-
-                      <div className="mt-2.5">
-                        <ClaimAuditTimeline
-                          logs={auditLogs}
-                          title="Workflow Timeline"
-                          emptyLabel="No audit history available for this claim yet."
-                        />
                       </div>
 
                       {hasActions ? (

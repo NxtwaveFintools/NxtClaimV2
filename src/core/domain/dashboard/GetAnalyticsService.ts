@@ -1,4 +1,8 @@
-import { DB_CLAIM_STATUSES, type DbClaimStatus } from "@/core/constants/statuses";
+import {
+  DB_CLAIM_STATUSES,
+  DB_REJECTED_STATUSES,
+  type DbClaimStatus,
+} from "@/core/constants/statuses";
 import { resolveDashboardAnalyticsScope } from "@/core/domain/dashboard/resolve-analytics-scope";
 import type {
   DashboardAnalyticsAdvancedFilters,
@@ -44,7 +48,7 @@ const DAY_IN_MILLISECONDS = 86_400_000;
 
 const PENDING_STATUSES = new Set<DbClaimStatus>([DB_CLAIM_STATUSES[0], DB_CLAIM_STATUSES[1]]);
 const APPROVED_STATUSES = new Set<DbClaimStatus>([DB_CLAIM_STATUSES[2], DB_CLAIM_STATUSES[3]]);
-const REJECTED_STATUS = DB_CLAIM_STATUSES[4];
+const REJECTED_STATUSES = new Set<DbClaimStatus>(DB_REJECTED_STATUSES);
 
 const EMPTY_AMOUNTS: DashboardAnalyticsAmountSummary = {
   totalAmount: 0,
@@ -224,7 +228,7 @@ function aggregateClaims(
       approvedAmount = roundCurrency(approvedAmount + normalizedAmount);
     } else if (PENDING_STATUSES.has(claim.status)) {
       pendingAmount = roundCurrency(pendingAmount + normalizedAmount);
-    } else if (claim.status === REJECTED_STATUS) {
+    } else if (REJECTED_STATUSES.has(claim.status)) {
       rejectedAmount = roundCurrency(rejectedAmount + normalizedAmount);
     }
 

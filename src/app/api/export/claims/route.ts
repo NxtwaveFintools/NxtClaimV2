@@ -3,8 +3,12 @@ import ExcelJS from "exceljs";
 import { z } from "zod";
 import { DB_CLAIM_STATUSES, type DbClaimStatus } from "@/core/constants/statuses";
 import {
+  EXPORT_DATE_RANGE_INVALID_MESSAGE,
+  EXPORT_DATE_RANGE_LIMIT_MESSAGE,
+  EXPORT_DATE_RANGE_REQUIRED_MESSAGE,
   ExportClaimsService,
   EXPORT_HEADERS,
+  getExportDateRangeValidationMessage,
   type ClaimExportRow,
 } from "@/core/domain/claims/ExportClaimsService";
 import type {
@@ -143,6 +147,22 @@ const exportClaimsHandler = async (request: NextRequest, context: AuthenticatedC
   const exportService = new ExportClaimsService({ repository: claimRepository, logger });
   const filters = buildClaimFilters(request.nextUrl.searchParams);
 
+  const exportDateRangeValidationMessage = getExportDateRangeValidationMessage(filters);
+
+  if (exportDateRangeValidationMessage) {
+    return NextResponse.json(
+      {
+        data: null,
+        error: {
+          code: "INVALID_EXPORT_DATE_RANGE",
+          message: exportDateRangeValidationMessage,
+        },
+        meta: { correlationId: context.correlationId },
+      },
+      { status: 400 },
+    );
+  }
+
   const result = await exportService.execute({
     userId: context.userId,
     scope: parsedScope.data,
@@ -150,6 +170,13 @@ const exportClaimsHandler = async (request: NextRequest, context: AuthenticatedC
   });
 
   if (result.errorMessage) {
+    const status =
+      result.errorMessage === EXPORT_DATE_RANGE_REQUIRED_MESSAGE ||
+      result.errorMessage === EXPORT_DATE_RANGE_INVALID_MESSAGE ||
+      result.errorMessage === EXPORT_DATE_RANGE_LIMIT_MESSAGE
+        ? 400
+        : 500;
+
     logger.error("claims.export.route.failed", {
       correlationId: context.correlationId,
       userId: context.userId,
@@ -166,7 +193,7 @@ const exportClaimsHandler = async (request: NextRequest, context: AuthenticatedC
         },
         meta: { correlationId: context.correlationId },
       },
-      { status: 500 },
+      { status },
     );
   }
 

@@ -1,16 +1,12 @@
 "use client";
 
-import { useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useTransition } from "react";
 
-type MyClaimsPaginationControlsProps = {
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-  currentCursor: string | null;
-  nextCursor: string | null;
-  previousCursor: string | null;
-  currentPage?: number;
-  summaryText?: string;
+type MyClaimsOffsetPaginationControlsProps = {
+  totalCount: number;
+  page: number;
+  limit: number;
   position?: "top" | "bottom";
   searchParams?: Record<string, string | string[] | undefined>;
 };
@@ -44,23 +40,13 @@ function toSearchParams(
 
 function buildPageHref(
   searchParams: Record<string, string | string[] | undefined> | undefined,
-  cursor: string | null,
-  prevCursor: string | null,
   page: number,
 ): string {
   const params = toSearchParams(searchParams);
 
-  if (cursor) {
-    params.set("cursor", cursor);
-  } else {
-    params.delete("cursor");
-  }
-
-  if (prevCursor) {
-    params.set("prevCursor", prevCursor);
-  } else {
-    params.delete("prevCursor");
-  }
+  params.delete("cursor");
+  params.delete("prevCursor");
+  params.delete("limit");
 
   if (page > 1) {
     params.set("page", String(page));
@@ -72,36 +58,26 @@ function buildPageHref(
   return query ? `?${query}` : "?";
 }
 
-export function MyClaimsPaginationControls({
-  hasNextPage,
-  hasPreviousPage,
-  currentCursor,
-  nextCursor,
-  previousCursor,
-  currentPage = 1,
-  summaryText,
+export function MyClaimsOffsetPaginationControls({
+  totalCount,
+  page,
+  limit,
   position = "bottom",
   searchParams,
-}: MyClaimsPaginationControlsProps) {
+}: MyClaimsOffsetPaginationControlsProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
-  const safeCurrentPage = Math.max(1, Math.floor(currentPage));
 
-  const nextHref =
-    hasNextPage && nextCursor
-      ? buildPageHref(searchParams, nextCursor, currentCursor ?? "__first__", safeCurrentPage + 1)
-      : null;
+  const safePage = Math.max(1, Math.floor(page));
+  const hasRowsOnPage = totalCount > (safePage - 1) * limit;
+  const start = hasRowsOnPage ? (safePage - 1) * limit + 1 : 0;
+  const end = hasRowsOnPage ? Math.min(safePage * limit, totalCount) : 0;
+  const hasPreviousPage = safePage > 1;
+  const hasNextPage = safePage * limit < totalCount;
 
-  const previousHref =
-    hasPreviousPage && previousCursor
-      ? buildPageHref(
-          searchParams,
-          previousCursor === "__first__" ? null : previousCursor,
-          null,
-          safeCurrentPage - 1,
-        )
-      : null;
+  const previousHref = hasPreviousPage ? buildPageHref(searchParams, safePage - 1) : null;
+  const nextHref = hasNextPage ? buildPageHref(searchParams, safePage + 1) : null;
 
   const navigateTo = (href: string | null): void => {
     if (!href) {
@@ -121,13 +97,15 @@ export function MyClaimsPaginationControls({
 
   return (
     <div
-      className={`flex items-center ${summaryText ? "justify-between" : "justify-end"} gap-2.5 px-5 py-3.5 transition-opacity ${borderClass} ${
+      className={`flex items-center justify-between gap-3 px-5 py-3.5 transition-opacity ${borderClass} ${
         isPending ? "opacity-80" : "opacity-100"
       }`}
     >
-      {summaryText ? (
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">{summaryText}</p>
-      ) : null}
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        {totalCount > 0
+          ? `Showing ${start} to ${end} of ${totalCount} claims`
+          : "Showing 0 to 0 of 0 claims"}
+      </p>
 
       <div className="flex items-center justify-end gap-2.5">
         {isPending ? (
@@ -155,6 +133,7 @@ export function MyClaimsPaginationControls({
             Updating page...
           </span>
         ) : null}
+
         {previousHref ? (
           <button
             type="button"
@@ -171,6 +150,7 @@ export function MyClaimsPaginationControls({
             Previous
           </span>
         )}
+
         {nextHref ? (
           <button
             type="button"

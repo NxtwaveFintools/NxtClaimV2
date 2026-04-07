@@ -1,4 +1,9 @@
-import { DB_CLAIM_STATUSES, type DbClaimStatus } from "@/core/constants/statuses";
+import {
+  DB_CLAIM_STATUSES,
+  DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
+  DB_REJECTED_RESUBMISSION_NOT_ALLOWED_STATUS,
+  type DbClaimStatus,
+} from "@/core/constants/statuses";
 import type { ClaimDomainLogger } from "@/core/domain/claims/contracts";
 
 type DecisionType = "approve" | "reject";
@@ -73,6 +78,10 @@ export class ProcessL1ClaimDecisionService {
 
     if (input.decision === "reject") {
       const normalizedReason = input.rejectionReason?.trim() ?? "";
+      const finalStatus =
+        input.allowResubmission === true
+          ? DB_REJECTED_RESUBMISSION_ALLOWED_STATUS
+          : DB_REJECTED_RESUBMISSION_NOT_ALLOWED_STATUS;
 
       if (normalizedReason.length < 5) {
         return { ok: false, errorMessage: "Rejection reason is required." };
@@ -81,7 +90,7 @@ export class ProcessL1ClaimDecisionService {
       const rejectResult = await this.repository.updateClaimL1Decision({
         claimId: input.claimId,
         actorUserId: input.actorUserId,
-        status: DB_CLAIM_STATUSES[4],
+        status: finalStatus,
         assignedL2ApproverId: claimResult.data.assignedL2ApproverId,
         rejectionReason: normalizedReason,
         allowResubmission: input.allowResubmission === true,

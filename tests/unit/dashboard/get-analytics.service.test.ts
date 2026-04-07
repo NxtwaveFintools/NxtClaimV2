@@ -120,7 +120,7 @@ describe("GetAnalyticsService", () => {
             },
             {
               claimId: "CLAIM-6",
-              status: DB_CLAIM_STATUSES[4],
+              status: DB_CLAIM_STATUSES[5],
               amount: 500,
               paymentModeId: "pm-1",
               paymentModeName: "Reimbursement",

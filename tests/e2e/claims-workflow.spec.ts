@@ -1006,6 +1006,10 @@ async function rejectAtCurrentScopeWithOptions(
   reason: string,
   input: { allowResubmission: boolean },
 ): Promise<void> {
+  const expectedStatus = input.allowResubmission
+    ? "Rejected - Resubmission Allowed"
+    : "Rejected - Resubmission Not Allowed";
+
   await openApprovalsHistory(page, claimId);
   const row = claimRow(page, claimId);
   await expect(row).toBeVisible({ timeout: 30000 });
@@ -1033,7 +1037,7 @@ async function rejectAtCurrentScopeWithOptions(
       timeout: 30000,
       message: `waiting for rejection transition on claim ${claimId}`,
     })
-    .toBe("Rejected");
+    .toBe(expectedStatus);
 }
 
 async function markPaidAtFinance(page: Page, claimId: string): Promise<void> {
@@ -1390,10 +1394,14 @@ test.describe("Claims Workflow Multi-Role E2E", () => {
 
     await rejectAtAssignedL1(submitted.claimId, "L1 rejection privacy validation.");
 
-    await assertClaimStatusInDb(submitted.claimId, "Rejected");
+    await assertClaimStatusInDb(submitted.claimId, "Rejected - Resubmission Not Allowed");
 
     await expectClaimVisibleInMyClaims(submitterPage, submitted.claimId, true);
-    await expectClaimStatusInMyClaims(submitterPage, submitted.claimId, "Rejected");
+    await expectClaimStatusInMyClaims(
+      submitterPage,
+      submitted.claimId,
+      "Rejected - Resubmission Not Allowed",
+    );
 
     await expectClaimVisibleInApprovals(hodPage, submitted.claimId, true);
 
@@ -1427,10 +1435,14 @@ test.describe("Claims Workflow Multi-Role E2E", () => {
       "L2 rejection global visibility validation.",
     );
 
-    await assertClaimStatusInDb(submitted.claimId, "Rejected");
+    await assertClaimStatusInDb(submitted.claimId, "Rejected - Resubmission Not Allowed");
 
     await expectClaimVisibleInMyClaims(hodPage, submitted.claimId, true);
-    await expectClaimStatusInMyClaims(hodPage, submitted.claimId, "Rejected");
+    await expectClaimStatusInMyClaims(
+      hodPage,
+      submitted.claimId,
+      "Rejected - Resubmission Not Allowed",
+    );
 
     await expectClaimVisibleInApprovals(founderPage, submitted.claimId, true);
     await expectClaimVisibleInApprovals(finance1Page, submitted.claimId, true);
@@ -1487,7 +1499,7 @@ test.describe("Claims Workflow Multi-Role E2E", () => {
 
     await rejectAtAssignedL1(submitted.claimId, "L1 rejected petty cash expense.");
 
-    await assertClaimStatusInDb(submitted.claimId, "Rejected");
+    await assertClaimStatusInDb(submitted.claimId, "Rejected - Resubmission Not Allowed");
 
     const walletAfter = await getWalletPettyCashBalance(runtimeActors.submitter.id);
     assertWalletDelta(walletBefore, walletAfter, 0);
@@ -1512,19 +1524,31 @@ test.describe("Claims Workflow Multi-Role E2E", () => {
     await ensureL1Approved(submitted.claimId);
     await rejectAtAssignedL1(submitted.claimId, "L2 rejected petty cash expense.");
 
-    await assertClaimStatusInDb(submitted.claimId, "Rejected");
+    await assertClaimStatusInDb(submitted.claimId, "Rejected - Resubmission Not Allowed");
 
     const walletAfter = await getWalletPettyCashBalance(runtimeActors.submitter.id);
     assertWalletDelta(walletBefore, walletAfter, 0);
 
     await expectClaimVisibleInApprovals(finance2Page, submitted.claimId, true);
-    await expectClaimStatusInApprovals(finance2Page, submitted.claimId, "Rejected");
+    await expectClaimStatusInApprovals(
+      finance2Page,
+      submitted.claimId,
+      "Rejected - Resubmission Not Allowed",
+    );
 
     await expectClaimVisibleInMyClaims(submitterPage, submitted.claimId, true);
-    await expectClaimStatusInMyClaims(submitterPage, submitted.claimId, "Rejected");
+    await expectClaimStatusInMyClaims(
+      submitterPage,
+      submitted.claimId,
+      "Rejected - Resubmission Not Allowed",
+    );
 
     await expectClaimVisibleInApprovals(hodPage, submitted.claimId, true);
-    await expectClaimStatusInApprovals(hodPage, submitted.claimId, "Rejected");
+    await expectClaimStatusInApprovals(
+      hodPage,
+      submitted.claimId,
+      "Rejected - Resubmission Not Allowed",
+    );
   });
 
   test("Flow 7: fully approved petty cash expense decreases wallet by exactly 10000", async () => {
@@ -1629,7 +1653,7 @@ test.describe("Claims Workflow Multi-Role E2E", () => {
         allowResubmission: false,
       },
     );
-    await assertClaimStatusInDb(firstSubmitted.claimId, "Rejected");
+    await assertClaimStatusInDb(firstSubmitted.claimId, "Rejected - Resubmission Not Allowed");
 
     const duplicateCountBefore = await countActiveClaimsByBillNo(
       runtimeActors.submitter.id,
@@ -1687,7 +1711,7 @@ test.describe("Claims Workflow Multi-Role E2E", () => {
     await rejectAtAssignedL1(firstSubmitted.claimId, "Resubmission allowed test.", {
       allowResubmission: true,
     });
-    await assertClaimStatusInDb(firstSubmitted.claimId, "Rejected");
+    await assertClaimStatusInDb(firstSubmitted.claimId, "Rejected - Resubmission Allowed");
 
     let secondSubmitted: SubmittedClaim | null = null;
     for (let attempt = 1; attempt <= 2; attempt += 1) {
@@ -1844,7 +1868,7 @@ test.describe("Claims Workflow Multi-Role E2E", () => {
       submitted.claimId,
       "Cross-department edge-case rejection.",
     );
-    await assertClaimStatusInDb(submitted.claimId, "Rejected");
+    await assertClaimStatusInDb(submitted.claimId, "Rejected - Resubmission Not Allowed");
   });
 
   test("Edge Workflow B (AI-generated): founder self-submission routing and rejection boundaries across founder/finance actors", async () => {
@@ -1877,7 +1901,7 @@ test.describe("Claims Workflow Multi-Role E2E", () => {
         submitted.claimId,
         "Founder self-routed rejection boundary.",
       );
-      await assertClaimStatusInDb(submitted.claimId, "Rejected");
+      await assertClaimStatusInDb(submitted.claimId, "Rejected - Resubmission Not Allowed");
       await expectClaimVisibleInApprovals(finance1Page, submitted.claimId, false);
       await expectClaimVisibleInApprovals(finance2Page, submitted.claimId, false);
       return;
@@ -1890,7 +1914,7 @@ test.describe("Claims Workflow Multi-Role E2E", () => {
         submitted.claimId,
         "Founder self-submission finance rejection boundary.",
       );
-      await assertClaimStatusInDb(submitted.claimId, "Rejected");
+      await assertClaimStatusInDb(submitted.claimId, "Rejected - Resubmission Not Allowed");
       await expectClaimVisibleInApprovals(finance2Page, submitted.claimId, true);
       return;
     }
@@ -1901,7 +1925,7 @@ test.describe("Claims Workflow Multi-Role E2E", () => {
         submitted.claimId,
         "Founder routed directly to finance1.",
       );
-      await assertClaimStatusInDb(submitted.claimId, "Rejected");
+      await assertClaimStatusInDb(submitted.claimId, "Rejected - Resubmission Not Allowed");
       await expectClaimVisibleInApprovals(finance2Page, submitted.claimId, true);
       return;
     }
@@ -1912,7 +1936,7 @@ test.describe("Claims Workflow Multi-Role E2E", () => {
         submitted.claimId,
         "Founder routed directly to finance2.",
       );
-      await assertClaimStatusInDb(submitted.claimId, "Rejected");
+      await assertClaimStatusInDb(submitted.claimId, "Rejected - Resubmission Not Allowed");
       await expectClaimVisibleInApprovals(finance1Page, submitted.claimId, true);
       return;
     }

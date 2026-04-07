@@ -1,4 +1,9 @@
-import { DB_CLAIM_STATUSES, type DbClaimStatus } from "@/core/constants/statuses";
+import {
+  DB_CLAIM_STATUSES,
+  DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
+  DB_REJECTED_RESUBMISSION_NOT_ALLOWED_STATUS,
+  type DbClaimStatus,
+} from "@/core/constants/statuses";
 import type { ClaimDomainLogger } from "@/core/domain/claims/contracts";
 
 type DecisionType = "approve" | "reject" | "mark-paid";
@@ -117,7 +122,12 @@ export class ProcessL2ClaimDecisionService {
         rejectionReason = normalizedReason;
       }
 
-      nextStatus = input.decision === "approve" ? DB_CLAIM_STATUSES[2] : DB_CLAIM_STATUSES[4];
+      nextStatus =
+        input.decision === "approve"
+          ? DB_CLAIM_STATUSES[2]
+          : input.allowResubmission === true
+            ? DB_REJECTED_RESUBMISSION_ALLOWED_STATUS
+            : DB_REJECTED_RESUBMISSION_NOT_ALLOWED_STATUS;
     }
 
     const updateResult = await this.repository.updateClaimL2Decision({

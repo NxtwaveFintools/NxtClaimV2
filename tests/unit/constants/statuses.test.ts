@@ -13,7 +13,12 @@ describe("claim statuses mapping", () => {
       "Approved",
     );
     expect(mapDbClaimStatusToCanonical("Payment Done - Closed")).toBe("Approved");
-    expect(mapDbClaimStatusToCanonical("Rejected")).toBe("Rejected");
+    expect(mapDbClaimStatusToCanonical("Rejected - Resubmission Not Allowed")).toBe(
+      "Rejected - Resubmission Not Allowed",
+    );
+    expect(mapDbClaimStatusToCanonical("Rejected - Resubmission Allowed")).toBe(
+      "Rejected - Resubmission Allowed",
+    );
   });
 
   test("maps every canonical status to DB statuses", () => {
@@ -27,7 +32,12 @@ describe("claim statuses mapping", () => {
       "Finance Approved - Payment under process",
       "Payment Done - Closed",
     ]);
-    expect(mapCanonicalStatusToDbStatuses("Rejected")).toEqual(["Rejected"]);
+    expect(mapCanonicalStatusToDbStatuses("Rejected - Resubmission Not Allowed")).toEqual([
+      "Rejected - Resubmission Not Allowed",
+    ]);
+    expect(mapCanonicalStatusToDbStatuses("Rejected - Resubmission Allowed")).toEqual([
+      "Rejected - Resubmission Allowed",
+    ]);
   });
 
   test("keeps default fallbacks unreachable but safe", () => {

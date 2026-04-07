@@ -3,9 +3,14 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 import { serverEnv } from "@/core/config/server-env";
+import { logger } from "@/core/infra/logging/logger";
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const CONFIDENCE_THRESHOLD = 80;
+const GENERIC_PARSE_FALLBACK_MESSAGE =
+  "AI could not read the text formatting in this document. Please fill the details manually.";
+const GEMINI_QUOTA_FALLBACK_PREFIX =
+  "AI auto-parse is temporarily unavailable due to usage limits.";
 const ALLOWED_UPLOAD_MIME_TYPES = new Set([
   "application/pdf",
   "image/jpeg",
@@ -137,6 +142,94 @@ function clampConfidence(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
+type GeminiErrorShape = {
+  status?: number;
+  statusText?: string;
+  message?: string;
+  errorDetails?: unknown;
+};
+
+function asGeminiErrorShape(error: unknown): GeminiErrorShape {
+  if (typeof error !== "object" || error === null) {
+    return {};
+  }
+
+  return error as GeminiErrorShape;
+}
+
+function parseRetrySeconds(input: string): number | null {
+  const value = input.trim();
+  const durationMatch = value.match(/^(\d+(?:\.\d+)?)s$/i);
+
+  if (durationMatch && durationMatch[1]) {
+    const parsed = Number.parseFloat(durationMatch[1]);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  const sentenceMatch = value.match(/retry\s+in\s+(\d+(?:\.\d+)?)\s*s?/i);
+  if (sentenceMatch && sentenceMatch[1]) {
+    const parsed = Number.parseFloat(sentenceMatch[1]);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  return null;
+}
+
+function extractRetryDelaySeconds(error: unknown): number | null {
+  const geminiError = asGeminiErrorShape(error);
+  const details = Array.isArray(geminiError.errorDetails) ? geminiError.errorDetails : [];
+
+  for (const detail of details) {
+    if (typeof detail !== "object" || detail === null) {
+      continue;
+    }
+
+    const retryDelay = (detail as { retryDelay?: unknown }).retryDelay;
+    if (typeof retryDelay !== "string") {
+      continue;
+    }
+
+    const parsed = parseRetrySeconds(retryDelay);
+    if (parsed !== null) {
+      return parsed;
+    }
+  }
+
+  if (typeof geminiError.message === "string") {
+    return parseRetrySeconds(geminiError.message);
+  }
+
+  return null;
+}
+
+function isGeminiQuotaError(error: unknown): boolean {
+  const geminiError = asGeminiErrorShape(error);
+
+  if (geminiError.status === 429) {
+    return true;
+  }
+
+  const lowerStatusText = (geminiError.statusText ?? "").toLowerCase();
+  const lowerMessage = (geminiError.message ?? "").toLowerCase();
+
+  return (
+    lowerStatusText.includes("too many requests") ||
+    lowerMessage.includes("too many requests") ||
+    lowerMessage.includes("quota exceeded") ||
+    lowerMessage.includes("rate limit")
+  );
+}
+
+function getQuotaExceededMessage(error: unknown): string {
+  const retryDelaySeconds = extractRetryDelaySeconds(error);
+  const retryHint =
+    retryDelaySeconds !== null
+      ? ` Please retry in about ${Math.ceil(retryDelaySeconds)} seconds.`
+      : " Please try again shortly.";
+
+  return `${GEMINI_QUOTA_FALLBACK_PREFIX}${retryHint} You can still fill the details manually.`;
+}
+
 function normalizeGeminiResult(raw: z.infer<typeof geminiParseResultSchema>): ParsedReceiptResult {
   const basicAmount = normalizeAmount(raw.basicAmount);
   const cgstAmount = normalizeAmount(raw.cgstAmount);
@@ -173,18 +266,7 @@ function createGeminiModel(): ReturnType<GoogleGenerativeAI["getGenerativeModel"
 }
 
 export async function parseReceiptAction(input: FormData): Promise<ParseReceiptActionResult> {
-  console.log("\n=== 🚀 PARSER ACTION TRIGGERED ===");
-
   const fileEntry = input.get("receiptFile");
-  console.log(
-    "File:",
-    fileEntry instanceof File ? fileEntry.name : undefined,
-    "| Type:",
-    fileEntry instanceof File ? fileEntry.type : undefined,
-    "| Size:",
-    fileEntry instanceof File ? fileEntry.size : undefined,
-  );
-  console.log("API Key Exists:", !!serverEnv.GEMINI_API_KEY);
 
   try {
     const receiptFile = fileEntry instanceof File && fileEntry.size > 0 ? fileEntry : null;
@@ -218,7 +300,6 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
 
     const buffer = Buffer.from(await receiptFile.arrayBuffer());
     const model = createGeminiModel();
-    console.log("🛣️ ROUTE: NATIVE GEMINI MULTIMODAL");
     const generationResult = await model.generateContent({
       contents: [
         {
@@ -236,7 +317,6 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
     });
 
     const modelText = generationResult.response.text();
-    console.log("\n=== 🤖 GEMINI RAW OUTPUT ===\n", modelText);
     if (!modelText || modelText.trim().length === 0) {
       return {
         ok: false,
@@ -263,13 +343,15 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
     const parsedSchemaResult = geminiParseResultSchema.safeParse(parsedJson);
 
     if (!parsedSchemaResult.success) {
-      console.error("=== 🚨 ZOD VALIDATION FAILED ===\n", parsedSchemaResult.error);
+      logger.warn("claims.parse_receipt.validation_failed", {
+        errorName: parsedSchemaResult.error.name,
+        errorMessage: parsedSchemaResult.error.issues[0]?.message ?? "Invalid parser output.",
+      });
       return {
         ok: false,
         data: null,
         autoFillAllowed: false,
-        message:
-          "AI could not read the text formatting in this document. Please fill the details manually.",
+        message: GENERIC_PARSE_FALLBACK_MESSAGE,
       };
     }
 
@@ -306,13 +388,32 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
       message,
     };
   } catch (error) {
-    console.error("\n=== ❌ FATAL SERVER CRASH ===\n", error);
+    if (isGeminiQuotaError(error)) {
+      const retryDelaySeconds = extractRetryDelaySeconds(error);
+      logger.warn("claims.parse_receipt.rate_limited", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        errorMessage:
+          error instanceof Error ? error.message : "Gemini request failed due to rate limiting.",
+        retryDelaySeconds,
+      });
+
+      return {
+        ok: false,
+        data: null,
+        autoFillAllowed: false,
+        message: getQuotaExceededMessage(error),
+      };
+    }
+
+    logger.error("claims.parse_receipt.failed", {
+      errorName: error instanceof Error ? error.name : "UnknownError",
+      errorMessage: error instanceof Error ? error.message : "Unexpected parse receipt failure.",
+    });
     return {
       ok: false,
       data: null,
       autoFillAllowed: false,
-      message:
-        "AI could not read the text formatting in this document. Please fill the details manually.",
+      message: GENERIC_PARSE_FALLBACK_MESSAGE,
     };
   }
 }

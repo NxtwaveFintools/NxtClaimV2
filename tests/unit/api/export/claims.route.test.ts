@@ -21,6 +21,7 @@ jest.mock("@/core/domain/claims/ExportClaimsService", () => ({
   ExportClaimsService: jest.fn().mockImplementation(() => ({
     execute: mockExecute,
   })),
+  getExportDateRangeValidationMessage: jest.fn(() => null),
   EXPORT_HEADERS: ["Claim ID"],
 }));
 
@@ -174,7 +175,7 @@ describe("GET /api/export/claims", () => {
       GET as (req: NextRequest, ctx: ReturnType<typeof createContext>) => Promise<Response>
     )(
       buildRequest(
-        "http://localhost/api/export/claims?scope=submissions&status=Rejected,INVALID&payment_mode_id=pm-1&department_id=dep-1&submission_type=Self&date_target=hod_action&from=2026-03-10&to=bad-date&search_field=employee_name&search_query=%20Alice%20",
+        "http://localhost/api/export/claims?scope=submissions&status=Rejected%20-%20Resubmission%20Not%20Allowed,INVALID&payment_mode_id=pm-1&department_id=dep-1&submission_type=Self&date_target=hod_action&from=2026-03-10&to=bad-date&search_field=employee_name&search_query=%20Alice%20",
       ),
       createContext(),
     );
@@ -195,7 +196,7 @@ describe("GET /api/export/claims", () => {
         productId: undefined,
         expenseCategoryId: undefined,
         submissionType: "Self",
-        status: ["Rejected"],
+        status: ["Rejected - Resubmission Not Allowed"],
         dateTarget: "hod_action",
         dateFrom: "2026-03-10",
         dateTo: undefined,

@@ -30,6 +30,8 @@ const baseInput = {
     expenseCategoryId: "55555555-5555-5555-5555-555555555555",
     productId: "77777777-7777-7777-7777-777777777777",
     locationId: "66666666-6666-6666-6666-666666666666",
+    locationType: null,
+    locationDetails: null,
     isGstApplicable: false,
     gstNumber: null,
     cgstAmount: 0,
@@ -93,8 +95,7 @@ function createRepository(overrides?: Partial<ClaimRepository>): ClaimRepository
     getMyClaims: jest.fn(async () => ({ data: [], errorMessage: null })),
     getMyClaimsPaginated: jest.fn(async () => ({
       data: [],
-      nextCursor: null,
-      hasNextPage: false,
+      totalCount: 0,
       errorMessage: null,
     })),
     getApprovalViewerContext: jest.fn(async () => ({

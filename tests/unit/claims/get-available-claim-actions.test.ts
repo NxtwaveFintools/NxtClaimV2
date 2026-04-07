@@ -22,7 +22,18 @@ describe("getAvailableClaimActions", () => {
     const allowed = getAvailableClaimActions(DB_CLAIM_STATUSES[2], "Finance");
     expect(allowed).toEqual({ canApprove: false, canReject: false, canMarkPaid: true });
 
-    const blocked = getAvailableClaimActions(DB_CLAIM_STATUSES[4], "Finance");
-    expect(blocked).toEqual({ canApprove: false, canReject: false, canMarkPaid: false });
+    const blockedHardRejected = getAvailableClaimActions(DB_CLAIM_STATUSES[4], "Finance");
+    expect(blockedHardRejected).toEqual({
+      canApprove: false,
+      canReject: false,
+      canMarkPaid: false,
+    });
+
+    const blockedSoftRejected = getAvailableClaimActions(DB_CLAIM_STATUSES[5], "Finance");
+    expect(blockedSoftRejected).toEqual({
+      canApprove: false,
+      canReject: false,
+      canMarkPaid: false,
+    });
   });
 });

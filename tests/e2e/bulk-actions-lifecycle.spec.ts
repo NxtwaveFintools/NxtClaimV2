@@ -514,7 +514,7 @@ test.describe("Bulk Actions Lifecycle Matrix", () => {
         timeout: 45000,
         message: `waiting for claim ${claimId} to be rejected`,
       })
-      .toBe("Rejected");
+      .toBe("Rejected - Resubmission Not Allowed");
 
     const after = await getClaimState(claimId);
     expect(after.is_resubmission_allowed).toBe(false);
@@ -533,7 +533,7 @@ test.describe("Bulk Actions Lifecycle Matrix", () => {
         timeout: 45000,
         message: `waiting for claim ${claimId} to be rejected at L1`,
       })
-      .toBe("Rejected");
+      .toBe("Rejected - Resubmission Not Allowed");
 
     const after = await getClaimState(claimId);
     expect(after.is_resubmission_allowed).toBe(false);
@@ -563,7 +563,7 @@ test.describe("Bulk Actions Lifecycle Matrix", () => {
         timeout: 45000,
         message: `waiting for claim ${claimId} to be soft rejected`,
       })
-      .toBe("Rejected");
+      .toBe("Rejected - Resubmission Allowed");
 
     const after = await getClaimState(claimId);
     expect(after.is_resubmission_allowed).toBe(true);

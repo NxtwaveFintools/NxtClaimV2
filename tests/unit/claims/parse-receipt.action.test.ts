@@ -138,6 +138,32 @@ describe("parseReceiptAction", () => {
     });
   });
 
+  test("returns quota fallback when Gemini responds with 429", async () => {
+    mockGenerateContent.mockRejectedValue({
+      status: 429,
+      statusText: "Too Many Requests",
+      message:
+        "[GoogleGenerativeAI Error]: [429 Too Many Requests] Quota exceeded. Please retry in 32.983228239s.",
+      errorDetails: [
+        {
+          "@type": "type.googleapis.com/google.rpc.RetryInfo",
+          retryDelay: "32s",
+        },
+      ],
+    });
+
+    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
+    const result = await parseReceiptAction(createReceiptFormData());
+
+    expect(result).toEqual({
+      ok: false,
+      data: null,
+      autoFillAllowed: false,
+      message:
+        "AI auto-parse is temporarily unavailable due to usage limits. Please retry in about 32 seconds. You can still fill the details manually.",
+    });
+  });
+
   test("uses mocked Gemini SDK without real network calls", async () => {
     mockGenerateContent.mockResolvedValue({
       response: {

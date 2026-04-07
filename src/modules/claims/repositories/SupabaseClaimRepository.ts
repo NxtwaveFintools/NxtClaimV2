@@ -1,6 +1,8 @@
 import { getServiceRoleSupabaseClient } from "@/core/infra/supabase/server-client";
 import {
   DB_CLAIM_STATUSES,
+  DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
+  DB_REJECTED_STATUSES,
   type DbClaimStatus,
   mapCanonicalStatusToDbStatuses,
 } from "@/core/constants/statuses";
@@ -84,6 +86,7 @@ type EnterpriseClaimsDashboardRow = {
   created_at: string;
   submitted_by?: string;
   on_behalf_of_id?: string | null;
+  on_behalf_email?: string | null;
   assigned_l1_approver_id?: string;
   assigned_l2_approver_id?: string | null;
   department_id?: string;
@@ -91,6 +94,13 @@ type EnterpriseClaimsDashboardRow = {
   submitter_email?: string | null;
   hod_email?: string | null;
   finance_email?: string | null;
+  // Enriched columns added by 20260407000100 migration
+  submitter_label?: string | null;
+  category_name?: string | null;
+  purpose?: string | null;
+  receipt_file_path?: string | null;
+  bank_statement_file_path?: string | null;
+  supporting_document_path?: string | null;
 };
 
 type ClaimAuditLogActorRow = {
@@ -391,7 +401,11 @@ function toNumber(value: number | string | null | undefined): number | null {
   return null;
 }
 
-const FINANCE_CLOSED_STATUSES: DbClaimStatus[] = [DB_CLAIM_STATUSES[2], DB_CLAIM_STATUSES[3]];
+const FINANCE_CLOSED_STATUSES: DbClaimStatus[] = [
+  DB_CLAIM_STATUSES[2],
+  DB_CLAIM_STATUSES[3],
+  ...DB_REJECTED_STATUSES,
+];
 
 const PAYMENT_DONE_CLOSED_STATUS = DB_CLAIM_STATUSES[3];
 const PAYMENT_MODE_REIMBURSEMENT = "reimbursement";
@@ -829,15 +843,6 @@ function buildMyClaimsOwnershipOrFilter(userId: string): string {
   return `submitted_by.eq.${userId},on_behalf_of_id.eq.${userId}`;
 }
 
-function buildMyClaimsOwnershipWithCursorOrFilter(userId: string, cursor: ClaimsCursor): string {
-  return [
-    `and(submitted_by.eq.${userId},created_at.lt.${cursor.createdAt})`,
-    `and(submitted_by.eq.${userId},created_at.eq.${cursor.createdAt},claim_id.lt.${cursor.id})`,
-    `and(on_behalf_of_id.eq.${userId},created_at.lt.${cursor.createdAt})`,
-    `and(on_behalf_of_id.eq.${userId},created_at.eq.${cursor.createdAt},claim_id.lt.${cursor.id})`,
-  ].join(",");
-}
-
 export class SupabaseClaimRepository implements ClaimRepository {
   private isAlreadyRegisteredError(message: string): boolean {
     const normalized = message.trim().toLowerCase();
@@ -1255,12 +1260,13 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const financeNonRejectedStatusesFilter = toPostgrestInList(
       FINANCE_NON_REJECTED_VISIBLE_STATUSES,
     );
+    const financeRejectedStatusesFilter = toPostgrestInList([...DB_REJECTED_STATUSES]);
 
     let query = client
       .from("vw_enterprise_claims_dashboard")
       .select("claim_id")
       .or(
-        `status.in.${financeNonRejectedStatusesFilter},and(status.eq.Rejected,assigned_l2_approver_id.not.is.null)`,
+        `status.in.${financeNonRejectedStatusesFilter},and(status.in.${financeRejectedStatusesFilter},assigned_l2_approver_id.not.is.null)`,
       )
       .order("created_at", { ascending: false })
       .order("claim_id", { ascending: false });
@@ -1369,9 +1375,10 @@ export class SupabaseClaimRepository implements ClaimRepository {
     allowResubmission: boolean;
   }): Promise<{ errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
+    const isRejectedStatus = DB_REJECTED_STATUSES.some((status) => status === input.status);
     const isL1TerminalStatus =
       input.status === DB_CLAIM_STATUSES[1] ||
-      (input.status === "Rejected" && input.assignedL2ApproverId === null);
+      (isRejectedStatus && input.assignedL2ApproverId === null);
 
     const { error } = await client
       .from("claims")
@@ -1389,7 +1396,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
       return { errorMessage: error.message };
     }
 
-    if (input.status === DB_CLAIM_STATUSES[4] && input.allowResubmission) {
+    if (input.status === DB_REJECTED_RESUBMISSION_ALLOWED_STATUS && input.allowResubmission) {
       const [{ error: expenseDeactivateError }, { error: advanceDeactivateError }] =
         await Promise.all([
           client
@@ -1416,7 +1423,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const auditActionType: ClaimAuditActionType | null =
       input.status === DB_CLAIM_STATUSES[1]
         ? "L1_APPROVED"
-        : input.status === DB_CLAIM_STATUSES[4]
+        : isRejectedStatus
           ? "L1_REJECTED"
           : null;
 
@@ -1519,9 +1526,10 @@ export class SupabaseClaimRepository implements ClaimRepository {
       return { errorMessage: null };
     }
 
+    const isRejectedStatus = DB_REJECTED_STATUSES.some((status) => status === input.status);
     const isFinanceTerminalStatus =
       input.status === DB_CLAIM_STATUSES[2] ||
-      (input.status === "Rejected" && input.assignedL2ApproverId !== null);
+      (isRejectedStatus && input.assignedL2ApproverId !== null);
 
     const { error } = await client
       .from("claims")
@@ -1539,7 +1547,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
       return { errorMessage: error.message };
     }
 
-    if (input.status === DB_CLAIM_STATUSES[4] && input.allowResubmission) {
+    if (input.status === DB_REJECTED_RESUBMISSION_ALLOWED_STATUS && input.allowResubmission) {
       const [{ error: expenseDeactivateError }, { error: advanceDeactivateError }] =
         await Promise.all([
           client
@@ -1566,7 +1574,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const auditActionType: ClaimAuditActionType | null =
       input.status === DB_CLAIM_STATUSES[2]
         ? "L2_APPROVED"
-        : input.status === DB_CLAIM_STATUSES[4]
+        : isRejectedStatus
           ? "L2_REJECTED"
           : null;
 
@@ -2445,7 +2453,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
       )
       .or(buildMyClaimsOwnershipOrFilter(userId))
       .eq("is_active", true)
-      .order("submitted_at", { ascending: false });
+      .order("submitted_at", { ascending: false })
+      .limit(MAX_LIST_PAGE_SIZE);
 
     if (filters?.detailType) {
       query = query.eq("detail_type", filters.detailType);
@@ -2542,7 +2551,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
   async getMyClaimsPaginated(
     userId: string,
-    cursor: string | null,
+    page: number,
     limit: number,
     filters?: GetMyClaimsFilters,
   ): Promise<{
@@ -2559,40 +2568,36 @@ export class SupabaseClaimRepository implements ClaimRepository {
       financeActionDate: string | null;
       detailType: "expense" | "advance";
       submissionType: "Self" | "On Behalf";
+      onBehalfEmail: string | null;
       submitterEmail: string | null;
       hodEmail: string | null;
       financeEmail: string | null;
+      submitterLabel: string | null;
+      categoryName: string | null;
+      purpose: string | null;
+      expenseReceiptFilePath: string | null;
+      expenseBankStatementFilePath: string | null;
+      advanceSupportingDocumentPath: string | null;
     }>;
-    nextCursor: string | null;
-    hasNextPage: boolean;
+    totalCount: number;
     errorMessage: string | null;
   }> {
     const client = getServiceRoleSupabaseClient();
-    const decodedCursor = decodeClaimsCursor(cursor);
     const normalizedStatuses = normalizeStatusFilter(filters?.status);
     const { fromDate, toDate } = normalizeDateRange(filters);
     const normalizedSearch = normalizeSearchInput(filters);
     const safeLimit = clampListPageSize(limit);
-
-    if (cursor && !decodedCursor) {
-      return {
-        data: [],
-        nextCursor: null,
-        hasNextPage: false,
-        errorMessage: "Invalid cursor format.",
-      };
-    }
+    const safePage = Math.max(1, Math.floor(page));
+    const from = (safePage - 1) * safeLimit;
+    const to = from + safeLimit - 1;
 
     let query = client
       .from("vw_enterprise_claims_dashboard")
       .select(
-        "claim_id, employee_name, employee_id, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, detail_type, submission_type, created_at, submitter_email, hod_email, finance_email",
+        "claim_id, employee_name, employee_id, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, detail_type, submission_type, on_behalf_email, created_at, submitter_email, hod_email, finance_email, submitter_label, category_name, purpose, receipt_file_path, bank_statement_file_path, supporting_document_path",
+        { count: "exact" },
       )
-      .or(
-        decodedCursor
-          ? buildMyClaimsOwnershipWithCursorOrFilter(userId, decodedCursor)
-          : buildMyClaimsOwnershipOrFilter(userId),
-      )
+      .or(buildMyClaimsOwnershipOrFilter(userId))
       .order("created_at", { ascending: false })
       .order("claim_id", { ascending: false });
 
@@ -2605,27 +2610,19 @@ export class SupabaseClaimRepository implements ClaimRepository {
       normalizedSearch,
     });
 
-    const { data, error } = await query.limit(safeLimit + 1);
+    const { data, count, error } = await query.range(from, to);
 
     if (error) {
       return {
         data: [],
-        nextCursor: null,
-        hasNextPage: false,
+        totalCount: 0,
         errorMessage: error.message,
       };
     }
 
     const rows = (data ?? []) as EnterpriseClaimsDashboardRow[];
-    const hasExtraRecord = rows.length > safeLimit;
-    const pageRows = hasExtraRecord ? rows.slice(0, safeLimit) : rows;
-    const lastRow = pageRows[pageRows.length - 1] ?? null;
-    const nextCursor =
-      hasExtraRecord && lastRow
-        ? encodeClaimsCursor({ createdAt: lastRow.created_at, id: lastRow.claim_id })
-        : null;
 
-    const mappedRows = pageRows.map((row) => ({
+    const mappedRows = rows.map((row) => ({
       id: row.claim_id,
       employeeId: row.employee_id,
       employeeName: row.employee_name,
@@ -2638,15 +2635,21 @@ export class SupabaseClaimRepository implements ClaimRepository {
       financeActionDate: row.finance_action_date,
       detailType: row.detail_type,
       submissionType: row.submission_type,
+      onBehalfEmail: row.on_behalf_email ?? null,
       submitterEmail: row.submitter_email ?? null,
       hodEmail: row.hod_email ?? null,
       financeEmail: row.finance_email ?? null,
+      submitterLabel: row.submitter_label ?? null,
+      categoryName: row.category_name ?? null,
+      purpose: row.purpose ?? null,
+      expenseReceiptFilePath: row.receipt_file_path ?? null,
+      expenseBankStatementFilePath: row.bank_statement_file_path ?? null,
+      advanceSupportingDocumentPath: row.supporting_document_path ?? null,
     }));
 
     return {
       data: mappedRows,
-      nextCursor,
-      hasNextPage: hasExtraRecord,
+      totalCount: count ?? 0,
       errorMessage: null,
     };
   }
@@ -2818,6 +2821,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const financeNonRejectedStatusesFilter = toPostgrestInList(
       FINANCE_NON_REJECTED_VISIBLE_STATUSES,
     );
+    const financeRejectedStatusesFilter = toPostgrestInList([...DB_REJECTED_STATUSES]);
 
     const needsExpenseInnerJoin =
       filters?.locationId || filters?.productId || filters?.expenseCategoryId;
@@ -2833,7 +2837,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
         { count: "exact" },
       )
       .or(
-        `status.in.${financeNonRejectedStatusesFilter},and(status.eq.Rejected,assigned_l2_approver_id.not.is.null)`,
+        `status.in.${financeNonRejectedStatusesFilter},and(status.in.${financeRejectedStatusesFilter},assigned_l2_approver_id.not.is.null)`,
       )
       .eq("is_active", true)
       .order("created_at", { ascending: false })
@@ -2941,9 +2945,10 @@ export class SupabaseClaimRepository implements ClaimRepository {
       const financeNonRejectedStatusesFilter = toPostgrestInList(
         FINANCE_NON_REJECTED_VISIBLE_STATUSES,
       );
+      const financeRejectedStatusesFilter = toPostgrestInList([...DB_REJECTED_STATUSES]);
 
       query = query.or(
-        `status.in.${financeNonRejectedStatusesFilter},and(status.eq.Rejected,assigned_l2_approver_id.not.is.null)`,
+        `status.in.${financeNonRejectedStatusesFilter},and(status.in.${financeRejectedStatusesFilter},assigned_l2_approver_id.not.is.null)`,
       );
     }
 
@@ -3039,9 +3044,10 @@ export class SupabaseClaimRepository implements ClaimRepository {
       const financeNonRejectedStatusesFilter = toPostgrestInList(
         FINANCE_NON_REJECTED_VISIBLE_STATUSES,
       );
+      const financeRejectedStatusesFilter = toPostgrestInList([...DB_REJECTED_STATUSES]);
 
       idsQuery = idsQuery.or(
-        `status.in.${financeNonRejectedStatusesFilter},and(status.eq.Rejected,assigned_l2_approver_id.not.is.null)`,
+        `status.in.${financeNonRejectedStatusesFilter},and(status.in.${financeRejectedStatusesFilter},assigned_l2_approver_id.not.is.null)`,
       );
     }
 

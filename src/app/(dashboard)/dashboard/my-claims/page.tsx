@@ -1,4 +1,5 @@
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import { Suspense, cache } from "react";
 import { CirclePlus } from "lucide-react";
@@ -6,7 +7,11 @@ import { AppShellHeader } from "@/components/app-shell-header";
 import { BackButton } from "@/components/ui/back-button";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { ROUTES } from "@/core/config/route-registry";
-import { DB_CLAIM_STATUSES, type DbClaimStatus } from "@/core/constants/statuses";
+import {
+  DB_CLAIM_STATUSES,
+  isPendingFinanceApprovalStatus,
+  type DbClaimStatus,
+} from "@/core/constants/statuses";
 import type {
   ClaimAuditLogRecord,
   ClaimDateTarget,
@@ -41,8 +46,7 @@ import {
   CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
   ClaimStatusBadge,
 } from "@/modules/claims/ui/claim-status-badge";
-import { ClaimsFilterBar } from "@/modules/claims/ui/claims-filter-bar";
-import { FinanceApprovalsBulkTable } from "@/modules/claims/ui/finance-approvals-bulk-table";
+import { MyClaimsOffsetPaginationControls } from "@/modules/claims/ui/my-claims-offset-pagination-controls";
 import { MyClaimsPaginationControls } from "@/modules/claims/ui/my-claims-pagination-controls";
 import { ApprovalsAuditModeDialog } from "@/modules/claims/ui/approvals-quick-view-sheet";
 
@@ -65,6 +69,23 @@ const getCachedPendingApprovalsViewerContext = cache(
 export const metadata = {
   title: "My Claims | NxtClaim",
 };
+
+const ClaimsFilterBar = dynamic(
+  () => import("@/modules/claims/ui/claims-filter-bar").then((module) => module.ClaimsFilterBar),
+  {
+    loading: () => <FilterBarSkeleton />,
+  },
+);
+
+const FinanceApprovalsBulkTable = dynamic(
+  () =>
+    import("@/modules/claims/ui/finance-approvals-bulk-table").then(
+      (module) => module.FinanceApprovalsBulkTable,
+    ),
+  {
+    loading: () => <TableSkeleton />,
+  },
+);
 
 function firstParamValue(value: SearchParamsValue): string | undefined {
   if (Array.isArray(value)) {
@@ -278,6 +299,14 @@ function DateWithActor({
   );
 }
 
+function FinanceTeamQueueBadge() {
+  return (
+    <span className="inline-flex w-fit rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+      Finance Team
+    </span>
+  );
+}
+
 function MyClaimsShellSkeleton() {
   return (
     <>
@@ -488,6 +517,15 @@ async function ClaimsCommandCenterTable({
 
     const rows = approvalsResult.data;
     const claimIds = rows.map((claim) => claim.id);
+    const approvalCurrentPage = cursor
+      ? Math.max(1, Number(firstParamValue(searchParams?.page)) || 1)
+      : 1;
+    const approvalPageStart = rows.length > 0 ? (approvalCurrentPage - 1) * PAGE_SIZE + 1 : 0;
+    const approvalPageEnd =
+      rows.length > 0
+        ? Math.min((approvalCurrentPage - 1) * PAGE_SIZE + rows.length, approvalsResult.totalCount)
+        : 0;
+    const approvalsSummaryText = `Showing ${approvalPageStart} to ${approvalPageEnd} of ${approvalsResult.totalCount} claims`;
 
     if (approvalScope === "finance" || approvalScope === "l1") {
       const [evidenceSignedUrlByClaimId, auditLogsByClaimId] = await Promise.all([
@@ -516,6 +554,18 @@ async function ClaimsCommandCenterTable({
             </>
           ) : (
             <>
+              <MyClaimsPaginationControls
+                hasNextPage={approvalsResult.hasNextPage}
+                hasPreviousPage={Boolean(previousCursorToken)}
+                currentCursor={cursor}
+                nextCursor={approvalsResult.nextCursor}
+                previousCursor={previousCursorToken}
+                currentPage={approvalCurrentPage}
+                summaryText={approvalsSummaryText}
+                position="top"
+                searchParams={searchParams}
+              />
+
               <Suspense key={JSON.stringify(searchParams ?? {})} fallback={<TableSkeleton />}>
                 <FinanceApprovalsBulkTable
                   rows={rows.map((claim) => ({
@@ -558,15 +608,6 @@ async function ClaimsCommandCenterTable({
                   auditLogsByClaimId={auditLogsByClaimId}
                 />
               </Suspense>
-
-              <MyClaimsPaginationControls
-                hasNextPage={approvalsResult.hasNextPage}
-                hasPreviousPage={Boolean(previousCursorToken)}
-                currentCursor={cursor}
-                nextCursor={approvalsResult.nextCursor}
-                previousCursor={previousCursorToken}
-                searchParams={searchParams}
-              />
             </>
           )}
         </section>
@@ -610,6 +651,18 @@ async function ClaimsCommandCenterTable({
           </div>
         ) : (
           <>
+            <MyClaimsPaginationControls
+              hasNextPage={approvalsResult.hasNextPage}
+              hasPreviousPage={Boolean(previousCursorToken)}
+              currentCursor={cursor}
+              nextCursor={approvalsResult.nextCursor}
+              previousCursor={previousCursorToken}
+              currentPage={approvalCurrentPage}
+              summaryText={approvalsSummaryText}
+              position="top"
+              searchParams={searchParams}
+            />
+
             <div className="nxt-scroll w-full overflow-x-auto">
               <table className="min-w-345 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
                 <TableHeader showActions />
@@ -795,48 +848,38 @@ async function ClaimsCommandCenterTable({
                 </tbody>
               </table>
             </div>
-
-            <MyClaimsPaginationControls
-              hasNextPage={approvalsResult.hasNextPage}
-              hasPreviousPage={Boolean(previousCursorToken)}
-              currentCursor={cursor}
-              nextCursor={approvalsResult.nextCursor}
-              previousCursor={previousCursorToken}
-              searchParams={searchParams}
-            />
           </>
         )}
       </section>
     );
   }
 
+  const currentPage = Math.max(1, Number(firstParamValue(searchParams?.page)) || 1);
+
   const claimsResult = await claimsService.execute({
     userId,
-    cursor,
+    page: currentPage,
     limit: PAGE_SIZE,
     filters,
   });
 
   const rows = claimsResult.data;
   const claimIds = rows.map((claim) => claim.id);
-  const [submissionDetailResult, submissionAuditLogsByClaimId] = await Promise.all([
-    claimRepository.getClaimListDetails(claimIds),
+  // All claim detail fields (submitter, category, purpose, file paths) are now
+  // returned directly by getMyClaimsPaginated via the enriched view —
+  // no secondary getClaimListDetails fetch needed.
+  const [submissionAuditLogsByClaimId, submissionEvidenceSignedUrlByClaimId] = await Promise.all([
     resolveAuditLogsByClaimId(claimRepository, claimIds),
+    resolveApprovalEvidenceUrls(
+      claimRepository,
+      rows.map((claim) => ({
+        id: claim.id,
+        expenseReceiptFilePath: claim.expenseReceiptFilePath,
+        expenseBankStatementFilePath: claim.expenseBankStatementFilePath,
+        advanceSupportingDocumentPath: claim.advanceSupportingDocumentPath,
+      })),
+    ),
   ]);
-  const submissionDetailsByClaimId = submissionDetailResult.data;
-  const submissionEvidenceSignedUrlByClaimId = await resolveApprovalEvidenceUrls(
-    claimRepository,
-    claimIds.map((claimId) => {
-      const detail = submissionDetailsByClaimId[claimId];
-
-      return {
-        id: claimId,
-        expenseReceiptFilePath: detail?.expenseReceiptFilePath ?? null,
-        expenseBankStatementFilePath: detail?.expenseBankStatementFilePath ?? null,
-        advanceSupportingDocumentPath: detail?.advanceSupportingDocumentPath ?? null,
-      };
-    }),
-  );
 
   return (
     <section className="overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/92 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
@@ -852,7 +895,7 @@ async function ClaimsCommandCenterTable({
             Unable to load claims. {claimsResult.errorMessage}
           </p>
         </div>
-      ) : rows.length === 0 ? (
+      ) : claimsResult.totalCount === 0 ? (
         <div className="grid place-items-center px-4 py-14 text-center">
           <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">No claims found</p>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
@@ -861,12 +904,19 @@ async function ClaimsCommandCenterTable({
         </div>
       ) : (
         <>
+          <MyClaimsOffsetPaginationControls
+            totalCount={claimsResult.totalCount}
+            page={currentPage}
+            limit={PAGE_SIZE}
+            position="top"
+            searchParams={searchParams}
+          />
+
           <div className="nxt-scroll overflow-x-auto">
             <table className="min-w-325 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
               <TableHeader showActions />
               <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
                 {rows.map((claim) => {
-                  const detail = submissionDetailsByClaimId[claim.id];
                   const evidenceSignedUrls = submissionEvidenceSignedUrlByClaimId[claim.id] ?? {
                     expenseReceiptSignedUrl: null,
                     expenseBankStatementSignedUrl: null,
@@ -923,43 +973,41 @@ async function ClaimsCommandCenterTable({
                         />
                       </td>
                       <td className="px-3 py-2">
-                        <DateWithActor
-                          dateValue={claim.financeActionDate}
-                          actorEmail={claim.financeEmail}
-                        />
+                        {isPendingFinanceApprovalStatus(claim.status) ? (
+                          <div className="flex flex-col gap-1">
+                            <span>-</span>
+                            <FinanceTeamQueueBadge />
+                          </div>
+                        ) : (
+                          <DateWithActor
+                            dateValue={claim.financeActionDate}
+                            actorEmail={claim.financeEmail}
+                          />
+                        )}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {detail ? (
-                            <ApprovalsAuditModeDialog
-                              claimId={claim.id}
-                              detailType={detail.detailType}
-                              submitter={detail.submitter}
-                              amountLabel={claim.formattedTotalAmount}
-                              categoryName={detail.categoryName}
-                              purpose={detail.purpose}
-                              submissionType={detail.submissionType}
-                              onBehalfEmail={detail.onBehalfEmail}
-                              expenseReceiptFilePath={detail.expenseReceiptFilePath}
-                              expenseReceiptSignedUrl={evidenceSignedUrls.expenseReceiptSignedUrl}
-                              expenseBankStatementFilePath={detail.expenseBankStatementFilePath}
-                              expenseBankStatementSignedUrl={
-                                evidenceSignedUrls.expenseBankStatementSignedUrl
-                              }
-                              advanceSupportingDocumentPath={detail.advanceSupportingDocumentPath}
-                              advanceSupportingDocumentSignedUrl={
-                                evidenceSignedUrls.advanceSupportingDocumentSignedUrl
-                              }
-                              auditLogs={submissionAuditLogsByClaimId[claim.id] ?? []}
-                            />
-                          ) : (
-                            <Link
-                              href={ROUTES.claims.detail(claim.id)}
-                              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-2.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                            >
-                              View
-                            </Link>
-                          )}
+                          <ApprovalsAuditModeDialog
+                            claimId={claim.id}
+                            detailType={claim.detailType}
+                            submitter={claim.submitterLabel ?? claim.employeeName}
+                            amountLabel={claim.formattedTotalAmount}
+                            categoryName={claim.categoryName ?? "Uncategorized"}
+                            purpose={claim.purpose}
+                            submissionType={claim.submissionType}
+                            onBehalfEmail={claim.onBehalfEmail}
+                            expenseReceiptFilePath={claim.expenseReceiptFilePath}
+                            expenseReceiptSignedUrl={evidenceSignedUrls.expenseReceiptSignedUrl}
+                            expenseBankStatementFilePath={claim.expenseBankStatementFilePath}
+                            expenseBankStatementSignedUrl={
+                              evidenceSignedUrls.expenseBankStatementSignedUrl
+                            }
+                            advanceSupportingDocumentPath={claim.advanceSupportingDocumentPath}
+                            advanceSupportingDocumentSignedUrl={
+                              evidenceSignedUrls.advanceSupportingDocumentSignedUrl
+                            }
+                            auditLogs={submissionAuditLogsByClaimId[claim.id] ?? []}
+                          />
                         </div>
                       </td>
                     </tr>
@@ -968,15 +1016,6 @@ async function ClaimsCommandCenterTable({
               </tbody>
             </table>
           </div>
-
-          <MyClaimsPaginationControls
-            hasNextPage={claimsResult.hasNextPage}
-            hasPreviousPage={Boolean(previousCursorToken)}
-            currentCursor={cursor}
-            nextCursor={claimsResult.nextCursor}
-            previousCursor={previousCursorToken}
-            searchParams={searchParams}
-          />
         </>
       )}
     </section>
@@ -1107,29 +1146,20 @@ async function MyClaimsDashboardPageContent({
   );
 }
 
-export default async function MyClaimsDashboardPage({
+async function MyClaimsDashboardResolvedContent({
   searchParams,
+  userId,
 }: {
-  searchParams: Promise<Record<string, SearchParamsValue>>;
+  searchParams: Record<string, SearchParamsValue>;
+  userId: string;
 }) {
-  const [resolvedSearchParams, isAdminUser, isDeptViewer, currentUserResult] = await Promise.all([
-    searchParams,
+  const [isAdminUser, isDeptViewer, viewerContextResult] = await Promise.all([
     isAdmin(),
     isDepartmentViewer(),
-    getCachedCurrentUser(),
+    getCachedPendingApprovalsViewerContext(userId),
   ]);
 
-  const currentEmail = currentUserResult.user?.email ?? null;
-
-  if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
-    redirect(ROUTES.login);
-  }
-
-  const viewerContextResult = await getCachedPendingApprovalsViewerContext(
-    currentUserResult.user.id,
-  );
-
-  const requestedView = firstParamValue(resolvedSearchParams?.view);
+  const requestedView = firstParamValue(searchParams?.view);
   const requestedOrDefaultView =
     !requestedView && viewerContextResult.canViewApprovals && !isAdminUser
       ? "approvals"
@@ -1142,10 +1172,123 @@ export default async function MyClaimsDashboardPage({
     isDeptViewer,
   );
 
-  const submissionsHref = buildViewHref(resolvedSearchParams, "submissions");
-  const approvalsHref = buildViewHref(resolvedSearchParams, "approvals");
-  const adminHref = buildViewHref(resolvedSearchParams, "admin");
-  const departmentHref = buildViewHref(resolvedSearchParams, "department");
+  const submissionsHref = buildViewHref(searchParams, "submissions");
+  const approvalsHref = buildViewHref(searchParams, "approvals");
+  const adminHref = buildViewHref(searchParams, "admin");
+  const departmentHref = buildViewHref(searchParams, "department");
+
+  return (
+    <>
+      <section className="overflow-hidden rounded-[28px] border border-zinc-200/70 bg-white/88 shadow-[0_24px_70px_-30px_rgba(15,23,42,0.14),0_8px_24px_-8px_rgba(99,102,241,0.05)] backdrop-blur-lg transition-colors dark:border-zinc-800/80 dark:bg-zinc-900/88 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.40)]">
+        <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-sky-500" />
+
+        <div className="p-5 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="dashboard-font-display text-xl font-bold tracking-[-0.03em] text-zinc-950 sm:text-2xl lg:text-3xl dark:text-zinc-50">
+                My Claims
+              </h1>
+              <p className="mt-1 text-xs text-zinc-500 sm:text-sm dark:text-zinc-400">
+                Command Center for submissions and approvals
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {isAdminUser ? (
+                <Link
+                  href={ROUTES.admin.settings}
+                  className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white/80 px-4 text-sm font-semibold text-zinc-700 backdrop-blur-sm transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/80 dark:text-zinc-200 dark:hover:bg-zinc-900"
+                >
+                  System Settings
+                </Link>
+              ) : null}
+              <Link
+                href={ROUTES.claims.new}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-colors hover:bg-indigo-500 active:scale-[0.98]"
+              >
+                <CirclePlus className="h-4 w-4" aria-hidden="true" />
+                New Claim
+              </Link>
+            </div>
+          </div>
+
+          <div className="mt-4 inline-flex flex-wrap rounded-2xl border border-zinc-200/80 bg-zinc-50/80 p-1 dark:border-zinc-700/60 dark:bg-zinc-900/60">
+            <Link
+              href={submissionsHref}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                activeView === "submissions"
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
+                  : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              }`}
+            >
+              My Submissions
+            </Link>
+            {viewerContextResult.canViewApprovals ? (
+              <Link
+                href={approvalsHref}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                  activeView === "approvals"
+                    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
+                    : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                }`}
+              >
+                Approvals History
+              </Link>
+            ) : null}
+            {isAdminUser ? (
+              <Link
+                href={adminHref}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                  activeView === "admin"
+                    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
+                    : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                }`}
+              >
+                Admin Overview
+              </Link>
+            ) : null}
+            {isDeptViewer ? (
+              <Link
+                href={departmentHref}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                  activeView === "department"
+                    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
+                    : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                }`}
+              >
+                Department Overview
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      </section>
+
+      <Suspense fallback={<MyClaimsShellSkeleton />}>
+        <MyClaimsDashboardPageContent
+          searchParams={searchParams}
+          activeView={activeView}
+          viewerContextResult={viewerContextResult}
+          userId={userId}
+        />
+      </Suspense>
+    </>
+  );
+}
+
+export default async function MyClaimsDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, SearchParamsValue>>;
+}) {
+  const [resolvedSearchParams, currentUserResult] = await Promise.all([
+    searchParams,
+    getCachedCurrentUser(),
+  ]);
+
+  const currentEmail = currentUserResult.user?.email ?? null;
+
+  if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
+    redirect(ROUTES.login);
+  }
 
   return (
     <div
@@ -1155,100 +1298,11 @@ export default async function MyClaimsDashboardPage({
 
       <div className="relative z-0 mx-auto w-full max-w-[1600px] px-4 pb-16 pt-6 sm:px-6 lg:px-8">
         <main className="space-y-5">
-          {/* Back button — outside the card, with indigo color */}
           <BackButton className="w-fit" />
 
-          {/* Header card */}
-          <section className="overflow-hidden rounded-[28px] border border-zinc-200/70 bg-white/88 shadow-[0_24px_70px_-30px_rgba(15,23,42,0.14),0_8px_24px_-8px_rgba(99,102,241,0.05)] backdrop-blur-lg transition-colors dark:border-zinc-800/80 dark:bg-zinc-900/88 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.40)]">
-            {/* Gradient top stripe */}
-            <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-sky-500" />
-
-            <div className="p-5 sm:p-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h1 className="dashboard-font-display text-xl font-bold tracking-[-0.03em] text-zinc-950 sm:text-2xl lg:text-3xl dark:text-zinc-50">
-                    My Claims
-                  </h1>
-                  <p className="mt-1 text-xs text-zinc-500 sm:text-sm dark:text-zinc-400">
-                    Command Center for submissions and approvals
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {isAdminUser ? (
-                    <Link
-                      href={ROUTES.admin.settings}
-                      className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white/80 px-4 text-sm font-semibold text-zinc-700 backdrop-blur-sm transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/80 dark:text-zinc-200 dark:hover:bg-zinc-900"
-                    >
-                      System Settings
-                    </Link>
-                  ) : null}
-                  <Link
-                    href={ROUTES.claims.new}
-                    className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-colors hover:bg-indigo-500 active:scale-[0.98]"
-                  >
-                    <CirclePlus className="h-4 w-4" aria-hidden="true" />
-                    New Claim
-                  </Link>
-                </div>
-              </div>
-
-              {/* Tab bar */}
-              <div className="mt-4 inline-flex flex-wrap rounded-2xl border border-zinc-200/80 bg-zinc-50/80 p-1 dark:border-zinc-700/60 dark:bg-zinc-900/60">
-                <Link
-                  href={submissionsHref}
-                  className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                    activeView === "submissions"
-                      ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
-                      : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                  }`}
-                >
-                  My Submissions
-                </Link>
-                {viewerContextResult.canViewApprovals ? (
-                  <Link
-                    href={approvalsHref}
-                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                      activeView === "approvals"
-                        ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
-                        : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                    }`}
-                  >
-                    Approvals History
-                  </Link>
-                ) : null}
-                {isAdminUser ? (
-                  <Link
-                    href={adminHref}
-                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                      activeView === "admin"
-                        ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
-                        : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                    }`}
-                  >
-                    Admin Overview
-                  </Link>
-                ) : null}
-                {isDeptViewer ? (
-                  <Link
-                    href={departmentHref}
-                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                      activeView === "department"
-                        ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
-                        : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                    }`}
-                  >
-                    Department Overview
-                  </Link>
-                ) : null}
-              </div>
-            </div>
-          </section>
-
           <Suspense fallback={<MyClaimsShellSkeleton />}>
-            <MyClaimsDashboardPageContent
+            <MyClaimsDashboardResolvedContent
               searchParams={resolvedSearchParams}
-              activeView={activeView}
-              viewerContextResult={viewerContextResult}
               userId={currentUserResult.user.id}
             />
           </Suspense>

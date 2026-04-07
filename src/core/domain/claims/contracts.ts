@@ -419,10 +419,10 @@ export type ClaimRepository = {
   ): Promise<{ data: MyClaimRecord[]; errorMessage: string | null }>;
   getMyClaimsPaginated(
     userId: string,
-    cursor: string | null,
+    page: number,
     limit: number,
     filters?: GetMyClaimsFilters,
-  ): Promise<CursorPaginatedResult<MyClaimListRecord> & { errorMessage: string | null }>;
+  ): Promise<{ data: MyClaimListRecord[]; totalCount: number; errorMessage: string | null }>;
   getApprovalViewerContext(userId: string): Promise<{
     data: ApprovalViewerContext;
     errorMessage: string | null;

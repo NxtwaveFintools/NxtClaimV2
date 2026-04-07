@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSessionStorage } from "@/hooks/use-session-storage";
 import { ROUTES } from "@/core/config/route-registry";
 import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
 import { getAccessTokenAction } from "@/modules/auth/actions";
@@ -111,6 +112,93 @@ function hasActiveFilterParams(params: URLSearchParams): boolean {
   });
 }
 
+type StoredFilterState = {
+  searchInput: string;
+  localSearchField: string;
+  localSubmissionType: string;
+  localPaymentModeId: string;
+  localDepartmentId: string;
+  localLocationId: string;
+  localProductId: string;
+  localExpenseCategoryId: string;
+  localStatus: string;
+  localFromDate: string;
+  localToDate: string;
+};
+
+function setOrDeleteTrimmedParam(params: URLSearchParams, key: string, value: string): void {
+  const trimmed = value.trim();
+
+  if (trimmed.length > 0) {
+    params.set(key, trimmed);
+    return;
+  }
+
+  params.delete(key);
+}
+
+function hasActiveStoredFilterState(filters: StoredFilterState): boolean {
+  if (filters.searchInput.trim().length > 0) {
+    return true;
+  }
+
+  if ((filters.localSearchField || "claim_id") !== "claim_id") {
+    return true;
+  }
+
+  const trackedValues = [
+    filters.localSubmissionType,
+    filters.localPaymentModeId,
+    filters.localDepartmentId,
+    filters.localLocationId,
+    filters.localProductId,
+    filters.localExpenseCategoryId,
+    filters.localStatus,
+    filters.localFromDate,
+    filters.localToDate,
+  ];
+
+  return trackedValues.some((value) => value.trim().length > 0);
+}
+
+function applyStoredFiltersToParams(params: URLSearchParams, filters: StoredFilterState): void {
+  const searchField = filters.localSearchField.trim() || "claim_id";
+  const searchQuery = filters.searchInput.trim();
+
+  if (searchQuery.length > 0) {
+    params.set("search_query", searchQuery);
+    params.set("search_field", searchField);
+  } else {
+    params.delete("search_query");
+
+    if (searchField === "claim_id") {
+      params.delete("search_field");
+    } else {
+      params.set("search_field", searchField);
+    }
+  }
+
+  setOrDeleteTrimmedParam(params, "submission_type", filters.localSubmissionType);
+  setOrDeleteTrimmedParam(params, "payment_mode_id", filters.localPaymentModeId);
+  setOrDeleteTrimmedParam(params, "department_id", filters.localDepartmentId);
+  setOrDeleteTrimmedParam(params, "location_id", filters.localLocationId);
+  setOrDeleteTrimmedParam(params, "product_id", filters.localProductId);
+  setOrDeleteTrimmedParam(params, "expense_category_id", filters.localExpenseCategoryId);
+  setOrDeleteTrimmedParam(params, "status", filters.localStatus);
+  setOrDeleteTrimmedParam(params, "from", filters.localFromDate);
+  setOrDeleteTrimmedParam(params, "to", filters.localToDate);
+
+  const fromDate = filters.localFromDate.trim();
+  const toDate = filters.localToDate.trim();
+  const activeStatus = filters.localStatus.trim();
+
+  if (fromDate || toDate) {
+    params.set("date_target", resolveSmartDateTarget(activeStatus));
+  } else {
+    params.delete("date_target");
+  }
+}
+
 type ClaimsFilterBarProps = {
   exportScope?: "submissions" | "approvals" | "admin" | "department";
   defaultFiltersExpanded?: boolean;
@@ -138,36 +226,82 @@ export function ClaimsFilterBar({
   const [isPending, startTransition] = useTransition();
 
   const currentParams = useMemo(() => new URLSearchParams(searchParams.toString()), [searchParams]);
+  const storageKeyPrefix = useMemo(
+    () => `dashboard-filter-${exportScope ?? "submissions"}`,
+    [exportScope],
+  );
+  const storageKeys = useMemo(
+    () => ({
+      searchInput: `${storageKeyPrefix}-search-query`,
+      debouncedSearchInput: `${storageKeyPrefix}-search-query-debounced`,
+      searchField: `${storageKeyPrefix}-search-field`,
+      submissionType: `${storageKeyPrefix}-submission-type`,
+      paymentModeId: `${storageKeyPrefix}-payment-mode-id`,
+      departmentId: `${storageKeyPrefix}-department-id`,
+      locationId: `${storageKeyPrefix}-location-id`,
+      productId: `${storageKeyPrefix}-product-id`,
+      expenseCategoryId: `${storageKeyPrefix}-expense-category-id`,
+      status: `${storageKeyPrefix}-status`,
+      fromDate: `${storageKeyPrefix}-from-date`,
+      toDate: `${storageKeyPrefix}-to-date`,
+    }),
+    [storageKeyPrefix],
+  );
 
   // ---------------------------------------------------------------------------
   // Local state for instant UI (decoupled from URL / server round-trip)
   // ---------------------------------------------------------------------------
-  const [searchInput, setSearchInput] = useState(searchParams.get("search_query") ?? "");
-  const [debouncedSearchInput, setDebouncedSearchInput] = useState(
+  const [searchInput, setSearchInput] = useSessionStorage(
+    storageKeys.searchInput,
+    searchParams.get("search_query") ?? "",
+  );
+  const [debouncedSearchInput, setDebouncedSearchInput] = useSessionStorage(
+    storageKeys.debouncedSearchInput,
     searchParams.get("search_query")?.trim() ?? "",
   );
   const [isExporting, setIsExporting] = useState(false);
+  const [hasInitializedFilterState, setHasInitializedFilterState] = useState(false);
 
-  const [localSearchField, setLocalSearchField] = useState(
+  const [localSearchField, setLocalSearchField] = useSessionStorage(
+    storageKeys.searchField,
     searchParams.get("search_field") ?? "claim_id",
   );
-  const [localSubmissionType, setLocalSubmissionType] = useState(
+  const [localSubmissionType, setLocalSubmissionType] = useSessionStorage(
+    storageKeys.submissionType,
     searchParams.get("submission_type") ?? "",
   );
-  const [localPaymentModeId, setLocalPaymentModeId] = useState(
+  const [localPaymentModeId, setLocalPaymentModeId] = useSessionStorage(
+    storageKeys.paymentModeId,
     searchParams.get("payment_mode_id") ?? "",
   );
-  const [localDepartmentId, setLocalDepartmentId] = useState(
+  const [localDepartmentId, setLocalDepartmentId] = useSessionStorage(
+    storageKeys.departmentId,
     searchParams.get("department_id") ?? "",
   );
-  const [localLocationId, setLocalLocationId] = useState(searchParams.get("location_id") ?? "");
-  const [localProductId, setLocalProductId] = useState(searchParams.get("product_id") ?? "");
-  const [localExpenseCategoryId, setLocalExpenseCategoryId] = useState(
+  const [localLocationId, setLocalLocationId] = useSessionStorage(
+    storageKeys.locationId,
+    searchParams.get("location_id") ?? "",
+  );
+  const [localProductId, setLocalProductId] = useSessionStorage(
+    storageKeys.productId,
+    searchParams.get("product_id") ?? "",
+  );
+  const [localExpenseCategoryId, setLocalExpenseCategoryId] = useSessionStorage(
+    storageKeys.expenseCategoryId,
     searchParams.get("expense_category_id") ?? "",
   );
-  const [localStatus, setLocalStatus] = useState(searchParams.get("status") ?? "");
-  const [localFromDate, setLocalFromDate] = useState(searchParams.get("from") ?? "");
-  const [localToDate, setLocalToDate] = useState(searchParams.get("to") ?? "");
+  const [localStatus, setLocalStatus] = useSessionStorage(
+    storageKeys.status,
+    searchParams.get("status") ?? "",
+  );
+  const [localFromDate, setLocalFromDate] = useSessionStorage(
+    storageKeys.fromDate,
+    searchParams.get("from") ?? "",
+  );
+  const [localToDate, setLocalToDate] = useSessionStorage(
+    storageKeys.toDate,
+    searchParams.get("to") ?? "",
+  );
 
   const filtersParam = currentParams.get("filters");
   const isFiltersExpanded =
@@ -178,10 +312,119 @@ export function ClaimsFilterBar({
         : defaultFiltersExpanded || hasActiveFilterParams(currentParams);
 
   // ---------------------------------------------------------------------------
+  // One-time restore from sessionStorage when URL has no active filters.
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (hasInitializedFilterState) {
+      return;
+    }
+
+    const urlHasActiveFilters = hasActiveFilterParams(currentParams);
+
+    if (urlHasActiveFilters) {
+      const nextSearchInput = searchParams.get("search_query") ?? "";
+
+      setSearchInput(nextSearchInput);
+      setDebouncedSearchInput(nextSearchInput.trim());
+      setLocalSearchField(searchParams.get("search_field") ?? "claim_id");
+      setLocalSubmissionType(searchParams.get("submission_type") ?? "");
+      setLocalPaymentModeId(searchParams.get("payment_mode_id") ?? "");
+      setLocalDepartmentId(searchParams.get("department_id") ?? "");
+      setLocalLocationId(searchParams.get("location_id") ?? "");
+      setLocalProductId(searchParams.get("product_id") ?? "");
+      setLocalExpenseCategoryId(searchParams.get("expense_category_id") ?? "");
+      setLocalStatus(searchParams.get("status") ?? "");
+      setLocalFromDate(searchParams.get("from") ?? "");
+      setLocalToDate(searchParams.get("to") ?? "");
+
+      setHasInitializedFilterState(true);
+      return;
+    }
+
+    const readStoredValue = (key: string, fallback: string): string => {
+      try {
+        const rawValue = window.sessionStorage.getItem(key);
+        if (!rawValue) {
+          return fallback;
+        }
+
+        const parsed = JSON.parse(rawValue);
+        return typeof parsed === "string" ? parsed : fallback;
+      } catch {
+        return fallback;
+      }
+    };
+
+    const storedFilters: StoredFilterState = {
+      searchInput: readStoredValue(storageKeys.searchInput, ""),
+      localSearchField: readStoredValue(storageKeys.searchField, "claim_id"),
+      localSubmissionType: readStoredValue(storageKeys.submissionType, ""),
+      localPaymentModeId: readStoredValue(storageKeys.paymentModeId, ""),
+      localDepartmentId: readStoredValue(storageKeys.departmentId, ""),
+      localLocationId: readStoredValue(storageKeys.locationId, ""),
+      localProductId: readStoredValue(storageKeys.productId, ""),
+      localExpenseCategoryId: readStoredValue(storageKeys.expenseCategoryId, ""),
+      localStatus: readStoredValue(storageKeys.status, ""),
+      localFromDate: readStoredValue(storageKeys.fromDate, ""),
+      localToDate: readStoredValue(storageKeys.toDate, ""),
+    };
+
+    if (!hasActiveStoredFilterState(storedFilters)) {
+      setHasInitializedFilterState(true);
+      return;
+    }
+
+    setSearchInput(storedFilters.searchInput);
+    setDebouncedSearchInput(storedFilters.searchInput.trim());
+    setLocalSearchField(storedFilters.localSearchField || "claim_id");
+    setLocalSubmissionType(storedFilters.localSubmissionType);
+    setLocalPaymentModeId(storedFilters.localPaymentModeId);
+    setLocalDepartmentId(storedFilters.localDepartmentId);
+    setLocalLocationId(storedFilters.localLocationId);
+    setLocalProductId(storedFilters.localProductId);
+    setLocalExpenseCategoryId(storedFilters.localExpenseCategoryId);
+    setLocalStatus(storedFilters.localStatus);
+    setLocalFromDate(storedFilters.localFromDate);
+    setLocalToDate(storedFilters.localToDate);
+
+    const nextParams = new URLSearchParams(searchParams.toString());
+    applyStoredFiltersToParams(nextParams, storedFilters);
+    nextParams.delete("cursor");
+    nextParams.delete("prevCursor");
+    nextParams.delete("page");
+
+    if (nextParams.toString() !== searchParams.toString()) {
+      startTransition(() => {
+        updateUrlWithMutation(nextParams, pathname, router);
+      });
+    }
+
+    setHasInitializedFilterState(true);
+    // Setter functions from useSessionStorage are intentionally omitted to avoid
+    // effect churn from unstable function identities.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    currentParams,
+    hasInitializedFilterState,
+    pathname,
+    router,
+    searchParams,
+    startTransition,
+    storageKeys,
+  ]);
+
+  // ---------------------------------------------------------------------------
   // Sync local state ← URL on external navigation (Back / Forward buttons)
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    setSearchInput(searchParams.get("search_query") ?? "");
+    if (!hasInitializedFilterState) {
+      return;
+    }
+
+    const nextSearchInput = searchParams.get("search_query") ?? "";
+
+    setSearchInput(nextSearchInput);
+    setDebouncedSearchInput(nextSearchInput.trim());
     setLocalSearchField(searchParams.get("search_field") ?? "claim_id");
     setLocalSubmissionType(searchParams.get("submission_type") ?? "");
     setLocalPaymentModeId(searchParams.get("payment_mode_id") ?? "");
@@ -192,7 +435,10 @@ export function ClaimsFilterBar({
     setLocalStatus(searchParams.get("status") ?? "");
     setLocalFromDate(searchParams.get("from") ?? "");
     setLocalToDate(searchParams.get("to") ?? "");
-  }, [searchParams]);
+    // Setter functions from useSessionStorage are intentionally omitted to avoid
+    // effect churn from unstable function identities.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasInitializedFilterState, searchParams]);
 
   // ---------------------------------------------------------------------------
   // Search debounce (400 ms)
@@ -205,9 +451,16 @@ export function ClaimsFilterBar({
     return () => {
       clearTimeout(timer);
     };
+    // Setter function from useSessionStorage is intentionally omitted to avoid
+    // debounce re-scheduling on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput]);
 
   useEffect(() => {
+    if (!hasInitializedFilterState) {
+      return;
+    }
+
     const urlSearchValue = (searchParams.get("search_query") ?? "").trim();
 
     if (debouncedSearchInput === urlSearchValue) {
@@ -227,10 +480,18 @@ export function ClaimsFilterBar({
 
     nextParams.delete("cursor");
     nextParams.delete("prevCursor");
+    nextParams.delete("page");
     startTransition(() => {
       updateUrlWithMutation(nextParams, pathname, router);
     });
-  }, [debouncedSearchInput, pathname, router, searchParams]);
+  }, [
+    debouncedSearchInput,
+    hasInitializedFilterState,
+    pathname,
+    router,
+    searchParams,
+    startTransition,
+  ]);
 
   // ---------------------------------------------------------------------------
   // Helpers: update local state immediately → push to URL inside startTransition
@@ -261,6 +522,7 @@ export function ClaimsFilterBar({
 
     nextParams.delete("cursor");
     nextParams.delete("prevCursor");
+    nextParams.delete("page");
     startTransition(() => {
       updateUrlWithMutation(nextParams, pathname, router);
     });
@@ -282,6 +544,7 @@ export function ClaimsFilterBar({
 
     nextParams.delete("cursor");
     nextParams.delete("prevCursor");
+    nextParams.delete("page");
     startTransition(() => {
       updateUrlWithMutation(nextParams, pathname, router);
     });
@@ -298,6 +561,7 @@ export function ClaimsFilterBar({
       const params = new URLSearchParams(searchParams.toString());
       params.delete("cursor");
       params.delete("prevCursor");
+      params.delete("page");
       params.set("scope", exportScope!);
 
       const accessToken = await getAccessTokenAction();
@@ -397,12 +661,13 @@ export function ClaimsFilterBar({
               nextParams.set("filters", isFiltersExpanded ? "closed" : "open");
               nextParams.delete("cursor");
               nextParams.delete("prevCursor");
+              nextParams.delete("page");
               startTransition(() => {
                 updateUrlWithMutation(nextParams, pathname, router);
               });
             }}
             className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            aria-expanded={isFiltersExpanded}
+            aria-expanded={isFiltersExpanded ? "true" : "false"}
             aria-controls="claims-filter-panel"
           >
             <svg

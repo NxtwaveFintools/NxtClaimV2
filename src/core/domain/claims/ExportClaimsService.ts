@@ -4,7 +4,11 @@ import type {
   ClaimsExportFetchScope,
   GetMyClaimsFilters,
 } from "@/core/domain/claims/contracts";
-import { DB_CLAIM_STATUSES, type DbClaimStatus } from "@/core/constants/statuses";
+import {
+  DB_CLAIM_STATUSES,
+  DB_REJECTED_STATUSES,
+  type DbClaimStatus,
+} from "@/core/constants/statuses";
 
 type ExportClaimsRepository = {
   getApprovalViewerContext(userId: string): Promise<{
@@ -91,6 +95,15 @@ type ExportClaimsServiceResult = {
 };
 
 const EXPORT_BATCH_SIZE = 500;
+const EXPORT_MAX_RANGE_DAYS = 90;
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+
+export const EXPORT_DATE_RANGE_REQUIRED_MESSAGE =
+  "Exports require both start and end dates. Please apply a date range filter.";
+export const EXPORT_DATE_RANGE_INVALID_MESSAGE =
+  "Invalid export date range. Please provide a valid start and end date.";
+export const EXPORT_DATE_RANGE_LIMIT_MESSAGE =
+  "For performance reasons, exports are limited to 90 days of data at a time. Please narrow your date range.";
 
 export const EXPORT_HEADERS = [
   "Claim ID",
@@ -197,7 +210,8 @@ function deriveWorkflowStatuses(input: { status: DbClaimStatus; financeActionAt:
         financeStatus: "Approved",
         billStatus: "Paid",
       };
-    case DB_CLAIM_STATUSES[4]:
+    case DB_REJECTED_STATUSES[0]:
+    case DB_REJECTED_STATUSES[1]:
       return {
         hodStatus: input.financeActionAt ? "Approved" : "Rejected",
         financeStatus: input.financeActionAt ? "Rejected" : "N/A",
@@ -256,6 +270,46 @@ function toPettyCashRequestMonth(month: number | null, year: number | null): str
   return `${year}-${String(month).padStart(2, "0")}`;
 }
 
+function parseIsoDateOnly(value: string): Date | null {
+  const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+
+  if (!isoDatePattern.test(value)) {
+    return null;
+  }
+
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function validateExportDateRange(filters?: GetMyClaimsFilters): string | null {
+  const startDate = filters?.dateFrom ?? filters?.fromDate;
+  const endDate = filters?.dateTo ?? filters?.toDate;
+
+  if (!startDate || !endDate) {
+    return EXPORT_DATE_RANGE_REQUIRED_MESSAGE;
+  }
+
+  const parsedStartDate = parseIsoDateOnly(startDate);
+  const parsedEndDate = parseIsoDateOnly(endDate);
+
+  if (!parsedStartDate || !parsedEndDate || parsedEndDate < parsedStartDate) {
+    return EXPORT_DATE_RANGE_INVALID_MESSAGE;
+  }
+
+  const daySpan =
+    Math.floor((parsedEndDate.getTime() - parsedStartDate.getTime()) / MILLISECONDS_PER_DAY) + 1;
+
+  if (daySpan > EXPORT_MAX_RANGE_DAYS) {
+    return EXPORT_DATE_RANGE_LIMIT_MESSAGE;
+  }
+
+  return null;
+}
+
+export function getExportDateRangeValidationMessage(filters?: GetMyClaimsFilters): string | null {
+  return validateExportDateRange(filters);
+}
+
 export class ExportClaimsService {
   private readonly repository: ExportClaimsRepository;
   private readonly logger: ClaimDomainLogger;
@@ -266,6 +320,17 @@ export class ExportClaimsService {
   }
 
   async execute(input: ExportClaimsServiceInput): Promise<ExportClaimsServiceResult> {
+    const exportDateRangeValidationMessage = validateExportDateRange(input.filters);
+
+    if (exportDateRangeValidationMessage) {
+      return {
+        rows: [],
+        fileName: `claims_export_${resolveFilenameDateTag()}.xlsx`,
+        rowCount: 0,
+        errorMessage: exportDateRangeValidationMessage,
+      };
+    }
+
     // ── Admin scope: verify the user is an admin ──
     if (input.scope === "admin") {
       const adminResult = await this.repository.isUserAdmin(input.userId);
