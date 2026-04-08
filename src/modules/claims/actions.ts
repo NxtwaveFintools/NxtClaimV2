@@ -833,6 +833,7 @@ export async function submitClaimAction(input: unknown): Promise<{
 
 function buildFinanceEditPayload(formData: FormData): unknown {
   const detailType = getFormDataString(formData, "detailType");
+  const detailId = getFormDataString(formData, "detailId");
   const productId = getFormDataNullableString(formData, "productId");
   const locationId = getFormDataNullableString(formData, "locationId");
   const receiptFileEntry = formData.get("receiptFile");
@@ -847,6 +848,7 @@ function buildFinanceEditPayload(formData: FormData): unknown {
   if (detailType === "expense") {
     return {
       detailType,
+      detailId,
       billNo: getFormDataString(formData, "billNo"),
       expenseCategoryId: getFormDataString(formData, "expenseCategoryId"),
       locationId: getFormDataString(formData, "locationId"),
@@ -870,6 +872,7 @@ function buildFinanceEditPayload(formData: FormData): unknown {
 
   return {
     detailType,
+    detailId,
     purpose: getFormDataString(formData, "purpose"),
     requestedAmount: getFormDataNumber(formData, "requestedAmount"),
     expectedUsageDate: getFormDataString(formData, "expectedUsageDate"),
@@ -1054,6 +1057,7 @@ export async function updateClaimByFinanceAction(input: {
   if (parseResult.data.detailType === "expense") {
     financeEditPayload = {
       detailType: "expense",
+      detailId: parseResult.data.detailId,
       billNo: parseResult.data.billNo,
       expenseCategoryId: parseResult.data.expenseCategoryId,
       locationId: parseResult.data.locationId,
@@ -1076,6 +1080,7 @@ export async function updateClaimByFinanceAction(input: {
   } else {
     financeEditPayload = {
       detailType: "advance",
+      detailId: parseResult.data.detailId,
       purpose: parseResult.data.purpose,
       requestedAmount: parseResult.data.requestedAmount,
       expectedUsageDate: parseResult.data.expectedUsageDate,

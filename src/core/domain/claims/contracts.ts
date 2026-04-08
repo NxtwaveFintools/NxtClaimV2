@@ -76,6 +76,7 @@ export type ClaimSubmissionInput = {
 
 export type FinanceExpenseEditPayload = {
   detailType: "expense";
+  detailId: string;
   billNo: string;
   expenseCategoryId: string;
   locationId: string;
@@ -98,6 +99,7 @@ export type FinanceExpenseEditPayload = {
 
 export type FinanceAdvanceEditPayload = {
   detailType: "advance";
+  detailId: string;
   purpose: string;
   requestedAmount: number;
   expectedUsageDate: string;

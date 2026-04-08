@@ -249,6 +249,7 @@ async function FinanceEditClaimSection({ claim }: { claim: ClaimDetailRecord }) 
         paymentModeId: claim.paymentModeId,
         expense: claim.expense
           ? {
+              id: claim.expense.id,
               billNo: claim.expense.billNo,
               expenseCategoryId: claim.expense.expenseCategoryId,
               locationId: claim.expense.locationId,
@@ -269,6 +270,7 @@ async function FinanceEditClaimSection({ claim }: { claim: ClaimDetailRecord }) 
           : null,
         advance: claim.advance
           ? {
+              id: claim.advance.id,
               purpose: claim.advance.purpose,
               requestedAmount: claim.advance.requestedAmount,
               expectedUsageDate: claim.advance.expectedUsageDate,

@@ -200,6 +200,7 @@ type WalletRow = {
 };
 
 type ClaimDetailExpenseRow = {
+  id: string;
   bill_no: string;
   purpose: string | null;
   expense_category_id: string | null;
@@ -226,6 +227,7 @@ type ClaimDetailExpenseRow = {
 };
 
 type ClaimDetailAdvanceRow = {
+  id: string;
   purpose: string;
   requested_amount: number | string | null;
   expected_usage_date: string;
@@ -1680,6 +1682,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
       beneficiaryName: string | null;
       beneficiaryEmail: string | null;
       expense: {
+        id: string;
         billNo: string;
         purpose: string | null;
         expenseCategoryId: string | null;
@@ -1705,6 +1708,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
         bankStatementFilePath: string | null;
       } | null;
       advance: {
+        id: string;
         purpose: string;
         requestedAmount: number | null;
         expectedUsageDate: string;
@@ -1720,7 +1724,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const { data, error } = await client
       .from("claims")
       .select(
-        "id, employee_id, submission_type, detail_type, on_behalf_of_id, on_behalf_email, on_behalf_employee_code, status, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(bill_no, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(purpose, requested_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
+        "id, employee_id, submission_type, detail_type, on_behalf_of_id, on_behalf_email, on_behalf_employee_code, status, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(id, bill_no, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(id, purpose, requested_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
       )
       .eq("id", claimId)
       .eq("is_active", true)
@@ -1779,6 +1783,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
         beneficiaryEmail: beneficiaryEmail ?? null,
         expense: expense
           ? {
+              id: expense.id,
               billNo: expense.bill_no,
               purpose: expense.purpose,
               expenseCategoryId: expense.expense_category_id,
@@ -1806,6 +1811,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
           : null,
         advance: advance
           ? {
+              id: advance.id,
               purpose: advance.purpose,
               requestedAmount: toNumber(advance.requested_amount),
               expectedUsageDate: advance.expected_usage_date,
@@ -2003,6 +2009,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
           bank_statement_file_path: payload.bankStatementFilePath,
           updated_at: new Date().toISOString(),
         })
+        .eq("id", payload.detailId)
         .eq("claim_id", claimId)
         .eq("is_active", true)
         .select("id")
@@ -2028,6 +2035,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
           supporting_document_path: payload.supportingDocumentPath,
           updated_at: new Date().toISOString(),
         })
+        .eq("id", payload.detailId)
         .eq("claim_id", claimId)
         .eq("is_active", true)
         .select("id")

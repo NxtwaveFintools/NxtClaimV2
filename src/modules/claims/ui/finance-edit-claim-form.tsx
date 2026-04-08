@@ -20,6 +20,7 @@ type FinanceEditClaimFormProps = {
     departmentId: string;
     paymentModeId: string;
     expense: {
+      id: string;
       billNo: string;
       expenseCategoryId: string | null;
       locationId: string | null;
@@ -38,6 +39,7 @@ type FinanceEditClaimFormProps = {
       remarks: string | null;
     } | null;
     advance: {
+      id: string;
       purpose: string;
       requestedAmount: number | null;
       expectedUsageDate: string;
@@ -129,6 +131,11 @@ export function FinanceEditClaimForm({
 
       <form onSubmit={handleSubmit} className="mt-4 grid gap-4">
         <input type="hidden" name="detailType" value={claim.detailType} />
+        <input
+          type="hidden"
+          name="detailId"
+          value={claim.detailType === "expense" ? (expense?.id ?? "") : (advance?.id ?? "")}
+        />
 
         <fieldset disabled={isSubmitting} className="contents">
           <div className="grid gap-3 md:grid-cols-2">
