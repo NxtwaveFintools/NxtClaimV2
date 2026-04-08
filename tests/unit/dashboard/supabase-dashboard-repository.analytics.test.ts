@@ -1,4 +1,7 @@
-import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
+import {
+  DB_CLAIM_STATUSES,
+  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
+} from "@/core/constants/statuses";
 import { SupabaseDashboardRepository } from "@/modules/dashboard/repositories/SupabaseDashboardRepository";
 
 const mockGetServiceRoleSupabaseClient = jest.fn();
@@ -157,6 +160,9 @@ describe("SupabaseDashboardRepository analytics methods", () => {
 
     expect(result.errorMessage).toBeNull();
     expect(analyticsBuilder.or).toHaveBeenCalledTimes(1);
+    expect(analyticsBuilder.or).toHaveBeenCalledWith(
+      expect.stringContaining(DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS),
+    );
     expect(analyticsBuilder.eq).toHaveBeenCalledWith("department_id", "dept-1");
     expect(analyticsBuilder.eq).toHaveBeenCalledWith("expense_category_id", "cat-1");
     expect(analyticsBuilder.eq).toHaveBeenCalledWith("product_id", "prod-1");

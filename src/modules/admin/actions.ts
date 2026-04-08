@@ -5,12 +5,13 @@ import { z } from "zod";
 import { logger } from "@/core/infra/logging/logger";
 import { ROUTES } from "@/core/config/route-registry";
 import { USER_ROLES } from "@/core/constants/auth";
+import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
 import { AdminSoftDeleteClaimService } from "@/core/domain/admin/AdminSoftDeleteClaimService";
 import { ManageMasterDataService } from "@/core/domain/admin/ManageMasterDataService";
 import { ManageActorsService } from "@/core/domain/admin/ManageActorsService";
 import { ManageAdminsService } from "@/core/domain/admin/ManageAdminsService";
 import { ManageDepartmentViewersService } from "@/core/domain/admin/ManageDepartmentViewersService";
-import type { MasterDataTableName } from "@/core/domain/admin/contracts";
+import type { AdminClaimOverrideSummary, MasterDataTableName } from "@/core/domain/admin/contracts";
 import { isAdmin } from "@/modules/admin/server/is-admin";
 import { SupabaseAdminRepository } from "@/modules/admin/repositories/SupabaseAdminRepository";
 import { SupabaseServerAuthRepository } from "@/modules/auth/repositories/supabase-server-auth.repository";
@@ -56,6 +57,9 @@ const userRoleSchema = z.enum([
   USER_ROLES.founder,
   USER_ROLES.finance,
 ]);
+
+const claimStatusSchema = z.enum(DB_CLAIM_STATUSES);
+const claimOverrideReasonSchema = z.string().trim().min(5, "Reason must be at least 5 characters.");
 
 // ----------------------------------------------------------------
 // Admin guard helper
@@ -108,6 +112,75 @@ export async function softDeleteClaimAction(
 
   revalidatePath(ROUTES.claims.myClaims);
   revalidatePath(ROUTES.claims.detail(parsed.data));
+
+  return { ok: true };
+}
+
+export async function adminGetClaimOverrideSummaryAction(
+  claimReference: string,
+): Promise<{ ok: boolean; message?: string; data?: AdminClaimOverrideSummary }> {
+  const guard = await requireAdmin();
+  if ("forbidden" in guard) {
+    return { ok: false, message: "Forbidden: admin access required." };
+  }
+
+  const parsed = idSchema.safeParse(claimReference);
+  if (!parsed.success) {
+    return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid claim ID." };
+  }
+
+  const result = await adminRepository.getClaimOverrideSummary(parsed.data);
+
+  if (result.errorMessage) {
+    return { ok: false, message: result.errorMessage };
+  }
+
+  if (!result.data) {
+    return { ok: false, message: "Claim not found." };
+  }
+
+  return { ok: true, data: result.data };
+}
+
+export async function adminForceUpdateClaimStatusAction(
+  claimId: string,
+  newStatus: string,
+  reason: string,
+): Promise<{ ok: boolean; message?: string }> {
+  const guard = await requireAdmin();
+  if ("forbidden" in guard) {
+    return { ok: false, message: "Forbidden: admin access required." };
+  }
+
+  const claimIdResult = idSchema.safeParse(claimId);
+  if (!claimIdResult.success) {
+    return { ok: false, message: claimIdResult.error.issues[0]?.message ?? "Invalid claim ID." };
+  }
+
+  const statusResult = claimStatusSchema.safeParse(newStatus);
+  if (!statusResult.success) {
+    return { ok: false, message: "Invalid claim status." };
+  }
+
+  const reasonResult = claimOverrideReasonSchema.safeParse(reason);
+  if (!reasonResult.success) {
+    return { ok: false, message: reasonResult.error.issues[0]?.message ?? "Invalid reason." };
+  }
+
+  const result = await adminRepository.forceUpdateClaimStatus({
+    claimId: claimIdResult.data,
+    actorId: guard.userId,
+    newStatus: statusResult.data,
+    reason: reasonResult.data,
+  });
+
+  if (!result.success) {
+    return { ok: false, message: result.errorMessage ?? "Failed to update claim status." };
+  }
+
+  revalidatePath(ROUTES.admin.settings);
+  revalidatePath(ROUTES.claims.myClaims);
+  revalidatePath(ROUTES.claims.detail(claimIdResult.data));
 
   return { ok: true };
 }

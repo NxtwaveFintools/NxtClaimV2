@@ -1,6 +1,16 @@
 import { getServiceRoleSupabaseClient } from "@/core/infra/supabase/server-client";
+import {
+  DB_FINANCE_APPROVED_PAYMENT_UNDER_PROCESS_STATUS,
+  DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
+  DB_PAYMENT_DONE_CLOSED_STATUS,
+  DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
+  DB_REJECTED_RESUBMISSION_NOT_ALLOWED_STATUS,
+  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
+  type DbClaimStatus,
+} from "@/core/constants/statuses";
 import type {
   AdminClaimRecord,
+  AdminClaimOverrideSummary,
   AdminClaimsFilters,
   AdminCursorPaginatedResult,
   AdminCursorPaginationInput,
@@ -13,6 +23,7 @@ import type {
   MasterDataItem,
   MasterDataTableName,
 } from "@/core/domain/admin/contracts";
+import type { ClaimAuditActionType } from "@/core/domain/claims/contracts";
 
 // ----------------------------------------------------------------
 // Shared normalizers
@@ -47,6 +58,159 @@ function toStartOfDayIso(date: string): string {
 
 function toEndOfDayIso(date: string): string {
   return `${date}T23:59:59.999Z`;
+}
+
+const CLAIM_OVERRIDE_REJECTED_STATUSES: readonly DbClaimStatus[] = [
+  DB_REJECTED_RESUBMISSION_NOT_ALLOWED_STATUS,
+  DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
+];
+
+const CLAIM_OVERRIDE_AUDIT_ACTIONS: Readonly<Record<DbClaimStatus, ClaimAuditActionType>> = {
+  [DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS]: "SUBMITTED",
+  [DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS]: "L1_APPROVED",
+  [DB_FINANCE_APPROVED_PAYMENT_UNDER_PROCESS_STATUS]: "L2_APPROVED",
+  [DB_PAYMENT_DONE_CLOSED_STATUS]: "L2_MARK_PAID",
+  [DB_REJECTED_RESUBMISSION_NOT_ALLOWED_STATUS]: "L2_REJECTED",
+  [DB_REJECTED_RESUBMISSION_ALLOWED_STATUS]: "L2_REJECTED",
+};
+
+function buildClaimReferenceCandidates(claimReference: string): string[] {
+  const trimmed = claimReference.trim();
+  const upperCased = trimmed.toUpperCase();
+
+  if (trimmed === upperCased) {
+    return [trimmed];
+  }
+
+  return [trimmed, upperCased];
+}
+
+function isRejectedStatus(status: DbClaimStatus): boolean {
+  return CLAIM_OVERRIDE_REJECTED_STATUSES.some((candidate) => candidate === status);
+}
+
+function resolveOverrideAuditActionType(input: {
+  targetStatus: DbClaimStatus;
+  assignedL2ApproverId: string | null;
+}): ClaimAuditActionType {
+  if (isRejectedStatus(input.targetStatus) && !input.assignedL2ApproverId) {
+    return "L1_REJECTED";
+  }
+
+  return CLAIM_OVERRIDE_AUDIT_ACTIONS[input.targetStatus];
+}
+
+function resolveOverrideClaimUpdate(input: {
+  currentClaim: ClaimOverrideTransitionRow;
+  targetStatus: DbClaimStatus;
+  reason: string;
+  timestampIso: string;
+}): {
+  status: DbClaimStatus;
+  hod_action_at: string | null;
+  finance_action_at: string | null;
+  rejection_reason: string | null;
+  is_resubmission_allowed: boolean;
+} {
+  const { currentClaim, targetStatus, reason, timestampIso } = input;
+  const hodActionAtFromCurrent = currentClaim.hod_action_at;
+  const financeActionAtFromCurrent = currentClaim.finance_action_at;
+  const isTargetRejected = isRejectedStatus(targetStatus);
+  const isL2Assigned = Boolean(currentClaim.assigned_l2_approver_id);
+
+  if (targetStatus === DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS) {
+    return {
+      status: targetStatus,
+      hod_action_at: null,
+      finance_action_at: null,
+      rejection_reason: null,
+      is_resubmission_allowed: false,
+    };
+  }
+
+  if (targetStatus === DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS) {
+    return {
+      status: targetStatus,
+      hod_action_at: timestampIso,
+      finance_action_at: null,
+      rejection_reason: null,
+      is_resubmission_allowed: false,
+    };
+  }
+
+  if (targetStatus === DB_FINANCE_APPROVED_PAYMENT_UNDER_PROCESS_STATUS) {
+    return {
+      status: targetStatus,
+      hod_action_at: hodActionAtFromCurrent ?? timestampIso,
+      finance_action_at: timestampIso,
+      rejection_reason: null,
+      is_resubmission_allowed: false,
+    };
+  }
+
+  if (targetStatus === DB_PAYMENT_DONE_CLOSED_STATUS) {
+    return {
+      status: targetStatus,
+      hod_action_at: hodActionAtFromCurrent ?? timestampIso,
+      finance_action_at: financeActionAtFromCurrent ?? timestampIso,
+      rejection_reason: null,
+      is_resubmission_allowed: false,
+    };
+  }
+
+  if (isTargetRejected) {
+    return {
+      status: targetStatus,
+      hod_action_at: isL2Assigned ? (hodActionAtFromCurrent ?? timestampIso) : timestampIso,
+      finance_action_at: isL2Assigned ? timestampIso : null,
+      rejection_reason: reason,
+      is_resubmission_allowed: targetStatus === DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
+    };
+  }
+
+  return {
+    status: targetStatus,
+    hod_action_at: hodActionAtFromCurrent,
+    finance_action_at: financeActionAtFromCurrent,
+    rejection_reason: null,
+    is_resubmission_allowed: false,
+  };
+}
+
+function pickClaimAmount(input: {
+  expenseDetails: ClaimOverrideExpenseRow | ClaimOverrideExpenseRow[] | null;
+  advanceDetails: ClaimOverrideAdvanceRow | ClaimOverrideAdvanceRow[] | null;
+}): number {
+  const expenseRows = input.expenseDetails
+    ? Array.isArray(input.expenseDetails)
+      ? input.expenseDetails
+      : [input.expenseDetails]
+    : [];
+  const advanceRows = input.advanceDetails
+    ? Array.isArray(input.advanceDetails)
+      ? input.advanceDetails
+      : [input.advanceDetails]
+    : [];
+
+  const activeExpense = expenseRows.find((row) => row.is_active === true);
+  if (activeExpense) {
+    return normalizeAmount(activeExpense.total_amount);
+  }
+
+  const activeAdvance = advanceRows.find((row) => row.is_active === true);
+  if (activeAdvance) {
+    return normalizeAmount(activeAdvance.requested_amount);
+  }
+
+  if (expenseRows[0]) {
+    return normalizeAmount(expenseRows[0].total_amount);
+  }
+
+  if (advanceRows[0]) {
+    return normalizeAmount(advanceRows[0].requested_amount);
+  }
+
+  return 0;
 }
 
 // ----------------------------------------------------------------
@@ -125,6 +289,41 @@ type MasterDataRow = {
   id: string;
   name: string;
   is_active: boolean;
+};
+
+type ClaimOverrideExpenseRow = {
+  total_amount: number | string | null;
+  is_active: boolean | null;
+};
+
+type ClaimOverrideAdvanceRow = {
+  requested_amount: number | string | null;
+  is_active: boolean | null;
+};
+
+type ClaimOverrideRow = {
+  id: string;
+  status: DbClaimStatus;
+  is_active: boolean;
+  assigned_l2_approver_id: string | null;
+  hod_action_at: string | null;
+  finance_action_at: string | null;
+  rejection_reason: string | null;
+  is_resubmission_allowed: boolean;
+  submitter_user: UserNameRow | UserNameRow[] | null;
+  master_departments: { name: string | null } | { name: string | null }[] | null;
+  expense_details: ClaimOverrideExpenseRow | ClaimOverrideExpenseRow[] | null;
+  advance_details: ClaimOverrideAdvanceRow | ClaimOverrideAdvanceRow[] | null;
+};
+
+type ClaimOverrideTransitionRow = {
+  id: string;
+  status: DbClaimStatus;
+  assigned_l2_approver_id: string | null;
+  hod_action_at: string | null;
+  finance_action_at: string | null;
+  rejection_reason: string | null;
+  is_resubmission_allowed: boolean;
 };
 
 // ----------------------------------------------------------------
@@ -305,6 +504,138 @@ export class SupabaseAdminRepository implements AdminRepository {
         hasNextPage,
       },
       errorMessage: null,
+    };
+  }
+
+  async getClaimOverrideSummary(claimReference: string): Promise<{
+    data: AdminClaimOverrideSummary | null;
+    errorMessage: string | null;
+  }> {
+    const referenceCandidates = buildClaimReferenceCandidates(claimReference);
+
+    for (const candidate of referenceCandidates) {
+      const { data, error } = await this.client
+        .from("claims")
+        .select(
+          "id, status, is_active, assigned_l2_approver_id, hod_action_at, finance_action_at, rejection_reason, is_resubmission_allowed, submitter_user:users!claims_submitted_by_fkey(full_name, email), master_departments(name), expense_details(total_amount, is_active), advance_details(requested_amount, is_active)",
+        )
+        .eq("id", candidate)
+        .maybeSingle();
+
+      if (error) {
+        return { data: null, errorMessage: error.message };
+      }
+
+      if (!data) {
+        continue;
+      }
+
+      const row = data as ClaimOverrideRow;
+      const submitter = normalizeRelation(row.submitter_user);
+      const department = normalizeRelation(row.master_departments);
+
+      return {
+        data: {
+          claimId: row.id,
+          submitterName: submitter?.full_name ?? null,
+          submitterEmail: submitter?.email ?? null,
+          status: row.status,
+          amount: pickClaimAmount({
+            expenseDetails: row.expense_details,
+            advanceDetails: row.advance_details,
+          }),
+          departmentName: department?.name ?? null,
+          isActive: row.is_active,
+        },
+        errorMessage: null,
+      };
+    }
+
+    return { data: null, errorMessage: null };
+  }
+
+  async forceUpdateClaimStatus(input: {
+    claimId: string;
+    actorId: string;
+    newStatus: DbClaimStatus;
+    reason: string;
+  }): Promise<{ success: boolean; errorMessage: string | null }> {
+    const reason = input.reason.trim();
+
+    const { data: currentClaimData, error: fetchError } = await this.client
+      .from("claims")
+      .select(
+        "id, status, assigned_l2_approver_id, hod_action_at, finance_action_at, rejection_reason, is_resubmission_allowed",
+      )
+      .eq("id", input.claimId)
+      .maybeSingle();
+
+    if (fetchError) {
+      return { success: false, errorMessage: fetchError.message };
+    }
+
+    if (!currentClaimData) {
+      return { success: false, errorMessage: "Claim not found." };
+    }
+
+    const currentClaim = currentClaimData as ClaimOverrideTransitionRow;
+    const timestampIso = new Date().toISOString();
+    const auditActionType = resolveOverrideAuditActionType({
+      targetStatus: input.newStatus,
+      assignedL2ApproverId: currentClaim.assigned_l2_approver_id,
+    });
+
+    const updatePayload = resolveOverrideClaimUpdate({
+      currentClaim,
+      targetStatus: input.newStatus,
+      reason,
+      timestampIso,
+    });
+
+    const { error: updateError } = await this.client
+      .from("claims")
+      .update(updatePayload)
+      .eq("id", input.claimId);
+
+    if (updateError) {
+      return { success: false, errorMessage: updateError.message };
+    }
+
+    const overrideRemarks = `Admin override: ${currentClaim.status} -> ${input.newStatus}. Reason: ${reason}`;
+
+    const { error: auditError } = await this.client.from("claim_audit_logs").insert({
+      claim_id: input.claimId,
+      actor_id: input.actorId,
+      action_type: auditActionType,
+      assigned_to_id: null,
+      remarks: overrideRemarks,
+    });
+
+    if (!auditError) {
+      return { success: true, errorMessage: null };
+    }
+
+    const { error: rollbackError } = await this.client
+      .from("claims")
+      .update({
+        status: currentClaim.status,
+        hod_action_at: currentClaim.hod_action_at,
+        finance_action_at: currentClaim.finance_action_at,
+        rejection_reason: currentClaim.rejection_reason,
+        is_resubmission_allowed: currentClaim.is_resubmission_allowed,
+      })
+      .eq("id", input.claimId);
+
+    if (rollbackError) {
+      return {
+        success: false,
+        errorMessage: `Failed to write audit log (${auditError.message}). Rollback also failed (${rollbackError.message}).`,
+      };
+    }
+
+    return {
+      success: false,
+      errorMessage: `Failed to write audit log: ${auditError.message}. Status update was reverted.`,
     };
   }
 

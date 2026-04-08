@@ -26,6 +26,7 @@ import { UsersManagement } from "@/modules/admin/ui/settings/users-management";
 import { AdminsManagement } from "@/modules/admin/ui/settings/admins-management";
 import { DepartmentViewersManagement } from "@/modules/admin/ui/settings/department-viewers-management";
 import { PolicyManagement } from "@/modules/admin/ui/settings/policy-management";
+import { AdminClaimOverride } from "@/modules/admin/ui/settings/admin-claim-override";
 import { BackButton } from "@/components/ui/back-button";
 import type { MasterDataTableName } from "@/core/domain/admin/contracts";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
@@ -75,7 +76,10 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
   },
   {
     groupLabel: "Governance",
-    items: [{ key: "policy", label: "Company Policy" }],
+    items: [
+      { key: "policy", label: "Company Policy" },
+      { key: "claim-override", label: "Claim Override" },
+    ],
   },
 ];
 
@@ -167,6 +171,13 @@ const TAB_META: Record<
       "Publish policy revisions and enforce mandatory acceptance across all users before dashboard access.",
     spotlight: "Every publish forces re-acceptance and preserves historical acceptance records.",
     icon: FileText,
+  },
+  "claim-override": {
+    eyebrow: "Governance",
+    description:
+      "Search a claim and force status changes in exceptional cases while preserving audit timeline records.",
+    spotlight: "Use only for controlled overrides that require explicit admin accountability.",
+    icon: ShieldCheck,
   },
 };
 
@@ -440,6 +451,8 @@ export default async function AdminSettingsPage({
               {activeTab === "policy" && policyGateStateResult ? (
                 <PolicyManagement initialState={policyGateStateResult} />
               ) : null}
+
+              {activeTab === "claim-override" ? <AdminClaimOverride /> : null}
             </div>
           </section>
         </div>

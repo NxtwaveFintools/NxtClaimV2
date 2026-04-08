@@ -14,6 +14,8 @@ type FinanceEditClaimFormProps = {
     employeeName: string;
     employeeEmail: string | null;
     submissionType: "Self" | "On Behalf";
+    onBehalfEmail: string | null;
+    onBehalfEmployeeCode: string | null;
     detailType: "expense" | "advance";
     departmentId: string;
     paymentModeId: string;
@@ -49,6 +51,7 @@ type FinanceEditClaimFormProps = {
   expenseCategories: DropdownOption[];
   products: DropdownOption[];
   locations: DropdownOption[];
+  isEditMode?: boolean;
   action: (formData: FormData) => Promise<void>;
 };
 
@@ -67,10 +70,14 @@ export function FinanceEditClaimForm({
   expenseCategories,
   products,
   locations,
+  isEditMode = true,
   action,
 }: FinanceEditClaimFormProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isRoutingFieldLocked = isEditMode;
+  const lockedFieldClassName =
+    "rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400";
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -84,10 +91,9 @@ export function FinanceEditClaimForm({
 
     try {
       await toast.promise(action(formData), {
-        loading: "Saving finance edits...",
-        success: "Finance edits saved.",
-        error: (error) =>
-          error instanceof Error ? error.message : "Unable to save finance edits.",
+        loading: "Saving claim edits...",
+        success: "Claim edits saved.",
+        error: (error) => (error instanceof Error ? error.message : "Unable to save claim edits."),
       });
       setIsOpen(false);
     } finally {
@@ -104,7 +110,7 @@ export function FinanceEditClaimForm({
         }}
         className="inline-flex items-center rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition-all duration-200 hover:bg-indigo-100 active:scale-[0.98] dark:border-indigo-600/60 dark:bg-indigo-600/15 dark:text-indigo-200 dark:hover:bg-indigo-600/25"
       >
-        Edit Details
+        Edit Claim
       </button>
     );
   }
@@ -115,10 +121,10 @@ export function FinanceEditClaimForm({
   return (
     <section className="mt-6 rounded-xl border border-zinc-200 bg-white p-4 dark:border-indigo-700/40 dark:bg-zinc-800">
       <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-indigo-600 dark:text-indigo-300">
-        Finance Edit Claim
+        Edit Claim
       </h2>
       <p className="mt-2 text-xs text-zinc-600 dark:text-indigo-100/80">
-        Finance can correct claim and detail values before final processing.
+        Routing context is locked during edits. Only detail fields can be updated.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-4 grid gap-4">
@@ -157,10 +163,35 @@ export function FinanceEditClaimForm({
               Submission Type (Read-only)
               <input
                 value={claim.submissionType}
-                disabled
-                className="rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
+                disabled={isEditMode}
+                readOnly={isEditMode}
+                className={lockedFieldClassName}
               />
             </label>
+
+            {claim.submissionType === "On Behalf" ? (
+              <>
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  On Behalf Email (Read-only)
+                  <input
+                    value={claim.onBehalfEmail ?? "N/A"}
+                    disabled={isEditMode}
+                    readOnly={isEditMode}
+                    className={lockedFieldClassName}
+                  />
+                </label>
+
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  On Behalf Employee ID (Read-only)
+                  <input
+                    value={claim.onBehalfEmployeeCode ?? "N/A"}
+                    disabled={isEditMode}
+                    readOnly={isEditMode}
+                    className={lockedFieldClassName}
+                  />
+                </label>
+              </>
+            ) : null}
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
@@ -170,7 +201,12 @@ export function FinanceEditClaimForm({
                 name="departmentId"
                 required
                 defaultValue={claim.departmentId}
-                className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                disabled={isRoutingFieldLocked}
+                className={
+                  isRoutingFieldLocked
+                    ? lockedFieldClassName
+                    : "rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                }
               >
                 {departments.map((department) => (
                   <option key={department.id} value={department.id}>
@@ -186,7 +222,12 @@ export function FinanceEditClaimForm({
                 name="paymentModeId"
                 required
                 defaultValue={claim.paymentModeId}
-                className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                disabled={isRoutingFieldLocked}
+                className={
+                  isRoutingFieldLocked
+                    ? lockedFieldClassName
+                    : "rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                }
               >
                 {paymentModes.map((paymentMode) => (
                   <option key={paymentMode.id} value={paymentMode.id}>
@@ -530,7 +571,7 @@ export function FinanceEditClaimForm({
                   Processing...
                 </>
               ) : (
-                "Save Finance Edits"
+                "Save Claim Edits"
               )}
             </button>
             <button

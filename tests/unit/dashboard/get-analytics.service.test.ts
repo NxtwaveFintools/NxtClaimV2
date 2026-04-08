@@ -156,6 +156,8 @@ describe("GetAnalyticsService", () => {
       totalAmount: 3500,
       approvedAmount: 2000,
       pendingAmount: 1000,
+      hodPendingAmount: 1000,
+      hodPendingCount: 1,
       rejectedAmount: 500,
     });
     expect(result.data?.trends).toEqual({
@@ -170,6 +172,11 @@ describe("GetAnalyticsService", () => {
         percentageChange: 100,
       },
       pending: {
+        currentAmount: 1000,
+        previousAmount: 500,
+        percentageChange: 100,
+      },
+      hodPending: {
         currentAmount: 1000,
         previousAmount: 500,
         percentageChange: 100,

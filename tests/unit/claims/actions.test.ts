@@ -169,6 +169,28 @@ const validExpensePayload = {
   },
 };
 
+function createValidExpenseEditFormData(): FormData {
+  const formData = new FormData();
+  formData.append("detailType", "expense");
+  formData.append("billNo", "BILL-NEW-1");
+  formData.append("expenseCategoryId", "66666666-6666-4666-8666-666666666666");
+  formData.append("locationId", "88888888-8888-4888-8888-888888888888");
+  formData.append("transactionDate", "2026-03-22");
+  formData.append("isGstApplicable", "true");
+  formData.append("gstNumber", "GSTIN-999");
+  formData.append("vendorName", "Vendor X");
+  formData.append("basicAmount", "100");
+  formData.append("cgstAmount", "9");
+  formData.append("sgstAmount", "9");
+  formData.append("igstAmount", "0");
+  formData.append("totalAmount", "118");
+  formData.append("purpose", "Updated purpose");
+  formData.append("productId", "77777777-7777-4777-8777-777777777777");
+  formData.append("peopleInvolved", "Alice");
+  formData.append("remarks", "Updated remarks");
+  return formData;
+}
+
 describe("claims actions", () => {
   beforeEach(() => {
     jest.resetModules();
@@ -264,7 +286,9 @@ describe("claims actions", () => {
       data: {
         id: "claim-1",
         detailType: "expense",
+        status: "HOD approved - Awaiting finance approval",
         submittedBy: "11111111-1111-4111-8111-111111111111",
+        assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
         expenseReceiptFilePath: "expenses/old_receipt.pdf",
         expenseBankStatementFilePath: "expenses/old_bank.pdf",
         advanceSupportingDocumentPath: null,
@@ -584,26 +608,7 @@ describe("claims actions", () => {
   test("updateClaimByFinanceAction forwards validated expense payload including GST and bank statement fields", async () => {
     const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
 
-    const formData = new FormData();
-    formData.append("detailType", "expense");
-    formData.append("departmentId", departmentId);
-    formData.append("paymentModeId", paymentModeId);
-    formData.append("billNo", "BILL-NEW-1");
-    formData.append("expenseCategoryId", "66666666-6666-4666-8666-666666666666");
-    formData.append("locationId", "88888888-8888-4888-8888-888888888888");
-    formData.append("transactionDate", "2026-03-22");
-    formData.append("isGstApplicable", "true");
-    formData.append("gstNumber", "GSTIN-999");
-    formData.append("vendorName", "Vendor X");
-    formData.append("basicAmount", "100");
-    formData.append("cgstAmount", "9");
-    formData.append("sgstAmount", "9");
-    formData.append("igstAmount", "0");
-    formData.append("totalAmount", "118");
-    formData.append("purpose", "Updated purpose");
-    formData.append("productId", "77777777-7777-4777-8777-777777777777");
-    formData.append("peopleInvolved", "Alice");
-    formData.append("remarks", "Updated remarks");
+    const formData = createValidExpenseEditFormData();
 
     const result = await updateClaimByFinanceAction({
       claimId: "11111111-1111-4111-8111-111111111111",
@@ -621,9 +626,12 @@ describe("claims actions", () => {
         bankStatementFilePath: "expenses/old_bank.pdf",
       }),
     });
+    const forwardedPayload = mockUpdateByFinanceExecute.mock.calls[0]?.[0]?.payload;
+    expect(forwardedPayload).not.toHaveProperty("departmentId");
+    expect(forwardedPayload).not.toHaveProperty("paymentModeId");
   });
 
-  test("updateClaimByFinanceAction blocks non-finance users", async () => {
+  test("updateClaimByFinanceAction blocks non-finance users at finance stage", async () => {
     mockGetApprovalViewerContext.mockResolvedValueOnce({
       data: { isHod: true, isFounder: false, isFinance: false },
       errorMessage: null,
@@ -632,12 +640,59 @@ describe("claims actions", () => {
 
     const result = await updateClaimByFinanceAction({
       claimId: "11111111-1111-4111-8111-111111111111",
-      formData: new FormData(),
+      formData: createValidExpenseEditFormData(),
     });
 
     expect(result).toEqual({
       ok: false,
-      message: "Only Finance users can edit claim details.",
+      message: "You are not authorized to edit this claim.",
+    });
+    expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
+  });
+
+  test("updateClaimByFinanceAction allows submitter in pre-HOD stage", async () => {
+    mockGetApprovalViewerContext.mockResolvedValueOnce({
+      data: { isHod: false, isFounder: false, isFinance: false },
+      errorMessage: null,
+    });
+    mockGetClaimForFinanceEdit.mockResolvedValueOnce({
+      data: {
+        id: "claim-1",
+        detailType: "expense",
+        status: "Submitted - Awaiting HOD approval",
+        submittedBy: "11111111-1111-4111-8111-111111111111",
+        assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
+        expenseReceiptFilePath: "expenses/old_receipt.pdf",
+        expenseBankStatementFilePath: "expenses/old_bank.pdf",
+        advanceSupportingDocumentPath: null,
+      },
+      errorMessage: null,
+    });
+
+    const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
+
+    const result = await updateClaimByFinanceAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData: createValidExpenseEditFormData(),
+    });
+
+    expect(result).toEqual({ ok: true, message: "Claim details updated." });
+    expect(mockUpdateByFinanceExecute).toHaveBeenCalled();
+  });
+
+  test("updateClaimByFinanceAction rejects routing field mutation attempts", async () => {
+    const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
+    const formData = createValidExpenseEditFormData();
+    formData.append("departmentId", departmentId);
+
+    const result = await updateClaimByFinanceAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Routing context fields cannot be edited for an existing claim.",
     });
     expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
   });

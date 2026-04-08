@@ -41,6 +41,8 @@ const PAGINATED_USERS: AdminCursorPaginatedResult<AdminUserRecord> = {
 function createRepository(overrides?: Partial<AdminRepository>): AdminRepository {
   const baseRepository: AdminRepository = {
     getAllClaims: jest.fn(),
+    getClaimOverrideSummary: jest.fn(),
+    forceUpdateClaimStatus: jest.fn(),
     softDeleteClaim: jest.fn(),
     getMasterDataItems: jest.fn(),
     createMasterDataItem: jest.fn(),

@@ -1,4 +1,10 @@
 import {
+  DB_FINANCE_ACTIONABLE_STATUSES,
+  DB_FINANCE_ANALYTICS_PIPELINE_STATUSES,
+  DB_FINANCE_EXCLUDED_QUEUE_AND_HISTORY_STATUSES,
+  DB_FINANCE_NON_REJECTED_VISIBLE_STATUSES,
+  DB_FINANCE_REJECTED_VISIBLE_STATUSES,
+  DB_FINANCE_VISIBLE_STATUSES,
   mapCanonicalStatusToDbStatuses,
   mapDbClaimStatusToCanonical,
   type ClaimStatus,
@@ -43,5 +49,39 @@ describe("claim statuses mapping", () => {
   test("keeps default fallbacks unreachable but safe", () => {
     expect(mapDbClaimStatusToCanonical("unexpected" as DbClaimStatus)).toBe("Pending");
     expect(mapCanonicalStatusToDbStatuses("unexpected" as ClaimStatus)).toEqual([]);
+  });
+
+  test("defines finance analytics and queue visibility groups with strict exclusions", () => {
+    expect(DB_FINANCE_ANALYTICS_PIPELINE_STATUSES).toEqual([
+      "Submitted - Awaiting HOD approval",
+      "HOD approved - Awaiting finance approval",
+      "Finance Approved - Payment under process",
+      "Payment Done - Closed",
+    ]);
+
+    expect(DB_FINANCE_NON_REJECTED_VISIBLE_STATUSES).toEqual([
+      "HOD approved - Awaiting finance approval",
+      "Finance Approved - Payment under process",
+      "Payment Done - Closed",
+    ]);
+
+    expect(DB_FINANCE_REJECTED_VISIBLE_STATUSES).toEqual(["Rejected - Resubmission Not Allowed"]);
+
+    expect(DB_FINANCE_VISIBLE_STATUSES).toEqual([
+      "HOD approved - Awaiting finance approval",
+      "Finance Approved - Payment under process",
+      "Payment Done - Closed",
+      "Rejected - Resubmission Not Allowed",
+    ]);
+
+    expect(DB_FINANCE_ACTIONABLE_STATUSES).toEqual([
+      "HOD approved - Awaiting finance approval",
+      "Finance Approved - Payment under process",
+    ]);
+
+    expect(DB_FINANCE_EXCLUDED_QUEUE_AND_HISTORY_STATUSES).toEqual([
+      "Submitted - Awaiting HOD approval",
+      "Rejected - Resubmission Allowed",
+    ]);
   });
 });

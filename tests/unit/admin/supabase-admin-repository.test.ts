@@ -266,6 +266,128 @@ describe("SupabaseAdminRepository", () => {
     expect(result.errorMessage).toContain("audit log failed");
   });
 
+  test("getClaimOverrideSummary returns mapped claim summary", async () => {
+    const claimChain = createQueryChain({
+      data: {
+        id: "CLAIM-EMP1-20260408-0001",
+        status: "Submitted - Awaiting HOD approval",
+        is_active: true,
+        assigned_l2_approver_id: null,
+        hod_action_at: null,
+        finance_action_at: null,
+        rejection_reason: null,
+        is_resubmission_allowed: false,
+        submitter_user: { full_name: "Alex", email: "alex@nxtwave.co.in" },
+        master_departments: { name: "Engineering" },
+        expense_details: { total_amount: "245.60", is_active: true },
+        advance_details: null,
+      },
+      error: null,
+    });
+
+    mockFrom.mockReturnValue(claimChain);
+
+    const repository = new SupabaseAdminRepository();
+    const result = await repository.getClaimOverrideSummary("CLAIM-EMP1-20260408-0001");
+
+    expect(result).toEqual({
+      data: {
+        claimId: "CLAIM-EMP1-20260408-0001",
+        submitterName: "Alex",
+        submitterEmail: "alex@nxtwave.co.in",
+        status: "Submitted - Awaiting HOD approval",
+        amount: 245.6,
+        departmentName: "Engineering",
+        isActive: true,
+      },
+      errorMessage: null,
+    });
+  });
+
+  test("forceUpdateClaimStatus updates status and writes audit log", async () => {
+    const fetchChain = createQueryChain({
+      data: {
+        id: "claim-1",
+        status: "HOD approved - Awaiting finance approval",
+        assigned_l2_approver_id: "fin-1",
+        hod_action_at: "2026-04-08T09:00:00.000Z",
+        finance_action_at: null,
+        rejection_reason: null,
+        is_resubmission_allowed: false,
+      },
+      error: null,
+    });
+    const updateChain = createQueryChain({ data: null, error: null });
+    const auditChain = createQueryChain({ data: null, error: null });
+
+    mockFrom
+      .mockImplementationOnce(() => fetchChain)
+      .mockImplementationOnce(() => updateChain)
+      .mockImplementationOnce(() => auditChain);
+
+    const repository = new SupabaseAdminRepository();
+    const result = await repository.forceUpdateClaimStatus({
+      claimId: "claim-1",
+      actorId: "admin-1",
+      newStatus: "Payment Done - Closed",
+      reason: "Manual correction",
+    });
+
+    expect(result).toEqual({ success: true, errorMessage: null });
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "Payment Done - Closed",
+        rejection_reason: null,
+        is_resubmission_allowed: false,
+      }),
+    );
+    expect(auditChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        claim_id: "claim-1",
+        actor_id: "admin-1",
+        action_type: "L2_MARK_PAID",
+      }),
+    );
+  });
+
+  test("forceUpdateClaimStatus rolls back when audit insert fails", async () => {
+    const fetchChain = createQueryChain({
+      data: {
+        id: "claim-1",
+        status: "Submitted - Awaiting HOD approval",
+        assigned_l2_approver_id: null,
+        hod_action_at: null,
+        finance_action_at: null,
+        rejection_reason: null,
+        is_resubmission_allowed: false,
+      },
+      error: null,
+    });
+    const updateChain = createQueryChain({ data: null, error: null });
+    const auditChain = createQueryChain({ data: null, error: { message: "audit failed" } });
+    const rollbackChain = createQueryChain({ data: null, error: null });
+
+    mockFrom
+      .mockImplementationOnce(() => fetchChain)
+      .mockImplementationOnce(() => updateChain)
+      .mockImplementationOnce(() => auditChain)
+      .mockImplementationOnce(() => rollbackChain);
+
+    const repository = new SupabaseAdminRepository();
+    const result = await repository.forceUpdateClaimStatus({
+      claimId: "claim-1",
+      actorId: "admin-1",
+      newStatus: "HOD approved - Awaiting finance approval",
+      reason: "Need workflow restart",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.errorMessage).toContain("Status update was reverted");
+    expect(rollbackChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "Submitted - Awaiting HOD approval" }),
+    );
+  });
+
   test("updateDepartmentActors blocks same user for HOD and Founder", async () => {
     const repository = new SupabaseAdminRepository();
 

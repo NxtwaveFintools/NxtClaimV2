@@ -545,13 +545,13 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
       // Verify we're on the claim detail page
       await expect(page.getByText(claimId)).toBeVisible({ timeout: 15000 });
 
-      // Click "Edit Details" to open the finance edit form
-      const editButton = page.getByRole("button", { name: /edit details/i });
+      // Click "Edit Claim" to open the edit form
+      const editButton = page.getByRole("button", { name: /edit claim/i });
       await expect(editButton).toBeVisible({ timeout: 10000 });
       await editButton.click();
 
       // Wait for the finance edit form to render
-      const formHeading = page.getByText("Finance Edit Claim");
+      const formHeading = page.getByText("Edit Claim");
       await expect(formHeading).toBeVisible({ timeout: 10000 });
 
       // Update basic amount
@@ -583,15 +583,15 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
       await totalAmountInput.fill("885");
 
       // Submit the finance edit form
-      const saveButton = page.getByRole("button", { name: /save finance edits/i });
+      const saveButton = page.getByRole("button", { name: /save claim edits/i });
       await expect(saveButton).toBeVisible();
       await saveButton.click();
 
       // Wait for the success toast
-      await expect(page.getByText("Finance edits saved.")).toBeVisible({ timeout: 30000 });
+      await expect(page.getByText("Claim edits saved.")).toBeVisible({ timeout: 30000 });
 
       // The edit form should close after success (isOpen → false)
-      await expect(page.getByRole("button", { name: /edit details/i })).toBeVisible({
+      await expect(page.getByRole("button", { name: /edit claim/i })).toBeVisible({
         timeout: 10000,
       });
 

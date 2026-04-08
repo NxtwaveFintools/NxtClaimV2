@@ -16,6 +16,8 @@
     "test:e2e:ui": "playwright test --ui",
     "seed:master-routing": "node scripts/seed-master-routing.js",
     "seed:master-routing:apply": "node scripts/seed-master-routing.js --apply",
+    "seed:migrate-emails": "node --env-file=.env.local --experimental-strip-types scripts/seed-and-migrate-emails.ts",
+    "seed:migrate-emails:apply": "node --env-file=.env.local --experimental-strip-types scripts/seed-and-migrate-emails.ts --apply",
     "seed:historical-analytics": "node --env-file=.env.local scripts/seed-historical-analytics.mjs",
     "seed:historical-analytics:apply": "node --env-file=.env.local scripts/seed-historical-analytics.mjs --apply",
     "format": "prettier --write .",

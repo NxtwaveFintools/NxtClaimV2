@@ -27,6 +27,10 @@ function describeAction(actionType: ClaimAuditLogRecord["actionType"]): string {
     return "Marked as Paid by Finance";
   }
 
+  if (actionType === "ADMIN_SOFT_DELETED") {
+    return "Soft-deleted by Admin";
+  }
+
   return "Rejected by Finance";
 }
 
@@ -52,6 +56,13 @@ function actionAccentClasses(actionType: ClaimAuditLogRecord["actionType"]): {
     return {
       labelClassName: "text-emerald-700 dark:text-emerald-300",
       dotClassName: "bg-emerald-600 dark:bg-emerald-400",
+    };
+  }
+
+  if (actionType === "ADMIN_SOFT_DELETED") {
+    return {
+      labelClassName: "text-rose-700 dark:text-rose-300",
+      dotClassName: "bg-rose-600 dark:bg-rose-400",
     };
   }
 

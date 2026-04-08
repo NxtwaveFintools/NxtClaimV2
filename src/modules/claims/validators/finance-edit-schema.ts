@@ -64,8 +64,6 @@ const optionalTaxAmountSchema = z.preprocess(
 export const financeExpenseEditSchema = z
   .object({
     detailType: z.literal("expense"),
-    departmentId: uuidSchema,
-    paymentModeId: uuidSchema,
     billNo: z.string().trim().min(1, "Bill number is required"),
     expenseCategoryId: uuidSchema,
     locationId: uuidSchema,
@@ -90,8 +88,6 @@ export const financeExpenseEditSchema = z
 export const financeAdvanceEditSchema = z
   .object({
     detailType: z.literal("advance"),
-    departmentId: uuidSchema,
-    paymentModeId: uuidSchema,
     purpose: z.string().trim().min(1, "Purpose is required"),
     requestedAmount: z.number().positive("Requested amount must be greater than zero"),
     expectedUsageDate: isoDateSchema,

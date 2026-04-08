@@ -12,6 +12,8 @@ function createLogger() {
 function createRepository(overrides?: Partial<AdminRepository>): AdminRepository {
   return {
     getAllClaims: jest.fn(),
+    getClaimOverrideSummary: jest.fn(),
+    forceUpdateClaimStatus: jest.fn(),
     softDeleteClaim: jest.fn(async () => ({ success: true, errorMessage: null })),
     getMasterDataItems: jest.fn(),
     createMasterDataItem: jest.fn(),

@@ -5,7 +5,13 @@ import { revalidatePath } from "next/cache";
 import { SupabaseServerAuthRepository } from "@/modules/auth/repositories/supabase-server-auth.repository";
 import { logger } from "@/core/infra/logging/logger";
 import { ROUTES } from "@/core/config/route-registry";
-import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
+import {
+  DB_CLAIM_STATUSES,
+  DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
+  DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
+  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
+  type DbClaimStatus,
+} from "@/core/constants/statuses";
 import { getServiceRoleSupabaseClient } from "@/core/infra/supabase/server-client";
 import { SubmitClaimService } from "@/core/domain/claims/SubmitClaimService";
 import { ProcessL1ClaimDecisionService } from "@/core/domain/claims/ProcessL1ClaimDecisionService";
@@ -86,6 +92,10 @@ const bulkRejectInputSchema = bulkActionInputSchema.extend({
   allowResubmission: z.boolean().optional(),
 });
 const MAX_UPLOAD_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+const PRE_HOD_EDITABLE_STATUSES: readonly DbClaimStatus[] = [
+  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
+  DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
+];
 
 class DuplicateTransactionError extends Error {
   constructor(message: string) {
@@ -230,6 +240,45 @@ function computeExpenseTotalAmount(input: {
 function getFormDataBoolean(input: FormData, key: string): boolean {
   const value = getFormDataString(input, key);
   return value === "true";
+}
+
+function isPreHodEditableStatus(status: DbClaimStatus): boolean {
+  return PRE_HOD_EDITABLE_STATUSES.some((candidate) => candidate === status);
+}
+
+function canActorEditClaim(input: {
+  status: DbClaimStatus;
+  actorUserId: string;
+  submittedBy: string;
+  assignedL1ApproverId: string;
+  isFinanceActor: boolean;
+}): boolean {
+  if (input.status === DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS) {
+    return input.isFinanceActor;
+  }
+
+  if (isPreHodEditableStatus(input.status)) {
+    return (
+      input.actorUserId === input.submittedBy || input.actorUserId === input.assignedL1ApproverId
+    );
+  }
+
+  return false;
+}
+
+function hasRoutingFieldMutationAttempt(formData: FormData): boolean {
+  const immutableRoutingFields = [
+    "departmentId",
+    "paymentModeId",
+    "onBehalfOfId",
+    "onBehalfEmail",
+    "onBehalfEmployeeCode",
+  ] as const;
+
+  return immutableRoutingFields.some((key) => {
+    const value = formData.get(key);
+    return typeof value === "string" && value.trim().length > 0;
+  });
 }
 
 function extractSubmissionInput(input: unknown): {
@@ -798,8 +847,6 @@ function buildFinanceEditPayload(formData: FormData): unknown {
   if (detailType === "expense") {
     return {
       detailType,
-      departmentId: getFormDataString(formData, "departmentId"),
-      paymentModeId: getFormDataString(formData, "paymentModeId"),
       billNo: getFormDataString(formData, "billNo"),
       expenseCategoryId: getFormDataString(formData, "expenseCategoryId"),
       locationId: getFormDataString(formData, "locationId"),
@@ -823,8 +870,6 @@ function buildFinanceEditPayload(formData: FormData): unknown {
 
   return {
     detailType,
-    departmentId: getFormDataString(formData, "departmentId"),
-    paymentModeId: getFormDataString(formData, "paymentModeId"),
     purpose: getFormDataString(formData, "purpose"),
     requestedAmount: getFormDataNumber(formData, "requestedAmount"),
     expectedUsageDate: getFormDataString(formData, "expectedUsageDate"),
@@ -857,25 +902,10 @@ export async function updateClaimByFinanceAction(input: {
     };
   }
 
-  const approvalContextResult = await repository.getApprovalViewerContext(
-    currentUserResult.user.id,
-  );
-
-  if (approvalContextResult.errorMessage) {
-    return {
-      ok: false,
-      message: approvalContextResult.errorMessage,
-    };
-  }
-
-  if (!approvalContextResult.data.isFinance) {
-    return {
-      ok: false,
-      message: "Only Finance users can edit claim details.",
-    };
-  }
-
-  const claimSnapshotResult = await repository.getClaimForFinanceEdit(claimIdParse.data.claimId);
+  const [claimSnapshotResult, approvalContextResult] = await Promise.all([
+    repository.getClaimForFinanceEdit(claimIdParse.data.claimId),
+    repository.getApprovalViewerContext(currentUserResult.user.id),
+  ]);
 
   if (claimSnapshotResult.errorMessage || !claimSnapshotResult.data) {
     return {
@@ -884,12 +914,41 @@ export async function updateClaimByFinanceAction(input: {
     };
   }
 
+  if (approvalContextResult.errorMessage) {
+    return {
+      ok: false,
+      message: approvalContextResult.errorMessage,
+    };
+  }
+
+  if (hasRoutingFieldMutationAttempt(input.formData)) {
+    return {
+      ok: false,
+      message: "Routing context fields cannot be edited for an existing claim.",
+    };
+  }
+
+  if (
+    !canActorEditClaim({
+      status: claimSnapshotResult.data.status,
+      actorUserId: currentUserResult.user.id,
+      submittedBy: claimSnapshotResult.data.submittedBy,
+      assignedL1ApproverId: claimSnapshotResult.data.assignedL1ApproverId,
+      isFinanceActor: approvalContextResult.data.isFinance,
+    })
+  ) {
+    return {
+      ok: false,
+      message: "You are not authorized to edit this claim.",
+    };
+  }
+
   const parseResult = financeEditSchema.safeParse(buildFinanceEditPayload(input.formData));
 
   if (!parseResult.success) {
     return {
       ok: false,
-      message: "Validation failed for finance edit payload.",
+      message: "Validation failed for claim edit payload.",
     };
   }
 
@@ -995,8 +1054,6 @@ export async function updateClaimByFinanceAction(input: {
   if (parseResult.data.detailType === "expense") {
     financeEditPayload = {
       detailType: "expense",
-      departmentId: parseResult.data.departmentId,
-      paymentModeId: parseResult.data.paymentModeId,
       billNo: parseResult.data.billNo,
       expenseCategoryId: parseResult.data.expenseCategoryId,
       locationId: parseResult.data.locationId,
@@ -1019,8 +1076,6 @@ export async function updateClaimByFinanceAction(input: {
   } else {
     financeEditPayload = {
       detailType: "advance",
-      departmentId: parseResult.data.departmentId,
-      paymentModeId: parseResult.data.paymentModeId,
       purpose: parseResult.data.purpose,
       requestedAmount: parseResult.data.requestedAmount,
       expectedUsageDate: parseResult.data.expectedUsageDate,

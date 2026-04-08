@@ -5,6 +5,8 @@ const mockRevalidateTag = jest.fn();
 const mockIsAdmin = jest.fn();
 const mockGetCurrentUser = jest.fn();
 const mockUpdateUserRole = jest.fn();
+const mockGetClaimOverrideSummary = jest.fn();
+const mockForceUpdateClaimStatus = jest.fn();
 
 const mockSoftDeleteExecute = jest.fn();
 const mockCreateMasterDataItem = jest.fn();
@@ -37,6 +39,8 @@ jest.mock("@/modules/auth/repositories/supabase-server-auth.repository", () => (
 jest.mock("@/modules/admin/repositories/SupabaseAdminRepository", () => ({
   SupabaseAdminRepository: jest.fn().mockImplementation(() => ({
     updateUserRole: (...args: unknown[]) => mockUpdateUserRole(...args),
+    getClaimOverrideSummary: (...args: unknown[]) => mockGetClaimOverrideSummary(...args),
+    forceUpdateClaimStatus: (...args: unknown[]) => mockForceUpdateClaimStatus(...args),
   })),
 }));
 
@@ -90,6 +94,8 @@ jest.mock("@/core/infra/logging/logger", () => ({
 
 import {
   addAdminAction,
+  adminForceUpdateClaimStatusAction,
+  adminGetClaimOverrideSummaryAction,
   addDepartmentViewerAction,
   addFinanceApproverByEmailAction,
   createFinanceApproverAction,
@@ -123,10 +129,90 @@ describe("admin actions", () => {
     mockAddFinanceApproverByEmail.mockResolvedValue({ data: { id: "x" }, errorMessage: null });
     mockUpdateFinanceApprover.mockResolvedValue({ data: { id: "x" }, errorMessage: null });
     mockUpdateUserRole.mockResolvedValue({ success: true, errorMessage: null });
+    mockGetClaimOverrideSummary.mockResolvedValue({
+      data: {
+        claimId: "CLAIM-EMP1-20260408-0001",
+        submitterName: "Alex",
+        submitterEmail: "alex@nxtwave.co.in",
+        status: "Submitted - Awaiting HOD approval",
+        amount: 1000,
+        departmentName: "Engineering",
+        isActive: true,
+      },
+      errorMessage: null,
+    });
+    mockForceUpdateClaimStatus.mockResolvedValue({ success: true, errorMessage: null });
     mockAddAdminByEmail.mockResolvedValue({ data: { id: "x" }, errorMessage: null });
     mockRemoveAdmin.mockResolvedValue({ success: true, errorMessage: null });
     mockAddViewerByEmail.mockResolvedValue({ data: { id: "x" }, errorMessage: null });
     mockRemoveViewer.mockResolvedValue({ success: true, errorMessage: null });
+  });
+
+  test("adminGetClaimOverrideSummaryAction validates ID and handles not found", async () => {
+    const invalid = await adminGetClaimOverrideSummaryAction(" ");
+    expect(invalid).toEqual({ ok: false, message: "ID is required" });
+
+    mockGetClaimOverrideSummary.mockResolvedValueOnce({ data: null, errorMessage: null });
+    const notFound = await adminGetClaimOverrideSummaryAction("CLAIM-UNKNOWN");
+    expect(notFound).toEqual({ ok: false, message: "Claim not found." });
+
+    const success = await adminGetClaimOverrideSummaryAction("CLAIM-EMP1-20260408-0001");
+    expect(success.ok).toBe(true);
+    expect(success.data?.claimId).toBe("CLAIM-EMP1-20260408-0001");
+    expect(mockGetClaimOverrideSummary).toHaveBeenCalledWith("CLAIM-EMP1-20260408-0001");
+  });
+
+  test("adminForceUpdateClaimStatusAction validates payload and revalidates on success", async () => {
+    const invalidClaim = await adminForceUpdateClaimStatusAction(
+      " ",
+      "Submitted - Awaiting HOD approval",
+      "valid reason",
+    );
+    expect(invalidClaim).toEqual({ ok: false, message: "ID is required" });
+
+    const invalidStatus = await adminForceUpdateClaimStatusAction(
+      "claim-1",
+      "bad-status",
+      "reason",
+    );
+    expect(invalidStatus).toEqual({ ok: false, message: "Invalid claim status." });
+
+    const invalidReason = await adminForceUpdateClaimStatusAction(
+      "claim-1",
+      "Submitted - Awaiting HOD approval",
+      "abc",
+    );
+    expect(invalidReason).toEqual({ ok: false, message: "Reason must be at least 5 characters." });
+
+    const success = await adminForceUpdateClaimStatusAction(
+      "claim-1",
+      "Payment Done - Closed",
+      "Finance manually settled offline payment",
+    );
+
+    expect(success).toEqual({ ok: true });
+    expect(mockForceUpdateClaimStatus).toHaveBeenCalledWith({
+      claimId: "claim-1",
+      actorId: "admin-user-1",
+      newStatus: "Payment Done - Closed",
+      reason: "Finance manually settled offline payment",
+    });
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/admin/settings");
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/my-claims");
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/claims/claim-1");
+  });
+
+  test("adminForceUpdateClaimStatusAction returns forbidden for non-admin", async () => {
+    mockIsAdmin.mockResolvedValue(false);
+
+    const result = await adminForceUpdateClaimStatusAction(
+      "claim-1",
+      "Submitted - Awaiting HOD approval",
+      "Need to restore workflow",
+    );
+
+    expect(result).toEqual({ ok: false, message: "Forbidden: admin access required." });
+    expect(mockForceUpdateClaimStatus).not.toHaveBeenCalled();
   });
 
   test("softDeleteClaimAction returns forbidden for non-admin", async () => {

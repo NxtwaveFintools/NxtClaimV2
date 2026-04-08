@@ -1,6 +1,10 @@
 import {
-  DB_CLAIM_STATUSES,
+  DB_FINANCE_APPROVED_PAYMENT_UNDER_PROCESS_STATUS,
+  DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
+  DB_PAYMENT_DONE_CLOSED_STATUS,
   DB_REJECTED_STATUSES,
+  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
+  DB_CLAIM_STATUSES,
   type DbClaimStatus,
 } from "@/core/constants/statuses";
 import { resolveDashboardAnalyticsScope } from "@/core/domain/dashboard/resolve-analytics-scope";
@@ -46,14 +50,22 @@ const DATE_FORMAT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MONTH_FORMAT_PATTERN = /^\d{4}-\d{2}$/;
 const DAY_IN_MILLISECONDS = 86_400_000;
 
-const PENDING_STATUSES = new Set<DbClaimStatus>([DB_CLAIM_STATUSES[0], DB_CLAIM_STATUSES[1]]);
-const APPROVED_STATUSES = new Set<DbClaimStatus>([DB_CLAIM_STATUSES[2], DB_CLAIM_STATUSES[3]]);
+const PENDING_STATUSES = new Set<DbClaimStatus>([
+  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
+  DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
+]);
+const APPROVED_STATUSES = new Set<DbClaimStatus>([
+  DB_FINANCE_APPROVED_PAYMENT_UNDER_PROCESS_STATUS,
+  DB_PAYMENT_DONE_CLOSED_STATUS,
+]);
 const REJECTED_STATUSES = new Set<DbClaimStatus>(DB_REJECTED_STATUSES);
 
 const EMPTY_AMOUNTS: DashboardAnalyticsAmountSummary = {
   totalAmount: 0,
   approvedAmount: 0,
   pendingAmount: 0,
+  hodPendingAmount: 0,
+  hodPendingCount: 0,
   rejectedAmount: 0,
 };
 
@@ -218,6 +230,8 @@ function aggregateClaims(
   let totalAmount = 0;
   let approvedAmount = 0;
   let pendingAmount = 0;
+  let hodPendingAmount = 0;
+  let hodPendingCount = 0;
   let rejectedAmount = 0;
 
   for (const claim of rows) {
@@ -230,6 +244,11 @@ function aggregateClaims(
       pendingAmount = roundCurrency(pendingAmount + normalizedAmount);
     } else if (REJECTED_STATUSES.has(claim.status)) {
       rejectedAmount = roundCurrency(rejectedAmount + normalizedAmount);
+    }
+
+    if (claim.status === DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS) {
+      hodPendingAmount = roundCurrency(hodPendingAmount + normalizedAmount);
+      hodPendingCount += 1;
     }
 
     const statusItemIndex = statusIndex.get(claim.status);
@@ -309,6 +328,8 @@ function aggregateClaims(
       totalAmount,
       approvedAmount,
       pendingAmount,
+      hodPendingAmount,
+      hodPendingCount,
       rejectedAmount,
     },
     statusBreakdown,
@@ -563,6 +584,10 @@ export class GetAnalyticsService {
         pending: buildTrendItem(
           currentPeriodAggregate.amounts.pendingAmount,
           previousPeriodAggregate.amounts.pendingAmount,
+        ),
+        hodPending: buildTrendItem(
+          currentPeriodAggregate.amounts.hodPendingAmount,
+          previousPeriodAggregate.amounts.hodPendingAmount,
         ),
         rejected: buildTrendItem(
           currentPeriodAggregate.amounts.rejectedAmount,

@@ -76,8 +76,6 @@ export type ClaimSubmissionInput = {
 
 export type FinanceExpenseEditPayload = {
   detailType: "expense";
-  departmentId: string;
-  paymentModeId: string;
   billNo: string;
   expenseCategoryId: string;
   locationId: string;
@@ -100,8 +98,6 @@ export type FinanceExpenseEditPayload = {
 
 export type FinanceAdvanceEditPayload = {
   detailType: "advance";
-  departmentId: string;
-  paymentModeId: string;
   purpose: string;
   requestedAmount: number;
   expectedUsageDate: string;
@@ -116,7 +112,9 @@ export type FinanceClaimEditPayload = FinanceExpenseEditPayload | FinanceAdvance
 export type ClaimFinanceEditSnapshot = {
   id: string;
   detailType: ClaimDetailType;
+  status: DbClaimStatus;
   submittedBy: string;
+  assignedL1ApproverId: string;
   expenseReceiptFilePath: string | null;
   expenseBankStatementFilePath: string | null;
   advanceSupportingDocumentPath: string | null;
@@ -301,7 +299,8 @@ export type ClaimAuditActionType =
   | "L1_REJECTED"
   | "L2_APPROVED"
   | "L2_REJECTED"
-  | "L2_MARK_PAID";
+  | "L2_MARK_PAID"
+  | "ADMIN_SOFT_DELETED";
 
 export type ClaimAuditLogRecord = {
   id: string;

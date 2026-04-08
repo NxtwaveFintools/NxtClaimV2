@@ -81,6 +81,8 @@ export type DashboardAnalyticsAmountSummary = {
   totalAmount: number;
   approvedAmount: number;
   pendingAmount: number;
+  hodPendingAmount: number;
+  hodPendingCount: number;
   rejectedAmount: number;
 };
 
@@ -107,6 +109,7 @@ export type DashboardAnalyticsTrendSummary = {
   total: DashboardAnalyticsAmountTrendItem;
   approved: DashboardAnalyticsAmountTrendItem;
   pending: DashboardAnalyticsAmountTrendItem;
+  hodPending: DashboardAnalyticsAmountTrendItem;
   rejected: DashboardAnalyticsAmountTrendItem;
 };
 

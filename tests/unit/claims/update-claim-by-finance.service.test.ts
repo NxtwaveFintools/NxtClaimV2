@@ -2,8 +2,6 @@ import { UpdateClaimByFinanceService } from "@/core/domain/claims/UpdateClaimByF
 
 const validExpensePayload = {
   detailType: "expense" as const,
-  departmentId: "dept-1",
-  paymentModeId: "mode-1",
   billNo: "BILL-2",
   expenseCategoryId: "cat-1",
   locationId: "loc-1",
@@ -48,7 +46,9 @@ function createRepository(
       data: {
         id: "claim-1",
         detailType: "expense" as const,
+        status: "HOD approved - Awaiting finance approval" as const,
         submittedBy: "employee-1",
+        assignedL1ApproverId: "hod-1",
         expenseReceiptFilePath: "expenses/employee-1/old_receipt.pdf",
         expenseBankStatementFilePath: "expenses/employee-1/old_bank.pdf",
         advanceSupportingDocumentPath: null,
@@ -104,7 +104,9 @@ describe("UpdateClaimByFinanceService", () => {
         data: {
           id: "claim-1",
           detailType: "advance" as const,
+          status: "HOD approved - Awaiting finance approval" as const,
           submittedBy: "employee-1",
+          assignedL1ApproverId: "hod-1",
           expenseReceiptFilePath: null,
           expenseBankStatementFilePath: null,
           advanceSupportingDocumentPath: "expenses/employee-1/advance.pdf",
@@ -121,7 +123,7 @@ describe("UpdateClaimByFinanceService", () => {
     });
 
     expect(result.ok).toBe(false);
-    expect(result.errorMessage).toBe("Claim detail type mismatch for finance edit request.");
+    expect(result.errorMessage).toBe("Claim detail type mismatch for edit request.");
     expect(repository.updateClaimDetailsByFinance).not.toHaveBeenCalled();
   });
 
@@ -191,5 +193,124 @@ describe("UpdateClaimByFinanceService", () => {
         errorMessage: "update failed",
       }),
     );
+  });
+
+  test("allows submitter edit during pre-HOD stage", async () => {
+    const repository = createRepository({
+      getClaimForFinanceEdit: jest.fn(async () => ({
+        data: {
+          id: "claim-1",
+          detailType: "expense" as const,
+          status: "Submitted - Awaiting HOD approval" as const,
+          submittedBy: "employee-1",
+          assignedL1ApproverId: "hod-1",
+          expenseReceiptFilePath: "expenses/employee-1/old_receipt.pdf",
+          expenseBankStatementFilePath: "expenses/employee-1/old_bank.pdf",
+          advanceSupportingDocumentPath: null,
+        },
+        errorMessage: null,
+      })),
+    });
+    const service = new UpdateClaimByFinanceService({ repository, logger: createLogger() });
+
+    const result = await service.execute({
+      claimId: "claim-1",
+      actorUserId: "employee-1",
+      payload: validExpensePayload,
+    });
+
+    expect(result).toEqual({ ok: true, errorMessage: null });
+    expect(repository.getFinanceApproverIdsForUser).not.toHaveBeenCalled();
+  });
+
+  test("allows assigned L1 edit during rejected-resubmission stage", async () => {
+    const repository = createRepository({
+      getClaimForFinanceEdit: jest.fn(async () => ({
+        data: {
+          id: "claim-1",
+          detailType: "expense" as const,
+          status: "Rejected - Resubmission Allowed" as const,
+          submittedBy: "employee-1",
+          assignedL1ApproverId: "hod-1",
+          expenseReceiptFilePath: "expenses/employee-1/old_receipt.pdf",
+          expenseBankStatementFilePath: "expenses/employee-1/old_bank.pdf",
+          advanceSupportingDocumentPath: null,
+        },
+        errorMessage: null,
+      })),
+    });
+    const service = new UpdateClaimByFinanceService({ repository, logger: createLogger() });
+
+    const result = await service.execute({
+      claimId: "claim-1",
+      actorUserId: "hod-1",
+      payload: validExpensePayload,
+    });
+
+    expect(result).toEqual({ ok: true, errorMessage: null });
+    expect(repository.getFinanceApproverIdsForUser).not.toHaveBeenCalled();
+  });
+
+  test("blocks non-submitter/non-L1 actor during pre-HOD stage", async () => {
+    const repository = createRepository({
+      getClaimForFinanceEdit: jest.fn(async () => ({
+        data: {
+          id: "claim-1",
+          detailType: "expense" as const,
+          status: "Submitted - Awaiting HOD approval" as const,
+          submittedBy: "employee-1",
+          assignedL1ApproverId: "hod-1",
+          expenseReceiptFilePath: "expenses/employee-1/old_receipt.pdf",
+          expenseBankStatementFilePath: "expenses/employee-1/old_bank.pdf",
+          advanceSupportingDocumentPath: null,
+        },
+        errorMessage: null,
+      })),
+    });
+    const service = new UpdateClaimByFinanceService({ repository, logger: createLogger() });
+
+    const result = await service.execute({
+      claimId: "claim-1",
+      actorUserId: "random-user",
+      payload: validExpensePayload,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      errorMessage: "You are not authorized to edit this claim.",
+    });
+    expect(repository.updateClaimDetailsByFinance).not.toHaveBeenCalled();
+    expect(repository.getFinanceApproverIdsForUser).not.toHaveBeenCalled();
+  });
+
+  test("blocks edits outside pre-HOD and awaiting-finance stages", async () => {
+    const repository = createRepository({
+      getClaimForFinanceEdit: jest.fn(async () => ({
+        data: {
+          id: "claim-1",
+          detailType: "expense" as const,
+          status: "Payment Done - Closed" as const,
+          submittedBy: "employee-1",
+          assignedL1ApproverId: "hod-1",
+          expenseReceiptFilePath: "expenses/employee-1/old_receipt.pdf",
+          expenseBankStatementFilePath: "expenses/employee-1/old_bank.pdf",
+          advanceSupportingDocumentPath: null,
+        },
+        errorMessage: null,
+      })),
+    });
+    const service = new UpdateClaimByFinanceService({ repository, logger: createLogger() });
+
+    const result = await service.execute({
+      claimId: "claim-1",
+      actorUserId: "finance-user-1",
+      payload: validExpensePayload,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      errorMessage: "You are not authorized to edit this claim.",
+    });
+    expect(repository.updateClaimDetailsByFinance).not.toHaveBeenCalled();
   });
 });
