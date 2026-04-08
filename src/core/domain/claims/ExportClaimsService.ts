@@ -45,11 +45,14 @@ type ExportClaimsServiceInput = {
 export type ClaimExportRow = {
   claimId: string;
   employeeId: string;
+  beneficiaryEmployeeId: string;
+  submitterEmployeeId: string;
   employeeEmail: string;
   employeeName: string;
   department: string;
   pettyCashBalance: string;
   submitter: string;
+  submitterEmail: string;
   paymentMode: string;
   submissionType: string;
   purpose: string;
@@ -108,11 +111,14 @@ export const EXPORT_DATE_RANGE_LIMIT_MESSAGE =
 export const EXPORT_HEADERS = [
   "Claim ID",
   "Employee ID",
+  "Beneficiary Employee ID",
+  "Submitter Employee ID",
   "Employee Email",
   "Employee Name",
   "Department",
   "Petty Cash Balance",
   "Submitter",
+  "Submitter Email",
   "Payment Mode",
   "Submission Type",
   "Purpose",
@@ -484,17 +490,31 @@ export class ExportClaimsService {
         status: row.status,
         financeActionAt: row.financeActionAt,
       });
-      const beneficiaryName = row.beneficiaryName ?? row.submitterName;
-      const beneficiaryEmail = row.beneficiaryEmail ?? row.submitterEmail;
+      const beneficiaryName =
+        row.submissionType === "On Behalf"
+          ? (row.beneficiaryName ?? row.submitterName)
+          : (row.submitterName ?? row.beneficiaryName);
+      const beneficiaryEmail =
+        row.submissionType === "On Behalf"
+          ? (row.beneficiaryEmail ?? row.onBehalfEmail ?? row.submitterEmail)
+          : (row.submitterEmail ?? row.beneficiaryEmail);
+      const beneficiaryEmployeeId =
+        row.submissionType === "On Behalf"
+          ? (row.onBehalfEmployeeCode ?? row.employeeId)
+          : row.employeeId;
+      const submitterEmployeeId = row.employeeId;
 
       return {
         claimId: row.claimId,
         employeeId: toTextValue(row.employeeId),
+        beneficiaryEmployeeId: toTextValue(beneficiaryEmployeeId),
+        submitterEmployeeId: toTextValue(submitterEmployeeId),
         employeeEmail: toTextValue(beneficiaryEmail),
         employeeName: toTextValue(beneficiaryName),
         department: toTextValue(row.departmentName),
         pettyCashBalance: formatAmountDisplay(row.pettyCashBalance),
         submitter: toTextValue(row.submitterName ?? row.submitterEmail),
+        submitterEmail: toTextValue(row.submitterEmail),
         paymentMode: toTextValue(row.paymentModeName),
         submissionType: row.submissionType,
         purpose: toTextValue(

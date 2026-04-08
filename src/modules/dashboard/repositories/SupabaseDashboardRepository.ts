@@ -1,4 +1,7 @@
-import { DB_CLAIM_STATUSES, type DbClaimStatus } from "@/core/constants/statuses";
+import {
+  DB_FINANCE_ANALYTICS_PIPELINE_STATUSES,
+  type DbClaimStatus,
+} from "@/core/constants/statuses";
 import { getServiceRoleSupabaseClient } from "@/core/infra/supabase/server-client";
 import type {
   DashboardAnalyticsAdvancedFilters,
@@ -88,11 +91,7 @@ const EMPTY_WALLET_TOTALS = {
 
 const TRANSIENT_FETCH_ERROR_FRAGMENT = "fetch failed";
 
-const FINANCE_PIPELINE_STATUSES: DbClaimStatus[] = [
-  DB_CLAIM_STATUSES[1],
-  DB_CLAIM_STATUSES[2],
-  DB_CLAIM_STATUSES[3],
-];
+const FINANCE_PIPELINE_STATUSES: DbClaimStatus[] = [...DB_FINANCE_ANALYTICS_PIPELINE_STATUSES];
 
 function toNumber(value: number | string | null | undefined): number {
   if (typeof value === "number") {

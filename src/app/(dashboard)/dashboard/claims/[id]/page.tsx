@@ -9,7 +9,9 @@ import { BackButton } from "@/components/ui/back-button";
 import { ROUTES } from "@/core/config/route-registry";
 import {
   DB_CLAIM_STATUSES,
+  DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
   DB_REJECTED_STATUSES,
+  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
   isPendingFinanceApprovalStatus,
   isSubmitterDeletableClaimStatus,
 } from "@/core/constants/statuses";
@@ -241,6 +243,8 @@ async function FinanceEditClaimSection({ claim }: { claim: ClaimDetailRecord }) 
         employeeEmail: claim.submitterEmail,
         detailType: claim.detailType,
         submissionType: claim.submissionType,
+        onBehalfEmail: claim.onBehalfEmail,
+        onBehalfEmployeeCode: claim.onBehalfEmployeeCode,
         departmentId: claim.departmentId,
         paymentModeId: claim.paymentModeId,
         expense: claim.expense
@@ -279,6 +283,7 @@ async function FinanceEditClaimSection({ claim }: { claim: ClaimDetailRecord }) 
       expenseCategories={expenseCategoryOptions}
       products={productOptions}
       locations={locationOptions}
+      isEditMode
       action={updateFinanceDetailFromPage}
     />
   );
@@ -512,7 +517,13 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
     isAssignedL2Approver ||
     canViewAsFinance ||
     isDepartmentViewerForClaim;
-  const canEditByFinance = isFinanceActor;
+  const isPreHodStatus =
+    claim.status === DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS ||
+    claim.status === DB_REJECTED_RESUBMISSION_ALLOWED_STATUS;
+  const isFinanceStatus = isPendingFinanceApprovalStatus(claim.status);
+  const canEditClaim =
+    (isPreHodStatus && (currentUserId === claim.submittedBy || isAssignedL1Approver)) ||
+    (isFinanceStatus && isFinanceActor);
   const isDeptViewerOnly =
     isDepartmentViewerForClaim &&
     currentUserId !== claim.submittedBy &&
@@ -631,6 +642,14 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
           </div>
           <div className="flex items-center gap-2">
             <ClaimStatusBadge status={claim.status} />
+            {canEditClaim ? (
+              <a
+                href="#claim-edit-section"
+                className="inline-flex items-center rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-all duration-200 hover:bg-indigo-100 active:scale-[0.98] dark:border-indigo-600/60 dark:bg-indigo-600/15 dark:text-indigo-200 dark:hover:bg-indigo-600/25"
+              >
+                Edit Claim
+              </a>
+            ) : null}
             {canDeleteClaim ? (
               <DeleteClaimButton claimId={claim.id} redirectToHref={ROUTES.claims.myClaims} />
             ) : null}
@@ -721,6 +740,14 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
           ) : null}
         </div>
       </section>
+
+      {canEditClaim ? (
+        <section id="claim-edit-section">
+          <Suspense fallback={<FinanceEditClaimSkeleton />}>
+            <FinanceEditClaimSection claim={claim} />
+          </Suspense>
+        </section>
+      ) : null}
 
       {DB_REJECTED_STATUSES.some((status) => status === claim.status) && claim.rejectionReason ? (
         <section className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 dark:border-rose-700/40 dark:bg-rose-900/10">
@@ -986,12 +1013,6 @@ async function ClaimDetailCore({ params }: { params: Promise<{ id: string }> }) 
             )}
           </div>
         </section>
-      ) : null}
-
-      {canEditByFinance ? (
-        <Suspense fallback={<FinanceEditClaimSkeleton />}>
-          <FinanceEditClaimSection claim={claim} />
-        </Suspense>
       ) : null}
 
       <Suspense fallback={<ClaimAuditHistorySkeleton />}>

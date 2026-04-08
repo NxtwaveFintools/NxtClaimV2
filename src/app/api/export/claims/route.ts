@@ -209,9 +209,9 @@ const exportClaimsHandler = async (request: NextRequest, context: AuthenticatedC
 };
 
 // Column indices (1-based) for the three document URL columns.
-const COL_BANK_STATEMENT = 32;
-const COL_BILL_URL = 33;
-const COL_PETTY_CASH_PHOTO = 34;
+const COL_BANK_STATEMENT = 36;
+const COL_BILL_URL = 37;
+const COL_PETTY_CASH_PHOTO = 38;
 const MAX_EXPORT_ROWS_PER_SHEET = 5000;
 
 function addClaimsSheet(workbook: ExcelJS.Workbook, sheetNumber: number): ExcelJS.Worksheet {
@@ -248,11 +248,14 @@ async function buildExcelWorkbook(rows: ClaimExportRow[]): Promise<ArrayBuffer> 
     const excelRow = worksheet.addRow([
       rowData.claimId,
       rowData.employeeId,
+      rowData.beneficiaryEmployeeId,
+      rowData.submitterEmployeeId,
       rowData.employeeEmail,
       rowData.employeeName,
       rowData.department,
       rowData.pettyCashBalance,
       rowData.submitter,
+      rowData.submitterEmail,
       rowData.paymentMode,
       rowData.submissionType,
       rowData.purpose,
@@ -277,9 +280,10 @@ async function buildExcelWorkbook(rows: ClaimExportRow[]): Promise<ArrayBuffer> 
       rowData.product,
       rowData.expenseLocation,
       rowData.locationType,
-      null, // col 31: Bank Statement URL — set below as native hyperlink
-      null, // col 32: Bill URL — set below as native hyperlink
-      null, // col 33: Petty Cash Photo URL — set below as native hyperlink
+      rowData.locationDetails,
+      null, // col 36: Bank Statement URL — set below as native hyperlink
+      null, // col 37: Bill URL — set below as native hyperlink
+      null, // col 38: Petty Cash Photo URL — set below as native hyperlink
       rowData.pettyCashRequestMonth,
       rowData.transactionCount,
       rowData.claimRemarks,

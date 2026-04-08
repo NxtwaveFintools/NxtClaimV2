@@ -143,6 +143,7 @@ test.describe("admin settings", () => {
     await expect(settingsNavItem(page, /department viewers/i)).toBeVisible();
     await expect(settingsNavItem(page, /users/i)).toBeVisible();
     await expect(settingsNavItem(page, /administrators|admins/i)).toBeVisible();
+    await expect(settingsNavItem(page, /claim override/i)).toBeVisible();
   });
 
   test("switches between finance, viewers, users, and admins sections", async ({ page }) => {
@@ -164,6 +165,9 @@ test.describe("admin settings", () => {
     await expect(
       page.getByRole("heading", { level: 2, name: /administrators|admins/i }),
     ).toBeVisible();
+
+    await settingsNavItem(page, /claim override/i).click();
+    await expect(page.getByRole("heading", { level: 2, name: /claim override/i })).toBeVisible();
   });
 
   test("master data tabs are reachable from sidebar", async ({ page }) => {

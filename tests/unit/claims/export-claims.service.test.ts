@@ -120,6 +120,11 @@ function createLogger() {
   };
 }
 
+const validExportFilters = {
+  dateFrom: "2026-03-01",
+  dateTo: "2026-03-31",
+};
+
 describe("ExportClaimsService", () => {
   it("returns typed rows with raw signed URLs (not formula strings) for document columns", async () => {
     const repository = createRepository();
@@ -128,7 +133,7 @@ describe("ExportClaimsService", () => {
     const result = await service.execute({
       userId: "user-1",
       scope: "submissions",
-      filters: {},
+      filters: validExportFilters,
     });
 
     expect(result.errorMessage).toBeNull();
@@ -141,7 +146,10 @@ describe("ExportClaimsService", () => {
     // Core identity fields
     expect(row.claimId).toBe("CLAIM-EMP001-20260324-0001");
     expect(row.employeeId).toBe("EMP001");
+    expect(row.beneficiaryEmployeeId).toBe("EMP001");
+    expect(row.submitterEmployeeId).toBe("EMP001");
     expect(row.employeeName).toBe("Submitter One");
+    expect(row.submitterEmail).toBe("submitter@nxtwave.co.in");
     expect(row.department).toBe("Engineering");
 
     // URL fields must be raw signed URL strings — never =HYPERLINK(...) formulas
@@ -153,15 +161,54 @@ describe("ExportClaimsService", () => {
     expect(row.pettyCashPhotoUrl).toBe(row.billUrl);
   });
 
-  it("EXPORT_HEADERS has 39 columns matching the ClaimExportRow field order", () => {
-    expect(EXPORT_HEADERS).toHaveLength(39);
+  it("uses the beneficiary email for on-behalf claims when relation email is missing", async () => {
+    const repository = createRepository({
+      getClaimsForFullExport: jest.fn(async () => ({
+        data: [
+          createBaseRecord({
+            submissionType: "On Behalf",
+            submittedBy: "proxy-user",
+            onBehalfOfId: "beneficiary-user",
+            employeeId: "SUBMITTER-001",
+            submitterName: "Proxy User",
+            submitterEmail: "proxy@nxtwave.co.in",
+            beneficiaryName: "Beneficiary User",
+            beneficiaryEmail: null,
+            onBehalfEmail: "beneficiary@nxtwave.co.in",
+            onBehalfEmployeeCode: "BENEFICIARY-009",
+          }),
+        ],
+        errorMessage: null,
+      })),
+    });
+    const service = new ExportClaimsService({ repository, logger: createLogger() });
+
+    const result = await service.execute({
+      userId: "proxy-user",
+      scope: "submissions",
+      filters: validExportFilters,
+    });
+
+    expect(result.errorMessage).toBeNull();
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]?.employeeEmail).toBe("beneficiary@nxtwave.co.in");
+    expect(result.rows[0]?.employeeName).toBe("Beneficiary User");
+    expect(result.rows[0]?.beneficiaryEmployeeId).toBe("BENEFICIARY-009");
+    expect(result.rows[0]?.submitterEmployeeId).toBe("SUBMITTER-001");
+  });
+
+  it("EXPORT_HEADERS has 42 columns matching the ClaimExportRow field order", () => {
+    expect(EXPORT_HEADERS).toHaveLength(42);
     expect(EXPORT_HEADERS[0]).toBe("Claim ID");
     expect(EXPORT_HEADERS[1]).toBe("Employee ID");
-    expect(EXPORT_HEADERS[31]).toBe("Location Details");
-    expect(EXPORT_HEADERS[32]).toBe("Bank Statement URL");
-    expect(EXPORT_HEADERS[33]).toBe("Bill URL");
-    expect(EXPORT_HEADERS[34]).toBe("Petty Cash Photo URL");
-    expect(EXPORT_HEADERS[38]).toBe("Transaction Remarks");
+    expect(EXPORT_HEADERS[2]).toBe("Beneficiary Employee ID");
+    expect(EXPORT_HEADERS[3]).toBe("Submitter Employee ID");
+    expect(EXPORT_HEADERS[9]).toBe("Submitter Email");
+    expect(EXPORT_HEADERS[34]).toBe("Location Details");
+    expect(EXPORT_HEADERS[35]).toBe("Bank Statement URL");
+    expect(EXPORT_HEADERS[36]).toBe("Bill URL");
+    expect(EXPORT_HEADERS[37]).toBe("Petty Cash Photo URL");
+    expect(EXPORT_HEADERS[41]).toBe("Transaction Remarks");
   });
 
   it("bypasses pagination by requesting multiple backend batches", async () => {
@@ -183,7 +230,7 @@ describe("ExportClaimsService", () => {
     const result = await service.execute({
       userId: "user-1",
       scope: "submissions",
-      filters: {},
+      filters: validExportFilters,
     });
 
     expect(result.errorMessage).toBeNull();

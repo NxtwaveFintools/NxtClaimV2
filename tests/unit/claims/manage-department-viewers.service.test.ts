@@ -45,6 +45,8 @@ function createRepository(
 
     // Stubs for the rest of AdminRepository (not used by this service)
     getAllClaims: jest.fn(),
+    getClaimOverrideSummary: jest.fn(),
+    forceUpdateClaimStatus: jest.fn(),
     softDeleteClaim: jest.fn(),
     getMasterDataItems: jest.fn(),
     createMasterDataItem: jest.fn(),

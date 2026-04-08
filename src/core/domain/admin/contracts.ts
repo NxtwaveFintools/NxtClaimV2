@@ -33,6 +33,16 @@ export type AdminClaimRecord = {
   departmentId: string | null;
 };
 
+export type AdminClaimOverrideSummary = {
+  claimId: string;
+  submitterName: string | null;
+  submitterEmail: string | null;
+  status: DbClaimStatus;
+  amount: number;
+  departmentName: string | null;
+  isActive: boolean;
+};
+
 export type AdminUserRecord = {
   id: string;
   email: string;
@@ -150,6 +160,18 @@ export interface AdminRepository {
     data: AdminCursorPaginatedResult<AdminClaimRecord> | null;
     errorMessage: string | null;
   }>;
+
+  getClaimOverrideSummary(claimReference: string): Promise<{
+    data: AdminClaimOverrideSummary | null;
+    errorMessage: string | null;
+  }>;
+
+  forceUpdateClaimStatus(input: {
+    claimId: string;
+    actorId: string;
+    newStatus: DbClaimStatus;
+    reason: string;
+  }): Promise<{ success: boolean; errorMessage: string | null }>;
 
   softDeleteClaim(
     claimId: string,

@@ -257,8 +257,6 @@ describe("SupabaseClaimRepository.updateClaimDetailsByFinance", () => {
     const repository = new SupabaseClaimRepository();
     const result = await repository.updateClaimDetailsByFinance("claim-1", {
       detailType: "expense",
-      departmentId: "dept-1",
-      paymentModeId: "mode-1",
       billNo: "BILL-1",
       expenseCategoryId: "cat-1",
       locationId: "loc-1",
@@ -283,12 +281,14 @@ describe("SupabaseClaimRepository.updateClaimDetailsByFinance", () => {
     expect(mockFrom).toHaveBeenNthCalledWith(1, "claims");
     expect(mockFrom).toHaveBeenNthCalledWith(2, "expense_details");
 
-    expect(claimsBuilder.update).toHaveBeenCalledWith(
+    const claimUpdatePayload = claimsBuilder.update.mock.calls[0]?.[0];
+    expect(claimUpdatePayload).toEqual(
       expect.objectContaining({
-        department_id: "dept-1",
-        payment_mode_id: "mode-1",
+        updated_at: expect.any(String),
       }),
     );
+    expect(claimUpdatePayload).not.toHaveProperty("department_id");
+    expect(claimUpdatePayload).not.toHaveProperty("payment_mode_id");
 
     expect(expenseBuilder.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -315,8 +315,6 @@ describe("SupabaseClaimRepository.updateClaimDetailsByFinance", () => {
     const repository = new SupabaseClaimRepository();
     const result = await repository.updateClaimDetailsByFinance("claim-1", {
       detailType: "expense",
-      departmentId: "dept-1",
-      paymentModeId: "mode-1",
       billNo: "BILL-1",
       expenseCategoryId: "cat-1",
       locationId: "loc-1",
@@ -357,8 +355,6 @@ describe("SupabaseClaimRepository.updateClaimDetailsByFinance", () => {
     const repository = new SupabaseClaimRepository();
     const result = await repository.updateClaimDetailsByFinance("claim-1", {
       detailType: "expense",
-      departmentId: "dept-1",
-      paymentModeId: "mode-1",
       billNo: "BILL-1",
       expenseCategoryId: "cat-1",
       locationId: "loc-1",

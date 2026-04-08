@@ -1,27 +1,35 @@
 "use client";
 
 import CountUp from "react-countup";
-import { CheckCircle2, Clock3, Wallet, XCircle } from "lucide-react";
+import { Building2, CheckCircle2, Clock3, Wallet, XCircle } from "lucide-react";
 import type { ComponentType } from "react";
 import type {
   DashboardAnalyticsAmountSummary,
   DashboardAnalyticsAmountTrendItem,
+  DashboardAnalyticsScope,
   DashboardAnalyticsTrendSummary,
 } from "@/core/domain/dashboard/contracts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type AnalyticsKpiCardsProps = {
+  scope: DashboardAnalyticsScope;
   amounts: DashboardAnalyticsAmountSummary;
   trends: DashboardAnalyticsTrendSummary | null;
 };
 
+type DashboardAnalyticsAmountMetricKey = Exclude<
+  keyof DashboardAnalyticsAmountSummary,
+  "hodPendingCount"
+>;
+
 type KpiConfig = {
-  key: keyof DashboardAnalyticsAmountSummary;
+  key: DashboardAnalyticsAmountMetricKey;
   title: string;
   icon: ComponentType<{ className?: string }>;
   valueClassName: string;
   iconClassName: string;
   trendKey: keyof DashboardAnalyticsTrendSummary;
+  helperText?: (amounts: DashboardAnalyticsAmountSummary) => string | null;
 };
 
 const KPI_CONFIG: KpiConfig[] = [
@@ -48,6 +56,18 @@ const KPI_CONFIG: KpiConfig[] = [
     valueClassName: "text-amber-700 dark:text-amber-300",
     iconClassName: "text-amber-500",
     trendKey: "pending",
+  },
+  {
+    key: "hodPendingAmount",
+    title: "Pending At HOD",
+    icon: Building2,
+    valueClassName: "text-orange-700 dark:text-orange-300",
+    iconClassName: "text-orange-500",
+    trendKey: "hodPending",
+    helperText: (amounts) => {
+      const claimCount = amounts.hodPendingCount;
+      return `${claimCount} claim${claimCount === 1 ? "" : "s"}`;
+    },
   },
   {
     key: "rejectedAmount",
@@ -93,12 +113,20 @@ function TrendBadge({ trend }: { trend: DashboardAnalyticsAmountTrendItem | null
   );
 }
 
-export function AnalyticsKpiCards({ amounts, trends }: AnalyticsKpiCardsProps) {
+export function AnalyticsKpiCards({ scope, amounts, trends }: AnalyticsKpiCardsProps) {
+  const visibleKpiConfig =
+    scope === "finance" || scope === "admin"
+      ? KPI_CONFIG
+      : KPI_CONFIG.filter((item) => item.key !== "hodPendingAmount");
+
+  const gridColumnsClass = visibleKpiConfig.length > 4 ? "xl:grid-cols-5" : "xl:grid-cols-4";
+
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      {KPI_CONFIG.map((item) => {
+    <div className={`grid gap-4 md:grid-cols-2 ${gridColumnsClass}`}>
+      {visibleKpiConfig.map((item) => {
         const Icon = item.icon;
         const trendItem = trends ? trends[item.trendKey] : null;
+        const helperText = item.helperText?.(amounts) ?? null;
 
         return (
           <Card key={item.key} className="border-white/30 bg-white/60 dark:bg-zinc-900/55">
@@ -126,6 +154,11 @@ export function AnalyticsKpiCards({ amounts, trends }: AnalyticsKpiCardsProps) {
                   preserveValue
                 />
               </p>
+              {helperText ? (
+                <p className="mt-1 text-xs font-medium uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">
+                  {helperText}
+                </p>
+              ) : null}
             </CardContent>
           </Card>
         );

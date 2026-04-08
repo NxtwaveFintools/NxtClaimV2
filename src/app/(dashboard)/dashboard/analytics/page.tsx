@@ -233,7 +233,13 @@ async function AnalyticsKpiFetcher({
     return null;
   }
 
-  return <AnalyticsKpiCards amounts={analytics.amounts} trends={analytics.trends} />;
+  return (
+    <AnalyticsKpiCards
+      scope={analytics.scope}
+      amounts={analytics.amounts}
+      trends={analytics.trends}
+    />
+  );
 }
 
 async function AnalyticsChartsFetcher({
@@ -339,8 +345,8 @@ function AnalyticsFiltersSkeleton() {
 
 function AnalyticsKpiSkeleton() {
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      {Array.from({ length: 4 }).map((_, index) => (
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      {Array.from({ length: 5 }).map((_, index) => (
         <Card
           key={`analytics-kpi-skeleton-${index}`}
           className="border-white/30 bg-white/60 dark:bg-zinc-900/55"
