@@ -10,6 +10,41 @@ function createLogger() {
   };
 }
 
+function createAggregatePayload(overrides?: {
+  claimCount?: number;
+  amounts?: {
+    totalAmount: number;
+    approvedAmount: number;
+    pendingAmount: number;
+    hodPendingAmount: number;
+    hodPendingCount: number;
+    rejectedAmount: number;
+  };
+  efficiencyByDepartment?: Array<{
+    departmentId: string;
+    departmentName: string;
+    sampleCount: number;
+    averageHoursToApproval: number;
+    averageDaysToApproval: number;
+  }>;
+}) {
+  return {
+    claimCount: overrides?.claimCount ?? 0,
+    amounts: {
+      totalAmount: 0,
+      approvedAmount: 0,
+      pendingAmount: 0,
+      hodPendingAmount: 0,
+      hodPendingCount: 0,
+      rejectedAmount: 0,
+      ...(overrides?.amounts ?? {}),
+    },
+    statusBreakdown: DB_CLAIM_STATUSES.map((status) => ({ status, count: 0, amount: 0 })),
+    paymentModeBreakdown: [],
+    efficiencyByDepartment: overrides?.efficiencyByDepartment ?? [],
+  };
+}
+
 function createRepository(
   overrides?: Partial<DashboardAnalyticsRepository>,
 ): DashboardAnalyticsRepository {
@@ -26,7 +61,7 @@ function createRepository(
       errorMessage: null,
     })),
     getAnalyticsAggregates: jest.fn(async () => ({
-      data: [],
+      data: createAggregatePayload(),
       errorMessage: null,
     })),
     getAnalyticsFilterOptions: jest.fn(async () => ({
@@ -50,81 +85,51 @@ describe("GetAnalyticsService", () => {
       getAnalyticsAggregates: jest.fn(async (input) => {
         if (input.dateFrom === "2026-03-01" && input.dateTo === "2026-03-07") {
           return {
-            data: [
-              {
-                status: DB_CLAIM_STATUSES[0],
-                claimCount: 1,
-                totalAmount: 1000,
-                paymentModeId: "pm-1",
-                paymentModeName: "Reimbursement",
-                departmentId: "dept-1",
-                departmentName: "Engineering",
-                hodApprovalHoursSum: 24,
-                hodApprovalSampleCount: 1,
+            data: createAggregatePayload({
+              claimCount: 3,
+              amounts: {
+                totalAmount: 3500,
+                approvedAmount: 2000,
+                pendingAmount: 1000,
+                hodPendingAmount: 1000,
+                hodPendingCount: 1,
+                rejectedAmount: 500,
               },
-              {
-                status: DB_CLAIM_STATUSES[2],
-                claimCount: 1,
-                totalAmount: 2000,
-                paymentModeId: "pm-2",
-                paymentModeName: "Petty Cash",
-                departmentId: "dept-1",
-                departmentName: "Engineering",
-                hodApprovalHoursSum: 48,
-                hodApprovalSampleCount: 1,
-              },
-              {
-                status: DB_CLAIM_STATUSES[4],
-                claimCount: 1,
-                totalAmount: 500,
-                paymentModeId: "pm-1",
-                paymentModeName: "Reimbursement",
-                departmentId: "dept-2",
-                departmentName: "Operations",
-                hodApprovalHoursSum: 0,
-                hodApprovalSampleCount: 0,
-              },
-            ],
+              efficiencyByDepartment: [
+                {
+                  departmentId: "dept-1",
+                  departmentName: "Engineering",
+                  sampleCount: 2,
+                  averageHoursToApproval: 36,
+                  averageDaysToApproval: 1.5,
+                },
+              ],
+            }),
             errorMessage: null,
           };
         }
 
         return {
-          data: [
-            {
-              status: DB_CLAIM_STATUSES[0],
-              claimCount: 1,
-              totalAmount: 500,
-              paymentModeId: "pm-1",
-              paymentModeName: "Reimbursement",
-              departmentId: "dept-1",
-              departmentName: "Engineering",
-              hodApprovalHoursSum: 24,
-              hodApprovalSampleCount: 1,
+          data: createAggregatePayload({
+            claimCount: 3,
+            amounts: {
+              totalAmount: 2000,
+              approvedAmount: 1000,
+              pendingAmount: 500,
+              hodPendingAmount: 500,
+              hodPendingCount: 1,
+              rejectedAmount: 500,
             },
-            {
-              status: DB_CLAIM_STATUSES[2],
-              claimCount: 1,
-              totalAmount: 1000,
-              paymentModeId: "pm-2",
-              paymentModeName: "Petty Cash",
-              departmentId: "dept-1",
-              departmentName: "Engineering",
-              hodApprovalHoursSum: 24,
-              hodApprovalSampleCount: 1,
-            },
-            {
-              status: DB_CLAIM_STATUSES[5],
-              claimCount: 1,
-              totalAmount: 500,
-              paymentModeId: "pm-1",
-              paymentModeName: "Reimbursement",
-              departmentId: "dept-2",
-              departmentName: "Operations",
-              hodApprovalHoursSum: 0,
-              hodApprovalSampleCount: 0,
-            },
-          ],
+            efficiencyByDepartment: [
+              {
+                departmentId: "dept-1",
+                departmentName: "Engineering",
+                sampleCount: 2,
+                averageHoursToApproval: 24,
+                averageDaysToApproval: 1,
+              },
+            ],
+          }),
           errorMessage: null,
         };
       }),
@@ -216,23 +221,21 @@ describe("GetAnalyticsService", () => {
       getAnalyticsAggregates: jest
         .fn()
         .mockResolvedValueOnce({
-          data: [
-            {
-              status: DB_CLAIM_STATUSES[2],
-              claimCount: 1,
+          data: createAggregatePayload({
+            claimCount: 1,
+            amounts: {
               totalAmount: 750,
-              paymentModeId: "pm-1",
-              paymentModeName: "Reimbursement",
-              departmentId: "dept-1",
-              departmentName: "Engineering",
-              hodApprovalHoursSum: 12,
-              hodApprovalSampleCount: 1,
+              approvedAmount: 750,
+              pendingAmount: 0,
+              hodPendingAmount: 0,
+              hodPendingCount: 0,
+              rejectedAmount: 0,
             },
-          ],
+          }),
           errorMessage: null,
         })
         .mockResolvedValueOnce({
-          data: [],
+          data: createAggregatePayload(),
           errorMessage: null,
         }),
     });
@@ -264,7 +267,10 @@ describe("GetAnalyticsService", () => {
         },
         errorMessage: null,
       })),
-      getAnalyticsAggregates: jest.fn(async () => ({ data: [], errorMessage: null })),
+      getAnalyticsAggregates: jest.fn(async () => ({
+        data: createAggregatePayload(),
+        errorMessage: null,
+      })),
     });
 
     const service = new GetAnalyticsService({ repository, logger: createLogger() });

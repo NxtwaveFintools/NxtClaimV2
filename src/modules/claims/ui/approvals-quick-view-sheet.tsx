@@ -1,10 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { ArrowLeft, Eye, PanelRightClose, PanelRightOpen, X } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { RouterLink } from "@/components/ui/router-link";
 import { ROUTES } from "@/core/config/route-registry";
 import type { ClaimAuditLogRecord } from "@/core/domain/claims/contracts";
 import { ClaimSemanticDownloadButton } from "@/modules/claims/ui/claim-semantic-download-button";
@@ -331,13 +331,13 @@ export function ApprovalsAuditModeDialog({
                           Claim Review Workspace
                         </p>
                         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
-                          <Link
+                          <RouterLink
                             id={`claim-review-title-${claimId}`}
                             href={ROUTES.claims.detail(claimId)}
                             className="truncate text-base font-bold text-indigo-600 hover:underline dark:text-indigo-400"
                           >
                             {claimId}
-                          </Link>
+                          </RouterLink>
                           <span className="inline-flex h-7 items-center rounded-full border border-zinc-200/80 bg-zinc-100/80 px-3 text-xs font-semibold uppercase tracking-[0.12em] text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
                             {claimTypeLabel}
                           </span>

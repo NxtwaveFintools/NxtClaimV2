@@ -576,10 +576,14 @@ function resolveEnterpriseDateColumn(dateTarget?: ClaimDateTarget): string {
   return "submitted_on";
 }
 
-function resolvePendingApprovalsDateColumn(dateTarget?: ClaimDateTarget): string {
+function resolvePendingApprovalsDateColumn(
+  dateTarget?: ClaimDateTarget,
+  defaultColumn: string = "submitted_at",
+): string {
   if (dateTarget === "hod_action") return "hod_action_at";
-  if (dateTarget === "finance_closed") return "updated_at";
-  return "submitted_at";
+  // Use the dedicated finance_action_at column rather than the generic updated_at proxy.
+  if (dateTarget === "finance_closed") return "finance_action_at";
+  return defaultColumn;
 }
 
 type EnterpriseDashboardQueryChain<TQuery> = {
@@ -744,7 +748,10 @@ function applyPendingApprovalsFilters<TQuery extends PendingApprovalsQueryChain<
     query = query.in("status", params.normalizedStatuses);
   }
 
-  if (params.filters?.dateTarget === "finance_closed") {
+  // Only restrict by financed-closed status set when the user has NOT set an explicit status filter.
+  // If both were applied, they would be AND-ed by PostgREST, and any status not in FINANCE_CLOSED_STATUSES
+  // would intersect to an empty set and return 0 results.
+  if (params.filters?.dateTarget === "finance_closed" && params.normalizedStatuses.length === 0) {
     query = query.in("status", FINANCE_CLOSED_STATUSES);
   }
 
@@ -2875,7 +2882,9 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const decodedCursor = decodeClaimsCursor(cursor);
     const normalizedStatuses = normalizeStatusFilter(filters?.status);
     const { fromDate, toDate } = normalizeDateRange(filters);
-    const dateColumn = resolvePendingApprovalsDateColumn(filters?.dateTarget);
+    // Default to hod_action_at so date-range filters reflect when the L1 approver acted,
+    // not when the submitter originally submitted the claim.
+    const dateColumn = resolvePendingApprovalsDateColumn(filters?.dateTarget, "hod_action_at");
     const normalizedSearch = normalizeSearchInput(filters);
     const safeLimit = clampListPageSize(limit);
 
@@ -2989,7 +2998,9 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const decodedCursor = decodeClaimsCursor(cursor);
     const normalizedStatuses = normalizeFinanceVisibleStatusFilter(filters?.status);
     const { fromDate, toDate } = normalizeDateRange(filters);
-    const dateColumn = resolvePendingApprovalsDateColumn(filters?.dateTarget);
+    // Default to finance_action_at so date-range filters reflect when the Finance approver acted,
+    // not when the submitter originally submitted the claim.
+    const dateColumn = resolvePendingApprovalsDateColumn(filters?.dateTarget, "finance_action_at");
     const normalizedSearch = normalizeSearchInput(filters);
     const safeLimit = clampListPageSize(limit);
 
@@ -3300,9 +3311,13 @@ export class SupabaseClaimRepository implements ClaimRepository {
       };
     }
 
-    const orderedClaimIds = (idData ?? []).map((row) =>
-      String((row as { claim_id: string }).claim_id),
-    );
+    const orderedClaimIds: string[] = [];
+    for (const row of idData ?? []) {
+      const claimId = String((row as { claim_id: string }).claim_id);
+      if (claimId.length > 0) {
+        orderedClaimIds.push(claimId);
+      }
+    }
 
     if (orderedClaimIds.length === 0) {
       return {
@@ -3320,7 +3335,9 @@ export class SupabaseClaimRepository implements ClaimRepository {
           "id, status, submission_type, detail_type, submitted_by, on_behalf_of_id, employee_id, cc_emails, on_behalf_email, on_behalf_employee_code, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_at, hod_action_at, finance_action_at, rejection_reason, is_resubmission_allowed, created_at, updated_at, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), l1_approver_user:users!claims_assigned_l1_approver_id_fkey(full_name, email), l2_finance_approver:master_finance_approvers!claims_assigned_l2_approver_id_fkey(approver_user:users!master_finance_approvers_user_id_fkey(full_name, email)), master_departments(id, name), master_payment_modes(id, name), expense_details(bill_no, transaction_id, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, currency_code, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(id, name), master_products(id, name), master_locations(id, name)), advance_details(requested_amount, budget_month, budget_year, expected_usage_date, purpose, product_id, location_id, remarks, supporting_document_path, master_products(id, name), master_locations(id, name))",
         )
         .in("id", claimIdChunk)
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false });
 
       if (error) {
         return {
@@ -3332,10 +3349,15 @@ export class SupabaseClaimRepository implements ClaimRepository {
       rows.push(...((data ?? []) as ExportClaimRow[]));
     }
 
-    const rowById = new Map(rows.map((row) => [row.id, row]));
-    const walletUserIds = Array.from(
-      new Set(rows.map((row) => row.on_behalf_of_id ?? row.submitted_by).filter(Boolean)),
-    );
+    const walletUserIdSet = new Set<string>();
+    for (const row of rows) {
+      const walletUserId = row.on_behalf_of_id ?? row.submitted_by;
+      if (walletUserId) {
+        walletUserIdSet.add(walletUserId);
+      }
+    }
+
+    const walletUserIds = [...walletUserIdSet];
     const walletBalanceByUserId = new Map<string, number | null>();
 
     if (walletUserIds.length > 0) {
@@ -3359,97 +3381,94 @@ export class SupabaseClaimRepository implements ClaimRepository {
     }
 
     return {
-      data: orderedClaimIds
-        .map((id) => rowById.get(id))
-        .filter((row): row is ExportClaimRow => Boolean(row))
-        .map((row) => {
-          const walletUserId = row.on_behalf_of_id ?? row.submitted_by;
-          const submitter = getSingleRelation(row.submitter_user);
-          const beneficiary = getSingleRelation(row.beneficiary_user);
-          const l1Approver = getSingleRelation(row.l1_approver_user);
-          const l2FinanceApprover = getSingleRelation(row.l2_finance_approver);
-          const l2Approver = getSingleRelation(l2FinanceApprover?.approver_user);
-          const department = getSingleRelation(row.master_departments);
-          const paymentMode = getSingleRelation(row.master_payment_modes);
-          const expense = getSingleRelation(row.expense_details);
-          const advance = getSingleRelation(row.advance_details);
-          const expenseCategory = getSingleRelation(expense?.master_expense_categories);
-          const expenseProduct = getSingleRelation(expense?.master_products);
-          const expenseLocation = getSingleRelation(expense?.master_locations);
-          const advanceProduct = getSingleRelation(advance?.master_products);
-          const advanceLocation = getSingleRelation(advance?.master_locations);
+      data: rows.map((row) => {
+        const walletUserId = row.on_behalf_of_id ?? row.submitted_by;
+        const submitter = getSingleRelation(row.submitter_user);
+        const beneficiary = getSingleRelation(row.beneficiary_user);
+        const l1Approver = getSingleRelation(row.l1_approver_user);
+        const l2FinanceApprover = getSingleRelation(row.l2_finance_approver);
+        const l2Approver = getSingleRelation(l2FinanceApprover?.approver_user);
+        const department = getSingleRelation(row.master_departments);
+        const paymentMode = getSingleRelation(row.master_payment_modes);
+        const expense = getSingleRelation(row.expense_details);
+        const advance = getSingleRelation(row.advance_details);
+        const expenseCategory = getSingleRelation(expense?.master_expense_categories);
+        const expenseProduct = getSingleRelation(expense?.master_products);
+        const expenseLocation = getSingleRelation(expense?.master_locations);
+        const advanceProduct = getSingleRelation(advance?.master_products);
+        const advanceLocation = getSingleRelation(advance?.master_locations);
 
-          return {
-            claimId: row.id,
-            status: row.status,
-            submissionType: row.submission_type,
-            detailType: row.detail_type,
-            submittedBy: row.submitted_by,
-            onBehalfOfId: row.on_behalf_of_id,
-            employeeId: row.employee_id,
-            ccEmails: row.cc_emails,
-            onBehalfEmail: row.on_behalf_email,
-            onBehalfEmployeeCode: row.on_behalf_employee_code,
-            departmentId: row.department_id,
-            departmentName: department?.name ?? null,
-            paymentModeId: row.payment_mode_id,
-            paymentModeName: paymentMode?.name ?? null,
-            assignedL1ApproverId: row.assigned_l1_approver_id,
-            assignedL2ApproverId: row.assigned_l2_approver_id,
-            submittedAt: row.submitted_at,
-            hodActionAt: row.hod_action_at,
-            financeActionAt: row.finance_action_at,
-            rejectionReason: row.rejection_reason,
-            isResubmissionAllowed: row.is_resubmission_allowed,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
-            submitterName: submitter?.full_name ?? null,
-            submitterEmail: submitter?.email ?? null,
-            beneficiaryName: beneficiary?.full_name ?? null,
-            beneficiaryEmail: beneficiary?.email ?? null,
-            pettyCashBalance: walletBalanceByUserId.get(walletUserId) ?? null,
-            l1ApproverName: l1Approver?.full_name ?? null,
-            l1ApproverEmail: l1Approver?.email ?? null,
-            l2ApproverName: l2Approver?.full_name ?? null,
-            l2ApproverEmail: l2Approver?.email ?? null,
-            expenseBillNo: expense?.bill_no ?? null,
-            expenseTransactionId: expense?.transaction_id ?? null,
-            expensePurpose: expense?.purpose ?? null,
-            expenseCategoryId: expense?.expense_category_id ?? null,
-            expenseCategoryName: expenseCategory?.name ?? null,
-            expenseProductId: expense?.product_id ?? null,
-            expenseProductName: expenseProduct?.name ?? null,
-            expenseLocationId: expense?.location_id ?? null,
-            expenseLocationName: expenseLocation?.name ?? null,
-            expenseLocationType: expense?.location_type ?? null,
-            expenseLocationDetails: expense?.location_details ?? null,
-            expenseIsGstApplicable: expense?.is_gst_applicable ?? null,
-            expenseGstNumber: expense?.gst_number ?? null,
-            expenseTransactionDate: expense?.transaction_date ?? null,
-            expenseBasicAmount: toNumber(expense?.basic_amount),
-            expenseCgstAmount: toNumber(expense?.cgst_amount),
-            expenseSgstAmount: toNumber(expense?.sgst_amount),
-            expenseIgstAmount: toNumber(expense?.igst_amount),
-            expenseTotalAmount: toNumber(expense?.total_amount),
-            expenseCurrencyCode: expense?.currency_code ?? null,
-            expenseVendorName: expense?.vendor_name ?? null,
-            expensePeopleInvolved: expense?.people_involved ?? null,
-            expenseRemarks: expense?.remarks ?? null,
-            expenseReceiptFilePath: expense?.receipt_file_path ?? null,
-            expenseBankStatementFilePath: expense?.bank_statement_file_path ?? null,
-            advanceRequestedAmount: toNumber(advance?.requested_amount),
-            advanceBudgetMonth: advance?.budget_month ?? null,
-            advanceBudgetYear: advance?.budget_year ?? null,
-            advanceExpectedUsageDate: advance?.expected_usage_date ?? null,
-            advancePurpose: advance?.purpose ?? null,
-            advanceProductId: advance?.product_id ?? null,
-            advanceProductName: advanceProduct?.name ?? null,
-            advanceLocationId: advance?.location_id ?? null,
-            advanceLocationName: advanceLocation?.name ?? null,
-            advanceRemarks: advance?.remarks ?? null,
-            advanceSupportingDocumentPath: advance?.supporting_document_path ?? null,
-          } satisfies ClaimFullExportRecord;
-        }),
+        return {
+          claimId: row.id,
+          status: row.status,
+          submissionType: row.submission_type,
+          detailType: row.detail_type,
+          submittedBy: row.submitted_by,
+          onBehalfOfId: row.on_behalf_of_id,
+          employeeId: row.employee_id,
+          ccEmails: row.cc_emails,
+          onBehalfEmail: row.on_behalf_email,
+          onBehalfEmployeeCode: row.on_behalf_employee_code,
+          departmentId: row.department_id,
+          departmentName: department?.name ?? null,
+          paymentModeId: row.payment_mode_id,
+          paymentModeName: paymentMode?.name ?? null,
+          assignedL1ApproverId: row.assigned_l1_approver_id,
+          assignedL2ApproverId: row.assigned_l2_approver_id,
+          submittedAt: row.submitted_at,
+          hodActionAt: row.hod_action_at,
+          financeActionAt: row.finance_action_at,
+          rejectionReason: row.rejection_reason,
+          isResubmissionAllowed: row.is_resubmission_allowed,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+          submitterName: submitter?.full_name ?? null,
+          submitterEmail: submitter?.email ?? null,
+          beneficiaryName: beneficiary?.full_name ?? null,
+          beneficiaryEmail: beneficiary?.email ?? null,
+          pettyCashBalance: walletBalanceByUserId.get(walletUserId) ?? null,
+          l1ApproverName: l1Approver?.full_name ?? null,
+          l1ApproverEmail: l1Approver?.email ?? null,
+          l2ApproverName: l2Approver?.full_name ?? null,
+          l2ApproverEmail: l2Approver?.email ?? null,
+          expenseBillNo: expense?.bill_no ?? null,
+          expenseTransactionId: expense?.transaction_id ?? null,
+          expensePurpose: expense?.purpose ?? null,
+          expenseCategoryId: expense?.expense_category_id ?? null,
+          expenseCategoryName: expenseCategory?.name ?? null,
+          expenseProductId: expense?.product_id ?? null,
+          expenseProductName: expenseProduct?.name ?? null,
+          expenseLocationId: expense?.location_id ?? null,
+          expenseLocationName: expenseLocation?.name ?? null,
+          expenseLocationType: expense?.location_type ?? null,
+          expenseLocationDetails: expense?.location_details ?? null,
+          expenseIsGstApplicable: expense?.is_gst_applicable ?? null,
+          expenseGstNumber: expense?.gst_number ?? null,
+          expenseTransactionDate: expense?.transaction_date ?? null,
+          expenseBasicAmount: toNumber(expense?.basic_amount),
+          expenseCgstAmount: toNumber(expense?.cgst_amount),
+          expenseSgstAmount: toNumber(expense?.sgst_amount),
+          expenseIgstAmount: toNumber(expense?.igst_amount),
+          expenseTotalAmount: toNumber(expense?.total_amount),
+          expenseCurrencyCode: expense?.currency_code ?? null,
+          expenseVendorName: expense?.vendor_name ?? null,
+          expensePeopleInvolved: expense?.people_involved ?? null,
+          expenseRemarks: expense?.remarks ?? null,
+          expenseReceiptFilePath: expense?.receipt_file_path ?? null,
+          expenseBankStatementFilePath: expense?.bank_statement_file_path ?? null,
+          advanceRequestedAmount: toNumber(advance?.requested_amount),
+          advanceBudgetMonth: advance?.budget_month ?? null,
+          advanceBudgetYear: advance?.budget_year ?? null,
+          advanceExpectedUsageDate: advance?.expected_usage_date ?? null,
+          advancePurpose: advance?.purpose ?? null,
+          advanceProductId: advance?.product_id ?? null,
+          advanceProductName: advanceProduct?.name ?? null,
+          advanceLocationId: advance?.location_id ?? null,
+          advanceLocationName: advanceLocation?.name ?? null,
+          advanceRemarks: advance?.remarks ?? null,
+          advanceSupportingDocumentPath: advance?.supporting_document_path ?? null,
+        } satisfies ClaimFullExportRecord;
+      }),
       errorMessage: null,
     };
   }

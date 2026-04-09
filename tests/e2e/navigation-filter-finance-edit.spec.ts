@@ -522,6 +522,61 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
     });
   });
 
+  test("NAV-2B: claim detail requests are deferred until explicit click", async ({ browser }) => {
+    await withActorPage(browser, ACTORS.employee.email, async (page) => {
+      await gotoWithRetry(page, "/dashboard/my-claims");
+      await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
+
+      const claimLink = page.locator('a[href*="/dashboard/claims/"]').first();
+      await expect(claimLink).toBeVisible({ timeout: 15000 });
+
+      const href = await claimLink.getAttribute("href");
+      if (!href) {
+        throw new Error("Unable to resolve claim detail href for prefetch assertion.");
+      }
+
+      const detailPath = new URL(href, page.url()).pathname;
+      const detailRequests: string[] = [];
+
+      const onRequest = (request: { url: () => string }) => {
+        const requestUrl = request.url();
+
+        let requestPath: string;
+        try {
+          requestPath = new URL(requestUrl).pathname;
+        } catch {
+          return;
+        }
+
+        if (requestPath === detailPath) {
+          detailRequests.push(requestUrl);
+        }
+      };
+
+      page.on("request", onRequest);
+
+      try {
+        await claimLink.hover();
+        await page.waitForTimeout(500);
+        expect(detailRequests).toHaveLength(0);
+
+        await Promise.all([
+          page.waitForURL((url) => url.pathname === detailPath, { timeout: 15000 }),
+          claimLink.click(),
+        ]);
+
+        await expect
+          .poll(() => detailRequests.length, {
+            timeout: 5000,
+            message: "waiting for claim detail request after explicit click",
+          })
+          .toBeGreaterThan(0);
+      } finally {
+        page.off("request", onRequest);
+      }
+    });
+  });
+
   test("FIN-1: finance edit updates amount, toggles GST, and saves via toast confirmation", async ({
     browser,
   }) => {

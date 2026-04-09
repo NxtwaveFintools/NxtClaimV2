@@ -7,7 +7,6 @@ import { ROUTES } from "@/core/config/route-registry";
 import {
   enforceSessionDomainAction,
   loginWithEmailAction,
-  loginWithGoogleAction,
   loginWithMicrosoftAction,
 } from "@/modules/auth/actions";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -80,16 +79,6 @@ export function LoginPageContent() {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    setError(null);
-    const result = await loginWithGoogleAction();
-    if (!result.ok) {
-      setError(result.message ?? "Unable to continue with Google.");
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-zinc-50 transition-colors dark:bg-[#0B0F1A]">
       <div
@@ -141,11 +130,7 @@ export function LoginPageContent() {
 
           {/* Card */}
           <div className="rounded-[28px] border border-zinc-200/80 bg-white/95 px-7 py-8 shadow-[0_32px_100px_-28px_rgba(15,23,42,0.13),0_0_0_1px_rgba(99,102,241,0.04)] backdrop-blur-sm transition-colors dark:border-zinc-800/70 dark:bg-zinc-900/95 dark:shadow-[0_32px_100px_-28px_rgba(0,0,0,0.55)]">
-            <OAuthButtons
-              loading={loading}
-              onMicrosoftClick={handleMicrosoftLogin}
-              onGoogleClick={handleGoogleLogin}
-            />
+            <OAuthButtons loading={loading} onMicrosoftClick={handleMicrosoftLogin} />
 
             <div className="relative my-7">
               <div className="absolute inset-0 flex items-center">

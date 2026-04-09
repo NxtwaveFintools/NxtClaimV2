@@ -2,8 +2,8 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { ROUTES } from "@/core/config/route-registry";
+import { RouterLink } from "@/components/ui/router-link";
 import { softDeleteClaimAction } from "@/modules/admin/actions";
 import {
   CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
@@ -75,12 +75,12 @@ function AdminClaimRow({ claim }: { claim: AdminClaimRecord }) {
   return (
     <tr className="transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40">
       <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
-        <Link
+        <RouterLink
           href={ROUTES.claims.detail(claim.claimId)}
           className="whitespace-nowrap text-indigo-500 hover:text-indigo-400 hover:underline"
         >
           {claim.claimId}
-        </Link>
+        </RouterLink>
       </td>
       <td className="whitespace-nowrap px-3 py-2">
         <span className="inline-block max-w-45 truncate align-bottom">{claim.employeeId}</span>

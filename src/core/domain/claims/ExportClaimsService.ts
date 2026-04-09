@@ -316,6 +316,123 @@ export function getExportDateRangeValidationMessage(filters?: GetMyClaimsFilters
   return validateExportDateRange(filters);
 }
 
+function collectMissingEvidencePaths(
+  batchRows: ClaimFullExportRecord[],
+  signedUrlMap: Record<string, string>,
+): string[] {
+  const uniquePaths = new Set<string>();
+
+  for (const row of batchRows) {
+    if (row.expenseReceiptFilePath && !signedUrlMap[row.expenseReceiptFilePath]) {
+      uniquePaths.add(row.expenseReceiptFilePath);
+    }
+
+    if (row.expenseBankStatementFilePath && !signedUrlMap[row.expenseBankStatementFilePath]) {
+      uniquePaths.add(row.expenseBankStatementFilePath);
+    }
+
+    if (row.advanceSupportingDocumentPath && !signedUrlMap[row.advanceSupportingDocumentPath]) {
+      uniquePaths.add(row.advanceSupportingDocumentPath);
+    }
+  }
+
+  return [...uniquePaths];
+}
+
+function toExportRow(
+  row: ClaimFullExportRecord,
+  signedUrlMap: Record<string, string>,
+): ClaimExportRow {
+  const receiptUrl = row.expenseReceiptFilePath
+    ? (signedUrlMap[row.expenseReceiptFilePath] ?? null)
+    : null;
+  const bankStatementUrl = row.expenseBankStatementFilePath
+    ? (signedUrlMap[row.expenseBankStatementFilePath] ?? null)
+    : null;
+  const supportingUrl = row.advanceSupportingDocumentPath
+    ? (signedUrlMap[row.advanceSupportingDocumentPath] ?? null)
+    : null;
+
+  const totalAmount =
+    row.detailType === "expense"
+      ? formatAmountDisplay(row.expenseTotalAmount)
+      : formatAmountDisplay(row.advanceRequestedAmount);
+  const workflowStatuses = deriveWorkflowStatuses({
+    status: row.status,
+    financeActionAt: row.financeActionAt,
+  });
+  const beneficiaryName =
+    row.submissionType === "On Behalf"
+      ? (row.beneficiaryName ?? row.submitterName)
+      : (row.submitterName ?? row.beneficiaryName);
+  const beneficiaryEmail =
+    row.submissionType === "On Behalf"
+      ? (row.beneficiaryEmail ?? row.onBehalfEmail ?? row.submitterEmail)
+      : (row.submitterEmail ?? row.beneficiaryEmail);
+  const beneficiaryEmployeeId =
+    row.submissionType === "On Behalf"
+      ? (row.onBehalfEmployeeCode ?? row.employeeId)
+      : row.employeeId;
+  const submitterEmployeeId = row.employeeId;
+
+  return {
+    claimId: row.claimId,
+    employeeId: toTextValue(row.employeeId),
+    beneficiaryEmployeeId: toTextValue(beneficiaryEmployeeId),
+    submitterEmployeeId: toTextValue(submitterEmployeeId),
+    employeeEmail: toTextValue(beneficiaryEmail),
+    employeeName: toTextValue(beneficiaryName),
+    department: toTextValue(row.departmentName),
+    pettyCashBalance: formatAmountDisplay(row.pettyCashBalance),
+    submitter: toTextValue(row.submitterName ?? row.submitterEmail),
+    submitterEmail: toTextValue(row.submitterEmail),
+    paymentMode: toTextValue(row.paymentModeName),
+    submissionType: row.submissionType,
+    purpose: toTextValue(row.detailType === "expense" ? row.expensePurpose : row.advancePurpose),
+    claimRaisedDate: formatBusinessDate(row.submittedAt),
+    hodApprovedDate: formatBusinessDate(row.hodActionAt),
+    financeApprovedDate: formatBusinessDate(row.financeActionAt),
+    billDate:
+      row.detailType === "expense"
+        ? formatBusinessDate(row.expenseTransactionDate)
+        : formatBusinessDate(row.advanceExpectedUsageDate),
+    claimStatus: row.status,
+    hodStatus: workflowStatuses.hodStatus,
+    financeStatus: workflowStatuses.financeStatus,
+    billStatus: workflowStatuses.billStatus,
+    billNumber: toTextValue(row.expenseBillNo),
+    basicAmount: formatAmountDisplay(row.expenseBasicAmount),
+    cgst: formatAmountDisplay(row.expenseCgstAmount),
+    sgst: formatAmountDisplay(row.expenseSgstAmount),
+    igst: formatAmountDisplay(row.expenseIgstAmount),
+    totalAmount,
+    currency: toTextValue(row.expenseCurrencyCode ?? "INR"),
+    approvedAmount:
+      row.status === DB_CLAIM_STATUSES[2] || row.status === DB_CLAIM_STATUSES[3]
+        ? totalAmount
+        : "N/A",
+    vendorName: toTextValue(row.expenseVendorName),
+    transactionCategory: toTextValue(row.expenseCategoryName),
+    product: toTextValue(
+      row.detailType === "expense" ? row.expenseProductName : row.advanceProductName,
+    ),
+    expenseLocation: toTextValue(
+      row.detailType === "expense" ? row.expenseLocationName : row.advanceLocationName,
+    ),
+    locationType: toTextValue(row.expenseLocationType),
+    locationDetails: toTextValue(row.expenseLocationDetails),
+    bankStatementUrl,
+    billUrl: receiptUrl,
+    pettyCashPhotoUrl: row.detailType === "expense" ? receiptUrl : supportingUrl,
+    pettyCashRequestMonth: toPettyCashRequestMonth(row.advanceBudgetMonth, row.advanceBudgetYear),
+    transactionCount: "1",
+    claimRemarks: toTextValue(row.rejectionReason),
+    transactionRemarks: toTextValue(
+      row.detailType === "expense" ? row.expenseRemarks : row.advanceRemarks,
+    ),
+  };
+}
+
 export class ExportClaimsService {
   private readonly repository: ExportClaimsRepository;
   private readonly logger: ClaimDomainLogger;
@@ -404,8 +521,11 @@ export class ExportClaimsService {
       };
     }
 
-    const dbRows: ClaimFullExportRecord[] = [];
+    const rows: ClaimExportRow[] = [];
+    const signedUrlMap: Record<string, string> = {};
     let cursor: { createdAt: string; claimId: string } | undefined;
+
+    const SIGNED_URL_EXPIRY_SECONDS = 2592000; // 30 days
 
     while (true) {
       const batchResult = await this.repository.getClaimsForFullExport({
@@ -430,7 +550,27 @@ export class ExportClaimsService {
         break;
       }
 
-      dbRows.push(...batchResult.data);
+      const missingEvidencePaths = collectMissingEvidencePaths(batchResult.data, signedUrlMap);
+
+      if (missingEvidencePaths.length > 0) {
+        const signedUrlResult = await this.repository.createBulkSignedUrls({
+          filePaths: missingEvidencePaths,
+          expiresInSeconds: SIGNED_URL_EXPIRY_SECONDS,
+        });
+
+        if (signedUrlResult.errorMessage) {
+          this.logger.warn("claims.export.bulk_signed_url_generation_failed", {
+            errorMessage: signedUrlResult.errorMessage,
+            pathCount: missingEvidencePaths.length,
+          });
+        } else {
+          Object.assign(signedUrlMap, signedUrlResult.data);
+        }
+      }
+
+      for (const row of batchResult.data) {
+        rows.push(toExportRow(row, signedUrlMap));
+      }
 
       if (batchResult.data.length < EXPORT_BATCH_SIZE) {
         break;
@@ -442,130 +582,6 @@ export class ExportClaimsService {
         claimId: lastRecord.claimId,
       };
     }
-
-    const SIGNED_URL_EXPIRY_SECONDS = 2592000; // 30 days
-
-    const allFilePaths: string[] = [];
-    for (const row of dbRows) {
-      if (row.expenseReceiptFilePath) allFilePaths.push(row.expenseReceiptFilePath);
-      if (row.expenseBankStatementFilePath) allFilePaths.push(row.expenseBankStatementFilePath);
-      if (row.advanceSupportingDocumentPath) allFilePaths.push(row.advanceSupportingDocumentPath);
-    }
-
-    const uniquePaths = [...new Set(allFilePaths)];
-    let signedUrlMap: Record<string, string> = {};
-
-    if (uniquePaths.length > 0) {
-      const signedUrlResult = await this.repository.createBulkSignedUrls({
-        filePaths: uniquePaths,
-        expiresInSeconds: SIGNED_URL_EXPIRY_SECONDS,
-      });
-
-      if (signedUrlResult.errorMessage) {
-        this.logger.warn("claims.export.bulk_signed_url_generation_failed", {
-          errorMessage: signedUrlResult.errorMessage,
-          pathCount: uniquePaths.length,
-        });
-      }
-
-      signedUrlMap = signedUrlResult.data;
-    }
-
-    const rows: ClaimExportRow[] = dbRows.map((row) => {
-      const receiptUrl = row.expenseReceiptFilePath
-        ? (signedUrlMap[row.expenseReceiptFilePath] ?? null)
-        : null;
-      const bankStatementUrl = row.expenseBankStatementFilePath
-        ? (signedUrlMap[row.expenseBankStatementFilePath] ?? null)
-        : null;
-      const supportingUrl = row.advanceSupportingDocumentPath
-        ? (signedUrlMap[row.advanceSupportingDocumentPath] ?? null)
-        : null;
-
-      const totalAmount =
-        row.detailType === "expense"
-          ? formatAmountDisplay(row.expenseTotalAmount)
-          : formatAmountDisplay(row.advanceRequestedAmount);
-      const workflowStatuses = deriveWorkflowStatuses({
-        status: row.status,
-        financeActionAt: row.financeActionAt,
-      });
-      const beneficiaryName =
-        row.submissionType === "On Behalf"
-          ? (row.beneficiaryName ?? row.submitterName)
-          : (row.submitterName ?? row.beneficiaryName);
-      const beneficiaryEmail =
-        row.submissionType === "On Behalf"
-          ? (row.beneficiaryEmail ?? row.onBehalfEmail ?? row.submitterEmail)
-          : (row.submitterEmail ?? row.beneficiaryEmail);
-      const beneficiaryEmployeeId =
-        row.submissionType === "On Behalf"
-          ? (row.onBehalfEmployeeCode ?? row.employeeId)
-          : row.employeeId;
-      const submitterEmployeeId = row.employeeId;
-
-      return {
-        claimId: row.claimId,
-        employeeId: toTextValue(row.employeeId),
-        beneficiaryEmployeeId: toTextValue(beneficiaryEmployeeId),
-        submitterEmployeeId: toTextValue(submitterEmployeeId),
-        employeeEmail: toTextValue(beneficiaryEmail),
-        employeeName: toTextValue(beneficiaryName),
-        department: toTextValue(row.departmentName),
-        pettyCashBalance: formatAmountDisplay(row.pettyCashBalance),
-        submitter: toTextValue(row.submitterName ?? row.submitterEmail),
-        submitterEmail: toTextValue(row.submitterEmail),
-        paymentMode: toTextValue(row.paymentModeName),
-        submissionType: row.submissionType,
-        purpose: toTextValue(
-          row.detailType === "expense" ? row.expensePurpose : row.advancePurpose,
-        ),
-        claimRaisedDate: formatBusinessDate(row.submittedAt),
-        hodApprovedDate: formatBusinessDate(row.hodActionAt),
-        financeApprovedDate: formatBusinessDate(row.financeActionAt),
-        billDate:
-          row.detailType === "expense"
-            ? formatBusinessDate(row.expenseTransactionDate)
-            : formatBusinessDate(row.advanceExpectedUsageDate),
-        claimStatus: row.status,
-        hodStatus: workflowStatuses.hodStatus,
-        financeStatus: workflowStatuses.financeStatus,
-        billStatus: workflowStatuses.billStatus,
-        billNumber: toTextValue(row.expenseBillNo),
-        basicAmount: formatAmountDisplay(row.expenseBasicAmount),
-        cgst: formatAmountDisplay(row.expenseCgstAmount),
-        sgst: formatAmountDisplay(row.expenseSgstAmount),
-        igst: formatAmountDisplay(row.expenseIgstAmount),
-        totalAmount,
-        currency: toTextValue(row.expenseCurrencyCode ?? "INR"),
-        approvedAmount:
-          row.status === DB_CLAIM_STATUSES[2] || row.status === DB_CLAIM_STATUSES[3]
-            ? totalAmount
-            : "N/A",
-        vendorName: toTextValue(row.expenseVendorName),
-        transactionCategory: toTextValue(row.expenseCategoryName),
-        product: toTextValue(
-          row.detailType === "expense" ? row.expenseProductName : row.advanceProductName,
-        ),
-        expenseLocation: toTextValue(
-          row.detailType === "expense" ? row.expenseLocationName : row.advanceLocationName,
-        ),
-        locationType: toTextValue(row.expenseLocationType),
-        locationDetails: toTextValue(row.expenseLocationDetails),
-        bankStatementUrl,
-        billUrl: receiptUrl,
-        pettyCashPhotoUrl: row.detailType === "expense" ? receiptUrl : supportingUrl,
-        pettyCashRequestMonth: toPettyCashRequestMonth(
-          row.advanceBudgetMonth,
-          row.advanceBudgetYear,
-        ),
-        transactionCount: "1",
-        claimRemarks: toTextValue(row.rejectionReason),
-        transactionRemarks: toTextValue(
-          row.detailType === "expense" ? row.expenseRemarks : row.advanceRemarks,
-        ),
-      };
-    });
 
     return {
       rows,

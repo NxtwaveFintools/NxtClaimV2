@@ -12,6 +12,7 @@ import {
 import { ROUTES } from "@/core/config/route-registry";
 import { AppShellHeader } from "@/components/app-shell-header";
 import { PolicyGate } from "@/components/layout/PolicyGate";
+import { RouterLink } from "@/components/ui/router-link";
 import { resolveDashboardAnalyticsScope } from "@/core/domain/dashboard/resolve-analytics-scope";
 import { logger } from "@/core/infra/logging/logger";
 import { GetWalletSummaryService } from "@/core/domain/dashboard/GetWalletSummaryService";
@@ -189,7 +190,7 @@ async function DashboardPageContent({
               const Icon = item.icon;
 
               return (
-                <Link
+                <RouterLink
                   key={item.href}
                   href={item.href}
                   className={`flex items-center gap-2.5 rounded-2xl border px-3 py-2.5 transition-all duration-200 xl:gap-3 xl:px-4 xl:py-3 ${
@@ -208,7 +209,7 @@ async function DashboardPageContent({
                     <Icon className="h-4 w-4" aria-hidden="true" />
                   </span>
                   <span className="min-w-0 text-sm font-semibold">{item.label}</span>
-                </Link>
+                </RouterLink>
               );
             })}
           </nav>
@@ -276,7 +277,7 @@ async function DashboardPageContent({
                   const Icon = item.icon;
 
                   return (
-                    <Link
+                    <RouterLink
                       key={`mobile-${item.href}`}
                       href={item.href}
                       className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
@@ -287,7 +288,7 @@ async function DashboardPageContent({
                     >
                       <Icon className="h-4 w-4" aria-hidden="true" />
                       {item.label}
-                    </Link>
+                    </RouterLink>
                   );
                 })}
               </div>

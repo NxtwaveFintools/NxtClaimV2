@@ -1,7 +1,4 @@
-import {
-  DB_CLAIM_STATUSES,
-  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
-} from "@/core/constants/statuses";
+import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
 import { SupabaseDashboardRepository } from "@/modules/dashboard/repositories/SupabaseDashboardRepository";
 
 const mockGetServiceRoleSupabaseClient = jest.fn();
@@ -10,41 +7,11 @@ jest.mock("@/core/infra/supabase/server-client", () => ({
   getServiceRoleSupabaseClient: () => mockGetServiceRoleSupabaseClient(),
 }));
 
-type QueryResult<T> = {
-  data: T;
-  error: { message: string } | null;
-};
-
-type AwaitableBuilder<T> = {
-  gte: jest.Mock;
-  lte: jest.Mock;
-  order: jest.Mock;
-  in: jest.Mock;
-  or: jest.Mock;
-  eq: jest.Mock;
-  then: (onfulfilled: (value: QueryResult<T>) => unknown) => Promise<unknown>;
-};
-
 type AnyQuery = {
   eq: jest.Mock;
   maybeSingle?: jest.Mock;
   or?: jest.Mock;
 };
-
-function createAwaitableBuilder<T>(result: QueryResult<T>): AwaitableBuilder<T> {
-  const builder = {} as AwaitableBuilder<T>;
-
-  builder.gte = jest.fn(() => builder);
-  builder.lte = jest.fn(() => builder);
-  builder.order = jest.fn(() => builder);
-  builder.in = jest.fn(() => builder);
-  builder.or = jest.fn(() => builder);
-  builder.eq = jest.fn(() => builder);
-  builder.then = (onfulfilled: (value: QueryResult<T>) => unknown) =>
-    Promise.resolve(onfulfilled(result));
-
-  return builder;
-}
 
 describe("SupabaseDashboardRepository analytics methods", () => {
   beforeEach(() => {
@@ -120,32 +87,47 @@ describe("SupabaseDashboardRepository analytics methods", () => {
     });
   });
 
-  test("getAnalyticsAggregates applies scope and explicit advanced filters", async () => {
-    const analyticsBuilder = createAwaitableBuilder({
-      data: [
-        {
-          status: DB_CLAIM_STATUSES[1],
-          claim_count: "1",
-          total_amount: "1200.45",
-          payment_mode_id: "pm-1",
-          department_id: "dept-1",
-          assigned_l2_approver_id: "fa-1",
-          expense_category_id: "cat-1",
-          product_id: "prod-1",
-          hod_approval_hours_sum: "24",
-          hod_approval_sample_count: "1",
-          master_departments: { name: "Engineering" },
-          master_payment_modes: { name: "Reimbursement" },
+  test("getAnalyticsAggregates uses RPC payload and keeps status ordering complete", async () => {
+    const rpc = jest.fn(async () => ({
+      data: {
+        claimCount: 1,
+        amounts: {
+          totalAmount: 1200.45,
+          approvedAmount: 0,
+          pendingAmount: 1200.45,
+          hodPendingAmount: 1200.45,
+          hodPendingCount: 1,
+          rejectedAmount: 0,
         },
-      ],
+        statusBreakdown: [
+          {
+            status: DB_CLAIM_STATUSES[1],
+            count: 1,
+            amount: 1200.45,
+          },
+        ],
+        paymentModeBreakdown: [
+          {
+            paymentModeId: "pm-1",
+            paymentModeName: "Reimbursement",
+            count: 1,
+            amount: 1200.45,
+          },
+        ],
+        efficiencyByDepartment: [
+          {
+            departmentId: "dept-1",
+            departmentName: "Engineering",
+            sampleCount: 1,
+            averageHoursToApproval: 24,
+            averageDaysToApproval: 1,
+          },
+        ],
+      },
       error: null,
-    });
+    }));
 
-    mockGetServiceRoleSupabaseClient.mockReturnValue({
-      from: jest.fn(() => ({
-        select: jest.fn(() => analyticsBuilder),
-      })),
-    });
+    mockGetServiceRoleSupabaseClient.mockReturnValue({ rpc });
 
     const repository = new SupabaseDashboardRepository();
     const result = await repository.getAnalyticsAggregates({
@@ -161,27 +143,47 @@ describe("SupabaseDashboardRepository analytics methods", () => {
     });
 
     expect(result.errorMessage).toBeNull();
-    expect(analyticsBuilder.or).toHaveBeenCalledTimes(1);
-    expect(analyticsBuilder.or).toHaveBeenCalledWith(
-      expect.stringContaining(DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS),
+    expect(rpc).toHaveBeenCalledWith(
+      "get_dashboard_analytics_payload",
+      expect.objectContaining({
+        p_scope: "finance",
+        p_date_from: "2026-03-01",
+        p_date_to: "2026-03-31",
+        p_department_id: "dept-1",
+        p_expense_category_id: "cat-1",
+        p_product_id: "prod-1",
+        p_finance_approver_id: "fa-1",
+        p_finance_approver_ids: ["fa-1"],
+      }),
     );
-    expect(analyticsBuilder.eq).toHaveBeenCalledWith("department_id", "dept-1");
-    expect(analyticsBuilder.eq).toHaveBeenCalledWith("expense_category_id", "cat-1");
-    expect(analyticsBuilder.eq).toHaveBeenCalledWith("product_id", "prod-1");
-    expect(analyticsBuilder.eq).toHaveBeenCalledWith("assigned_l2_approver_id", "fa-1");
-    expect(result.data).toEqual([
+
+    expect(result.data?.claimCount).toBe(1);
+    expect(result.data?.amounts.totalAmount).toBe(1200.45);
+    expect(result.data?.paymentModeBreakdown).toEqual([
       {
-        claimCount: 1,
-        status: DB_CLAIM_STATUSES[1],
-        totalAmount: 1200.45,
         paymentModeId: "pm-1",
         paymentModeName: "Reimbursement",
-        departmentId: "dept-1",
-        departmentName: "Engineering",
-        hodApprovalHoursSum: 24,
-        hodApprovalSampleCount: 1,
+        count: 1,
+        amount: 1200.45,
       },
     ]);
+    expect(result.data?.efficiencyByDepartment).toEqual([
+      {
+        departmentId: "dept-1",
+        departmentName: "Engineering",
+        sampleCount: 1,
+        averageHoursToApproval: 24,
+        averageDaysToApproval: 1,
+      },
+    ]);
+
+    expect(result.data?.statusBreakdown).toEqual(
+      DB_CLAIM_STATUSES.map((status) =>
+        status === DB_CLAIM_STATUSES[1]
+          ? { status, count: 1, amount: 1200.45 }
+          : { status, count: 0, amount: 0 },
+      ),
+    );
   });
 
   test("getAnalyticsFilterOptions returns disabled response for viewers without scope filter permissions", async () => {

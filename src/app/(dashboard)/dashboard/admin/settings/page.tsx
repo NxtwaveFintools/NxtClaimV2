@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowRight,
@@ -13,6 +12,7 @@ import {
 import { AppShellHeader } from "@/components/app-shell-header";
 import { logger } from "@/core/infra/logging/logger";
 import { ROUTES } from "@/core/config/route-registry";
+import { RouterLink } from "@/components/ui/router-link";
 import { isAdmin } from "@/modules/admin/server/is-admin";
 import { ManageMasterDataService } from "@/core/domain/admin/ManageMasterDataService";
 import { ManageActorsService } from "@/core/domain/admin/ManageActorsService";
@@ -320,7 +320,7 @@ export default async function AdminSettingsPage({
 
                         return (
                           <li key={item.key}>
-                            <Link
+                            <RouterLink
                               href={tabHref(item.key)}
                               className={`group flex items-center gap-3 rounded-2xl border px-3 py-3 transition-all duration-200 ${
                                 isActive
@@ -353,7 +353,7 @@ export default async function AdminSettingsPage({
                                 }`}
                                 aria-hidden="true"
                               />
-                            </Link>
+                            </RouterLink>
                           </li>
                         );
                       })}

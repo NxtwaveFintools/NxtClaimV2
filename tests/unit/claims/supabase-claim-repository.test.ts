@@ -11,6 +11,7 @@ type QueryBuilder = {
   or: jest.Mock;
   eq: jest.Mock;
   in: jest.Mock;
+  not: jest.Mock;
   gte: jest.Mock;
   lte: jest.Mock;
   ilike: jest.Mock;
@@ -36,6 +37,7 @@ function createQueryBuilder(result: QueryResult): QueryBuilder {
     or: jest.fn(() => builder),
     eq: jest.fn(() => builder),
     in: jest.fn(() => builder),
+    not: jest.fn(() => builder),
     gte: jest.fn(() => builder),
     lte: jest.fn(() => builder),
     ilike: jest.fn(() => builder),
@@ -197,6 +199,35 @@ describe("SupabaseClaimRepository.getMyClaims", () => {
     });
 
     expect(queryBuilder.ilike).toHaveBeenCalledWith("id", "%claim%");
+  });
+
+  test("applies finance approvals status filter on base status column", async () => {
+    const queryBuilder = createQueryBuilder({
+      data: [],
+      count: 0,
+      error: null,
+    });
+
+    mockFrom.mockReturnValue({
+      select: jest.fn(() => queryBuilder),
+    });
+
+    mockGetServiceRoleSupabaseClient.mockReturnValue({
+      from: mockFrom,
+    });
+
+    const repository = new SupabaseClaimRepository();
+
+    await repository.getPendingApprovalsForFinance("finance-user", null, 20, {
+      status: ["Finance Approved - Payment under process"],
+    });
+
+    expect(queryBuilder.in).toHaveBeenCalledWith("status", [
+      "Finance Approved - Payment under process",
+    ]);
+    expect(queryBuilder.in).not.toHaveBeenCalledWith("claims.status", [
+      "Finance Approved - Payment under process",
+    ]);
   });
 });
 

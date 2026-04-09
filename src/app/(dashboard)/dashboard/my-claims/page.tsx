@@ -5,12 +5,16 @@ import { Suspense, cache } from "react";
 import { CirclePlus } from "lucide-react";
 import { AppShellHeader } from "@/components/app-shell-header";
 import { BackButton } from "@/components/ui/back-button";
+import { RouterLink } from "@/components/ui/router-link";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { ROUTES } from "@/core/config/route-registry";
 import {
+  CLAIM_STATUSES,
   DB_CLAIM_STATUSES,
   isPendingFinanceApprovalStatus,
   isSubmitterDeletableClaimStatus,
+  mapCanonicalStatusToDbStatuses,
+  type ClaimStatus,
   type DbClaimStatus,
 } from "@/core/constants/statuses";
 import type {
@@ -212,13 +216,26 @@ function normalizeStatusFilter(value: string | undefined): DbClaimStatus[] | und
   const parsed = value
     .split(",")
     .map((entry) => entry.trim())
-    .filter((entry): entry is DbClaimStatus => DB_CLAIM_STATUSES.includes(entry as DbClaimStatus));
+    .filter((entry) => entry.length > 0)
+    .flatMap((entry) => {
+      if (DB_CLAIM_STATUSES.includes(entry as DbClaimStatus)) {
+        return [entry as DbClaimStatus];
+      }
 
-  if (parsed.length === 0) {
+      if (CLAIM_STATUSES.includes(entry as ClaimStatus)) {
+        return mapCanonicalStatusToDbStatuses(entry as ClaimStatus);
+      }
+
+      return [];
+    });
+
+  const deduplicated = [...new Set(parsed)];
+
+  if (deduplicated.length === 0) {
     return undefined;
   }
 
-  return parsed;
+  return deduplicated;
 }
 
 function buildClaimFilters(searchParams?: Record<string, SearchParamsValue>): GetMyClaimsFilters {
@@ -781,12 +798,12 @@ async function ClaimsCommandCenterTable({
                         className="group transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
                       >
                         <td className="whitespace-nowrap px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
-                          <Link
+                          <RouterLink
                             href={ROUTES.claims.detail(claim.id)}
                             className="text-indigo-500 hover:text-indigo-400 hover:underline"
                           >
                             {claim.id}
-                          </Link>
+                          </RouterLink>
                         </td>
                         <td className="whitespace-nowrap px-3 py-2">
                           <span>{claim.employeeId}</span>
@@ -932,12 +949,12 @@ async function ClaimsCommandCenterTable({
                       className="transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
                     >
                       <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
-                        <Link
+                        <RouterLink
                           href={ROUTES.claims.detail(claim.id)}
                           className="whitespace-nowrap text-indigo-500 hover:text-indigo-400 hover:underline"
                         >
                           {claim.id}
-                        </Link>
+                        </RouterLink>
                       </td>
                       <td className="whitespace-nowrap px-3 py-2">
                         <span>{claim.employeeId}</span>

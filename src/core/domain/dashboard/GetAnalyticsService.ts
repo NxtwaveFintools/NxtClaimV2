@@ -1,23 +1,11 @@
-import {
-  DB_FINANCE_APPROVED_PAYMENT_UNDER_PROCESS_STATUS,
-  DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
-  DB_PAYMENT_DONE_CLOSED_STATUS,
-  DB_REJECTED_STATUSES,
-  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
-  DB_CLAIM_STATUSES,
-  type DbClaimStatus,
-} from "@/core/constants/statuses";
 import { resolveDashboardAnalyticsScope } from "@/core/domain/dashboard/resolve-analytics-scope";
+import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
 import type {
   DashboardAnalyticsAdvancedFilters,
-  DashboardAnalyticsAmountSummary,
   DashboardAnalyticsAmountTrendItem,
   DashboardAnalyticsData,
-  DashboardAnalyticsEfficiencyItem,
   DashboardAnalyticsFilter,
-  DashboardAnalyticsPaymentModeBreakdownItem,
   DashboardAnalyticsRepository,
-  DashboardAnalyticsStatusBreakdownItem,
   DashboardAnalyticsTrendSummary,
   DashboardDomainLogger,
 } from "@/core/domain/dashboard/contracts";
@@ -38,36 +26,9 @@ type ResolvedPeriod = {
   } | null;
 };
 
-type AggregatedAnalytics = {
-  claimCount: number;
-  amounts: DashboardAnalyticsAmountSummary;
-  statusBreakdown: DashboardAnalyticsStatusBreakdownItem[];
-  paymentModeBreakdown: DashboardAnalyticsPaymentModeBreakdownItem[];
-  efficiencyByDepartment: DashboardAnalyticsEfficiencyItem[];
-};
-
 const DATE_FORMAT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MONTH_FORMAT_PATTERN = /^\d{4}-\d{2}$/;
 const DAY_IN_MILLISECONDS = 86_400_000;
-
-const PENDING_STATUSES = new Set<DbClaimStatus>([
-  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
-  DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
-]);
-const APPROVED_STATUSES = new Set<DbClaimStatus>([
-  DB_FINANCE_APPROVED_PAYMENT_UNDER_PROCESS_STATUS,
-  DB_PAYMENT_DONE_CLOSED_STATUS,
-]);
-const REJECTED_STATUSES = new Set<DbClaimStatus>(DB_REJECTED_STATUSES);
-
-const EMPTY_AMOUNTS: DashboardAnalyticsAmountSummary = {
-  totalAmount: 0,
-  approvedAmount: 0,
-  pendingAmount: 0,
-  hodPendingAmount: 0,
-  hodPendingCount: 0,
-  rejectedAmount: 0,
-};
 
 function toDateAtStart(date: string): Date {
   return new Date(`${date}T00:00:00.000Z`);
@@ -79,14 +40,6 @@ function toIsoDate(value: Date): string {
 
 function roundCurrency(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
-function normalizeAmount(value: number): number {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-
-  return roundCurrency(value);
 }
 
 function resolvePeriod(filter?: DashboardAnalyticsFilter): ResolvedPeriod {
@@ -171,14 +124,6 @@ function resolvePeriod(filter?: DashboardAnalyticsFilter): ResolvedPeriod {
   };
 }
 
-function initializeStatusBreakdown(): DashboardAnalyticsStatusBreakdownItem[] {
-  return DB_CLAIM_STATUSES.map((status) => ({
-    status,
-    count: 0,
-    amount: 0,
-  }));
-}
-
 function buildTrendItem(
   currentAmount: number,
   previousAmount: number,
@@ -197,140 +142,6 @@ function buildTrendItem(
     currentAmount,
     previousAmount,
     percentageChange,
-  };
-}
-
-function aggregateClaims(
-  rows: Array<{
-    status: DbClaimStatus;
-    claimCount: number;
-    totalAmount: number;
-    paymentModeId: string | null;
-    paymentModeName: string | null;
-    departmentId: string | null;
-    departmentName: string | null;
-    hodApprovalHoursSum: number;
-    hodApprovalSampleCount: number;
-  }>,
-): AggregatedAnalytics {
-  const statusBreakdown = initializeStatusBreakdown();
-  const statusIndex = new Map<DbClaimStatus, number>(
-    statusBreakdown.map((item, index) => [item.status, index]),
-  );
-
-  const paymentModeMap = new Map<string, DashboardAnalyticsPaymentModeBreakdownItem>();
-  const efficiencyMap = new Map<
-    string,
-    {
-      departmentName: string;
-      totalHours: number;
-      sampleCount: number;
-    }
-  >();
-
-  let totalAmount = 0;
-  let approvedAmount = 0;
-  let pendingAmount = 0;
-  let hodPendingAmount = 0;
-  let hodPendingCount = 0;
-  let rejectedAmount = 0;
-  let claimCount = 0;
-
-  for (const claim of rows) {
-    const rowClaimCount = Number.isFinite(claim.claimCount)
-      ? Math.max(0, Math.trunc(claim.claimCount))
-      : 0;
-    const normalizedAmount = normalizeAmount(claim.totalAmount);
-    claimCount += rowClaimCount;
-    totalAmount = roundCurrency(totalAmount + normalizedAmount);
-
-    if (APPROVED_STATUSES.has(claim.status)) {
-      approvedAmount = roundCurrency(approvedAmount + normalizedAmount);
-    } else if (PENDING_STATUSES.has(claim.status)) {
-      pendingAmount = roundCurrency(pendingAmount + normalizedAmount);
-    } else if (REJECTED_STATUSES.has(claim.status)) {
-      rejectedAmount = roundCurrency(rejectedAmount + normalizedAmount);
-    }
-
-    if (claim.status === DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS) {
-      hodPendingAmount = roundCurrency(hodPendingAmount + normalizedAmount);
-      hodPendingCount += rowClaimCount;
-    }
-
-    const statusItemIndex = statusIndex.get(claim.status);
-    if (statusItemIndex !== undefined) {
-      const current = statusBreakdown[statusItemIndex];
-      statusBreakdown[statusItemIndex] = {
-        ...current,
-        count: current.count + rowClaimCount,
-        amount: roundCurrency(current.amount + normalizedAmount),
-      };
-    }
-
-    const paymentKey = claim.paymentModeId ?? "__unknown__";
-    const currentPayment = paymentModeMap.get(paymentKey);
-
-    if (currentPayment) {
-      paymentModeMap.set(paymentKey, {
-        ...currentPayment,
-        count: currentPayment.count + rowClaimCount,
-        amount: roundCurrency(currentPayment.amount + normalizedAmount),
-      });
-    } else {
-      paymentModeMap.set(paymentKey, {
-        paymentModeId: claim.paymentModeId,
-        paymentModeName: claim.paymentModeName ?? "Unknown",
-        count: rowClaimCount,
-        amount: normalizedAmount,
-      });
-    }
-
-    if (claim.departmentId && claim.hodApprovalSampleCount > 0) {
-      const currentEfficiency = efficiencyMap.get(claim.departmentId);
-
-      if (currentEfficiency) {
-        currentEfficiency.totalHours += claim.hodApprovalHoursSum;
-        currentEfficiency.sampleCount += claim.hodApprovalSampleCount;
-      } else {
-        efficiencyMap.set(claim.departmentId, {
-          departmentName: claim.departmentName ?? "Unknown Department",
-          totalHours: claim.hodApprovalHoursSum,
-          sampleCount: claim.hodApprovalSampleCount,
-        });
-      }
-    }
-  }
-
-  const paymentModeBreakdown = Array.from(paymentModeMap.values()).sort((a, b) =>
-    a.paymentModeName.localeCompare(b.paymentModeName),
-  );
-
-  const efficiencyByDepartment = Array.from(efficiencyMap.entries())
-    .map(([departmentId, value]) => {
-      const averageHoursToApproval = roundCurrency(value.totalHours / value.sampleCount);
-      return {
-        departmentId,
-        departmentName: value.departmentName,
-        sampleCount: value.sampleCount,
-        averageHoursToApproval,
-        averageDaysToApproval: roundCurrency(averageHoursToApproval / 24),
-      };
-    })
-    .sort((a, b) => b.averageDaysToApproval - a.averageDaysToApproval);
-
-  return {
-    claimCount,
-    amounts: {
-      totalAmount,
-      approvedAmount,
-      pendingAmount,
-      hodPendingAmount,
-      hodPendingCount,
-      rejectedAmount,
-    },
-    statusBreakdown,
-    paymentModeBreakdown,
-    efficiencyByDepartment,
   };
 }
 
@@ -538,7 +349,14 @@ export class GetAnalyticsService {
       };
     }
 
-    const currentPeriodAggregate = aggregateClaims(aggregatesResult.data);
+    if (!aggregatesResult.data) {
+      return {
+        data: null,
+        errorMessage: "Unable to load analytics aggregates.",
+      };
+    }
+
+    const currentPeriodAggregate = aggregatesResult.data;
     let trends: DashboardAnalyticsTrendSummary | null = null;
 
     if (period.hasExplicitRange && period.previousPeriod) {
@@ -567,7 +385,14 @@ export class GetAnalyticsService {
         };
       }
 
-      const previousPeriodAggregate = aggregateClaims(previousPeriodAggregateResult.data);
+      if (!previousPeriodAggregateResult.data) {
+        return {
+          data: null,
+          errorMessage: "Unable to load previous period analytics aggregates.",
+        };
+      }
+
+      const previousPeriodAggregate = previousPeriodAggregateResult.data;
       trends = {
         total: buildTrendItem(
           currentPeriodAggregate.amounts.totalAmount,
@@ -632,10 +457,21 @@ export class GetAnalyticsService {
         dateTo: toIsoDate(new Date()),
       },
       claimCount: 0,
-      amounts: EMPTY_AMOUNTS,
+      amounts: {
+        totalAmount: 0,
+        approvedAmount: 0,
+        pendingAmount: 0,
+        hodPendingAmount: 0,
+        hodPendingCount: 0,
+        rejectedAmount: 0,
+      },
       trends: null,
       efficiencyByDepartment: [],
-      statusBreakdown: initializeStatusBreakdown(),
+      statusBreakdown: DB_CLAIM_STATUSES.map((status) => ({
+        status,
+        count: 0,
+        amount: 0,
+      })),
       paymentModeBreakdown: [],
       advancedFilters: emptyAdvancedFilters(),
     };
