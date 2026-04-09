@@ -92,6 +92,10 @@ const bulkRejectInputSchema = bulkActionInputSchema.extend({
   allowResubmission: z.boolean().optional(),
 });
 const MAX_UPLOAD_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+const UNIQUE_VIOLATION_CODE = "23505";
+const DUPLICATE_ACTIVE_EXPENSE_BILL_CONSTRAINT = "uq_expense_details_active_bill";
+const DUPLICATE_ACTIVE_EXPENSE_BILL_MESSAGE =
+  "A claim with this exact Bill Number, Date, and Amount already exists in the system. Please change the Bill Number slightly (e.g., add '-FIX') to make it unique before saving.";
 const PRE_HOD_EDITABLE_STATUSES: readonly DbClaimStatus[] = [
   DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
   DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
@@ -103,6 +107,14 @@ class DuplicateTransactionError extends Error {
     this.name = "DuplicateTransactionError";
   }
 }
+
+type PostgresErrorLike = {
+  code?: unknown;
+  message?: unknown;
+  details?: unknown;
+  hint?: unknown;
+  constraint?: unknown;
+};
 
 export type PaymentModeOption = {
   id: string;
@@ -279,6 +291,29 @@ function hasRoutingFieldMutationAttempt(formData: FormData): boolean {
     const value = formData.get(key);
     return typeof value === "string" && value.trim().length > 0;
   });
+}
+
+function includesDuplicateExpenseBillConstraint(value: unknown): boolean {
+  return (
+    typeof value === "string" &&
+    value.toLowerCase().includes(DUPLICATE_ACTIVE_EXPENSE_BILL_CONSTRAINT)
+  );
+}
+
+function isDuplicateExpenseBillUniqueViolation(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const candidate = error as PostgresErrorLike;
+
+  if (candidate.code !== UNIQUE_VIOLATION_CODE) {
+    return false;
+  }
+
+  return [candidate.message, candidate.details, candidate.hint, candidate.constraint].some(
+    (segment) => includesDuplicateExpenseBillConstraint(segment),
+  );
 }
 
 function extractSubmissionInput(input: unknown): {
@@ -1091,17 +1126,33 @@ export async function updateClaimByFinanceAction(input: {
     };
   }
 
-  const result = await updateClaimByFinanceService.execute({
-    claimId: claimIdParse.data.claimId,
-    actorUserId: currentUserResult.user.id,
-    payload: financeEditPayload,
-  });
+  try {
+    const result = await updateClaimByFinanceService.execute({
+      claimId: claimIdParse.data.claimId,
+      actorUserId: currentUserResult.user.id,
+      payload: financeEditPayload,
+    });
 
-  if (!result.ok) {
-    return {
-      ok: false,
-      message: result.errorMessage ?? "Failed to update claim details.",
-    };
+    if (!result.ok) {
+      return {
+        ok: false,
+        message: result.errorMessage ?? "Failed to update claim details.",
+      };
+    }
+  } catch (error) {
+    if (isDuplicateExpenseBillUniqueViolation(error)) {
+      return {
+        ok: false,
+        message: DUPLICATE_ACTIVE_EXPENSE_BILL_MESSAGE,
+      };
+    }
+
+    logger.error("claims.finance_edit.unhandled_exception", {
+      claimId: claimIdParse.data.claimId,
+      actorUserId: currentUserResult.user.id,
+      errorMessage: error instanceof Error ? error.message : "Unknown finance edit error",
+    });
+    throw error;
   }
 
   revalidatePath(ROUTES.claims.myClaims);

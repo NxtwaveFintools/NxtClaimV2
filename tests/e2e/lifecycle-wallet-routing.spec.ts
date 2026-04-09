@@ -676,10 +676,7 @@ async function submitPettyCashRequest(
     await page.locator("#onBehalfEmployeeCode").fill(input.onBehalfEmployeeCode);
   }
 
-  const approverEmailInput = page
-    .locator("div", { hasText: /^HOD Email|^Approver Email/i })
-    .locator("input")
-    .first();
+  const approverEmailInput = page.locator("#l1ApproverEmailReadOnly");
 
   const departmentSelect = page.getByRole("combobox", { name: /department/i });
   if (input.departmentId) {
@@ -699,7 +696,21 @@ async function submitPettyCashRequest(
       throw new Error("Department selector does not expose enough active options.");
     }
 
-    await departmentSelect.selectOption(values[1]);
+    let foundRoutableDepartment = false;
+
+    for (const value of values) {
+      await departmentSelect.selectOption(value);
+      const candidateApproverEmail = (await approverEmailInput.inputValue()).trim();
+
+      if (candidateApproverEmail.length > 0 && !/^not available$/i.test(candidateApproverEmail)) {
+        foundRoutableDepartment = true;
+        break;
+      }
+    }
+
+    if (!foundRoutableDepartment) {
+      throw new Error("No department option resolved to a routable approver email.");
+    }
   }
 
   await expect
@@ -707,10 +718,10 @@ async function submitPettyCashRequest(
       timeout: 10000,
       message: "waiting for routable HOD/approver email",
     })
-    .not.toBe("");
+    .toMatch(/@/);
   const resolvedHodEmail = (await approverEmailInput.inputValue()).trim();
 
-  if (!resolvedHodEmail) {
+  if (!/@/.test(resolvedHodEmail)) {
     throw new Error("No routable department/HOD found for claim submission.");
   }
 

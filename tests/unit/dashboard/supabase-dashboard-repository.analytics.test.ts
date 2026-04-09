@@ -120,20 +120,22 @@ describe("SupabaseDashboardRepository analytics methods", () => {
     });
   });
 
-  test("getAnalyticsClaims applies scope and explicit advanced filters", async () => {
+  test("getAnalyticsAggregates applies scope and explicit advanced filters", async () => {
     const analyticsBuilder = createAwaitableBuilder({
       data: [
         {
-          claim_id: "CLAIM-ANA-20260312-0001",
           status: DB_CLAIM_STATUSES[1],
-          amount: "1200.45",
+          claim_count: "1",
+          total_amount: "1200.45",
           payment_mode_id: "pm-1",
-          type_of_claim: "Reimbursement",
           department_id: "dept-1",
-          department_name: "Engineering",
           assigned_l2_approver_id: "fa-1",
-          submitted_on: "2026-03-12T10:00:00.000Z",
-          hod_action_date: "2026-03-13T10:00:00.000Z",
+          expense_category_id: "cat-1",
+          product_id: "prod-1",
+          hod_approval_hours_sum: "24",
+          hod_approval_sample_count: "1",
+          master_departments: { name: "Engineering" },
+          master_payment_modes: { name: "Reimbursement" },
         },
       ],
       error: null,
@@ -146,7 +148,7 @@ describe("SupabaseDashboardRepository analytics methods", () => {
     });
 
     const repository = new SupabaseDashboardRepository();
-    const result = await repository.getAnalyticsClaims({
+    const result = await repository.getAnalyticsAggregates({
       scope: "finance",
       hodDepartmentIds: [],
       financeApproverIds: ["fa-1"],
@@ -169,16 +171,15 @@ describe("SupabaseDashboardRepository analytics methods", () => {
     expect(analyticsBuilder.eq).toHaveBeenCalledWith("assigned_l2_approver_id", "fa-1");
     expect(result.data).toEqual([
       {
-        claimId: "CLAIM-ANA-20260312-0001",
+        claimCount: 1,
         status: DB_CLAIM_STATUSES[1],
-        amount: 1200.45,
+        totalAmount: 1200.45,
         paymentModeId: "pm-1",
         paymentModeName: "Reimbursement",
         departmentId: "dept-1",
         departmentName: "Engineering",
-        assignedL2ApproverId: "fa-1",
-        submittedOn: "2026-03-12T10:00:00.000Z",
-        hodActionDate: "2026-03-13T10:00:00.000Z",
+        hodApprovalHoursSum: 24,
+        hodApprovalSampleCount: 1,
       },
     ]);
   });
@@ -245,9 +246,22 @@ describe("SupabaseDashboardRepository analytics methods", () => {
     };
     scopedApproversQuery.in = jest.fn(() => scopedApproversQuery);
     scopedApproversQuery.not = jest.fn(async () => ({
+      data: [{ assigned_l2_approver_id: "fa-1" }, { assigned_l2_approver_id: "fa-1" }],
+      error: null,
+    }));
+
+    const scopedApproverLookupQuery = {} as {
+      eq: jest.Mock;
+      in: jest.Mock;
+    };
+    scopedApproverLookupQuery.eq = jest.fn(() => scopedApproverLookupQuery);
+    scopedApproverLookupQuery.in = jest.fn(async () => ({
       data: [
-        { assigned_l2_approver_id: "fa-1", finance_email: "finance.one@example.com" },
-        { assigned_l2_approver_id: "fa-1", finance_email: "finance.one@example.com" },
+        {
+          id: "fa-1",
+          provisional_email: null,
+          user: { full_name: null, email: "finance.one@example.com" },
+        },
       ],
       error: null,
     }));
@@ -266,8 +280,12 @@ describe("SupabaseDashboardRepository analytics methods", () => {
           return { select: jest.fn(() => productsQuery) };
         }
 
-        if (table === "vw_enterprise_claims_dashboard") {
+        if (table === "claims_analytics_daily_stats") {
           return { select: jest.fn(() => scopedApproversQuery) };
+        }
+
+        if (table === "master_finance_approvers") {
+          return { select: jest.fn(() => scopedApproverLookupQuery) };
         }
 
         throw new Error(`Unexpected table: ${table}`);

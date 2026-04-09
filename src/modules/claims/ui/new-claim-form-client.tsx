@@ -45,7 +45,6 @@ export type ClaimFormDraftValues = {
     locationId: string;
     locationType: string | null;
     locationDetails: string | null;
-    isGstApplicable: boolean;
     gstNumber: string | null;
     cgstAmount: number;
     sgstAmount: number;
@@ -103,6 +102,24 @@ function toOptional(value: string): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function toNumberOrZero(value: unknown): number {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      return 0;
+    }
+
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
+
 function normalizeCategoryName(value: string | null | undefined): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
@@ -148,15 +165,11 @@ function calculateExpenseTotal(
   cgstAmountValue: number,
   sgstAmountValue: number,
   igstAmountValue: number,
-  isGstApplicableValue: boolean,
 ): number {
   const safeBasicAmount = Number.isFinite(basicAmountValue) ? basicAmountValue : 0;
-  const safeCgstAmount =
-    isGstApplicableValue && Number.isFinite(cgstAmountValue) ? cgstAmountValue : 0;
-  const safeSgstAmount =
-    isGstApplicableValue && Number.isFinite(sgstAmountValue) ? sgstAmountValue : 0;
-  const safeIgstAmount =
-    isGstApplicableValue && Number.isFinite(igstAmountValue) ? igstAmountValue : 0;
+  const safeCgstAmount = Number.isFinite(cgstAmountValue) ? cgstAmountValue : 0;
+  const safeSgstAmount = Number.isFinite(sgstAmountValue) ? sgstAmountValue : 0;
+  const safeIgstAmount = Number.isFinite(igstAmountValue) ? igstAmountValue : 0;
 
   return (
     Math.round((safeBasicAmount + safeCgstAmount + safeSgstAmount + safeIgstAmount) * 100) / 100
@@ -210,7 +223,6 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
         locationId: options.locations[0]?.id ?? "",
         locationType: null,
         locationDetails: null,
-        isGstApplicable: false,
         gstNumber: null,
         cgstAmount: 0,
         sgstAmount: 0,
@@ -257,7 +269,6 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   const paymentModeId = useWatch({ control, name: "paymentModeId" });
   const detailType = useWatch({ control, name: "detailType" });
   const departmentId = useWatch({ control, name: "departmentId" });
-  const isGstApplicable = useWatch({ control, name: "expense.isGstApplicable" });
   const locationType = useWatch({ control, name: "expense.locationType" });
   const basicAmount = useWatch({ control, name: "expense.basicAmount" });
   const cgstAmount = useWatch({ control, name: "expense.cgstAmount" });
@@ -284,36 +295,20 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   }, [setValue, submissionType]);
 
   useEffect(() => {
-    if (!isGstApplicable) {
-      setValue("expense.gstNumber", null, { shouldValidate: true });
-      setValue("expense.cgstAmount", 0, { shouldValidate: true });
-      setValue("expense.sgstAmount", 0, { shouldValidate: true });
-      setValue("expense.igstAmount", 0, { shouldValidate: true });
-    }
-  }, [isGstApplicable, setValue]);
-
-  useEffect(() => {
-    const calculatedTotal = calculateExpenseTotal(
-      basicAmount,
-      cgstAmount,
-      sgstAmount,
-      igstAmount,
-      isGstApplicable,
-    );
+    const calculatedTotal = calculateExpenseTotal(basicAmount, cgstAmount, sgstAmount, igstAmount);
 
     setValue("expense.totalAmount", calculatedTotal, {
       shouldDirty: false,
       shouldTouch: false,
       shouldValidate: true,
     });
-  }, [basicAmount, cgstAmount, igstAmount, isGstApplicable, setValue, sgstAmount]);
+  }, [basicAmount, cgstAmount, igstAmount, setValue, sgstAmount]);
 
   const calculatedTotalAmount = calculateExpenseTotal(
     basicAmount,
     cgstAmount,
     sgstAmount,
     igstAmount,
-    isGstApplicable,
   );
 
   const selectedDepartment = useMemo(
@@ -321,7 +316,6 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     [departmentId, options.departmentRouting],
   );
 
-  const hodEmail = selectedDepartment?.hod.email ?? "";
   const founderEmail = selectedDepartment?.founder.email ?? "";
   const actualBeneficiaryEmail =
     submissionType === "On Behalf" ? (onBehalfEmail ?? "") : currentUser.email;
@@ -500,7 +494,12 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
           appendFormDataValue(formData, "expense.locationDetails", values.expense.locationDetails);
         }
       }
-      appendFormDataValue(formData, "expense.isGstApplicable", values.expense.isGstApplicable);
+      const derivedIsGstApplicable =
+        (values.expense.gstNumber?.trim().length ?? 0) > 0 ||
+        values.expense.cgstAmount > 0 ||
+        values.expense.sgstAmount > 0 ||
+        values.expense.igstAmount > 0;
+      appendFormDataValue(formData, "expense.isGstApplicable", derivedIsGstApplicable);
       appendFormDataValue(formData, "expense.gstNumber", values.expense.gstNumber);
       appendFormDataValue(formData, "expense.cgstAmount", values.expense.cgstAmount);
       appendFormDataValue(formData, "expense.sgstAmount", values.expense.sgstAmount);
@@ -587,6 +586,123 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     void onSubmit(event);
   };
 
+  const applyParsedReceiptToForm = (
+    parsed: NonNullable<Awaited<ReturnType<typeof parseReceiptAction>>["data"]>,
+  ) => {
+    const matchedExpenseCategoryId = resolveExpenseCategoryIdFromAi(
+      parsed.category_name,
+      options.expenseCategories,
+    );
+
+    setValue("expense.billNo", parsed.billNo ?? "", {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("expense.transactionDate", parsed.transactionDate ?? "", {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("expense.basicAmount", parsed.basicAmount, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("expense.expenseCategoryId", matchedExpenseCategoryId, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("expense.gstNumber", parsed.gstNumber, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("expense.cgstAmount", parsed.cgstAmount, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("expense.sgstAmount", parsed.sgstAmount, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("expense.igstAmount", parsed.igstAmount, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("expense.vendorName", parsed.vendorName, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+  };
+
+  const runReceiptExtraction = async (
+    receiptFile: File,
+    toastId: string | number,
+  ): Promise<void> => {
+    setIsAiParsing(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("receiptFile", receiptFile);
+      for (const category of options.expenseCategories) {
+        formData.append("expenseCategoryNames", category.name);
+      }
+
+      const result = await parseReceiptAction(formData);
+      if (!result.ok || !result.data) {
+        toast.error(result.message ?? "Failed to fetch AI details.", { id: toastId });
+        return;
+      }
+
+      if (!result.autoFillAllowed) {
+        toast.error(result.message ?? "Failed to fetch AI details.", { id: toastId });
+        return;
+      }
+
+      applyParsedReceiptToForm(result.data);
+      toast.success("Details fetched!", { id: toastId });
+    } catch {
+      toast.error("Failed to fetch AI details.", { id: toastId });
+    } finally {
+      setIsAiParsing(false);
+    }
+  };
+
+  const handleReceiptUploadSuccess = async (selectedFile: File | null): Promise<void> => {
+    setInvoiceFile(selectedFile);
+    setValue("expense.receiptFileName", selectedFile ? selectedFile.name : "", {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+
+    if (!selectedFile) {
+      setFileError(null);
+      return;
+    }
+
+    const invoiceValidationError = validateUploadFile(selectedFile, "Invoice/Bill file");
+    if (invoiceValidationError) {
+      setFileError(invoiceValidationError);
+      toast.error(invoiceValidationError);
+      return;
+    }
+
+    if (isAiParsing) {
+      return;
+    }
+
+    setFileError(null);
+    const toastId = toast.loading("Fetching AI details...");
+    await runReceiptExtraction(selectedFile, toastId);
+  };
+
   const handleAutoFillWithAI = async () => {
     if (!invoiceFile) {
       toast.error("Invoice/Bill upload is required.");
@@ -600,87 +716,14 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       return;
     }
 
-    setFileError(null);
-    setIsAiParsing(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("receiptFile", invoiceFile);
-      for (const category of options.expenseCategories) {
-        formData.append("expenseCategoryNames", category.name);
-      }
-
-      const result = await parseReceiptAction(formData);
-      if (!result.ok || !result.data) {
-        toast.error(result.message ?? "Could not auto-read receipt. Please fill manually.");
-        return;
-      }
-
-      const parsed = result.data;
-
-      if (!result.autoFillAllowed) {
-        toast.warning(result.message ?? "Low confidence parse. Please fill manually.");
-        return;
-      }
-
-      const hasGstAmounts = parsed.cgstAmount > 0 || parsed.sgstAmount > 0 || parsed.igstAmount > 0;
-      const matchedExpenseCategoryId = resolveExpenseCategoryIdFromAi(
-        parsed.category_name,
-        options.expenseCategories,
-      );
-
-      setValue("expense.billNo", parsed.billNo ?? "", {
-        shouldDirty: true,
-        shouldTouch: true,
-        shouldValidate: true,
-      });
-      setValue("expense.transactionDate", parsed.transactionDate ?? "", {
-        shouldDirty: true,
-        shouldTouch: true,
-        shouldValidate: true,
-      });
-      setValue("expense.basicAmount", parsed.basicAmount, {
-        shouldDirty: true,
-        shouldTouch: true,
-        shouldValidate: true,
-      });
-      setValue("expense.expenseCategoryId", matchedExpenseCategoryId, {
-        shouldDirty: true,
-        shouldTouch: true,
-        shouldValidate: true,
-      });
-      setValue("expense.isGstApplicable", hasGstAmounts, {
-        shouldDirty: true,
-        shouldTouch: true,
-        shouldValidate: true,
-      });
-      setValue("expense.cgstAmount", parsed.cgstAmount, {
-        shouldDirty: true,
-        shouldTouch: true,
-        shouldValidate: true,
-      });
-      setValue("expense.sgstAmount", parsed.sgstAmount, {
-        shouldDirty: true,
-        shouldTouch: true,
-        shouldValidate: true,
-      });
-      setValue("expense.igstAmount", parsed.igstAmount, {
-        shouldDirty: true,
-        shouldTouch: true,
-        shouldValidate: true,
-      });
-      setValue("expense.vendorName", parsed.vendorName, {
-        shouldDirty: true,
-        shouldTouch: true,
-        shouldValidate: true,
-      });
-
-      toast.success("Receipt parsed and form fields auto-filled.");
-    } catch {
-      toast.error("Could not auto-read receipt. Please fill manually.");
-    } finally {
-      setIsAiParsing(false);
+    if (isAiParsing) {
+      return;
     }
+
+    setFileError(null);
+
+    const toastId = toast.loading("Fetching AI details...");
+    await runReceiptExtraction(invoiceFile, toastId);
   };
 
   return (
@@ -1008,12 +1051,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     className="hidden"
                     onChange={(event) => {
                       const selectedFile = event.target.files?.[0] ?? null;
-                      setInvoiceFile(selectedFile);
-                      setValue("expense.receiptFileName", selectedFile ? selectedFile.name : "", {
-                        shouldDirty: true,
-                        shouldTouch: true,
-                        shouldValidate: true,
-                      });
+                      void handleReceiptUploadSuccess(selectedFile);
                     }}
                   />
                   <label
@@ -1185,26 +1223,6 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     ))}
                   </select>
                 </div>
-                <div className="grid gap-1">
-                  <label
-                    htmlFor="isGstApplicable"
-                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                  >
-                    Tax Handling
-                  </label>
-                  <label
-                    htmlFor="isGstApplicable"
-                    className="flex h-11 items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 text-base text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-200"
-                  >
-                    <input
-                      id="isGstApplicable"
-                      type="checkbox"
-                      className="h-4 w-4 rounded"
-                      {...register("expense.isGstApplicable")}
-                    />
-                    <span>GST Applicable</span>
-                  </label>
-                </div>
               </div>
 
               {isNiatDepartment ? (
@@ -1257,75 +1275,6 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                 </div>
               ) : null}
 
-              {isGstApplicable ? (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="grid gap-1">
-                    <label
-                      htmlFor="gstNumber"
-                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                    >
-                      GST Number (Optional)
-                    </label>
-                    <input
-                      id="gstNumber"
-                      type="text"
-                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
-                      {...register("expense.gstNumber", {
-                        setValueAs: (value) => toNullable(String(value ?? "")),
-                      })}
-                    />
-                  </div>
-
-                  <div className="grid gap-1">
-                    <label
-                      htmlFor="cgstAmount"
-                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                    >
-                      CGST Amount <span className="text-rose-600">*</span>
-                    </label>
-                    <input
-                      id="cgstAmount"
-                      type="number"
-                      step="0.01"
-                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
-                      {...register("expense.cgstAmount", { valueAsNumber: true })}
-                    />
-                  </div>
-
-                  <div className="grid gap-1">
-                    <label
-                      htmlFor="sgstAmount"
-                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                    >
-                      SGST Amount <span className="text-rose-600">*</span>
-                    </label>
-                    <input
-                      id="sgstAmount"
-                      type="number"
-                      step="0.01"
-                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
-                      {...register("expense.sgstAmount", { valueAsNumber: true })}
-                    />
-                  </div>
-
-                  <div className="grid gap-1">
-                    <label
-                      htmlFor="igstAmount"
-                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                    >
-                      IGST Amount <span className="text-rose-600">*</span>
-                    </label>
-                    <input
-                      id="igstAmount"
-                      type="number"
-                      step="0.01"
-                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
-                      {...register("expense.igstAmount", { valueAsNumber: true })}
-                    />
-                  </div>
-                </div>
-              ) : null}
-
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="grid gap-1">
                   <label
@@ -1344,48 +1293,6 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
                 <div className="grid gap-1">
                   <label
-                    htmlFor="basicAmount"
-                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                  >
-                    Basic Amount <span className="text-rose-600">*</span>
-                  </label>
-                  <input
-                    id="basicAmount"
-                    type="number"
-                    step="0.01"
-                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
-                    {...register("expense.basicAmount", { valueAsNumber: true })}
-                  />
-                  {errors.expense?.basicAmount ? (
-                    <p className="text-xs text-rose-600">{errors.expense.basicAmount.message}</p>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="grid gap-1">
-                  <label
-                    htmlFor="totalAmount"
-                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                  >
-                    Total Amount (Auto)
-                  </label>
-                  <input
-                    id="totalAmount"
-                    type="number"
-                    step="0.01"
-                    readOnly
-                    disabled
-                    className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
-                    value={calculatedTotalAmount.toFixed(2)}
-                  />
-                  {errors.expense?.totalAmount ? (
-                    <p className="text-xs text-rose-600">{errors.expense.totalAmount.message}</p>
-                  ) : null}
-                </div>
-
-                <div className="grid gap-1">
-                  <label
                     htmlFor="vendorName"
                     className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
                   >
@@ -1399,6 +1306,131 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                       setValueAs: (value) => toNullable(String(value ?? "")),
                     })}
                   />
+                </div>
+              </div>
+
+              <div className="grid gap-3 rounded-xl border border-zinc-200/80 bg-zinc-100/30 p-3 dark:border-zinc-700 dark:bg-zinc-800/20">
+                <p className="text-[11px] font-medium tracking-wide text-zinc-500 dark:text-zinc-400">
+                  Tax Details
+                </p>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor="gstNumber"
+                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    >
+                      GST Number
+                    </label>
+                    <input
+                      id="gstNumber"
+                      type="text"
+                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                      {...register("expense.gstNumber", {
+                        setValueAs: (value) => toNullable(String(value ?? "")),
+                      })}
+                    />
+                  </div>
+
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor="igstAmount"
+                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    >
+                      IGST Amount
+                    </label>
+                    <input
+                      id="igstAmount"
+                      type="number"
+                      step="0.01"
+                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                      {...register("expense.igstAmount", {
+                        setValueAs: toNumberOrZero,
+                      })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor="cgstAmount"
+                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    >
+                      CGST Amount
+                    </label>
+                    <input
+                      id="cgstAmount"
+                      type="number"
+                      step="0.01"
+                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                      {...register("expense.cgstAmount", {
+                        setValueAs: toNumberOrZero,
+                      })}
+                    />
+                  </div>
+
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor="sgstAmount"
+                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    >
+                      SGST Amount
+                    </label>
+                    <input
+                      id="sgstAmount"
+                      type="number"
+                      step="0.01"
+                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                      {...register("expense.sgstAmount", {
+                        setValueAs: toNumberOrZero,
+                      })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor="basicAmount"
+                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    >
+                      Basic Amount <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      id="basicAmount"
+                      type="number"
+                      step="0.01"
+                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                      {...register("expense.basicAmount", {
+                        setValueAs: toNumberOrZero,
+                      })}
+                    />
+                    {errors.expense?.basicAmount ? (
+                      <p className="text-xs text-rose-600">{errors.expense.basicAmount.message}</p>
+                    ) : null}
+                  </div>
+
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor="totalAmount"
+                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    >
+                      Total Amount
+                    </label>
+                    <input
+                      id="totalAmount"
+                      type="number"
+                      step="0.01"
+                      readOnly
+                      disabled
+                      className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
+                      value={calculatedTotalAmount.toFixed(2)}
+                    />
+                    {errors.expense?.totalAmount ? (
+                      <p className="text-xs text-rose-600">{errors.expense.totalAmount.message}</p>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 

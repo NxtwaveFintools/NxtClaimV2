@@ -455,6 +455,8 @@ const FINANCE_ACTIONABLE_STATUSES: DbClaimStatus[] = [...SHARED_FINANCE_ACTIONAB
 const EXPORT_CLAIM_LOOKUP_BATCH_SIZE = 50;
 const EXPORT_WALLET_LOOKUP_BATCH_SIZE = 200;
 const MAX_LIST_PAGE_SIZE = 50;
+const UNIQUE_VIOLATION_CODE = "23505";
+const DUPLICATE_ACTIVE_EXPENSE_BILL_CONSTRAINT = "uq_expense_details_active_bill";
 
 function chunkArray<T>(values: T[], chunkSize: number): T[][] {
   if (chunkSize <= 0) {
@@ -480,6 +482,29 @@ function clampListPageSize(limit: number): number {
 
 function toPostgrestInList(values: string[]): string {
   return `(${values.map((value) => `"${value.replace(/"/g, '\\"')}"`).join(",")})`;
+}
+
+function containsDuplicateExpenseBillConstraint(value: string | null | undefined): boolean {
+  return (
+    typeof value === "string" &&
+    value.toLowerCase().includes(DUPLICATE_ACTIVE_EXPENSE_BILL_CONSTRAINT)
+  );
+}
+
+function isDuplicateExpenseBillConstraintError(error: {
+  code?: string | null;
+  message?: string | null;
+  details?: string | null;
+  hint?: string | null;
+  constraint?: string | null;
+}): boolean {
+  if (error.code !== UNIQUE_VIOLATION_CODE) {
+    return false;
+  }
+
+  return [error.message, error.details, error.hint, error.constraint].some((value) =>
+    containsDuplicateExpenseBillConstraint(value),
+  );
 }
 
 function normalizeStatusFilter(status: GetMyClaimsFilters["status"]): DbClaimStatus[] {
@@ -660,7 +685,7 @@ function applyEnterpriseDashboardFilters<
 
   if (params.normalizedSearch.query && params.normalizedSearch.field) {
     if (params.normalizedSearch.field === "claim_id") {
-      query = query.eq("claim_id", params.normalizedSearch.query);
+      query = query.ilike("claim_id", `%${params.normalizedSearch.query}%`);
     }
 
     if (params.normalizedSearch.field === "employee_name") {
@@ -763,7 +788,7 @@ function applyPendingApprovalsFilters<TQuery extends PendingApprovalsQueryChain<
 
   if (params.normalizedSearch.query && params.normalizedSearch.field) {
     if (params.normalizedSearch.field === "claim_id") {
-      query = query.eq("id", params.normalizedSearch.query);
+      query = query.ilike("id", `%${params.normalizedSearch.query}%`);
     }
 
     if (params.normalizedSearch.field === "employee_name") {
@@ -2016,6 +2041,10 @@ export class SupabaseClaimRepository implements ClaimRepository {
         .maybeSingle();
 
       if (expenseError) {
+        if (isDuplicateExpenseBillConstraintError(expenseError)) {
+          throw expenseError;
+        }
+
         return { errorMessage: expenseError.message };
       }
 

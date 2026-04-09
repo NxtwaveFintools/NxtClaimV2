@@ -25,7 +25,7 @@ function createRepository(
       },
       errorMessage: null,
     })),
-    getAnalyticsClaims: jest.fn(async () => ({
+    getAnalyticsAggregates: jest.fn(async () => ({
       data: [],
       errorMessage: null,
     })),
@@ -47,45 +47,42 @@ function createRepository(
 describe("GetAnalyticsService", () => {
   test("aggregates totals, trends, and efficiency for explicit ranges", async () => {
     const repository = createRepository({
-      getAnalyticsClaims: jest.fn(async (input) => {
+      getAnalyticsAggregates: jest.fn(async (input) => {
         if (input.dateFrom === "2026-03-01" && input.dateTo === "2026-03-07") {
           return {
             data: [
               {
-                claimId: "CLAIM-1",
                 status: DB_CLAIM_STATUSES[0],
-                amount: 1000,
+                claimCount: 1,
+                totalAmount: 1000,
                 paymentModeId: "pm-1",
                 paymentModeName: "Reimbursement",
                 departmentId: "dept-1",
                 departmentName: "Engineering",
-                assignedL2ApproverId: null,
-                submittedOn: "2026-03-01T00:00:00.000Z",
-                hodActionDate: "2026-03-02T00:00:00.000Z",
+                hodApprovalHoursSum: 24,
+                hodApprovalSampleCount: 1,
               },
               {
-                claimId: "CLAIM-2",
                 status: DB_CLAIM_STATUSES[2],
-                amount: 2000,
+                claimCount: 1,
+                totalAmount: 2000,
                 paymentModeId: "pm-2",
                 paymentModeName: "Petty Cash",
                 departmentId: "dept-1",
                 departmentName: "Engineering",
-                assignedL2ApproverId: "fa-1",
-                submittedOn: "2026-03-02T00:00:00.000Z",
-                hodActionDate: "2026-03-04T00:00:00.000Z",
+                hodApprovalHoursSum: 48,
+                hodApprovalSampleCount: 1,
               },
               {
-                claimId: "CLAIM-3",
                 status: DB_CLAIM_STATUSES[4],
-                amount: 500,
+                claimCount: 1,
+                totalAmount: 500,
                 paymentModeId: "pm-1",
                 paymentModeName: "Reimbursement",
                 departmentId: "dept-2",
                 departmentName: "Operations",
-                assignedL2ApproverId: "fa-1",
-                submittedOn: "2026-03-03T00:00:00.000Z",
-                hodActionDate: null,
+                hodApprovalHoursSum: 0,
+                hodApprovalSampleCount: 0,
               },
             ],
             errorMessage: null,
@@ -95,40 +92,37 @@ describe("GetAnalyticsService", () => {
         return {
           data: [
             {
-              claimId: "CLAIM-4",
               status: DB_CLAIM_STATUSES[0],
-              amount: 500,
+              claimCount: 1,
+              totalAmount: 500,
               paymentModeId: "pm-1",
               paymentModeName: "Reimbursement",
               departmentId: "dept-1",
               departmentName: "Engineering",
-              assignedL2ApproverId: null,
-              submittedOn: "2026-02-23T00:00:00.000Z",
-              hodActionDate: "2026-02-24T00:00:00.000Z",
+              hodApprovalHoursSum: 24,
+              hodApprovalSampleCount: 1,
             },
             {
-              claimId: "CLAIM-5",
               status: DB_CLAIM_STATUSES[2],
-              amount: 1000,
+              claimCount: 1,
+              totalAmount: 1000,
               paymentModeId: "pm-2",
               paymentModeName: "Petty Cash",
               departmentId: "dept-1",
               departmentName: "Engineering",
-              assignedL2ApproverId: "fa-1",
-              submittedOn: "2026-02-24T00:00:00.000Z",
-              hodActionDate: "2026-02-25T00:00:00.000Z",
+              hodApprovalHoursSum: 24,
+              hodApprovalSampleCount: 1,
             },
             {
-              claimId: "CLAIM-6",
               status: DB_CLAIM_STATUSES[5],
-              amount: 500,
+              claimCount: 1,
+              totalAmount: 500,
               paymentModeId: "pm-1",
               paymentModeName: "Reimbursement",
               departmentId: "dept-2",
               departmentName: "Operations",
-              assignedL2ApproverId: "fa-1",
-              submittedOn: "2026-02-26T00:00:00.000Z",
-              hodActionDate: null,
+              hodApprovalHoursSum: 0,
+              hodApprovalSampleCount: 0,
             },
           ],
           errorMessage: null,
@@ -197,7 +191,7 @@ describe("GetAnalyticsService", () => {
       },
     ]);
 
-    expect(repository.getAnalyticsClaims).toHaveBeenCalledWith(
+    expect(repository.getAnalyticsAggregates).toHaveBeenCalledWith(
       expect.objectContaining({
         dateFrom: "2026-03-01",
         dateTo: "2026-03-07",
@@ -207,7 +201,7 @@ describe("GetAnalyticsService", () => {
         financeApproverId: "fa-1",
       }),
     );
-    expect(repository.getAnalyticsClaims).toHaveBeenCalledWith(
+    expect(repository.getAnalyticsAggregates).toHaveBeenCalledWith(
       expect.objectContaining({
         dateFrom: "2026-02-22",
         dateTo: "2026-02-28",
@@ -219,21 +213,20 @@ describe("GetAnalyticsService", () => {
 
   test("returns null trend percentage when previous amount is zero", async () => {
     const repository = createRepository({
-      getAnalyticsClaims: jest
+      getAnalyticsAggregates: jest
         .fn()
         .mockResolvedValueOnce({
           data: [
             {
-              claimId: "CLAIM-1",
               status: DB_CLAIM_STATUSES[2],
-              amount: 750,
+              claimCount: 1,
+              totalAmount: 750,
               paymentModeId: "pm-1",
               paymentModeName: "Reimbursement",
               departmentId: "dept-1",
               departmentName: "Engineering",
-              assignedL2ApproverId: "fa-1",
-              submittedOn: "2026-03-01T00:00:00.000Z",
-              hodActionDate: "2026-03-01T12:00:00.000Z",
+              hodApprovalHoursSum: 12,
+              hodApprovalSampleCount: 1,
             },
           ],
           errorMessage: null,
@@ -271,7 +264,7 @@ describe("GetAnalyticsService", () => {
         },
         errorMessage: null,
       })),
-      getAnalyticsClaims: jest.fn(async () => ({ data: [], errorMessage: null })),
+      getAnalyticsAggregates: jest.fn(async () => ({ data: [], errorMessage: null })),
     });
 
     const service = new GetAnalyticsService({ repository, logger: createLogger() });
@@ -293,7 +286,7 @@ describe("GetAnalyticsService", () => {
         isFinance: true,
       }),
     );
-    expect(repository.getAnalyticsClaims).toHaveBeenCalledWith(
+    expect(repository.getAnalyticsAggregates).toHaveBeenCalledWith(
       expect.objectContaining({
         scope: "finance",
         departmentId: "dept-1",

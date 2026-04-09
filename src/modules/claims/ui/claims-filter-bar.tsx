@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { useSessionStorage } from "@/hooks/use-session-storage";
@@ -56,6 +56,18 @@ function updateUrlWithMutation(
 ): void {
   const query = params.toString();
   const nextHref = query ? `${pathname}?${query}` : pathname;
+
+  if (typeof window !== "undefined") {
+    const currentQuery = window.location.search.startsWith("?")
+      ? window.location.search.slice(1)
+      : window.location.search;
+    const currentHref = currentQuery ? `${pathname}?${currentQuery}` : pathname;
+
+    if (currentHref === nextHref) {
+      return;
+    }
+  }
+
   router.replace(nextHref, { scroll: false });
 }
 
@@ -236,6 +248,7 @@ export function ClaimsFilterBar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  const isHydratingFromUrlRef = useRef(false);
 
   const currentParams = useMemo(() => new URLSearchParams(searchParams.toString()), [searchParams]);
   const storageKeyPrefix = useMemo(
@@ -332,8 +345,12 @@ export function ClaimsFilterBar({
     }
 
     const urlHasActiveFilters = hasActiveFilterParams(currentParams);
+    const urlHasAnyParams = currentParams.toString().length > 0;
 
-    if (urlHasActiveFilters) {
+    // If URL already contains params, treat URL as source-of-truth and avoid
+    // mount-time router writes that can fight Back/Forward navigation.
+    if (urlHasActiveFilters || urlHasAnyParams) {
+      isHydratingFromUrlRef.current = true;
       const nextSearchInput = searchParams.get("search_query") ?? "";
 
       setSearchInput(nextSearchInput);
@@ -433,6 +450,7 @@ export function ClaimsFilterBar({
       return;
     }
 
+    isHydratingFromUrlRef.current = true;
     const nextSearchInput = searchParams.get("search_query") ?? "";
 
     setSearchInput(nextSearchInput);
@@ -473,6 +491,11 @@ export function ClaimsFilterBar({
       return;
     }
 
+    if (isHydratingFromUrlRef.current) {
+      isHydratingFromUrlRef.current = false;
+      return;
+    }
+
     const urlSearchValue = (searchParams.get("search_query") ?? "").trim();
 
     if (debouncedSearchInput === urlSearchValue) {
@@ -493,6 +516,11 @@ export function ClaimsFilterBar({
     nextParams.delete("cursor");
     nextParams.delete("prevCursor");
     nextParams.delete("page");
+
+    if (nextParams.toString() === searchParams.toString()) {
+      return;
+    }
+
     startTransition(() => {
       updateUrlWithMutation(nextParams, pathname, router);
     });

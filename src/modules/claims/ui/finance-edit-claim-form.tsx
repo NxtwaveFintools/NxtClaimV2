@@ -8,6 +8,11 @@ type DropdownOption = {
   name: string;
 };
 
+type FinanceEditClaimActionResult = {
+  ok: boolean;
+  error?: string;
+};
+
 type FinanceEditClaimFormProps = {
   claim: {
     id: string;
@@ -54,7 +59,7 @@ type FinanceEditClaimFormProps = {
   products: DropdownOption[];
   locations: DropdownOption[];
   isEditMode?: boolean;
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<FinanceEditClaimActionResult>;
 };
 
 function toDateInputValue(value: string | null | undefined): string {
@@ -92,12 +97,17 @@ export function FinanceEditClaimForm({
     setIsSubmitting(true);
 
     try {
-      await toast.promise(action(formData), {
-        loading: "Saving claim edits...",
-        success: "Claim edits saved.",
-        error: (error) => (error instanceof Error ? error.message : "Unable to save claim edits."),
-      });
+      const result = await action(formData);
+
+      if (!result.ok) {
+        toast.error(result.error ?? "Unable to save claim edits.");
+        return;
+      }
+
+      toast.success("Claim edits saved.");
       setIsOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to save claim edits.");
     } finally {
       setIsSubmitting(false);
     }

@@ -633,6 +633,40 @@ describe("claims actions", () => {
     expect(forwardedPayload).not.toHaveProperty("paymentModeId");
   });
 
+  test("updateClaimByFinanceAction returns friendly message for duplicate active bill unique violation", async () => {
+    mockUpdateByFinanceExecute.mockRejectedValueOnce({
+      code: "23505",
+      message: 'duplicate key value violates unique constraint "uq_expense_details_active_bill"',
+      details: "Key (bill_no, transaction_date, basic_amount) already exists.",
+    });
+
+    const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
+
+    const result = await updateClaimByFinanceAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData: createValidExpenseEditFormData(),
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message:
+        "A claim with this exact Bill Number, Date, and Amount already exists in the system. Please change the Bill Number slightly (e.g., add '-FIX') to make it unique before saving.",
+    });
+  });
+
+  test("updateClaimByFinanceAction rethrows non-duplicate unexpected errors", async () => {
+    mockUpdateByFinanceExecute.mockRejectedValueOnce(new Error("database timeout"));
+
+    const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
+
+    await expect(
+      updateClaimByFinanceAction({
+        claimId: "11111111-1111-4111-8111-111111111111",
+        formData: createValidExpenseEditFormData(),
+      }),
+    ).rejects.toThrow("database timeout");
+  });
+
   test("updateClaimByFinanceAction blocks non-finance users at finance stage", async () => {
     mockGetApprovalViewerContext.mockResolvedValueOnce({
       data: { isHod: true, isFounder: false, isFinance: false },

@@ -60,10 +60,16 @@ const geminiParseResultSchema = z.object({
   transactionDate: looseDate,
   vendorName: looseNullableString,
   basicAmount: looseNumber,
-  cgstAmount: looseNumber,
-  sgstAmount: looseNumber,
-  igstAmount: looseNumber,
-  totalAmount: looseNumber,
+  gst_number: looseNullableString.optional(),
+  gstNumber: looseNullableString.optional(),
+  cgst_amount: looseNumber.optional(),
+  cgstAmount: looseNumber.optional(),
+  sgst_amount: looseNumber.optional(),
+  sgstAmount: looseNumber.optional(),
+  igst_amount: looseNumber.optional(),
+  igstAmount: looseNumber.optional(),
+  total_amount: looseNumber.optional(),
+  totalAmount: looseNumber.optional(),
   category_name: looseNullableString,
   confidenceScore: looseNumber,
 });
@@ -114,9 +120,11 @@ The document may be torn, blurred, rotated, or missing edges. Use contextual rea
 EXTRACTION RULES:
 - billNo: Look for Invoice No, Bill No, Txn No.
 - transactionDate: strictly YYYY-MM-DD.
+- You MUST return these tax fields in the JSON object: gst_number, cgst_amount, sgst_amount, igst_amount.
+- Do not use camelCase tax keys (gstNumber, cgstAmount, sgstAmount, igstAmount) in your response.
 - GST: If percentages (e.g., CGST 9%) appear but amounts do not, calculate the amount from the taxable value.
 - Calculate missing taxes based on standard Indian GST slabs (5%, 12%, 18%, 28%).
-- Math Validation: basicAmount + cgstAmount + sgstAmount + igstAmount MUST equal totalAmount.
+- Math Validation: basicAmount + cgst_amount + sgst_amount + igst_amount MUST equal totalAmount.
 
 CATEGORY RULES:
 ${categoryInstructionBlock}
@@ -135,9 +143,10 @@ Return ONLY valid JSON matching this schema:
   "transactionDate": string | null,
   "vendorName": string | null,
   "basicAmount": number,
-  "cgstAmount": number,
-  "sgstAmount": number,
-  "igstAmount": number,
+  "gst_number": string | null,
+  "cgst_amount": number,
+  "sgst_amount": number,
+  "igst_amount": number,
   "totalAmount": number,
   "category_name": string | null,
   "confidenceScore": number
@@ -148,6 +157,7 @@ export type ParsedReceiptResult = {
   billNo: string | null;
   transactionDate: string | null;
   vendorName: string | null;
+  gstNumber: string | null;
   basicAmount: number;
   cgstAmount: number;
   sgstAmount: number;
@@ -278,11 +288,12 @@ function getQuotaExceededMessage(error: unknown): string {
 }
 
 function normalizeGeminiResult(raw: z.infer<typeof geminiParseResultSchema>): ParsedReceiptResult {
+  const gstNumber = normalizeNullableText(raw.gst_number ?? raw.gstNumber ?? null);
   const basicAmount = normalizeAmount(raw.basicAmount);
-  const cgstAmount = normalizeAmount(raw.cgstAmount);
-  const sgstAmount = normalizeAmount(raw.sgstAmount);
-  const igstAmount = normalizeAmount(raw.igstAmount);
-  const totalAmount = normalizeAmount(raw.totalAmount);
+  const cgstAmount = normalizeAmount(raw.cgst_amount ?? raw.cgstAmount ?? 0);
+  const sgstAmount = normalizeAmount(raw.sgst_amount ?? raw.sgstAmount ?? 0);
+  const igstAmount = normalizeAmount(raw.igst_amount ?? raw.igstAmount ?? 0);
+  const totalAmount = normalizeAmount(raw.total_amount ?? raw.totalAmount ?? 0);
 
   const normalizedConfidence = clampConfidence(raw.confidenceScore);
 
@@ -290,6 +301,7 @@ function normalizeGeminiResult(raw: z.infer<typeof geminiParseResultSchema>): Pa
     billNo: normalizeNullableText(raw.billNo),
     transactionDate: raw.transactionDate,
     vendorName: normalizeNullableText(raw.vendorName),
+    gstNumber,
     basicAmount,
     cgstAmount,
     sgstAmount,
@@ -392,6 +404,23 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
       // Keep a short compatibility window for older prompts/tests that still emit expenseCategory.
       if (parsedRecord.category_name === undefined && parsedRecord.expenseCategory !== undefined) {
         parsedRecord.category_name = parsedRecord.expenseCategory;
+      }
+
+      // Backward compatibility for existing outputs that still use camelCase tax keys.
+      if (parsedRecord.gst_number === undefined && parsedRecord.gstNumber !== undefined) {
+        parsedRecord.gst_number = parsedRecord.gstNumber;
+      }
+
+      if (parsedRecord.cgst_amount === undefined && parsedRecord.cgstAmount !== undefined) {
+        parsedRecord.cgst_amount = parsedRecord.cgstAmount;
+      }
+
+      if (parsedRecord.sgst_amount === undefined && parsedRecord.sgstAmount !== undefined) {
+        parsedRecord.sgst_amount = parsedRecord.sgstAmount;
+      }
+
+      if (parsedRecord.igst_amount === undefined && parsedRecord.igstAmount !== undefined) {
+        parsedRecord.igst_amount = parsedRecord.igstAmount;
       }
     }
 

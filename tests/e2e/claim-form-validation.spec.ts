@@ -23,8 +23,8 @@
  *  REND-1 Toggling Submission Type between "Self" and "On Behalf" reveals and
  *         hides the #onBehalfEmail and #onBehalfEmployeeCode fields.
  *
- *  REND-2 Checking/unchecking the GST Applicable checkbox shows/hides the
- *         CGST/SGST/IGST fields and the Total Amount auto-calculates correctly.
+ *  REND-2 Tax Details fields are always visible (no GST toggle) and
+ *         the Total Amount auto-calculates from Basic + CGST + SGST + IGST.
  */
 
 import path from "node:path";
@@ -543,7 +543,7 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
   });
 
   // ─── REND-2 ───────────────────────────────────────────────────────────────
-  test("REND-2: GST checkbox toggles tax fields and auto-calculates Total Amount", async ({
+  test("REND-2: Tax Details fields stay visible and auto-calculate Total Amount", async ({
     page,
   }) => {
     await openClaimForm(page);
@@ -553,6 +553,7 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
     const paymentModeSelect = page.getByRole("combobox", { name: /payment mode/i });
     await selectOptionByLabelWithRetry(paymentModeSelect, options.reimbursementPaymentModeName);
 
+    const taxDetailsHeader = page.getByText("Tax Details");
     const basicAmountInput = page.locator("#basicAmount");
     const totalAmountInput = page.locator("#totalAmount");
     const gstCheckbox = page.locator("#isGstApplicable");
@@ -560,26 +561,21 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
     const sgstInput = page.locator("#sgstAmount");
     const igstInput = page.locator("#igstAmount");
 
-    // ── Phase 1: No GST — total mirrors basic amount ────────────────────
-    await expect(gstCheckbox).not.toBeChecked();
-    await expect(cgstInput).not.toBeAttached();
-    await expect(sgstInput).not.toBeAttached();
-    await expect(igstInput).not.toBeAttached();
+    // ── Phase 1: Tax fields are always visible and GST toggle is absent ──
+    await expect(taxDetailsHeader).toBeVisible();
+    await expect(gstCheckbox).not.toBeAttached();
+    await expect(cgstInput).toBeVisible();
+    await expect(sgstInput).toBeVisible();
+    await expect(igstInput).toBeVisible();
 
     await basicAmountInput.fill("1000");
-    // React's useEffect recalculates: total = basic (no GST) = 1000.00
+    // React's useEffect recalculates: total = basic + taxes
     await expect(totalAmountInput).toHaveValue("1000.00");
 
-    // ── Phase 2: Enable GST — tax fields appear, enter values ───────────
-    await gstCheckbox.check();
-
-    await expect(cgstInput).toBeVisible({ timeout: 5_000 });
-    await expect(sgstInput).toBeVisible({ timeout: 5_000 });
-    await expect(igstInput).toBeVisible({ timeout: 5_000 });
-
+    // ── Phase 2: Enter tax values and verify total updates ───────────────
     await cgstInput.fill("50");
     await sgstInput.fill("50");
-    // igstAmount defaults to 0 — leave it at 0
+    await igstInput.fill("0");
     // Expected total: 1000 + 50 + 50 + 0 = 1100.00
     await expect(totalAmountInput).toHaveValue("1100.00");
 
@@ -587,14 +583,9 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
     await igstInput.fill("100");
     await expect(totalAmountInput).toHaveValue("1200.00");
 
-    // ── Phase 3: Uncheck GST — tax fields unmount, total reverts ────────
-    await gstCheckbox.uncheck();
-
-    await expect(cgstInput).not.toBeAttached({ timeout: 5_000 });
-    await expect(sgstInput).not.toBeAttached({ timeout: 5_000 });
-    await expect(igstInput).not.toBeAttached({ timeout: 5_000 });
-
-    // The useEffect clears GST amounts to 0 and recalculates total = basic
-    await expect(totalAmountInput).toHaveValue("1000.00");
+    // ── Phase 3: Clear one tax field and confirm empty normalizes to 0 ───
+    await cgstInput.fill("");
+    // Expected total: 1000 + 0 + 50 + 100 = 1150.00
+    await expect(totalAmountInput).toHaveValue("1150.00");
   });
 });

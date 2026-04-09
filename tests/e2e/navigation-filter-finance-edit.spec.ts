@@ -398,12 +398,12 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
       const heading = page.getByRole("heading", { name: /my claims|submissions/i }).first();
       await expect(heading).toBeVisible({ timeout: 15000 });
 
-      // Type in the search input (name="search_query" per spec, but locator by placeholder/role)
-      const searchInput = page.getByRole("textbox").first();
+      // Type in the filter bar search input
+      const searchInput = page.getByRole("textbox", { name: /^Search$/i });
 
       // If the search input is not immediately visible, expand filters
       if (!(await searchInput.isVisible().catch(() => false))) {
-        const toggleButton = page.getByRole("button", { name: /toggle filters/i });
+        const toggleButton = page.getByRole("button", { name: /filters/i });
         if (await toggleButton.isVisible().catch(() => false)) {
           await toggleButton.click();
           await page.waitForTimeout(300);
@@ -460,7 +460,7 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
       await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
 
       // Expand filters if collapsed
-      const toggleButton = page.getByRole("button", { name: /toggle filters/i });
+      const toggleButton = page.getByRole("button", { name: /filters/i });
       if (await toggleButton.isVisible().catch(() => false)) {
         const isExpanded = await toggleButton.getAttribute("aria-expanded");
         if (isExpanded !== "true") {
@@ -551,7 +551,7 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
       await editButton.click();
 
       // Wait for the finance edit form to render
-      const formHeading = page.getByText("Edit Claim");
+      const formHeading = page.getByRole("heading", { name: /^Edit Claim$/i });
       await expect(formHeading).toBeVisible({ timeout: 10000 });
 
       // Update basic amount

@@ -12,6 +12,31 @@ const optionalTextToNA = z.preprocess(
     .transform((val) => (!val || val.trim() === "" ? "N/A" : val.trim())),
 );
 
+const normalizedNullableText = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value ?? null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}, z.string().nullable());
+
+const optionalTaxAmountSchema = z.preprocess(
+  (value) => {
+    if (value === "" || value === null || value === undefined) {
+      return 0;
+    }
+
+    if (typeof value === "string") {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : value;
+    }
+
+    return value;
+  },
+  z.number().min(0, "Tax amount cannot be negative"),
+);
+
 const baseSubmissionSchema = z.object({
   employeeName: z.string().trim().min(1, "Employee Name is required"),
   employeeId: z.string().trim().min(1, "Employee ID is required"),
@@ -47,11 +72,11 @@ const expenseDetailSchema = z.object({
       (v) => (v === null || v === undefined || v === "" ? null : v),
       z.string().nullable(),
     ),
-    isGstApplicable: z.boolean(),
-    gstNumber: optionalTextToNA,
-    cgstAmount: z.number().min(0, "CGST amount cannot be negative"),
-    sgstAmount: z.number().min(0, "SGST amount cannot be negative"),
-    igstAmount: z.number().min(0, "IGST amount cannot be negative"),
+    isGstApplicable: z.boolean().optional().default(false),
+    gstNumber: normalizedNullableText,
+    cgstAmount: optionalTaxAmountSchema,
+    sgstAmount: optionalTaxAmountSchema,
+    igstAmount: optionalTaxAmountSchema,
     transactionDate: z.iso.date("Transaction date is required"),
     basicAmount: z.number().min(0, "Basic amount cannot be negative"),
     totalAmount: z.number().min(0, "Total amount cannot be negative").optional(),
@@ -152,29 +177,6 @@ export const newClaimSubmitSchema = z
           path: ["expense"],
         });
         return;
-      }
-
-      if (
-        !value.expense.isGstApplicable &&
-        (value.expense.cgstAmount !== 0 ||
-          value.expense.sgstAmount !== 0 ||
-          value.expense.igstAmount !== 0)
-      ) {
-        context.addIssue({
-          code: "custom",
-          message: "CGST, SGST, and IGST must be 0 when GST is not applicable.",
-          path: ["expense", "cgstAmount"],
-        });
-      }
-
-      const hasGstNumber = value.expense.gstNumber !== "N/A";
-
-      if (!value.expense.isGstApplicable && hasGstNumber) {
-        context.addIssue({
-          code: "custom",
-          message: "GST number must be empty when GST is not applicable.",
-          path: ["expense", "gstNumber"],
-        });
       }
 
       const hasAnyBankStatementField =

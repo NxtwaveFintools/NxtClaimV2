@@ -7,9 +7,9 @@ jest.setTimeout(15000);
 const mockSubmitClaimAction = jest.fn();
 const mockParseReceiptAction = jest.fn();
 const mockPush = jest.fn();
+const mockToastLoading = jest.fn();
 const mockToastError = jest.fn();
 const mockToastSuccess = jest.fn();
-const mockToastWarning = jest.fn();
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -19,9 +19,9 @@ jest.mock("next/navigation", () => ({
 
 jest.mock("sonner", () => ({
   toast: {
+    loading: (...args: unknown[]) => mockToastLoading(...args),
     error: (...args: unknown[]) => mockToastError(...args),
     success: (...args: unknown[]) => mockToastSuccess(...args),
-    warning: (...args: unknown[]) => mockToastWarning(...args),
   },
 }));
 
@@ -101,6 +101,7 @@ async function fillRequiredExpenseFields(user: ReturnType<typeof userEvent.setup
 describe("NewClaimFormClient", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockToastLoading.mockReturnValue("receipt-ai-loading-toast");
     mockSubmitClaimAction.mockResolvedValue({ ok: true, claimId: "claim-1" });
     mockParseReceiptAction.mockResolvedValue({
       ok: false,
@@ -124,15 +125,12 @@ describe("NewClaimFormClient", () => {
     expect(await screen.findByText("Employee ID is required")).toBeInTheDocument();
   });
 
-  test("reveals GST fields when GST Applicable is toggled", async () => {
-    const user = userEvent.setup();
+  test("shows Tax Details fields by default without GST toggle", async () => {
     render(<NewClaimFormClient currentUser={currentUser} options={options} />);
 
-    expect(screen.queryByLabelText(/GST Number/i)).not.toBeInTheDocument();
-
-    await user.click(screen.getByLabelText(/GST Applicable/i));
-
-    expect(await screen.findByLabelText(/GST Number/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/GST Applicable/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Tax Details")).toBeInTheDocument();
+    expect(screen.getByLabelText(/GST Number/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/CGST Amount/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/SGST Amount/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/IGST Amount/i)).toBeInTheDocument();
@@ -142,10 +140,8 @@ describe("NewClaimFormClient", () => {
     const user = userEvent.setup();
     render(<NewClaimFormClient currentUser={currentUser} options={options} />);
 
-    await user.click(screen.getByLabelText(/GST Applicable/i));
-
     const basicAmountInput = screen.getByLabelText(/Basic Amount/i);
-    const cgstInput = await screen.findByLabelText(/CGST Amount/i);
+    const cgstInput = screen.getByLabelText(/CGST Amount/i);
     const sgstInput = screen.getByLabelText(/SGST Amount/i);
     const igstInput = screen.getByLabelText(/IGST Amount/i);
 
@@ -201,6 +197,7 @@ describe("NewClaimFormClient", () => {
         billNo: "AI-BILL-1001",
         transactionDate: "2026-03-18",
         vendorName: "AI Vendor",
+        gstNumber: "36ABCDE1234F1Z5",
         basicAmount: 100,
         cgstAmount: 0,
         sgstAmount: 0,
@@ -218,7 +215,7 @@ describe("NewClaimFormClient", () => {
       new File(["dummy"], "receipt.pdf", { type: "application/pdf" }),
     );
 
-    await user.click(screen.getByRole("button", { name: /auto-fill with ai/i }));
+    expect(mockToastLoading).toHaveBeenCalledWith("Fetching AI details...");
 
     await waitFor(() => {
       expect(mockParseReceiptAction).toHaveBeenCalledTimes(1);
@@ -235,7 +232,14 @@ describe("NewClaimFormClient", () => {
       expect(categorySelect.value).toBe("99999999-9999-4999-8999-999999999999");
     });
 
-    expect(mockToastSuccess).toHaveBeenCalledWith("Receipt parsed and form fields auto-filled.");
+    await waitFor(() => {
+      const gstNumberInput = screen.getByLabelText(/GST Number/i) as HTMLInputElement;
+      expect(gstNumberInput.value).toBe("36ABCDE1234F1Z5");
+    });
+
+    expect(mockToastSuccess).toHaveBeenCalledWith("Details fetched!", {
+      id: "receipt-ai-loading-toast",
+    });
   });
 
   test("keeps category unselected when AI returns null or unknown category_name", async () => {
@@ -248,6 +252,7 @@ describe("NewClaimFormClient", () => {
         billNo: "AI-BILL-1002",
         transactionDate: "2026-03-19",
         vendorName: "Unknown Category Vendor",
+        gstNumber: null,
         basicAmount: 250,
         cgstAmount: 0,
         sgstAmount: 0,
@@ -268,10 +273,72 @@ describe("NewClaimFormClient", () => {
       new File(["dummy"], "receipt.pdf", { type: "application/pdf" }),
     );
 
-    await user.click(screen.getByRole("button", { name: /auto-fill with ai/i }));
-
     await waitFor(() => {
       expect(categorySelect.value).toBe("");
     });
+  });
+
+  test("shows loading toast on upload and still allows manual retry via Auto-fill button", async () => {
+    const user = userEvent.setup();
+    const firstToastId = "receipt-ai-loading-toast-1";
+    const secondToastId = "receipt-ai-loading-toast-2";
+
+    mockToastLoading.mockReturnValueOnce(firstToastId).mockReturnValueOnce(secondToastId);
+
+    let resolveFirstParse: ((value: unknown) => void) | null = null;
+    const firstParsePromise = new Promise((resolve) => {
+      resolveFirstParse = resolve;
+    });
+
+    mockParseReceiptAction.mockReturnValueOnce(firstParsePromise).mockResolvedValueOnce({
+      ok: true,
+      autoFillAllowed: true,
+      message: null,
+      data: {
+        billNo: "AI-BILL-1003",
+        transactionDate: "2026-03-20",
+        vendorName: "Retry Vendor",
+        gstNumber: null,
+        basicAmount: 300,
+        cgstAmount: 0,
+        sgstAmount: 0,
+        igstAmount: 0,
+        totalAmount: 300,
+        category_name: "Travel Domestic",
+        confidenceScore: 93,
+      },
+    });
+
+    render(<NewClaimFormClient currentUser={currentUser} options={options} />);
+
+    await user.upload(
+      screen.getByLabelText(/Invoice\/Bill/i),
+      new File(["dummy"], "receipt.pdf", { type: "application/pdf" }),
+    );
+
+    expect(mockToastLoading).toHaveBeenCalledWith("Fetching AI details...");
+    expect(mockParseReceiptAction).toHaveBeenCalledTimes(1);
+    expect(mockToastSuccess).not.toHaveBeenCalled();
+
+    resolveFirstParse?.({
+      ok: false,
+      data: null,
+      autoFillAllowed: false,
+      message: "Failed to fetch AI details.",
+    });
+
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith("Failed to fetch AI details.", {
+        id: firstToastId,
+      });
+    });
+
+    await user.click(screen.getByRole("button", { name: /auto-fill with ai/i }));
+
+    await waitFor(() => {
+      expect(mockParseReceiptAction).toHaveBeenCalledTimes(2);
+    });
+
+    expect(mockToastSuccess).toHaveBeenCalledWith("Details fetched!", { id: secondToastId });
   });
 });

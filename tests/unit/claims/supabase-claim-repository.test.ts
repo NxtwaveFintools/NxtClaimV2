@@ -16,6 +16,7 @@ type QueryBuilder = {
   ilike: jest.Mock;
   limit: jest.Mock;
   order: jest.Mock;
+  range: jest.Mock;
   then: (
     onFulfilled: (value: QueryResult) => unknown,
     onRejected?: (reason: unknown) => unknown,
@@ -40,6 +41,7 @@ function createQueryBuilder(result: QueryResult): QueryBuilder {
     ilike: jest.fn(() => builder),
     limit: jest.fn(() => builder),
     order: jest.fn(() => builder),
+    range: jest.fn(async () => result),
     then: (onFulfilled, onRejected) => Promise.resolve(result).then(onFulfilled, onRejected),
   };
 
@@ -145,6 +147,56 @@ describe("SupabaseClaimRepository.getMyClaims", () => {
       "Finance Approved - Payment under process",
       "Payment Done - Closed",
     ]);
+  });
+
+  test("uses partial case-insensitive claim_id search in paginated my claims", async () => {
+    const queryBuilder = createQueryBuilder({
+      data: [],
+      count: 0,
+      error: null,
+    });
+
+    mockFrom.mockReturnValue({
+      select: jest.fn(() => queryBuilder),
+    });
+
+    mockGetServiceRoleSupabaseClient.mockReturnValue({
+      from: mockFrom,
+    });
+
+    const repository = new SupabaseClaimRepository();
+
+    await repository.getMyClaimsPaginated("user-1", 1, 20, {
+      searchField: "claim_id",
+      searchQuery: "CLAIM",
+    });
+
+    expect(queryBuilder.ilike).toHaveBeenCalledWith("claim_id", "%CLAIM%");
+  });
+
+  test("uses partial case-insensitive claim_id search in L1 approvals", async () => {
+    const queryBuilder = createQueryBuilder({
+      data: [],
+      count: 0,
+      error: null,
+    });
+
+    mockFrom.mockReturnValue({
+      select: jest.fn(() => queryBuilder),
+    });
+
+    mockGetServiceRoleSupabaseClient.mockReturnValue({
+      from: mockFrom,
+    });
+
+    const repository = new SupabaseClaimRepository();
+
+    await repository.getPendingApprovalsForL1("hod-user", null, 20, {
+      searchField: "claim_id",
+      searchQuery: "claim",
+    });
+
+    expect(queryBuilder.ilike).toHaveBeenCalledWith("id", "%claim%");
   });
 });
 

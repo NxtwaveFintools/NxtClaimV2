@@ -226,13 +226,20 @@ async function FinanceEditClaimSection({ claim }: { claim: ClaimDetailRecord }) 
     : expenseCategoriesResult.data;
   const locationOptions = locationsResult.errorMessage ? [] : locationsResult.data;
 
-  const updateFinanceDetailFromPage = async (formData: FormData) => {
+  const updateFinanceDetailFromPage = async (
+    formData: FormData,
+  ): Promise<{ ok: boolean; error?: string }> => {
     "use server";
     const result = await updateClaimByFinanceAction({ claimId: claim.id, formData });
 
     if (!result.ok) {
-      throw new Error(result.message ?? "Unable to update claim details.");
+      return {
+        ok: false,
+        error: result.message ?? "Unable to update claim details.",
+      };
     }
+
+    return { ok: true };
   };
 
   return (
