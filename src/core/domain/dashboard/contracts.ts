@@ -50,17 +50,16 @@ export type DashboardAnalyticsViewerContext = {
   financeApproverIds: string[];
 };
 
-export type DashboardAnalyticsClaimRow = {
-  claimId: string;
+export type DashboardAnalyticsAggregateRow = {
   status: DbClaimStatus;
-  amount: number;
+  claimCount: number;
+  totalAmount: number;
   paymentModeId: string | null;
   paymentModeName: string | null;
   departmentId: string | null;
   departmentName: string | null;
-  assignedL2ApproverId: string | null;
-  submittedOn: string;
-  hodActionDate: string | null;
+  hodApprovalHoursSum: number;
+  hodApprovalSampleCount: number;
 };
 
 export type DashboardAnalyticsOption = {
@@ -142,7 +141,7 @@ export type DashboardAnalyticsRepository = {
     data: DashboardAnalyticsViewerContext | null;
     errorMessage: string | null;
   }>;
-  getAnalyticsClaims(input: {
+  getAnalyticsAggregates(input: {
     scope: DashboardAnalyticsScope;
     hodDepartmentIds: string[];
     financeApproverIds: string[];
@@ -153,7 +152,7 @@ export type DashboardAnalyticsRepository = {
     productId?: string;
     financeApproverId?: string;
   }): Promise<{
-    data: DashboardAnalyticsClaimRow[];
+    data: DashboardAnalyticsAggregateRow[];
     errorMessage: string | null;
   }>;
   getAnalyticsFilterOptions(input: {

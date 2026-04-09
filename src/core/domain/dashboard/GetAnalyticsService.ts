@@ -203,13 +203,14 @@ function buildTrendItem(
 function aggregateClaims(
   rows: Array<{
     status: DbClaimStatus;
-    amount: number;
+    claimCount: number;
+    totalAmount: number;
     paymentModeId: string | null;
     paymentModeName: string | null;
     departmentId: string | null;
     departmentName: string | null;
-    submittedOn: string;
-    hodActionDate: string | null;
+    hodApprovalHoursSum: number;
+    hodApprovalSampleCount: number;
   }>,
 ): AggregatedAnalytics {
   const statusBreakdown = initializeStatusBreakdown();
@@ -233,9 +234,14 @@ function aggregateClaims(
   let hodPendingAmount = 0;
   let hodPendingCount = 0;
   let rejectedAmount = 0;
+  let claimCount = 0;
 
   for (const claim of rows) {
-    const normalizedAmount = normalizeAmount(claim.amount);
+    const rowClaimCount = Number.isFinite(claim.claimCount)
+      ? Math.max(0, Math.trunc(claim.claimCount))
+      : 0;
+    const normalizedAmount = normalizeAmount(claim.totalAmount);
+    claimCount += rowClaimCount;
     totalAmount = roundCurrency(totalAmount + normalizedAmount);
 
     if (APPROVED_STATUSES.has(claim.status)) {
@@ -248,7 +254,7 @@ function aggregateClaims(
 
     if (claim.status === DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS) {
       hodPendingAmount = roundCurrency(hodPendingAmount + normalizedAmount);
-      hodPendingCount += 1;
+      hodPendingCount += rowClaimCount;
     }
 
     const statusItemIndex = statusIndex.get(claim.status);
@@ -256,7 +262,7 @@ function aggregateClaims(
       const current = statusBreakdown[statusItemIndex];
       statusBreakdown[statusItemIndex] = {
         ...current,
-        count: current.count + 1,
+        count: current.count + rowClaimCount,
         amount: roundCurrency(current.amount + normalizedAmount),
       };
     }
@@ -267,40 +273,30 @@ function aggregateClaims(
     if (currentPayment) {
       paymentModeMap.set(paymentKey, {
         ...currentPayment,
-        count: currentPayment.count + 1,
+        count: currentPayment.count + rowClaimCount,
         amount: roundCurrency(currentPayment.amount + normalizedAmount),
       });
     } else {
       paymentModeMap.set(paymentKey, {
         paymentModeId: claim.paymentModeId,
         paymentModeName: claim.paymentModeName ?? "Unknown",
-        count: 1,
+        count: rowClaimCount,
         amount: normalizedAmount,
       });
     }
 
-    if (claim.departmentId && claim.hodActionDate) {
-      const submittedAt = new Date(claim.submittedOn).getTime();
-      const hodActionAt = new Date(claim.hodActionDate).getTime();
+    if (claim.departmentId && claim.hodApprovalSampleCount > 0) {
+      const currentEfficiency = efficiencyMap.get(claim.departmentId);
 
-      if (
-        Number.isFinite(submittedAt) &&
-        Number.isFinite(hodActionAt) &&
-        hodActionAt >= submittedAt
-      ) {
-        const durationHours = (hodActionAt - submittedAt) / (1000 * 60 * 60);
-        const currentEfficiency = efficiencyMap.get(claim.departmentId);
-
-        if (currentEfficiency) {
-          currentEfficiency.totalHours += durationHours;
-          currentEfficiency.sampleCount += 1;
-        } else {
-          efficiencyMap.set(claim.departmentId, {
-            departmentName: claim.departmentName ?? "Unknown Department",
-            totalHours: durationHours,
-            sampleCount: 1,
-          });
-        }
+      if (currentEfficiency) {
+        currentEfficiency.totalHours += claim.hodApprovalHoursSum;
+        currentEfficiency.sampleCount += claim.hodApprovalSampleCount;
+      } else {
+        efficiencyMap.set(claim.departmentId, {
+          departmentName: claim.departmentName ?? "Unknown Department",
+          totalHours: claim.hodApprovalHoursSum,
+          sampleCount: claim.hodApprovalSampleCount,
+        });
       }
     }
   }
@@ -323,7 +319,7 @@ function aggregateClaims(
     .sort((a, b) => b.averageDaysToApproval - a.averageDaysToApproval);
 
   return {
-    claimCount: rows.length,
+    claimCount,
     amounts: {
       totalAmount,
       approvedAmount,
@@ -517,7 +513,7 @@ export class GetAnalyticsService {
       });
     }
 
-    const claimsResult = await this.repository.getAnalyticsClaims({
+    const aggregatesResult = await this.repository.getAnalyticsAggregates({
       scope,
       hodDepartmentIds: viewerContextResult.data.hodDepartmentIds,
       financeApproverIds: viewerContextResult.data.financeApproverIds,
@@ -529,24 +525,24 @@ export class GetAnalyticsService {
       financeApproverId,
     });
 
-    if (claimsResult.errorMessage) {
+    if (aggregatesResult.errorMessage) {
       this.logger.error("dashboard.analytics.claims.failed", {
         userId: input.userId,
         scope,
-        errorMessage: claimsResult.errorMessage,
+        errorMessage: aggregatesResult.errorMessage,
       });
 
       return {
         data: null,
-        errorMessage: claimsResult.errorMessage,
+        errorMessage: aggregatesResult.errorMessage,
       };
     }
 
-    const currentPeriodAggregate = aggregateClaims(claimsResult.data);
+    const currentPeriodAggregate = aggregateClaims(aggregatesResult.data);
     let trends: DashboardAnalyticsTrendSummary | null = null;
 
     if (period.hasExplicitRange && period.previousPeriod) {
-      const previousPeriodClaimsResult = await this.repository.getAnalyticsClaims({
+      const previousPeriodAggregateResult = await this.repository.getAnalyticsAggregates({
         scope,
         hodDepartmentIds: viewerContextResult.data.hodDepartmentIds,
         financeApproverIds: viewerContextResult.data.financeApproverIds,
@@ -558,20 +554,20 @@ export class GetAnalyticsService {
         financeApproverId,
       });
 
-      if (previousPeriodClaimsResult.errorMessage) {
+      if (previousPeriodAggregateResult.errorMessage) {
         this.logger.error("dashboard.analytics.claims.previous_period.failed", {
           userId: input.userId,
           scope,
-          errorMessage: previousPeriodClaimsResult.errorMessage,
+          errorMessage: previousPeriodAggregateResult.errorMessage,
         });
 
         return {
           data: null,
-          errorMessage: previousPeriodClaimsResult.errorMessage,
+          errorMessage: previousPeriodAggregateResult.errorMessage,
         };
       }
 
-      const previousPeriodAggregate = aggregateClaims(previousPeriodClaimsResult.data);
+      const previousPeriodAggregate = aggregateClaims(previousPeriodAggregateResult.data);
       trends = {
         total: buildTrendItem(
           currentPeriodAggregate.amounts.totalAmount,

@@ -5,7 +5,7 @@ import {
 import { getServiceRoleSupabaseClient } from "@/core/infra/supabase/server-client";
 import type {
   DashboardAnalyticsAdvancedFilters,
-  DashboardAnalyticsClaimRow,
+  DashboardAnalyticsAggregateRow,
   DashboardAnalyticsOption,
   DashboardAnalyticsRepository,
   DashboardAnalyticsScope,
@@ -66,11 +66,28 @@ type FinanceApproverOptionRow = {
 
 type FinanceScopedApproverRow = {
   assigned_l2_approver_id: string | null;
-  finance_email: string | null;
 };
 
-type AnalyticsClaimQueryRow = {
-  claim_id: string;
+type NamedRelationRow = {
+  name: string;
+};
+
+type AnalyticsAggregateQueryRow = {
+  status: DbClaimStatus;
+  claim_count: number | string | null;
+  total_amount: number | string | null;
+  payment_mode_id: string | null;
+  department_id: string | null;
+  assigned_l2_approver_id: string | null;
+  expense_category_id: string | null;
+  product_id: string | null;
+  hod_approval_hours_sum: number | string | null;
+  hod_approval_sample_count: number | string | null;
+  master_departments: NamedRelationRow | NamedRelationRow[] | null;
+  master_payment_modes: NamedRelationRow | NamedRelationRow[] | null;
+};
+
+type LegacyAnalyticsClaimQueryRow = {
   status: DbClaimStatus;
   amount: number | string | null;
   payment_mode_id: string | null;
@@ -90,6 +107,7 @@ const EMPTY_WALLET_TOTALS = {
 };
 
 const TRANSIENT_FETCH_ERROR_FRAGMENT = "fetch failed";
+const MISSING_ANALYTICS_CACHE_TABLE_FRAGMENT = "claims_analytics_daily_stats";
 
 const FINANCE_PIPELINE_STATUSES: DbClaimStatus[] = [...DB_FINANCE_ANALYTICS_PIPELINE_STATUSES];
 
@@ -114,12 +132,12 @@ function isTransientFetchError(error: { message: string } | null): boolean {
   return error.message.toLowerCase().includes(TRANSIENT_FETCH_ERROR_FRAGMENT);
 }
 
-function toStartOfDayIso(date: string): string {
-  return `${date}T00:00:00.000Z`;
-}
+function isMissingAnalyticsCacheTableError(error: { message: string } | null): boolean {
+  if (!error?.message) {
+    return false;
+  }
 
-function toEndOfDayIso(date: string): string {
-  return `${date}T23:59:59.999Z`;
+  return error.message.toLowerCase().includes(MISSING_ANALYTICS_CACHE_TABLE_FRAGMENT);
 }
 
 function toPostgrestInList(values: string[]): string {
@@ -174,6 +192,126 @@ async function runWithSingleRetry<T>(
 export class SupabaseDashboardRepository
   implements DashboardRepository, DashboardAnalyticsRepository
 {
+  private aggregateLegacyRows(
+    rows: LegacyAnalyticsClaimQueryRow[],
+  ): DashboardAnalyticsAggregateRow[] {
+    const aggregated = new Map<string, DashboardAnalyticsAggregateRow>();
+
+    for (const row of rows) {
+      const key = `${row.status}|${row.payment_mode_id ?? "__null__"}|${row.department_id ?? "__null__"}`;
+      const amount = toNumber(row.amount);
+
+      let hodApprovalHoursSum = 0;
+      let hodApprovalSampleCount = 0;
+      if (row.hod_action_date) {
+        const submittedAt = new Date(row.submitted_on).getTime();
+        const hodActionAt = new Date(row.hod_action_date).getTime();
+
+        if (
+          Number.isFinite(submittedAt) &&
+          Number.isFinite(hodActionAt) &&
+          hodActionAt >= submittedAt
+        ) {
+          hodApprovalHoursSum = Number(((hodActionAt - submittedAt) / (1000 * 60 * 60)).toFixed(4));
+          hodApprovalSampleCount = 1;
+        }
+      }
+
+      const current = aggregated.get(key);
+      if (current) {
+        current.claimCount += 1;
+        current.totalAmount = Number((current.totalAmount + amount).toFixed(2));
+        current.hodApprovalHoursSum = Number(
+          (current.hodApprovalHoursSum + hodApprovalHoursSum).toFixed(4),
+        );
+        current.hodApprovalSampleCount += hodApprovalSampleCount;
+      } else {
+        aggregated.set(key, {
+          status: row.status,
+          claimCount: 1,
+          totalAmount: Number(amount.toFixed(2)),
+          paymentModeId: row.payment_mode_id,
+          paymentModeName: row.type_of_claim ?? "Unknown",
+          departmentId: row.department_id,
+          departmentName: row.department_name ?? "Unknown Department",
+          hodApprovalHoursSum,
+          hodApprovalSampleCount,
+        });
+      }
+    }
+
+    return Array.from(aggregated.values());
+  }
+
+  private async getAnalyticsAggregatesFromLegacyView(input: {
+    scope: DashboardAnalyticsScope;
+    hodDepartmentIds: string[];
+    financeApproverIds: string[];
+    dateFrom: string;
+    dateTo: string;
+    departmentId?: string;
+    expenseCategoryId?: string;
+    productId?: string;
+    financeApproverId?: string;
+  }): Promise<{
+    data: DashboardAnalyticsAggregateRow[];
+    errorMessage: string | null;
+  }> {
+    const client = getServiceRoleSupabaseClient();
+
+    let query = client
+      .from("vw_enterprise_claims_dashboard")
+      .select(
+        "status, amount, payment_mode_id, type_of_claim, department_id, department_name, assigned_l2_approver_id, expense_category_id, product_id, submitted_on, hod_action_date",
+      )
+      .gte("submitted_on", `${input.dateFrom}T00:00:00.000Z`)
+      .lte("submitted_on", `${input.dateTo}T23:59:59.999Z`);
+
+    if (input.scope === "hod") {
+      query = query.in("department_id", input.hodDepartmentIds);
+    }
+
+    if (input.scope === "finance") {
+      if (input.financeApproverIds.length > 0) {
+        query = query.or(
+          `status.in.${toPostgrestInList(FINANCE_PIPELINE_STATUSES)},assigned_l2_approver_id.in.${toPostgrestInList(input.financeApproverIds)}`,
+        );
+      } else {
+        query = query.in("status", FINANCE_PIPELINE_STATUSES);
+      }
+    }
+
+    if (input.departmentId) {
+      query = query.eq("department_id", input.departmentId);
+    }
+
+    if (input.expenseCategoryId) {
+      query = query.eq("expense_category_id", input.expenseCategoryId);
+    }
+
+    if (input.productId) {
+      query = query.eq("product_id", input.productId);
+    }
+
+    if (input.financeApproverId) {
+      query = query.eq("assigned_l2_approver_id", input.financeApproverId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      return {
+        data: [],
+        errorMessage: error.message,
+      };
+    }
+
+    return {
+      data: this.aggregateLegacyRows((data ?? []) as LegacyAnalyticsClaimQueryRow[]),
+      errorMessage: null,
+    };
+  }
+
   async getWalletTotals(userId: string): Promise<{
     data: {
       totalPettyCashReceived: number;
@@ -274,7 +412,7 @@ export class SupabaseDashboardRepository
     };
   }
 
-  async getAnalyticsClaims(input: {
+  async getAnalyticsAggregates(input: {
     scope: DashboardAnalyticsScope;
     hodDepartmentIds: string[];
     financeApproverIds: string[];
@@ -285,7 +423,7 @@ export class SupabaseDashboardRepository
     productId?: string;
     financeApproverId?: string;
   }): Promise<{
-    data: DashboardAnalyticsClaimRow[];
+    data: DashboardAnalyticsAggregateRow[];
     errorMessage: string | null;
   }> {
     if (input.scope === "hod" && input.hodDepartmentIds.length === 0) {
@@ -298,14 +436,12 @@ export class SupabaseDashboardRepository
     const client = getServiceRoleSupabaseClient();
 
     let query = client
-      .from("vw_enterprise_claims_dashboard")
+      .from("claims_analytics_daily_stats")
       .select(
-        "claim_id, status, amount, payment_mode_id, type_of_claim, department_id, department_name, assigned_l2_approver_id, submitted_on, hod_action_date",
+        "status, claim_count, total_amount, payment_mode_id, department_id, assigned_l2_approver_id, expense_category_id, product_id, hod_approval_hours_sum, hod_approval_sample_count, master_departments(name), master_payment_modes(name)",
       )
-      .gte("submitted_on", toStartOfDayIso(input.dateFrom))
-      .lte("submitted_on", toEndOfDayIso(input.dateTo))
-      .order("submitted_on", { ascending: false })
-      .order("claim_id", { ascending: false });
+      .gte("date_key", input.dateFrom)
+      .lte("date_key", input.dateTo);
 
     if (input.scope === "hod") {
       query = query.in("department_id", input.hodDepartmentIds);
@@ -340,26 +476,29 @@ export class SupabaseDashboardRepository
     const { data, error } = await query;
 
     if (error) {
+      if (isMissingAnalyticsCacheTableError(error)) {
+        return this.getAnalyticsAggregatesFromLegacyView(input);
+      }
+
       return {
         data: [],
         errorMessage: error.message,
       };
     }
 
-    const rows = (data ?? []) as AnalyticsClaimQueryRow[];
+    const rows = (data ?? []) as AnalyticsAggregateQueryRow[];
 
     return {
       data: rows.map((row) => ({
-        claimId: row.claim_id,
+        claimCount: Math.max(0, Math.trunc(toNumber(row.claim_count))),
         status: row.status,
-        amount: toNumber(row.amount),
+        totalAmount: toNumber(row.total_amount),
         paymentModeId: row.payment_mode_id,
-        paymentModeName: row.type_of_claim,
+        paymentModeName: normalizeRelation(row.master_payment_modes)?.name ?? "Unknown",
         departmentId: row.department_id,
-        departmentName: row.department_name,
-        assignedL2ApproverId: row.assigned_l2_approver_id,
-        submittedOn: row.submitted_on,
-        hodActionDate: row.hod_action_date,
+        departmentName: normalizeRelation(row.master_departments)?.name ?? "Unknown Department",
+        hodApprovalHoursSum: toNumber(row.hod_approval_hours_sum),
+        hodApprovalSampleCount: Math.max(0, Math.trunc(toNumber(row.hod_approval_sample_count))),
       })),
       errorMessage: null,
     };
@@ -506,24 +645,37 @@ export class SupabaseDashboardRepository
     } else if (input.isFounder && departments.length > 0) {
       const departmentIds = departments.map((department) => department.id);
       const { data, error } = await client
-        .from("vw_enterprise_claims_dashboard")
-        .select("assigned_l2_approver_id, finance_email")
+        .from("claims_analytics_daily_stats")
+        .select("assigned_l2_approver_id")
         .in("department_id", departmentIds)
         .not("assigned_l2_approver_id", "is", null);
 
       if (error) {
-        return { data: null, errorMessage: error.message };
-      }
-
-      const rows = (data ?? []) as FinanceScopedApproverRow[];
-      const byId = new Map<string, DashboardAnalyticsOption>();
-
-      for (const row of rows) {
-        if (!row.assigned_l2_approver_id) {
-          continue;
+        if (!isMissingAnalyticsCacheTableError(error)) {
+          return { data: null, errorMessage: error.message };
         }
 
-        if (!byId.has(row.assigned_l2_approver_id)) {
+        const legacyApproversResult = await client
+          .from("vw_enterprise_claims_dashboard")
+          .select("assigned_l2_approver_id, finance_email")
+          .in("department_id", departmentIds)
+          .not("assigned_l2_approver_id", "is", null);
+
+        if (legacyApproversResult.error) {
+          return { data: null, errorMessage: legacyApproversResult.error.message };
+        }
+
+        const legacyRows = (legacyApproversResult.data ?? []) as Array<{
+          assigned_l2_approver_id: string | null;
+          finance_email: string | null;
+        }>;
+
+        const byId = new Map<string, DashboardAnalyticsOption>();
+        for (const row of legacyRows) {
+          if (!row.assigned_l2_approver_id || byId.has(row.assigned_l2_approver_id)) {
+            continue;
+          }
+
           byId.set(row.assigned_l2_approver_id, {
             id: row.assigned_l2_approver_id,
             label: toOptionLabel({
@@ -532,9 +684,60 @@ export class SupabaseDashboardRepository
             }),
           });
         }
+
+        financeApprovers = Array.from(byId.values()).sort((a, b) => a.label.localeCompare(b.label));
+        return {
+          data: {
+            canUseScopeFilters: true,
+            canUseFinanceApproverFilter: input.isAdmin || input.isFounder,
+            departments,
+            expenseCategories,
+            products,
+            financeApprovers,
+          },
+          errorMessage: null,
+        };
       }
 
-      financeApprovers = Array.from(byId.values()).sort((a, b) => a.label.localeCompare(b.label));
+      const rows = (data ?? []) as FinanceScopedApproverRow[];
+      const scopedApproverIds = Array.from(
+        new Set(
+          rows
+            .map((row) => row.assigned_l2_approver_id)
+            .filter((value): value is string => typeof value === "string" && value.length > 0),
+        ),
+      );
+
+      if (scopedApproverIds.length === 0) {
+        financeApprovers = [];
+      } else {
+        const scopedApproversResult = await client
+          .from("master_finance_approvers")
+          .select(
+            "id, provisional_email, user:users!master_finance_approvers_user_id_fkey(full_name, email)",
+          )
+          .eq("is_active", true)
+          .in("id", scopedApproverIds);
+
+        if (scopedApproversResult.error) {
+          return { data: null, errorMessage: scopedApproversResult.error.message };
+        }
+
+        const scopedApproverRows = (scopedApproversResult.data ?? []) as FinanceApproverOptionRow[];
+        financeApprovers = scopedApproverRows
+          .map((row) => {
+            const user = normalizeRelation(row.user);
+            return {
+              id: row.id,
+              label: toOptionLabel({
+                fullName: user?.full_name,
+                email: user?.email ?? row.provisional_email,
+                fallback: row.id,
+              }),
+            };
+          })
+          .sort((a, b) => a.label.localeCompare(b.label));
+      }
     }
 
     return {
