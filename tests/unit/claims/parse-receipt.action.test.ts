@@ -39,15 +39,16 @@ describe("parseReceiptAction", () => {
     jest.clearAllMocks();
   });
 
-  test("allows autofill when confidence is >= 90 and math is valid", async () => {
+  test("normalizes snake_case tax fields into client camelCase output", async () => {
     const modelJson = {
       billNo: "INV-1001",
       transactionDate: "2026-03-18",
       vendorName: "ACME Supplies",
+      gst_number: "36ABCDE1234F1Z5",
       basicAmount: 100,
-      cgstAmount: 9,
-      sgstAmount: 9,
-      igstAmount: 0,
+      cgst_amount: 9,
+      sgst_amount: 9,
+      igst_amount: 0,
       totalAmount: 118,
       category_name: "Travel Domestic",
       confidenceScore: 95,
@@ -65,7 +66,19 @@ describe("parseReceiptAction", () => {
     expect(result.ok).toBe(true);
     expect(result.autoFillAllowed).toBe(true);
     expect(result.message).toBeNull();
-    expect(result.data).toEqual(modelJson);
+    expect(result.data).toEqual({
+      billNo: "INV-1001",
+      transactionDate: "2026-03-18",
+      vendorName: "ACME Supplies",
+      gstNumber: "36ABCDE1234F1Z5",
+      basicAmount: 100,
+      cgstAmount: 9,
+      sgstAmount: 9,
+      igstAmount: 0,
+      totalAmount: 118,
+      category_name: "Travel Domestic",
+      confidenceScore: 95,
+    });
   });
 
   test("allows autofill when all critical fields are present even with inconsistent totals", async () => {
@@ -94,6 +107,10 @@ describe("parseReceiptAction", () => {
     expect(result.ok).toBe(true);
     expect(result.autoFillAllowed).toBe(true);
     expect(result.message).toBeNull();
+    expect(result.data?.cgstAmount).toBe(10);
+    expect(result.data?.sgstAmount).toBe(0);
+    expect(result.data?.igstAmount).toBe(0);
+    expect(result.data?.gstNumber).toBeNull();
     expect(result.data?.confidenceScore).toBe(99);
   });
 
@@ -207,6 +224,10 @@ describe("parseReceiptAction", () => {
       | undefined;
     const systemInstruction = modelConfig?.systemInstruction ?? "";
     expect(systemInstruction).toContain("Internet Expense");
+    expect(systemInstruction).toContain('"gst_number": string | null');
+    expect(systemInstruction).toContain('"cgst_amount": number');
+    expect(systemInstruction).toContain('"sgst_amount": number');
+    expect(systemInstruction).toContain('"igst_amount": number');
     expect(systemInstruction).not.toMatch(
       /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i,
     );

@@ -19,7 +19,6 @@ const validExpensePayload = {
     expenseCategoryId: "33333333-3333-4333-8333-333333333333",
     productId: "44444444-4444-4444-8444-444444444444",
     locationId: "55555555-5555-4555-8555-555555555555",
-    isGstApplicable: true,
     gstNumber: "GST-1",
     cgstAmount: 9,
     sgstAmount: 9,
@@ -63,7 +62,7 @@ describe("newClaimSubmitSchema", () => {
     }
   });
 
-  test("accepts null GST number when GST is applicable (coerced to N/A)", () => {
+  test("accepts null GST number and keeps it nullable", () => {
     const parsed = newClaimSubmitSchema.safeParse({
       ...validExpensePayload,
       expense: {
@@ -74,7 +73,29 @@ describe("newClaimSubmitSchema", () => {
 
     expect(parsed.success).toBe(true);
     if (parsed.success) {
-      expect(parsed.data.expense?.gstNumber).toBe("N/A");
+      expect(parsed.data.expense?.gstNumber).toBeNull();
+      expect(parsed.data.expense?.isGstApplicable).toBe(false);
+    }
+  });
+
+  test("accepts empty tax inputs by normalizing them to zero", () => {
+    const parsed = newClaimSubmitSchema.safeParse({
+      ...validExpensePayload,
+      expense: {
+        ...validExpensePayload.expense,
+        gstNumber: "",
+        cgstAmount: "" as unknown as number,
+        sgstAmount: "" as unknown as number,
+        igstAmount: "" as unknown as number,
+      },
+    });
+
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.expense?.gstNumber).toBeNull();
+      expect(parsed.data.expense?.cgstAmount).toBe(0);
+      expect(parsed.data.expense?.sgstAmount).toBe(0);
+      expect(parsed.data.expense?.igstAmount).toBe(0);
     }
   });
 
