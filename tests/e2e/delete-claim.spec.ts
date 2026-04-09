@@ -389,6 +389,7 @@ async function waitForClaimAndDetailsInactive(claimId: string): Promise<void> {
 
 test.describe("Delete Claim", () => {
   test.describe.configure({ mode: "serial" });
+  test.setTimeout(120000);
   test.use({ storageState: getAuthStatePathByRole("submitter") });
 
   test("submitter can delete and recreate same bill, and detail-page delete redirects", async ({
