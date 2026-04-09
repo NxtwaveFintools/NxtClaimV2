@@ -257,6 +257,7 @@ describe("SupabaseClaimRepository.updateClaimDetailsByFinance", () => {
     const repository = new SupabaseClaimRepository();
     const result = await repository.updateClaimDetailsByFinance("claim-1", {
       detailType: "expense",
+      detailId: "expense-detail-1",
       billNo: "BILL-1",
       expenseCategoryId: "cat-1",
       locationId: "loc-1",
@@ -301,6 +302,9 @@ describe("SupabaseClaimRepository.updateClaimDetailsByFinance", () => {
         receipt_file_path: "expenses/new_receipt.pdf",
       }),
     );
+    expect(expenseBuilder.eq).toHaveBeenCalledWith("id", "expense-detail-1");
+    expect(expenseBuilder.eq).toHaveBeenCalledWith("claim_id", "claim-1");
+    expect(expenseBuilder.eq).toHaveBeenCalledWith("is_active", true);
   });
 
   test("returns claim update error without running expense update", async () => {
@@ -315,6 +319,7 @@ describe("SupabaseClaimRepository.updateClaimDetailsByFinance", () => {
     const repository = new SupabaseClaimRepository();
     const result = await repository.updateClaimDetailsByFinance("claim-1", {
       detailType: "expense",
+      detailId: "expense-detail-1",
       billNo: "BILL-1",
       expenseCategoryId: "cat-1",
       locationId: "loc-1",
@@ -355,6 +360,7 @@ describe("SupabaseClaimRepository.updateClaimDetailsByFinance", () => {
     const repository = new SupabaseClaimRepository();
     const result = await repository.updateClaimDetailsByFinance("claim-1", {
       detailType: "expense",
+      detailId: "expense-detail-1",
       billNo: "BILL-1",
       expenseCategoryId: "cat-1",
       locationId: "loc-1",

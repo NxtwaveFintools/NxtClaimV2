@@ -172,6 +172,7 @@ const validExpensePayload = {
 function createValidExpenseEditFormData(): FormData {
   const formData = new FormData();
   formData.append("detailType", "expense");
+  formData.append("detailId", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
   formData.append("billNo", "BILL-NEW-1");
   formData.append("expenseCategoryId", "66666666-6666-4666-8666-666666666666");
   formData.append("locationId", "88888888-8888-4888-8888-888888888888");
@@ -621,6 +622,7 @@ describe("claims actions", () => {
       actorUserId: "11111111-1111-4111-8111-111111111111",
       payload: expect.objectContaining({
         detailType: "expense",
+        detailId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
         isGstApplicable: true,
         gstNumber: "GSTIN-999",
         bankStatementFilePath: "expenses/old_bank.pdf",
