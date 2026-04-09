@@ -201,10 +201,19 @@ test.describe("department viewer claims", () => {
 
   test("department scope can trigger export from filter bar", async ({ page }) => {
     await ensureAuthenticated(page, seedEmails.submitter);
-    await gotoWithRetry(page, "/dashboard/my-claims?view=department");
+    const endDate = new Date();
+    const startDate = new Date(endDate);
+    startDate.setUTCDate(startDate.getUTCDate() - 30);
+    const from = startDate.toISOString().slice(0, 10);
+    const to = endDate.toISOString().slice(0, 10);
 
-    const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: /export excel/i }).click();
+    await gotoWithRetry(page, `/dashboard/my-claims?view=department&from=${from}&to=${to}`);
+
+    const exportButton = page.getByRole("button", { name: /export excel/i });
+    await expect(exportButton).toBeVisible({ timeout: 10000 });
+
+    const downloadPromise = page.waitForEvent("download", { timeout: 20000 });
+    await exportButton.click();
     const download = await downloadPromise;
 
     expect(download.suggestedFilename()).toMatch(/\.xlsx$/i);

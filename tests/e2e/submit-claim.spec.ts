@@ -339,15 +339,10 @@ test.describe("Submit Claim Golden Paths", () => {
 
       await selectOptionByLabel(page, /Department/i, runtimeFormData.hodDepartmentName);
 
-      const approverInput = page
-        .locator("div", { hasText: /^Approver \(Finance\/Senior\)/i })
-        .locator("input")
-        .first();
-      const approverEmailInput = page
-        .locator("div", { hasText: /^Approver Email/i })
-        .locator("input")
-        .first();
-      await expect(approverInput).not.toHaveValue("Not available");
+      const approverInput = page.locator("#l1ApproverNameReadOnly");
+      const approverEmailInput = page.locator("#l1ApproverEmailReadOnly");
+      await expect(approverInput).toBeVisible({ timeout: 10000 });
+      await expect(approverInput).not.toHaveValue(/not available/i);
       await expect(approverEmailInput).toHaveValue(/@/);
 
       await selectOptionByLabel(

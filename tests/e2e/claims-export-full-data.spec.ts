@@ -212,7 +212,15 @@ test("Finance user can download full Excel containing all form fields", async ({
       }
     });
 
-    await page.goto("/dashboard/my-claims?view=submissions", { waitUntil: "networkidle" });
+    const endDate = new Date();
+    const startDate = new Date(endDate);
+    startDate.setUTCDate(startDate.getUTCDate() - 30);
+    const from = startDate.toISOString().slice(0, 10);
+    const to = endDate.toISOString().slice(0, 10);
+
+    await page.goto(`/dashboard/my-claims?view=submissions&from=${from}&to=${to}`, {
+      waitUntil: "networkidle",
+    });
 
     const exportButton = page.getByRole("button", { name: /Export Excel/i });
     await expect(exportButton).toBeVisible();
@@ -248,11 +256,14 @@ test("Finance user can download full Excel containing all form fields", async ({
     expect(headers).toEqual([
       "Claim ID",
       "Employee ID",
+      "Beneficiary Employee ID",
+      "Submitter Employee ID",
       "Employee Email",
       "Employee Name",
       "Department",
       "Petty Cash Balance",
       "Submitter",
+      "Submitter Email",
       "Payment Mode",
       "Submission Type",
       "Purpose",
@@ -277,6 +288,7 @@ test("Finance user can download full Excel containing all form fields", async ({
       "Product",
       "Expense Location",
       "Location Type",
+      "Location Details",
       "Bank Statement URL",
       "Bill URL",
       "Petty Cash Photo URL",
