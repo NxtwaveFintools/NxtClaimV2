@@ -152,6 +152,81 @@ describe("SubmitClaimService", () => {
     expect(result.errorCode).toBeNull();
     expect(result.claimId).toBe("77777777-7777-7777-7777-777777777777");
     expect(repository.createClaimWithDetail).toHaveBeenCalledTimes(1);
+    const createClaimPayload = (repository.createClaimWithDetail as jest.Mock).mock
+      .calls[0]?.[0] as {
+      claim_id?: string;
+    };
+    expect(createClaimPayload.claim_id).toMatch(/^CLAIM-/);
+  });
+
+  test("generates EA prefix for petty cash request advances", async () => {
+    const repository = createRepository({
+      getPaymentModeById: jest.fn(async () => ({
+        data: { id: baseInput.paymentModeId, name: "Petty Cash Request", isActive: true },
+        errorMessage: null,
+      })),
+    });
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    const result = await service.execute({
+      ...baseInput,
+      detailType: "advance",
+      advance: {
+        requestedAmount: 500,
+        budgetMonth: 3,
+        budgetYear: 2026,
+        expectedUsageDate: "2026-03-25",
+        purpose: "Field activation",
+        supportingDocumentPath: "advances/11111111-1111-1111-1111-111111111111/support.pdf",
+        productId: baseInput.expense.productId,
+        locationId: baseInput.expense.locationId,
+        remarks: null,
+      },
+    });
+
+    expect(result.errorCode).toBeNull();
+    expect(repository.createClaimWithDetail).toHaveBeenCalledTimes(1);
+    const createClaimPayload = (repository.createClaimWithDetail as jest.Mock).mock
+      .calls[0]?.[0] as {
+      claim_id?: string;
+    };
+    expect(createClaimPayload.claim_id).toMatch(/^EA-/);
+  });
+
+  test("keeps CLAIM prefix for bulk petty cash request advances", async () => {
+    const repository = createRepository({
+      getPaymentModeById: jest.fn(async () => ({
+        data: { id: baseInput.paymentModeId, name: "Bulk Petty Cash Request", isActive: true },
+        errorMessage: null,
+      })),
+    });
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    const result = await service.execute({
+      ...baseInput,
+      detailType: "advance",
+      advance: {
+        requestedAmount: 500,
+        budgetMonth: 3,
+        budgetYear: 2026,
+        expectedUsageDate: "2026-03-25",
+        purpose: "Bulk event float",
+        supportingDocumentPath: "advances/11111111-1111-1111-1111-111111111111/bulk.pdf",
+        productId: baseInput.expense.productId,
+        locationId: baseInput.expense.locationId,
+        remarks: null,
+      },
+    });
+
+    expect(result.errorCode).toBeNull();
+    expect(repository.createClaimWithDetail).toHaveBeenCalledTimes(1);
+    const createClaimPayload = (repository.createClaimWithDetail as jest.Mock).mock
+      .calls[0]?.[0] as {
+      claim_id?: string;
+    };
+    expect(createClaimPayload.claim_id).toMatch(/^CLAIM-/);
   });
 
   test("Should assign Department approver_1 when a standard employee submits", async () => {

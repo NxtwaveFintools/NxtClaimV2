@@ -21,6 +21,7 @@ const EXPENSE_MODE_NAMES = new Set([
   "petty cash",
 ]);
 const ADVANCE_MODE_NAMES = new Set(["petty cash request", "bulk petty cash request"]);
+const EMPLOYEE_ADVANCE_PAYMENT_MODE_NAME = "petty cash request";
 
 class ClaimIntegrityError extends Error {
   readonly code: string;
@@ -87,11 +88,13 @@ function sanitizeEmployeeId(employeeId: string): string {
   return normalized.length > 0 ? normalized : "UNKNOWN";
 }
 
-function generateClaimId(employeeId: string): string {
+function generateClaimId(employeeId: string, paymentModeName: string): string {
   const datePart = formatClaimDate(new Date());
   const employeePart = sanitizeEmployeeId(employeeId);
   const suffix = randomUUID().replace(/-/g, "").slice(0, 4).toUpperCase();
-  return `CLAIM-${employeePart}-${datePart}-${suffix}`;
+  const normalizedModeName = normalizeModeName(paymentModeName);
+  const prefix = normalizedModeName === EMPLOYEE_ADVANCE_PAYMENT_MODE_NAME ? "EA" : "CLAIM";
+  return `${prefix}-${employeePart}-${datePart}-${suffix}`;
 }
 
 export class SubmitClaimService {
@@ -232,7 +235,7 @@ export class SubmitClaimService {
         };
       }
 
-      const claimId = generateClaimId(input.employeeId);
+      const claimId = generateClaimId(input.employeeId, paymentModeResult.data.name);
 
       const payload: Record<string, unknown> = {
         claim_id: claimId,

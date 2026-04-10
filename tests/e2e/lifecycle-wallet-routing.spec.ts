@@ -4,7 +4,7 @@ import { getAuthStatePathForEmail, registerAuthStateEmail } from "./support/auth
 
 const defaultPassword = process.env.E2E_DEFAULT_PASSWORD ?? "password123";
 const runTag = process.env.E2E_RUN_TAG ?? `E2E-${Date.now()}`;
-const SEMANTIC_CLAIM_ID_REGEX = /^CLAIM-[A-Za-z0-9]+-\d{8}-[A-Za-z0-9]+$/;
+const SEMANTIC_CLAIM_ID_REGEX = /^(CLAIM|EA)-[A-Za-z0-9]+-\d{8}-[A-Za-z0-9]+$/;
 
 const ACTORS = {
   employeeA: {

@@ -95,7 +95,6 @@ describe("ApprovalsAuditModeDialog quick view", () => {
       expect(screen.getByText("Expense Detail")).toBeInTheDocument();
     });
 
-    expect(screen.queryByText(/^Category$/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Submitted On$/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Vendor$/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Expense Category$/)).not.toBeInTheDocument();
@@ -110,7 +109,9 @@ describe("ApprovalsAuditModeDialog quick view", () => {
     expect(screen.queryByText(/^Remarks$/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^People Involved$/)).not.toBeInTheDocument();
 
+    expect(screen.getByText(/^Category$/)).toBeInTheDocument();
     expect(screen.getByText(/^Payment Mode$/)).toBeInTheDocument();
+    expect(screen.getByText(/^Purpose$/)).toBeInTheDocument();
     expect(screen.getAllByText(/^Transaction Date$/)).toHaveLength(1);
     expect(screen.getByText(/^Total Amount$/)).toBeInTheDocument();
     expect(screen.getAllByText(/^Bill No$/).length).toBeGreaterThan(0);

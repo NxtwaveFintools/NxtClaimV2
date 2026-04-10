@@ -116,16 +116,14 @@ export function ClaimFullDetailsGrid({
               </p>
             </article>
           )}
-          {isQuickViewMode ? null : (
-            <article className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Category
-              </p>
-              <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
-                {formatOptionalText(categoryLabel)}
-              </p>
-            </article>
-          )}
+          <article className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Category
+            </p>
+            <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+              {formatOptionalText(categoryLabel)}
+            </p>
+          </article>
           <article
             className={`rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40 ${
               isQuickViewMode ? "sm:col-span-2" : ""
@@ -207,6 +205,14 @@ export function ClaimFullDetailsGrid({
               </p>
               <p className="mt-0.5 text-sm font-bold text-slate-900 dark:text-slate-100">
                 {formatAmount(claim.expense.totalAmount)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                Purpose
+              </p>
+              <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                {formatOptionalText(claim.expense.purpose)}
               </p>
             </div>
             {isQuickViewMode ? null : (
@@ -311,14 +317,6 @@ export function ClaimFullDetailsGrid({
                     </div>
                   </>
                 ) : null}
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    Purpose
-                  </p>
-                  <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
-                    {formatOptionalText(claim.expense.purpose)}
-                  </p>
-                </div>
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                     Remarks
