@@ -77,6 +77,9 @@ export function ClaimFullDetailsGrid({
   viewMode = "full",
 }: ClaimFullDetailsGridProps) {
   const isQuickViewMode = viewMode === "quick-view";
+  const summaryGridClasses = isQuickViewMode
+    ? "mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2"
+    : "mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4";
   const shouldShowExpenseTaxBreakdown =
     !!claim.expense &&
     (claim.expense.isGstApplicable === true ||
@@ -92,15 +95,17 @@ export function ClaimFullDetailsGrid({
   return (
     <>
       {includeSummary ? (
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          <article className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              Amount
-            </p>
-            <p className="mt-1 text-sm font-bold text-slate-900 dark:text-slate-100">
-              {formatAmount(totalAmount)}
-            </p>
-          </article>
+        <div className={summaryGridClasses}>
+          {isQuickViewMode ? null : (
+            <article className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                Amount
+              </p>
+              <p className="mt-1 text-sm font-bold text-slate-900 dark:text-slate-100">
+                {formatAmount(totalAmount)}
+              </p>
+            </article>
+          )}
           {isQuickViewMode ? null : (
             <article className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
@@ -121,11 +126,15 @@ export function ClaimFullDetailsGrid({
               </p>
             </article>
           )}
-          <article className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40">
+          <article
+            className={`rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40 ${
+              isQuickViewMode ? "sm:col-span-2" : ""
+            }`}
+          >
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
               Payment Mode
             </p>
-            <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+            <p className="mt-1 whitespace-normal break-words text-sm font-medium text-slate-900 dark:text-slate-100">
               {claim.paymentModeName ?? "Unknown"}
             </p>
           </article>
