@@ -7,16 +7,23 @@ import { createPortal } from "react-dom";
 import { RouterLink } from "@/components/ui/router-link";
 import { ROUTES } from "@/core/config/route-registry";
 import type { ClaimAuditLogRecord } from "@/core/domain/claims/contracts";
+import {
+  getClaimQuickViewHydrationAction,
+  type ClaimQuickViewHydrationData,
+} from "@/modules/claims/actions";
 import { ClaimSemanticDownloadButton } from "@/modules/claims/ui/claim-semantic-download-button";
 import { ClaimAuditTimeline } from "@/modules/claims/ui/claim-audit-timeline";
+import {
+  ClaimFullDetailsGrid,
+  ClaimFullDetailsGridSkeleton,
+  type ClaimFullDetailsRecord,
+} from "@/modules/claims/ui/claim-full-details-grid";
 
 type ApprovalsQuickViewSheetProps = {
   claimId: string;
   detailType: "expense" | "advance";
   submitter: string;
   amountLabel: string;
-  categoryName: string;
-  purpose: string | null;
   submissionType: "Self" | "On Behalf";
   onBehalfEmail: string | null;
   expenseReceiptFilePath: string | null;
@@ -72,6 +79,52 @@ type AuditTab = {
   key: string;
   label: string;
 };
+
+type ClaimQuickViewCacheResult = {
+  data: ClaimQuickViewHydrationData | null;
+  errorMessage: string | null;
+};
+
+type ClaimQuickViewCacheEntry = ClaimQuickViewCacheResult & {
+  updatedAt: number;
+  promise?: Promise<ClaimQuickViewCacheResult>;
+};
+
+const CLAIM_QUICK_VIEW_STALE_TIME_MS = 5 * 60 * 1000;
+const claimQuickViewCache = new Map<string, ClaimQuickViewCacheEntry>();
+
+async function fetchClaimQuickViewHydration(claimId: string): Promise<ClaimQuickViewCacheResult> {
+  try {
+    const result = await getClaimQuickViewHydrationAction({ claimId });
+
+    if (!result.ok) {
+      return {
+        data: null,
+        errorMessage: result.message,
+      };
+    }
+
+    return {
+      data: result.data,
+      errorMessage: null,
+    };
+  } catch {
+    return {
+      data: null,
+      errorMessage: "Unable to hydrate claim detail workspace.",
+    };
+  }
+}
+
+function getFreshClaimQuickViewCache(claimId: string): ClaimQuickViewCacheEntry | null {
+  const cacheEntry = claimQuickViewCache.get(claimId);
+  if (!cacheEntry?.data) {
+    return null;
+  }
+
+  const isFresh = Date.now() - cacheEntry.updatedAt <= CLAIM_QUICK_VIEW_STALE_TIME_MS;
+  return isFresh ? cacheEntry : null;
+}
 
 function AuditModeTabs({
   tabs,
@@ -147,8 +200,6 @@ export function ApprovalsAuditModeDialog({
   detailType,
   submitter,
   amountLabel,
-  categoryName,
-  purpose,
   submissionType,
   onBehalfEmail,
   expenseReceiptFilePath,
@@ -163,6 +214,9 @@ export function ApprovalsAuditModeDialog({
   const [isOpen, setIsOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(true);
   const [activeEvidenceKey, setActiveEvidenceKey] = useState<string>("receipt");
+  const [hydratedData, setHydratedData] = useState<ClaimQuickViewHydrationData | null>(null);
+  const [hydrationErrorMessage, setHydrationErrorMessage] = useState<string | null>(null);
+  const [isHydrating, setIsHydrating] = useState(false);
   const canUseDOM = typeof window !== "undefined" && typeof document !== "undefined";
 
   const onBehalfContext = useMemo(() => {
@@ -275,15 +329,72 @@ export function ApprovalsAuditModeDialog({
     };
   }, [canUseDOM, isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const freshCache = getFreshClaimQuickViewCache(claimId);
+    if (freshCache?.data) {
+      // Cache is an external store; syncing it into React state on open is intentional.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setHydratedData(freshCache.data);
+      setHydrationErrorMessage(freshCache.errorMessage);
+      setIsHydrating(false);
+      return;
+    }
+
+    const existingCache = claimQuickViewCache.get(claimId);
+    if (existingCache?.data) {
+      // Cache is an external store; syncing it into React state on open is intentional.
+      setHydratedData(existingCache.data);
+      setHydrationErrorMessage(existingCache.errorMessage);
+    }
+
+    setIsHydrating(!existingCache?.data);
+
+    const request = existingCache?.promise ?? fetchClaimQuickViewHydration(claimId);
+
+    claimQuickViewCache.set(claimId, {
+      data: existingCache?.data ?? null,
+      errorMessage: existingCache?.errorMessage ?? null,
+      updatedAt: existingCache?.updatedAt ?? 0,
+      promise: request,
+    });
+
+    let isCancelled = false;
+
+    request.then((result) => {
+      claimQuickViewCache.set(claimId, {
+        data: result.data,
+        errorMessage: result.errorMessage,
+        updatedAt: Date.now(),
+      });
+
+      if (isCancelled) {
+        return;
+      }
+
+      setHydratedData(result.data);
+      setHydrationErrorMessage(result.errorMessage);
+      setIsHydrating(false);
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [claimId, isOpen]);
+
   const activeEntry =
     evidenceByKey.get(activeEvidenceKey) ??
     evidenceByKey.get(defaultEvidenceKey) ??
     evidenceByKey.values().next().value;
 
+  const resolvedClaim: ClaimFullDetailsRecord | null = hydratedData?.claim ?? null;
+  const resolvedAuditLogs = hydratedData?.auditLogs ?? auditLogs;
   const hasActions = Boolean(children);
   const claimTypeLabel = detailType === "expense" ? "Expense Claim" : "Advance Claim";
   const reviewModeLabel = hasActions ? "Action required" : "Read only";
-  const activeEvidenceLabel = activeEntry?.label ?? "No document";
 
   const openPanel = () => {
     setActiveEvidenceKey(defaultEvidenceKey);
@@ -398,8 +509,6 @@ export function ApprovalsAuditModeDialog({
                               Evidence Workspace
                             </p>
                             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[12px] font-medium text-zinc-600 dark:text-zinc-400">
-                              <span className="truncate">{categoryName}</span>
-                              <span className="text-zinc-300 dark:text-zinc-600">·</span>
                               <span className="truncate">{submitter}</span>
                               <span className="text-zinc-300 dark:text-zinc-600">·</span>
                               <span className="truncate text-zinc-400 dark:text-zinc-500">
@@ -474,63 +583,8 @@ export function ApprovalsAuditModeDialog({
                         </div>
                       </div>
 
-                      <div className="mt-3">
-                        <ClaimAuditTimeline
-                          logs={auditLogs}
-                          title="Workflow Timeline"
-                          emptyLabel="No audit history available for this claim yet."
-                        />
-                      </div>
-
-                      <div className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                        <div className="rounded-[20px] border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800/80 dark:bg-zinc-900/80">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-400 dark:text-zinc-500">
-                            Amount
-                          </p>
-                          <p className="mt-2 text-[15px] font-bold tracking-tight text-zinc-950 dark:text-zinc-50">
-                            {amountLabel}
-                          </p>
-                        </div>
-
-                        <div className="rounded-[20px] border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800/80 dark:bg-zinc-900/80">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-400 dark:text-zinc-500">
-                            Category
-                          </p>
-                          <p className="mt-2 text-[15px] font-bold tracking-tight text-zinc-950 dark:text-zinc-50">
-                            {categoryName}
-                          </p>
-                        </div>
-
-                        <div className="rounded-[20px] border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800/80 dark:bg-zinc-900/80">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-400 dark:text-zinc-500">
-                            Claim Type
-                          </p>
-                          <p className="mt-2 text-[15px] font-bold tracking-tight text-zinc-950 dark:text-zinc-50">
-                            {claimTypeLabel}
-                          </p>
-                        </div>
-
-                        <div className="rounded-[20px] border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800/80 dark:bg-zinc-900/80">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-400 dark:text-zinc-500">
-                            Active Document
-                          </p>
-                          <p className="mt-2 text-[15px] font-bold tracking-tight text-zinc-950 dark:text-zinc-50">
-                            {activeEvidenceLabel}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="mt-2.5 rounded-[20px] border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800/80 dark:bg-zinc-900/80">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-400 dark:text-zinc-500">
-                          Purpose
-                        </p>
-                        <p className="mt-2 text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300">
-                          {purpose ?? "No purpose was provided for this claim."}
-                        </p>
-                      </div>
-
                       {hasActions ? (
-                        <div className="mt-2.5 rounded-[24px] border border-zinc-900/10 bg-zinc-950 p-5 text-white shadow-[0_20px_60px_-30px_rgba(15,23,42,0.45)] dark:border-zinc-800">
+                        <div className="mt-3 rounded-[24px] border border-zinc-900/10 bg-zinc-950 p-5 text-white shadow-[0_20px_60px_-30px_rgba(15,23,42,0.45)] dark:border-zinc-800">
                           <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/50">
                             Take Action
                           </p>
@@ -542,6 +596,32 @@ export function ApprovalsAuditModeDialog({
                           </div>
                         </div>
                       ) : null}
+
+                      <div className="mt-3">
+                        {isHydrating && !resolvedClaim ? (
+                          <ClaimFullDetailsGridSkeleton />
+                        ) : resolvedClaim ? (
+                          <ClaimFullDetailsGrid claim={resolvedClaim} viewMode="quick-view" />
+                        ) : (
+                          <div className="rounded-[20px] border border-rose-200/80 bg-rose-50/80 p-4 text-sm text-rose-700 dark:border-rose-800/60 dark:bg-rose-950/30 dark:text-rose-200">
+                            Unable to load full claim details right now.
+                          </div>
+                        )}
+                        {hydrationErrorMessage && resolvedClaim ? (
+                          <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+                            Showing cached claim details. Latest refresh failed:{" "}
+                            {hydrationErrorMessage}
+                          </p>
+                        ) : null}
+                      </div>
+
+                      <div className="mt-3">
+                        <ClaimAuditTimeline
+                          logs={resolvedAuditLogs}
+                          title="Workflow Timeline"
+                          emptyLabel="No audit history available for this claim yet."
+                        />
+                      </div>
                     </aside>
                   ) : null}
                 </div>

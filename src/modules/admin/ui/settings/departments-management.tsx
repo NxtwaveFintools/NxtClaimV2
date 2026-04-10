@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { DepartmentWithActors } from "@/core/domain/admin/contracts";
 import { updateDepartmentActorsByEmailAction } from "@/modules/admin/actions";
+import { Button } from "@/components/ui/button";
 
 type Props = {
   departments: DepartmentWithActors[];
@@ -122,14 +123,15 @@ function DepartmentActorRow({ department }: { department: DepartmentWithActors }
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button
-          type="button"
+        <Button
           disabled={isPending || !hodEmail || !founderEmail}
           onClick={handleSave}
-          className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+          type="button"
+          variant="primary"
+          size="md"
         >
           {isPending ? "Saving…" : "Save Actors"}
-        </button>
+        </Button>
         {saved ? (
           <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
             Saved ✓

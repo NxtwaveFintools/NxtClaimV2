@@ -20,6 +20,7 @@ import { BulkProcessClaimsService } from "@/core/domain/claims/BulkProcessClaims
 import { UpdateClaimByFinanceService } from "@/core/domain/claims/UpdateClaimByFinanceService";
 import { DeleteOwnClaimService } from "@/core/domain/claims/DeleteOwnClaimService";
 import type {
+  ClaimAuditLogRecord,
   ClaimDetailType,
   ClaimDropdownOption,
   FinanceClaimEditPayload,
@@ -30,6 +31,9 @@ import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseC
 import { SupabaseDepartmentRepository } from "@/modules/departments/repositories/SupabaseDepartmentRepository";
 import { newClaimSubmitSchema } from "@/modules/claims/validators/new-claim-schema";
 import { financeEditSchema } from "@/modules/claims/validators/finance-edit-schema";
+import { formatDateTime } from "@/lib/format";
+import { getViewerDepartmentIds } from "@/modules/claims/server/is-department-viewer";
+import { isAdmin } from "@/modules/admin/server/is-admin";
 import { z } from "zod";
 
 const repository = new SupabaseClaimRepository();
@@ -149,6 +153,11 @@ export type CurrentUserHydration = {
   email: string;
   name: string;
   isGlobalHod: boolean;
+};
+
+export type ClaimQuickViewHydrationData = {
+  claim: NonNullable<Awaited<ReturnType<SupabaseClaimRepository["getClaimDetailById"]>>["data"]>;
+  auditLogs: (ClaimAuditLogRecord & { formattedCreatedAt: string })[];
 };
 
 function classifyDetailType(modeName: string): ClaimDetailType | null {
@@ -527,6 +536,93 @@ export async function getClaimFormHydrationAction(): Promise<{
       },
     },
     errorMessage: null,
+  };
+}
+
+export async function getClaimQuickViewHydrationAction(input: {
+  claimId: string;
+}): Promise<{ ok: true; data: ClaimQuickViewHydrationData } | { ok: false; message: string }> {
+  const claimParse = financeEditClaimIdSchema.safeParse(input);
+  if (!claimParse.success) {
+    return {
+      ok: false,
+      message: "Invalid claim hydration request.",
+    };
+  }
+
+  const currentUserResult = await authRepository.getCurrentUser();
+  if (
+    currentUserResult.errorMessage ||
+    !currentUserResult.user?.id ||
+    !currentUserResult.user.email
+  ) {
+    return {
+      ok: false,
+      message: currentUserResult.errorMessage ?? "Unauthorized session.",
+    };
+  }
+
+  const currentUserId = currentUserResult.user.id;
+
+  const [claimResult, claimAuditLogsResult, financeApproverIdsResult, viewerDeptIds, isAdminUser] =
+    await Promise.all([
+      repository.getClaimDetailById(claimParse.data.claimId),
+      repository.getClaimAuditLogs(claimParse.data.claimId),
+      repository.getFinanceApproverIdsForUser(currentUserId),
+      getViewerDepartmentIds(currentUserId),
+      isAdmin(),
+    ]);
+
+  if (claimResult.errorMessage) {
+    return {
+      ok: false,
+      message: claimResult.errorMessage,
+    };
+  }
+
+  if (!claimResult.data) {
+    return {
+      ok: false,
+      message: "Claim not found.",
+    };
+  }
+
+  const claim = claimResult.data;
+  const isFinanceActor =
+    !financeApproverIdsResult.errorMessage && financeApproverIdsResult.data.length > 0;
+  const isAssignedL1Approver = currentUserId === claim.assignedL1ApproverId;
+  const isAssignedL2Approver = currentUserId === claim.assignedL2ApproverId;
+  const isDepartmentViewerForClaim =
+    claim.departmentId != null && viewerDeptIds.includes(claim.departmentId);
+  const canViewAsFinance = isFinanceActor && claim.status !== DB_CLAIM_STATUSES[0];
+  const canView =
+    currentUserId === claim.submittedBy ||
+    currentUserId === claim.onBehalfOfId ||
+    isAssignedL1Approver ||
+    isAssignedL2Approver ||
+    canViewAsFinance ||
+    isDepartmentViewerForClaim;
+
+  if (!canView && !isAdminUser) {
+    return {
+      ok: false,
+      message: "You are not authorized to view this claim.",
+    };
+  }
+
+  const claimAuditLogs = claimAuditLogsResult.errorMessage
+    ? []
+    : claimAuditLogsResult.data.map((log) => ({
+        ...log,
+        formattedCreatedAt: formatDateTime(log.createdAt),
+      }));
+
+  return {
+    ok: true,
+    data: {
+      claim,
+      auditLogs: claimAuditLogs,
+    },
   };
 }
 

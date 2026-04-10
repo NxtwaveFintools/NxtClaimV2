@@ -7,6 +7,7 @@ import {
   addFinanceApproverByEmailAction,
   updateFinanceApproverAction,
 } from "@/modules/admin/actions";
+import { Button } from "@/components/ui/button";
 
 type Props = {
   approvers: FinanceApproverRecord[];
@@ -96,28 +97,32 @@ export function FinanceApproversManagement({ approvers }: Props) {
 
               <div className="flex flex-wrap items-center gap-2">
                 {!approver.provisionalEmail && !approver.isPrimary ? (
-                  <button
-                    type="button"
+                  <Button
                     disabled={isPending}
                     onClick={() => handleSetPrimary(approver.id)}
-                    className="rounded-xl border border-indigo-300 px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 dark:border-indigo-700 dark:text-indigo-300 dark:hover:bg-indigo-950/30"
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="border-indigo-300 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-700 dark:text-indigo-300 dark:hover:bg-indigo-950/30"
                   >
                     Set Primary
-                  </button>
+                  </Button>
                 ) : null}
 
-                <button
-                  type="button"
+                <Button
                   disabled={isPending}
                   onClick={() => handleToggle(approver.id, approver.isActive)}
-                  className={`rounded-xl border px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-50 ${
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className={
                     approver.isActive
-                      ? "border-zinc-300 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      ? undefined
                       : "border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
-                  }`}
+                  }
                 >
                   {approver.isActive ? "Deactivate" : "Activate"}
-                </button>
+                </Button>
               </div>
             </div>
           ))}
@@ -143,14 +148,15 @@ export function FinanceApproversManagement({ approvers }: Props) {
             placeholder="finance@example.com"
             className="nxt-input flex-1 rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
           />
-          <button
-            type="button"
+          <Button
             disabled={isPending || !email.trim()}
             onClick={handleAdd}
-            className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+            type="button"
+            variant="primary"
+            size="md"
           >
             Add
-          </button>
+          </Button>
         </div>
         {addError ? <p className="mt-1 text-xs text-rose-600">{addError}</p> : null}
       </div>

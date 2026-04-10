@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { AdminRecord } from "@/core/domain/admin/contracts";
 import { addAdminAction, removeAdminAction } from "@/modules/admin/actions";
+import { Button } from "@/components/ui/button";
 
 type Props = {
   admins: AdminRecord[];
@@ -78,30 +79,34 @@ export function AdminsManagement({ admins }: Props) {
                 {confirmRemoveId === admin.id ? (
                   <>
                     <span className="text-xs text-zinc-500">Remove this admin?</span>
-                    <button
-                      type="button"
+                    <Button
                       disabled={isPending}
                       onClick={() => handleRemove(admin.id)}
-                      className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-500 disabled:opacity-50"
+                      type="button"
+                      variant="danger"
+                      size="sm"
                     >
                       {isPending ? "Removing…" : "Confirm"}
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
                       onClick={() => setConfirmRemoveId(null)}
-                      className="rounded-xl border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      type="button"
+                      variant="secondary"
+                      size="sm"
                     >
                       Cancel
-                    </button>
+                    </Button>
                   </>
                 ) : (
-                  <button
-                    type="button"
+                  <Button
                     onClick={() => setConfirmRemoveId(admin.id)}
-                    className="rounded-xl border border-rose-300 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-300 dark:hover:bg-rose-950/30"
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-300 dark:hover:bg-rose-950/30"
                   >
                     Remove
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -126,14 +131,15 @@ export function AdminsManagement({ admins }: Props) {
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             className="nxt-input flex-1 rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none dark:border-zinc-700 dark:bg-zinc-900"
           />
-          <button
-            type="button"
+          <Button
             disabled={isPending}
             onClick={handleAdd}
-            className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+            type="button"
+            variant="primary"
+            size="md"
           >
             Promote
-          </button>
+          </Button>
         </div>
         {addError ? <p className="mt-1 text-xs text-rose-600">{addError}</p> : null}
       </div>

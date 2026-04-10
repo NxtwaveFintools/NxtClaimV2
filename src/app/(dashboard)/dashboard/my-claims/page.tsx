@@ -841,8 +841,6 @@ async function ClaimsCommandCenterTable({
                               detailType={claim.detailType}
                               submitter={claim.submitter}
                               amountLabel={claim.formattedTotalAmount}
-                              categoryName={claim.categoryName}
-                              purpose={claim.purpose}
                               submissionType={claim.submissionType}
                               onBehalfEmail={claim.onBehalfEmail}
                               expenseReceiptFilePath={claim.expenseReceiptFilePath}
@@ -1013,8 +1011,6 @@ async function ClaimsCommandCenterTable({
                             detailType={claim.detailType}
                             submitter={claim.submitterLabel ?? claim.employeeName}
                             amountLabel={claim.formattedTotalAmount}
-                            categoryName={claim.categoryName ?? "Uncategorized"}
-                            purpose={claim.purpose}
                             submissionType={claim.submissionType}
                             onBehalfEmail={claim.onBehalfEmail}
                             expenseReceiptFilePath={claim.expenseReceiptFilePath}

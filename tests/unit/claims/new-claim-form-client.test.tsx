@@ -285,8 +285,15 @@ describe("NewClaimFormClient", () => {
 
     mockToastLoading.mockReturnValueOnce(firstToastId).mockReturnValueOnce(secondToastId);
 
-    let resolveFirstParse: ((value: unknown) => void) | null = null;
-    const firstParsePromise = new Promise((resolve) => {
+    type FirstParseFailureResult = {
+      ok: false;
+      data: null;
+      autoFillAllowed: false;
+      message: string;
+    };
+
+    let resolveFirstParse!: (value: FirstParseFailureResult) => void;
+    const firstParsePromise = new Promise<FirstParseFailureResult>((resolve) => {
       resolveFirstParse = resolve;
     });
 
@@ -320,7 +327,7 @@ describe("NewClaimFormClient", () => {
     expect(mockParseReceiptAction).toHaveBeenCalledTimes(1);
     expect(mockToastSuccess).not.toHaveBeenCalled();
 
-    resolveFirstParse?.({
+    resolveFirstParse({
       ok: false,
       data: null,
       autoFillAllowed: false,

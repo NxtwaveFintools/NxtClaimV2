@@ -136,10 +136,6 @@ function isMissingAnalyticsCacheTableError(error: { message: string } | null): b
   return error.message.toLowerCase().includes(MISSING_ANALYTICS_CACHE_TABLE_FRAGMENT);
 }
 
-function toPostgrestInList(values: string[]): string {
-  return `(${values.map((value) => `"${value.replace(/"/g, '\\"')}"`).join(",")})`;
-}
-
 function normalizeRelation<T>(value: T | T[] | null): T | null {
   if (Array.isArray(value)) {
     return value[0] ?? null;

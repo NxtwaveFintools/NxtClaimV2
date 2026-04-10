@@ -1,4 +1,5 @@
 import type { ClaimStatus, DbClaimStatus } from "@/core/constants/statuses";
+import { Badge } from "@/components/ui/badge";
 
 export const CLAIM_STATUS_COLUMN_WIDTH_CLASSES = "w-52 min-w-52 lg:w-56 lg:min-w-56";
 
@@ -47,10 +48,10 @@ export function ClaimStatusBadge({
     : "items-center whitespace-nowrap px-2.5 py-1 text-xs font-medium";
 
   return (
-    <span
-      className={`inline-flex rounded-2xl border ${layoutClasses} ${getStatusClasses(status)} ${className}`.trim()}
+    <Badge
+      className={`rounded-2xl ${layoutClasses} ${getStatusClasses(status)} ${className}`.trim()}
     >
       {status}
-    </span>
+    </Badge>
   );
 }

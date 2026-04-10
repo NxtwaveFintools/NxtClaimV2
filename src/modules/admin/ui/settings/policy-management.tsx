@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { publishNewPolicyAction } from "@/modules/policies/actions";
 import type { PolicyGateState } from "@/modules/policies/server/get-policy-gate-state";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 
 type PolicyManagementProps = {
   initialState: PolicyGateState;
@@ -141,14 +143,15 @@ export function PolicyManagement({ initialState }: PolicyManagementProps) {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
+          <Button
             disabled={isPending}
             onClick={handlePublish}
-            className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+            type="button"
+            variant="primary"
+            size="md"
           >
             {isPending ? "Publishing..." : "Publish New Policy"}
-          </button>
+          </Button>
 
           {message ? (
             <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
@@ -157,11 +160,7 @@ export function PolicyManagement({ initialState }: PolicyManagementProps) {
           ) : null}
         </div>
 
-        {errorMessage ? (
-          <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-800/60 dark:bg-rose-950/30 dark:text-rose-200">
-            {errorMessage}
-          </p>
-        ) : null}
+        {errorMessage ? <Alert tone="error" description={errorMessage} /> : null}
       </>
     </section>
   );

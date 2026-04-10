@@ -2,6 +2,8 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useTransition } from "react";
+import { Button } from "@/components/ui/button";
+import { buildOffsetPageHref } from "@/lib/pagination-helpers";
 
 type MyClaimsOffsetPaginationControlsProps = {
   totalCount: number;
@@ -10,53 +12,6 @@ type MyClaimsOffsetPaginationControlsProps = {
   position?: "top" | "bottom";
   searchParams?: Record<string, string | string[] | undefined>;
 };
-
-function firstParamValue(value: string | string[] | undefined): string | undefined {
-  if (Array.isArray(value)) {
-    return value[0];
-  }
-
-  return value;
-}
-
-function toSearchParams(
-  searchParams?: Record<string, string | string[] | undefined>,
-): URLSearchParams {
-  const params = new URLSearchParams();
-
-  if (!searchParams) {
-    return params;
-  }
-
-  for (const [key, value] of Object.entries(searchParams)) {
-    const normalized = firstParamValue(value);
-    if (normalized) {
-      params.set(key, normalized);
-    }
-  }
-
-  return params;
-}
-
-function buildPageHref(
-  searchParams: Record<string, string | string[] | undefined> | undefined,
-  page: number,
-): string {
-  const params = toSearchParams(searchParams);
-
-  params.delete("cursor");
-  params.delete("prevCursor");
-  params.delete("limit");
-
-  if (page > 1) {
-    params.set("page", String(page));
-  } else {
-    params.delete("page");
-  }
-
-  const query = params.toString();
-  return query ? `?${query}` : "?";
-}
 
 export function MyClaimsOffsetPaginationControls({
   totalCount,
@@ -76,8 +31,8 @@ export function MyClaimsOffsetPaginationControls({
   const hasPreviousPage = safePage > 1;
   const hasNextPage = safePage * limit < totalCount;
 
-  const previousHref = hasPreviousPage ? buildPageHref(searchParams, safePage - 1) : null;
-  const nextHref = hasNextPage ? buildPageHref(searchParams, safePage + 1) : null;
+  const previousHref = hasPreviousPage ? buildOffsetPageHref(searchParams, safePage - 1) : null;
+  const nextHref = hasNextPage ? buildOffsetPageHref(searchParams, safePage + 1) : null;
 
   const navigateTo = (href: string | null): void => {
     if (!href) {
@@ -135,37 +90,37 @@ export function MyClaimsOffsetPaginationControls({
         ) : null}
 
         {previousHref ? (
-          <button
-            type="button"
+          <Button
             onClick={() => {
               navigateTo(previousHref);
             }}
             disabled={isPending}
-            className="inline-flex rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 transition-all duration-200 hover:bg-zinc-50 active:scale-[0.98] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            variant="secondary"
+            size="md"
           >
             Previous
-          </button>
+          </Button>
         ) : (
-          <span className="inline-flex cursor-not-allowed rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2 text-sm font-semibold text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-600">
+          <Button variant="secondary" size="md" disabled>
             Previous
-          </span>
+          </Button>
         )}
 
         {nextHref ? (
-          <button
-            type="button"
+          <Button
             onClick={() => {
               navigateTo(nextHref);
             }}
             disabled={isPending}
-            className="inline-flex rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-indigo-500/20 transition-all duration-200 hover:bg-indigo-500 active:scale-[0.98] dark:shadow-indigo-500/10"
+            variant="primary"
+            size="md"
           >
             Next
-          </button>
+          </Button>
         ) : (
-          <span className="inline-flex cursor-not-allowed rounded-xl bg-indigo-600/50 px-4 py-2 text-sm font-semibold text-white/60 dark:bg-indigo-500/40">
+          <Button variant="primary" size="md" disabled>
             Next
-          </span>
+          </Button>
         )}
       </div>
     </div>

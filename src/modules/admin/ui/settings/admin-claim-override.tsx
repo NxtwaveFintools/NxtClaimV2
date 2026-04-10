@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { DB_CLAIM_STATUSES, type DbClaimStatus } from "@/core/constants/statuses";
 import type { AdminClaimOverrideSummary } from "@/core/domain/admin/contracts";
 import { formatCurrency } from "@/lib/format";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import {
   adminForceUpdateClaimStatusAction,
   adminGetClaimOverrideSummaryAction,
@@ -180,28 +182,21 @@ export function AdminClaimOverride() {
             placeholder="CLAIM-EMP123-20260408-0001"
             className="nxt-input min-w-65 flex-1 rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
           />
-          <button
-            type="button"
+          <Button
             disabled={isPending}
             onClick={handleSearch}
-            className="rounded-xl border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            type="button"
+            variant="secondary"
+            size="md"
           >
             {isSearching ? "Searching..." : "Search"}
-          </button>
+          </Button>
         </div>
       </div>
 
-      {message ? (
-        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:text-emerald-200">
-          {message}
-        </p>
-      ) : null}
+      {message ? <Alert tone="success" description={message} /> : null}
 
-      {errorMessage ? (
-        <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-800/60 dark:bg-rose-950/30 dark:text-rose-200">
-          {errorMessage}
-        </p>
-      ) : null}
+      {errorMessage ? <Alert tone="error" description={errorMessage} /> : null}
 
       {claimSummary ? (
         <>
@@ -302,23 +297,26 @@ export function AdminClaimOverride() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
+            <Button
               disabled={isPending}
               onClick={handleForceStatusUpdate}
-              className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+              type="button"
+              variant="primary"
+              size="md"
             >
               {isUpdatingStatus ? "Updating..." : "Update Status"}
-            </button>
+            </Button>
 
-            <button
-              type="button"
+            <Button
               disabled={isPending}
               onClick={handleSoftDelete}
-              className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-700 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-950/60"
+              type="button"
+              variant="secondary"
+              size="md"
+              className="border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-700 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-950/60"
             >
               {isSoftDeleting ? "Deleting..." : "Soft Delete"}
-            </button>
+            </Button>
           </div>
 
           <p className="text-xs text-zinc-500 dark:text-zinc-400">

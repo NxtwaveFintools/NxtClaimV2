@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { MasterDataItem, MasterDataTableName } from "@/core/domain/admin/contracts";
 import { createMasterDataItemAction, updateMasterDataItemAction } from "@/modules/admin/actions";
+import { Button } from "@/components/ui/button";
 
 type Props = {
   tableName: MasterDataTableName;
@@ -113,48 +114,53 @@ export function MasterDataTable({ tableName, displayName, items }: Props) {
               <div className="flex flex-wrap items-center gap-2">
                 {editingId === item.id ? (
                   <>
-                    <button
-                      type="button"
+                    <Button
                       disabled={isPending}
                       onClick={() => handleRename(item.id)}
-                      className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+                      type="button"
+                      variant="primary"
+                      size="sm"
                     >
                       Save
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
                       onClick={() => setEditingId(null)}
-                      className="rounded-xl border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      type="button"
+                      variant="secondary"
+                      size="sm"
                     >
                       Cancel
-                    </button>
+                    </Button>
                   </>
                 ) : (
-                  <button
-                    type="button"
+                  <Button
                     disabled={isPending}
                     onClick={() => {
                       setEditingId(item.id);
                       setEditName(item.name);
                     }}
-                    className="rounded-xl border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    type="button"
+                    variant="secondary"
+                    size="sm"
                   >
                     Rename
-                  </button>
+                  </Button>
                 )}
 
-                <button
-                  type="button"
+                <Button
                   disabled={isPending}
                   onClick={() => handleToggleActive(item)}
-                  className={`rounded-xl border px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-50 ${
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className={
                     item.isActive
-                      ? "border-zinc-300 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      ? undefined
                       : "border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
-                  }`}
+                  }
                 >
                   {item.isActive ? "Deactivate" : "Activate"}
-                </button>
+                </Button>
               </div>
             </div>
           ))
@@ -171,14 +177,15 @@ export function MasterDataTable({ tableName, displayName, items }: Props) {
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             className="nxt-input flex-1 rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none dark:border-zinc-700 dark:bg-zinc-900"
           />
-          <button
-            type="button"
+          <Button
             disabled={isPending}
             onClick={handleAdd}
-            className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+            type="button"
+            variant="primary"
+            size="md"
           >
             Add
-          </button>
+          </Button>
         </div>
         {addError ? <p className="mt-1 text-xs text-rose-600">{addError}</p> : null}
       </div>

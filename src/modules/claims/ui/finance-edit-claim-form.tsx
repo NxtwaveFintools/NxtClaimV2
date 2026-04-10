@@ -2,6 +2,12 @@
 
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { DateInput } from "@/components/ui/date-input";
+import { FormInput } from "@/components/ui/form-input";
+import { FormSelect } from "@/components/ui/form-select";
+import { FormTextarea } from "@/components/ui/form-textarea";
 
 type DropdownOption = {
   id: string;
@@ -115,15 +121,16 @@ export function FinanceEditClaimForm({
 
   if (!isOpen) {
     return (
-      <button
-        type="button"
+      <Button
         onClick={() => {
           setIsOpen(true);
         }}
-        className="inline-flex items-center rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition-all duration-200 hover:bg-indigo-100 active:scale-[0.98] dark:border-indigo-600/60 dark:bg-indigo-600/15 dark:text-indigo-200 dark:hover:bg-indigo-600/25"
+        variant="secondary"
+        size="md"
+        className="border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:border-indigo-600/60 dark:bg-indigo-600/15 dark:text-indigo-200 dark:hover:bg-indigo-600/25"
       >
         Edit Claim
-      </button>
+      </Button>
     );
   }
 
@@ -151,7 +158,7 @@ export function FinanceEditClaimForm({
           <div className="grid gap-3 md:grid-cols-2">
             <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
               Claim ID (Read-only)
-              <input
+              <FormInput
                 value={claim.id}
                 disabled
                 className="rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
@@ -160,7 +167,7 @@ export function FinanceEditClaimForm({
 
             <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
               Employee Name (Read-only)
-              <input
+              <FormInput
                 value={claim.employeeName}
                 disabled
                 className="rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
@@ -169,7 +176,7 @@ export function FinanceEditClaimForm({
 
             <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
               Employee Email (Read-only)
-              <input
+              <FormInput
                 value={claim.employeeEmail ?? "N/A"}
                 disabled
                 className="rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
@@ -178,7 +185,7 @@ export function FinanceEditClaimForm({
 
             <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
               Submission Type (Read-only)
-              <input
+              <FormInput
                 value={claim.submissionType}
                 disabled={isEditMode}
                 readOnly={isEditMode}
@@ -190,7 +197,7 @@ export function FinanceEditClaimForm({
               <>
                 <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                   On Behalf Email (Read-only)
-                  <input
+                  <FormInput
                     value={claim.onBehalfEmail ?? "N/A"}
                     disabled={isEditMode}
                     readOnly={isEditMode}
@@ -200,7 +207,7 @@ export function FinanceEditClaimForm({
 
                 <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                   On Behalf Employee ID (Read-only)
-                  <input
+                  <FormInput
                     value={claim.onBehalfEmployeeCode ?? "N/A"}
                     disabled={isEditMode}
                     readOnly={isEditMode}
@@ -214,7 +221,7 @@ export function FinanceEditClaimForm({
           <div className="grid gap-3 md:grid-cols-2">
             <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
               Department
-              <select
+              <FormSelect
                 name="departmentId"
                 required
                 defaultValue={claim.departmentId}
@@ -230,12 +237,12 @@ export function FinanceEditClaimForm({
                     {department.name}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </label>
 
             <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
               Payment Mode
-              <select
+              <FormSelect
                 name="paymentModeId"
                 required
                 defaultValue={claim.paymentModeId}
@@ -251,7 +258,7 @@ export function FinanceEditClaimForm({
                     {paymentMode.name}
                   </option>
                 ))}
-              </select>
+              </FormSelect>
             </label>
           </div>
 
@@ -259,7 +266,7 @@ export function FinanceEditClaimForm({
             <div className="grid gap-3 md:grid-cols-2">
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                 Bill No
-                <input
+                <FormInput
                   name="billNo"
                   required
                   defaultValue={expense?.billNo ?? ""}
@@ -269,7 +276,7 @@ export function FinanceEditClaimForm({
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                 Expense Category
-                <select
+                <FormSelect
                   name="expenseCategoryId"
                   required
                   defaultValue={expense?.expenseCategoryId ?? ""}
@@ -283,12 +290,12 @@ export function FinanceEditClaimForm({
                       {category.name}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </label>
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                 Vendor Name
-                <input
+                <FormInput
                   name="vendorName"
                   defaultValue={expense?.vendorName ?? ""}
                   className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
@@ -297,7 +304,7 @@ export function FinanceEditClaimForm({
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                 Location
-                <select
+                <FormSelect
                   name="locationId"
                   required
                   defaultValue={expense?.locationId ?? ""}
@@ -311,14 +318,13 @@ export function FinanceEditClaimForm({
                       {location.name}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </label>
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                 Transaction Date
-                <input
+                <DateInput
                   name="transactionDate"
-                  type="date"
                   required
                   defaultValue={toDateInputValue(expense?.transactionDate)}
                   className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
@@ -327,7 +333,7 @@ export function FinanceEditClaimForm({
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                 GST Applicable
-                <select
+                <FormSelect
                   name="isGstApplicable"
                   required
                   defaultValue={expense?.isGstApplicable ? "true" : "false"}
@@ -335,12 +341,12 @@ export function FinanceEditClaimForm({
                 >
                   <option value="true">Yes</option>
                   <option value="false">No</option>
-                </select>
+                </FormSelect>
               </label>
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                 GST Number
-                <input
+                <FormInput
                   name="gstNumber"
                   defaultValue={expense?.gstNumber ?? ""}
                   className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
@@ -349,10 +355,8 @@ export function FinanceEditClaimForm({
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                 Basic Amount
-                <input
+                <CurrencyInput
                   name="basicAmount"
-                  type="number"
-                  step="0.01"
                   min="0"
                   required
                   defaultValue={expense?.basicAmount ?? ""}
@@ -362,10 +366,8 @@ export function FinanceEditClaimForm({
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                 CGST Amount
-                <input
+                <CurrencyInput
                   name="cgstAmount"
-                  type="number"
-                  step="0.01"
                   min="0"
                   defaultValue={expense?.cgstAmount ?? 0}
                   className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
@@ -374,10 +376,8 @@ export function FinanceEditClaimForm({
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                 SGST Amount
-                <input
+                <CurrencyInput
                   name="sgstAmount"
-                  type="number"
-                  step="0.01"
                   min="0"
                   defaultValue={expense?.sgstAmount ?? 0}
                   className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
@@ -386,10 +386,8 @@ export function FinanceEditClaimForm({
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                 IGST Amount
-                <input
+                <CurrencyInput
                   name="igstAmount"
-                  type="number"
-                  step="0.01"
                   min="0"
                   defaultValue={expense?.igstAmount ?? 0}
                   className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
@@ -398,10 +396,8 @@ export function FinanceEditClaimForm({
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                 Total Amount
-                <input
+                <CurrencyInput
                   name="totalAmount"
-                  type="number"
-                  step="0.01"
                   min="0"
                   required
                   defaultValue={expense?.totalAmount ?? ""}
@@ -411,7 +407,7 @@ export function FinanceEditClaimForm({
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
                 Purpose
-                <input
+                <FormInput
                   name="purpose"
                   required
                   defaultValue={expense?.purpose ?? ""}
@@ -421,7 +417,7 @@ export function FinanceEditClaimForm({
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                 Product
-                <select
+                <FormSelect
                   name="productId"
                   defaultValue={expense?.productId ?? ""}
                   className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
@@ -432,12 +428,12 @@ export function FinanceEditClaimForm({
                       {product.name}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </label>
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                 People Involved
-                <input
+                <FormInput
                   name="peopleInvolved"
                   defaultValue={expense?.peopleInvolved ?? ""}
                   className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
@@ -446,7 +442,7 @@ export function FinanceEditClaimForm({
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
                 Remarks
-                <textarea
+                <FormTextarea
                   name="remarks"
                   rows={3}
                   defaultValue={expense?.remarks ?? ""}
@@ -458,7 +454,7 @@ export function FinanceEditClaimForm({
             <div className="grid gap-3 md:grid-cols-2">
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
                 Purpose
-                <input
+                <FormInput
                   name="purpose"
                   required
                   defaultValue={advance?.purpose ?? ""}
@@ -468,7 +464,7 @@ export function FinanceEditClaimForm({
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                 Product
-                <select
+                <FormSelect
                   name="productId"
                   defaultValue={advance?.productId ?? ""}
                   className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
@@ -479,12 +475,12 @@ export function FinanceEditClaimForm({
                       {product.name}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </label>
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                 Location
-                <select
+                <FormSelect
                   name="locationId"
                   defaultValue={advance?.locationId ?? ""}
                   className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
@@ -495,15 +491,13 @@ export function FinanceEditClaimForm({
                       {location.name}
                     </option>
                   ))}
-                </select>
+                </FormSelect>
               </label>
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                 Requested Amount
-                <input
+                <CurrencyInput
                   name="requestedAmount"
-                  type="number"
-                  step="0.01"
                   min="0"
                   required
                   defaultValue={advance?.requestedAmount ?? ""}
@@ -513,9 +507,8 @@ export function FinanceEditClaimForm({
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                 Expected Usage Date
-                <input
+                <DateInput
                   name="expectedUsageDate"
-                  type="date"
                   required
                   defaultValue={toDateInputValue(advance?.expectedUsageDate)}
                   className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
@@ -524,7 +517,7 @@ export function FinanceEditClaimForm({
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
                 Remarks
-                <textarea
+                <FormTextarea
                   name="remarks"
                   rows={3}
                   defaultValue={advance?.remarks ?? ""}
@@ -557,10 +550,12 @@ export function FinanceEditClaimForm({
           ) : null}
 
           <div className="flex flex-wrap gap-2">
-            <button
+            <Button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex items-center rounded-xl bg-indigo-500 px-4 py-2 text-sm font-semibold text-zinc-950 transition-all duration-200 hover:bg-indigo-400 active:scale-[0.98]"
+              variant="primary"
+              size="md"
+              className="text-zinc-950 bg-indigo-500 hover:bg-indigo-400"
             >
               {isSubmitting ? (
                 <>
@@ -590,17 +585,19 @@ export function FinanceEditClaimForm({
               ) : (
                 "Save Claim Edits"
               )}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
               disabled={isSubmitting}
               onClick={() => {
                 setIsOpen(false);
               }}
-              className="inline-flex items-center rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-700 transition-all duration-200 hover:bg-zinc-100 active:scale-[0.98] dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              type="button"
+              variant="secondary"
+              size="md"
+              className="dark:border-zinc-600"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </fieldset>
       </form>

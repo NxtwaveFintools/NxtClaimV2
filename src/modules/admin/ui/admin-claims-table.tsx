@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ROUTES } from "@/core/config/route-registry";
 import { RouterLink } from "@/components/ui/router-link";
+import { TableEmptyState } from "@/components/ui/table-empty-state";
 import { softDeleteClaimAction } from "@/modules/admin/actions";
 import {
   CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
@@ -19,12 +20,7 @@ type Props = {
 export function AdminClaimsTable({ rows }: Props) {
   if (rows.length === 0) {
     return (
-      <div className="grid place-items-center px-4 py-14 text-center">
-        <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">No claims found</p>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
-          Adjust filters or check back later.
-        </p>
-      </div>
+      <TableEmptyState title="No claims found" description="Adjust filters or check back later." />
     );
   }
 
