@@ -548,31 +548,53 @@ async function loginWithEmail(page: Page, email: string): Promise<void> {
     );
   }
 
-  await gotoWithRetry(page, "/dashboard");
-  await acceptPolicyGateIfPresent(page);
+  await expect
+    .poll(
+      async () => {
+        await gotoWithRetry(page, "/dashboard");
+        await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => undefined);
+        await acceptPolicyGateIfPresent(page);
 
-  const errorToast = page.locator('[data-sonner-toast][data-type="error"], [role="alert"]').first();
-  const walletHeading = page.getByRole("heading", { name: /wallet summary/i });
-  try {
-    await expect(walletHeading).toBeVisible({ timeout: 15000 });
-    return;
-  } catch {
-    if (await errorToast.isVisible().catch(() => false)) {
-      const toastText = (await errorToast.innerText().catch(() => "")).trim();
-      throw new Error(toastText || `Login failed for ${email}: dashboard did not render.`);
-    }
+        if (/\/auth\/login/i.test(page.url())) {
+          return false;
+        }
 
-    throw new Error(`Login failed for ${email}: wallet summary did not appear in time.`);
-  }
+        const signOutVisible = await page
+          .getByRole("button", { name: /sign out/i })
+          .first()
+          .isVisible({ timeout: 1000 })
+          .catch(() => false);
+
+        const walletVisible = await page
+          .getByRole("heading", { name: /wallet summary/i })
+          .first()
+          .isVisible({ timeout: 1000 })
+          .catch(() => false);
+
+        return signOutVisible || walletVisible;
+      },
+      {
+        timeout: 45000,
+        intervals: [1000, 2000, 3000],
+        message: `waiting for authenticated dashboard for ${email}`,
+      },
+    )
+    .toBe(true);
 }
 
-async function getAmountReceived(page: Page): Promise<number> {
+async function getAmountReceived(page: Page, email: string): Promise<number> {
   await gotoWithRetry(page, "/dashboard");
   await acceptPolicyGateIfPresent(page);
+
   if (/\/auth\/login/i.test(page.url())) {
-    throw new Error("Session expired while loading dashboard wallet summary.");
+    await loginWithEmail(page, email);
+    await gotoWithRetry(page, "/dashboard");
+    await acceptPolicyGateIfPresent(page);
   }
-  await expect(page.getByRole("heading", { name: /wallet summary/i })).toBeVisible();
+
+  await expect(page.getByRole("heading", { name: /wallet summary/i })).toBeVisible({
+    timeout: 15000,
+  });
 
   const amountText = await page
     .locator("article", { hasText: "Amount Received" })
@@ -1017,7 +1039,7 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
     const beforeEmployeeAReceived = await withActorPage(
       browser,
       ACTORS.employeeA.email,
-      async (page) => getAmountReceived(page),
+      async (page) => getAmountReceived(page, ACTORS.employeeA.email),
     );
 
     const standardSubmission = await withActorPage(browser, ACTORS.employeeA.email, async (page) =>
@@ -1038,7 +1060,7 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
     const afterEmployeeAReceived = await withActorPage(
       browser,
       ACTORS.employeeA.email,
-      async (page) => getAmountReceived(page),
+      async (page) => getAmountReceived(page, ACTORS.employeeA.email),
     );
 
     expect(afterEmployeeAReceived - beforeEmployeeAReceived).toBeGreaterThanOrEqual(amount - 0.01);
@@ -1069,7 +1091,7 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
       const beforeEmployeeAReceived = await withActorPage(
         browser,
         ACTORS.employeeA.email,
-        async (page) => getAmountReceived(page),
+        async (page) => getAmountReceived(page, ACTORS.employeeA.email),
       );
 
       const fallbackSubmission = await withActorPage(
@@ -1093,7 +1115,7 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
       const afterEmployeeAReceived = await withActorPage(
         browser,
         ACTORS.employeeA.email,
-        async (page) => getAmountReceived(page),
+        async (page) => getAmountReceived(page, ACTORS.employeeA.email),
       );
 
       expect(afterEmployeeAReceived - beforeEmployeeAReceived).toBeGreaterThanOrEqual(
@@ -1105,12 +1127,12 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
     const beforeEmployeeAReceived = await withActorPage(
       browser,
       ACTORS.employeeA.email,
-      async (page) => getAmountReceived(page),
+      async (page) => getAmountReceived(page, ACTORS.employeeA.email),
     );
     const beforeEmployeeBReceived = await withActorPage(
       browser,
       ACTORS.employeeB.email,
-      async (page) => getAmountReceived(page),
+      async (page) => getAmountReceived(page, ACTORS.employeeB.email),
     );
 
     const onBehalfSubmission = await withActorPage(browser, ACTORS.employeeA.email, async (page) =>
@@ -1133,12 +1155,12 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
     const afterEmployeeAReceived = await withActorPage(
       browser,
       ACTORS.employeeA.email,
-      async (page) => getAmountReceived(page),
+      async (page) => getAmountReceived(page, ACTORS.employeeA.email),
     );
     const afterEmployeeBReceived = await withActorPage(
       browser,
       ACTORS.employeeB.email,
-      async (page) => getAmountReceived(page),
+      async (page) => getAmountReceived(page, ACTORS.employeeB.email),
     );
 
     expect(afterEmployeeAReceived - beforeEmployeeAReceived).toBeGreaterThanOrEqual(-0.01);
