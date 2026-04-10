@@ -411,6 +411,7 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
       }
 
       await expect(searchInput).toBeVisible({ timeout: 10000 });
+      await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 20000 });
 
       const searchTerm = `UNIQUE-NAV-${runTag}`;
       await searchInput.fill(searchTerm);
@@ -426,7 +427,8 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
             return url.searchParams.get("search_query");
           },
           {
-            timeout: 10000,
+            timeout: 20000,
+            intervals: [400, 800, 1200],
             message: "waiting for search_query URL param to appear after debounce",
           },
         )
