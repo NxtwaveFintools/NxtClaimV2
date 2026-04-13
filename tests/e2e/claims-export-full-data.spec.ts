@@ -301,10 +301,48 @@ test("Finance user can download full Excel containing all form fields", async ({
     const bankUrlIndex = headers.indexOf("Bank Statement URL");
     const billUrlIndex = headers.indexOf("Bill URL");
     const pettyCashPhotoUrlIndex = headers.indexOf("Petty Cash Photo URL");
+    const claimRaisedDateIndex = headers.indexOf("Claim Raised Date");
+    const hodApprovedDateIndex = headers.indexOf("HOD Approved Date");
+    const financeApprovedDateIndex = headers.indexOf("Finance Approved Date");
+    const billDateIndex = headers.indexOf("Bill Date");
 
     expect(bankUrlIndex).toBeGreaterThan(-1);
     expect(billUrlIndex).toBeGreaterThan(-1);
     expect(pettyCashPhotoUrlIndex).toBeGreaterThan(-1);
+    expect(claimRaisedDateIndex).toBeGreaterThan(-1);
+    expect(hodApprovedDateIndex).toBeGreaterThan(-1);
+    expect(financeApprovedDateIndex).toBeGreaterThan(-1);
+    expect(billDateIndex).toBeGreaterThan(-1);
+
+    const collectColumnValues = (columnIndex: number): string[] =>
+      Array.from({ length: worksheet.rowCount - 1 }, (_, offset) =>
+        normalizeCellValue(worksheet.getRow(offset + 2).getCell(columnIndex + 1).value).trim(),
+      ).filter((value) => value.length > 0);
+
+    const strictDisplayDatePattern = /^\d{2} [A-Za-z]{3} \d{4}$/;
+    const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+    const slashDatePattern = /^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$/;
+    const isValidDisplayDateCell = (value: string) =>
+      value === "N/A" || strictDisplayDatePattern.test(value);
+
+    const claimRaisedDateValues = collectColumnValues(claimRaisedDateIndex);
+    const hodApprovedDateValues = collectColumnValues(hodApprovedDateIndex);
+    const financeApprovedDateValues = collectColumnValues(financeApprovedDateIndex);
+    const billDateValues = collectColumnValues(billDateIndex);
+
+    expect(claimRaisedDateValues.some((value) => strictDisplayDatePattern.test(value))).toBe(true);
+    expect(billDateValues.some((value) => strictDisplayDatePattern.test(value))).toBe(true);
+
+    for (const values of [
+      claimRaisedDateValues,
+      hodApprovedDateValues,
+      financeApprovedDateValues,
+      billDateValues,
+    ]) {
+      expect(values.every((value) => isValidDisplayDateCell(value))).toBe(true);
+      expect(values.some((value) => isoDatePattern.test(value))).toBe(false);
+      expect(values.some((value) => slashDatePattern.test(value))).toBe(false);
+    }
 
     const bankValues = Array.from({ length: worksheet.rowCount - 1 }, (_, offset) =>
       normalizeCellValue(worksheet.getRow(offset + 2).getCell(bankUrlIndex + 1).value).trim(),

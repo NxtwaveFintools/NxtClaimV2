@@ -9,6 +9,7 @@ import {
   DB_REJECTED_STATUSES,
   type DbClaimStatus,
 } from "@/core/constants/statuses";
+import { formatDate } from "@/lib/format";
 
 type ExportClaimsRepository = {
   getApprovalViewerContext(userId: string): Promise<{
@@ -152,23 +153,6 @@ export const EXPORT_HEADERS = [
   "Claim Remarks",
   "Transaction Remarks",
 ] as const;
-
-function formatBusinessDate(value: string | null): string {
-  if (!value) {
-    return "N/A";
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "N/A";
-  }
-
-  const year = parsed.getUTCFullYear();
-  const month = String(parsed.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(parsed.getUTCDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
 
 function formatAmountDisplay(value: number | null): string {
   if (value == null) {
@@ -389,13 +373,13 @@ function toExportRow(
     paymentMode: toTextValue(row.paymentModeName),
     submissionType: row.submissionType,
     purpose: toTextValue(row.detailType === "expense" ? row.expensePurpose : row.advancePurpose),
-    claimRaisedDate: formatBusinessDate(row.submittedAt),
-    hodApprovedDate: formatBusinessDate(row.hodActionAt),
-    financeApprovedDate: formatBusinessDate(row.financeActionAt),
+    claimRaisedDate: formatDate(row.submittedAt),
+    hodApprovedDate: formatDate(row.hodActionAt),
+    financeApprovedDate: formatDate(row.financeActionAt),
     billDate:
       row.detailType === "expense"
-        ? formatBusinessDate(row.expenseTransactionDate)
-        : formatBusinessDate(row.advanceExpectedUsageDate),
+        ? formatDate(row.expenseTransactionDate)
+        : formatDate(row.advanceExpectedUsageDate),
     claimStatus: row.status,
     hodStatus: workflowStatuses.hodStatus,
     financeStatus: workflowStatuses.financeStatus,

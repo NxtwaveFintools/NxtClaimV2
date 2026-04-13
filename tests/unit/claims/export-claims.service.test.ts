@@ -151,6 +151,10 @@ describe("ExportClaimsService", () => {
     expect(row.employeeName).toBe("Submitter One");
     expect(row.submitterEmail).toBe("submitter@nxtwave.co.in");
     expect(row.department).toBe("Engineering");
+    expect(row.claimRaisedDate).toBe("24 Mar 2026");
+    expect(row.hodApprovedDate).toBe("24 Mar 2026");
+    expect(row.financeApprovedDate).toBe("N/A");
+    expect(row.billDate).toBe("22 Mar 2026");
 
     // URL fields must be raw signed URL strings — never =HYPERLINK(...) formulas
     expect(row.billUrl).toMatch(/^https:\/\//);

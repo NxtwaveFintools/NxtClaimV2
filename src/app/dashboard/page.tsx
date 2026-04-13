@@ -22,6 +22,7 @@ import { isAdmin } from "@/modules/admin/server/is-admin";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
 import { getPolicyGateState } from "@/modules/policies/server/get-policy-gate-state";
 import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
+import { formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -29,14 +30,6 @@ const dashboardRepository = new SupabaseDashboardRepository();
 const getWalletSummaryService = new GetWalletSummaryService({
   repository: dashboardRepository,
   logger,
-});
-
-const indiaDateFormatter = new Intl.DateTimeFormat("en-IN", {
-  weekday: "long",
-  month: "long",
-  day: "numeric",
-  year: "numeric",
-  timeZone: "Asia/Kolkata",
 });
 
 const indiaHourFormatter = new Intl.DateTimeFormat("en-IN", {
@@ -324,7 +317,7 @@ export default async function DashboardPage() {
   const currentHour = Number(indiaHourFormatter.format(currentDate));
   const greeting =
     currentHour < 12 ? "Good morning" : currentHour < 18 ? "Good afternoon" : "Good evening";
-  const currentDateLabel = indiaDateFormatter.format(currentDate);
+  const currentDateLabel = formatDate(currentDate);
 
   return (
     <PolicyGate initialState={policyGateState}>
