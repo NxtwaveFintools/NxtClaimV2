@@ -101,8 +101,8 @@ export function AnalyticsCharts({
             <CardTitle>Payment Mode Distribution</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[350px] w-full text-muted-foreground">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-[350px] min-h-[350px] w-full text-muted-foreground">
+              <ResponsiveContainer width="100%" height="100%" minHeight={350}>
                 <PieChart margin={{ top: 20, right: 52, bottom: 20, left: 52 }}>
                   <Pie
                     data={paymentChartData}
@@ -133,8 +133,8 @@ export function AnalyticsCharts({
               <CardTitle>Efficiency: Days to Approve by Department</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[320px] w-full text-muted-foreground">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="h-[320px] min-h-[320px] w-full text-muted-foreground">
+                <ResponsiveContainer width="100%" height="100%" minHeight={320}>
                   <BarChart
                     data={efficiencyChartData}
                     margin={{ top: 8, right: 12, left: -8, bottom: 22 }}
@@ -172,8 +172,8 @@ export function AnalyticsCharts({
           <CardTitle>Claims By Status</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[340px] w-full text-muted-foreground">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-[340px] min-h-[340px] w-full text-muted-foreground">
+            <ResponsiveContainer width="100%" height="100%" minHeight={340}>
               <BarChart data={statusChartData} margin={{ top: 8, right: 8, left: -8, bottom: 30 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.28)" />
                 <XAxis

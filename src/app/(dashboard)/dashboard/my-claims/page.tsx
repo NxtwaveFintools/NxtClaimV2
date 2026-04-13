@@ -862,6 +862,10 @@ async function ClaimsCommandCenterTable({
                                 evidenceSignedUrls.advanceSupportingDocumentSignedUrl
                               }
                               auditLogs={auditLogsByClaimId[claim.id] ?? []}
+                              canInlineEdit={
+                                actionMode === "l1-decision" ||
+                                actionMode === "finance-authorization"
+                              }
                             >
                               {actionMode !== "none" ? renderActions(false) : undefined}
                             </ApprovalsAuditModeDialog>

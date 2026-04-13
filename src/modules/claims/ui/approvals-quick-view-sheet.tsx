@@ -1,17 +1,28 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowLeft, Eye, PanelRightClose, PanelRightOpen, X } from "lucide-react";
+import { ArrowLeft, Eye, PanelRightClose, PanelRightOpen, Pencil, X } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Alert } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { RouterLink } from "@/components/ui/router-link";
 import { ROUTES } from "@/core/config/route-registry";
 import type { ClaimAuditLogRecord } from "@/core/domain/claims/contracts";
 import { appendReturnToParam, buildPathWithSearchParams } from "@/lib/pagination-helpers";
 import { ApprovalsQuickViewProvider } from "@/modules/claims/ui/approvals-quick-view-context";
 import {
+  getClaimFormHydrationAction,
   getClaimQuickViewHydrationAction,
+  updateClaimByFinanceAction,
   type ClaimQuickViewHydrationData,
 } from "@/modules/claims/actions";
 import { ClaimSemanticDownloadButton } from "@/modules/claims/ui/claim-semantic-download-button";
@@ -19,8 +30,8 @@ import { ClaimAuditTimeline } from "@/modules/claims/ui/claim-audit-timeline";
 import {
   ClaimFullDetailsGrid,
   ClaimFullDetailsGridSkeleton,
-  type ClaimFullDetailsRecord,
 } from "@/modules/claims/ui/claim-full-details-grid";
+import { FinanceEditClaimForm } from "@/modules/claims/ui/finance-edit-claim-form";
 
 type ApprovalsQuickViewSheetProps = {
   claimId: string;
@@ -36,7 +47,28 @@ type ApprovalsQuickViewSheetProps = {
   advanceSupportingDocumentPath: string | null;
   advanceSupportingDocumentSignedUrl: string | null;
   auditLogs: (ClaimAuditLogRecord & { formattedCreatedAt: string })[];
+  canInlineEdit?: boolean;
   children?: ReactNode;
+};
+
+type QuickViewClaimRecord = ClaimQuickViewHydrationData["claim"];
+
+type DropdownOption = {
+  id: string;
+  name: string;
+};
+
+type QuickViewEditOptions = {
+  departments: DropdownOption[];
+  paymentModes: DropdownOption[];
+  expenseCategories: DropdownOption[];
+  products: DropdownOption[];
+  locations: DropdownOption[];
+};
+
+type FinanceEditClaimActionResult = {
+  ok: boolean;
+  error?: string;
 };
 
 function isRenderableEvidencePath(path: string | null): path is string {
@@ -212,16 +244,22 @@ export function ApprovalsAuditModeDialog({
   advanceSupportingDocumentPath,
   advanceSupportingDocumentSignedUrl,
   auditLogs,
+  canInlineEdit = false,
   children,
 }: ApprovalsQuickViewSheetProps) {
+  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isOpen, setIsOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(true);
   const [activeEvidenceKey, setActiveEvidenceKey] = useState<string>("receipt");
   const [hydratedData, setHydratedData] = useState<ClaimQuickViewHydrationData | null>(null);
   const [hydrationErrorMessage, setHydrationErrorMessage] = useState<string | null>(null);
   const [isHydrating, setIsHydrating] = useState(false);
+  const [editOptions, setEditOptions] = useState<QuickViewEditOptions | null>(null);
+  const [isEditOptionsLoading, setIsEditOptionsLoading] = useState(false);
+  const [editOptionsErrorMessage, setEditOptionsErrorMessage] = useState<string | null>(null);
   const canUseDOM = typeof window !== "undefined" && typeof document !== "undefined";
   const returnToPath = useMemo(
     () => buildPathWithSearchParams(pathname, searchParams.toString()),
@@ -325,6 +363,7 @@ export function ApprovalsAuditModeDialog({
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        setIsEditDialogOpen(false);
         setIsOpen(false);
       }
     };
@@ -394,16 +433,157 @@ export function ApprovalsAuditModeDialog({
     };
   }, [claimId, isOpen]);
 
+  useEffect(() => {
+    if (!isEditDialogOpen || editOptions) {
+      return;
+    }
+
+    let isCancelled = false;
+    // Async load state is intentionally initialized here when dialog opens.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsEditOptionsLoading(true);
+    setEditOptionsErrorMessage(null);
+
+    getClaimFormHydrationAction()
+      .then((result) => {
+        if (isCancelled) {
+          return;
+        }
+
+        if (result.errorMessage || !result.data) {
+          setEditOptionsErrorMessage(
+            result.errorMessage ?? "Unable to load claim edit options right now.",
+          );
+          return;
+        }
+
+        setEditOptions({
+          departments: result.data.options.departments,
+          paymentModes: result.data.options.paymentModes.map((mode) => ({
+            id: mode.id,
+            name: mode.name,
+          })),
+          expenseCategories: result.data.options.expenseCategories,
+          products: result.data.options.products,
+          locations: result.data.options.locations,
+        });
+      })
+      .catch(() => {
+        if (isCancelled) {
+          return;
+        }
+
+        setEditOptionsErrorMessage("Unable to load claim edit options right now.");
+      })
+      .finally(() => {
+        if (isCancelled) {
+          return;
+        }
+
+        setIsEditOptionsLoading(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [editOptions, isEditDialogOpen]);
+
   const activeEntry =
     evidenceByKey.get(activeEvidenceKey) ??
     evidenceByKey.get(defaultEvidenceKey) ??
     evidenceByKey.values().next().value;
 
-  const resolvedClaim: ClaimFullDetailsRecord | null = hydratedData?.claim ?? null;
+  const resolvedClaim: QuickViewClaimRecord | null = hydratedData?.claim ?? null;
   const resolvedAuditLogs = hydratedData?.auditLogs ?? auditLogs;
   const hasActions = Boolean(children);
+  const canRenderInlineEdit = canInlineEdit && hasActions;
   const claimTypeLabel = detailType === "expense" ? "Expense Claim" : "Advance Claim";
   const reviewModeLabel = hasActions ? "Action required" : "Read only";
+  const canOpenEditDialog = canRenderInlineEdit && !!resolvedClaim && !isHydrating;
+
+  const editClaim = resolvedClaim
+    ? {
+        id: resolvedClaim.id,
+        employeeName: resolvedClaim.submitterName ?? resolvedClaim.submitter,
+        employeeEmail: resolvedClaim.submitterEmail,
+        submissionType: resolvedClaim.submissionType,
+        onBehalfEmail: resolvedClaim.onBehalfEmail,
+        onBehalfEmployeeCode: resolvedClaim.onBehalfEmployeeCode,
+        detailType: resolvedClaim.detailType,
+        departmentId: resolvedClaim.departmentId,
+        paymentModeId: resolvedClaim.paymentModeId,
+        expense: resolvedClaim.expense
+          ? {
+              id: resolvedClaim.expense.id,
+              billNo: resolvedClaim.expense.billNo,
+              expenseCategoryId: resolvedClaim.expense.expenseCategoryId,
+              locationId: resolvedClaim.expense.locationId,
+              transactionDate: resolvedClaim.expense.transactionDate,
+              isGstApplicable: resolvedClaim.expense.isGstApplicable,
+              gstNumber: resolvedClaim.expense.gstNumber,
+              basicAmount: resolvedClaim.expense.basicAmount,
+              cgstAmount: resolvedClaim.expense.cgstAmount,
+              sgstAmount: resolvedClaim.expense.sgstAmount,
+              igstAmount: resolvedClaim.expense.igstAmount,
+              totalAmount: resolvedClaim.expense.totalAmount,
+              vendorName: resolvedClaim.expense.vendorName,
+              purpose: resolvedClaim.expense.purpose,
+              productId: resolvedClaim.expense.productId,
+              peopleInvolved: resolvedClaim.expense.peopleInvolved,
+              remarks: resolvedClaim.expense.remarks,
+            }
+          : null,
+        advance: resolvedClaim.advance
+          ? {
+              id: resolvedClaim.advance.id,
+              purpose: resolvedClaim.advance.purpose,
+              requestedAmount: resolvedClaim.advance.requestedAmount,
+              expectedUsageDate: resolvedClaim.advance.expectedUsageDate,
+              productId: resolvedClaim.advance.productId,
+              locationId: resolvedClaim.advance.locationId,
+              remarks: resolvedClaim.advance.remarks,
+            }
+          : null,
+      }
+    : null;
+
+  const refreshQuickViewClaim = async () => {
+    setIsHydrating(true);
+
+    const result = await fetchClaimQuickViewHydration(claimId);
+
+    claimQuickViewCache.set(claimId, {
+      data: result.data,
+      errorMessage: result.errorMessage,
+      updatedAt: Date.now(),
+    });
+
+    setHydratedData(result.data);
+    setHydrationErrorMessage(result.errorMessage);
+    setIsHydrating(false);
+  };
+
+  const updateClaimFromQuickView = async (
+    formData: FormData,
+  ): Promise<FinanceEditClaimActionResult> => {
+    const result = await updateClaimByFinanceAction({ claimId, formData });
+
+    if (!result.ok) {
+      return {
+        ok: false,
+        error: result.message ?? "Unable to update claim details.",
+      };
+    }
+
+    return { ok: true };
+  };
+
+  const handleInlineEditSuccess = async () => {
+    setIsEditDialogOpen(false);
+    claimQuickViewCache.delete(claimId);
+    await refreshQuickViewClaim();
+    router.refresh();
+  };
 
   const openPanel = () => {
     setActiveEvidenceKey(defaultEvidenceKey);
@@ -412,6 +592,7 @@ export function ApprovalsAuditModeDialog({
   };
 
   const closePanel = () => {
+    setIsEditDialogOpen(false);
     setIsOpen(false);
   };
 
@@ -472,6 +653,71 @@ export function ApprovalsAuditModeDialog({
                       <span className="hidden rounded-full border border-zinc-200/80 bg-zinc-50 px-3 py-1.5 text-sm font-semibold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 lg:inline-flex">
                         {amountLabel}
                       </span>
+                      {canRenderInlineEdit ? (
+                        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                          <DialogTrigger asChild>
+                            <button
+                              type="button"
+                              disabled={!canOpenEditDialog}
+                              aria-label="Edit claim"
+                              className="inline-flex h-10 items-center gap-2 rounded-xl border border-zinc-200/80 bg-white px-3.5 text-sm font-semibold text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden="true" />
+                              <span className="hidden sm:inline">Edit</span>
+                            </button>
+                          </DialogTrigger>
+
+                          <DialogContent className="z-[230] max-h-[85vh] overflow-y-auto sm:max-w-4xl">
+                            <DialogHeader>
+                              <DialogTitle>Quick Edit Claim</DialogTitle>
+                              <DialogDescription>
+                                Update core fields and continue reviewing the claim in this
+                                workspace.
+                              </DialogDescription>
+                            </DialogHeader>
+
+                            <div className="mt-4">
+                              {isEditOptionsLoading ? (
+                                <div className="space-y-2">
+                                  <div className="h-10 animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-800" />
+                                  <div className="h-10 animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-800" />
+                                  <div className="h-10 animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-800" />
+                                </div>
+                              ) : null}
+
+                              {editOptionsErrorMessage ? (
+                                <Alert tone="error" description={editOptionsErrorMessage} />
+                              ) : null}
+
+                              {!isEditOptionsLoading && !editOptionsErrorMessage && !editClaim ? (
+                                <Alert
+                                  tone="warning"
+                                  description="Claim details are still loading. Please try again in a moment."
+                                />
+                              ) : null}
+
+                              {!isEditOptionsLoading && editOptions && editClaim ? (
+                                <FinanceEditClaimForm
+                                  claim={editClaim}
+                                  departments={editOptions.departments}
+                                  paymentModes={editOptions.paymentModes}
+                                  expenseCategories={editOptions.expenseCategories}
+                                  products={editOptions.products}
+                                  locations={editOptions.locations}
+                                  isEditMode
+                                  fieldScope="quick-view-core"
+                                  presentation="embedded"
+                                  onSuccess={handleInlineEditSuccess}
+                                  onCancel={() => {
+                                    setIsEditDialogOpen(false);
+                                  }}
+                                  action={updateClaimFromQuickView}
+                                />
+                              ) : null}
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      ) : null}
                       {activeEntry ? (
                         <ClaimSemanticDownloadButton
                           url={activeEntry.signedUrl}
