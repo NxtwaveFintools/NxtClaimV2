@@ -9,6 +9,7 @@ const dateFormatter = new Intl.DateTimeFormat("en-IN", {
   day: "2-digit",
   month: "short",
   year: "numeric",
+  timeZone: "Asia/Kolkata",
 });
 
 const dateTimeFormatter = new Intl.DateTimeFormat("en-IN", {
@@ -24,10 +25,22 @@ export function formatCurrency(amount: number): string {
   return currencyFormatter.format(amount);
 }
 
-export function formatDate(value: string | null): string {
-  if (!value) return "N/A";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "N/A";
+function parseDateValue(value: Date | string | null | undefined): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed;
+}
+
+export function formatDate(value: Date | string | null | undefined): string {
+  const parsed = parseDateValue(value);
+  if (!parsed) return "N/A";
   return dateFormatter.format(parsed);
 }
 

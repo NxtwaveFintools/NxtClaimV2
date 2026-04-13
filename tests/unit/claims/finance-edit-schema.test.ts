@@ -101,4 +101,31 @@ describe("financeEditSchema", () => {
 
     expect(result.success).toBe(true);
   });
+
+  test("accepts expense payload with smallest positive basic and balanced total", () => {
+    const result = financeEditSchema.safeParse({
+      detailType: "expense",
+      detailId: "11111111-1111-4111-8111-111111111111",
+      billNo: "BILL-101",
+      expenseCategoryId: "33333333-3333-4333-8333-333333333333",
+      locationId: "44444444-4444-4444-8444-444444444444",
+      transactionDate: "2026-03-14",
+      isGstApplicable: true,
+      gstNumber: "29ABCDE1234F2Z5",
+      vendorName: "Vendor",
+      basicAmount: 0.01,
+      cgstAmount: 45,
+      sgstAmount: 45,
+      igstAmount: 0,
+      totalAmount: 90.01,
+      purpose: "Client travel",
+      productId: null,
+      peopleInvolved: null,
+      remarks: null,
+      receiptFile: null,
+      bankStatementFile: null,
+    });
+
+    expect(result.success).toBe(true);
+  });
 });

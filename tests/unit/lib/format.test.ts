@@ -15,8 +15,20 @@ describe("format utilities", () => {
     expect(formatDate(null)).toBe("N/A");
   });
 
+  test("formatDate returns N/A for undefined", () => {
+    expect(formatDate(undefined)).toBe("N/A");
+  });
+
   test("formatDate returns N/A for invalid values", () => {
     expect(formatDate("not-a-date")).toBe("N/A");
+  });
+
+  test("formatDate accepts Date inputs", () => {
+    expect(formatDate(new Date("2026-03-14T00:00:00.000Z"))).toBe("14 Mar 2026");
+  });
+
+  test("formatDate uses Asia/Kolkata timezone", () => {
+    expect(formatDate("2026-03-13T20:30:00.000Z")).toBe("14 Mar 2026");
   });
 
   test("formatDate formats valid date", () => {
