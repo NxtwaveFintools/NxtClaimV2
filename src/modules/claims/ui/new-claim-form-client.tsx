@@ -121,7 +121,7 @@ function toNumberOrZero(value: unknown): number {
       return 0;
     }
 
-    const parsed = Number(trimmed);
+    const parsed = Number(trimmed.replace(/,/g, ""));
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
