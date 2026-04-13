@@ -680,7 +680,7 @@ export function FinanceApprovalsBulkTable({
                   minLength={5}
                   disabled={isSubmittingBulkReject}
                   rows={4}
-                  className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-indigo-500 transition focus:ring dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="min-h-24 w-full resize-y rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-indigo-500 transition focus:ring dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
                   placeholder="Enter at least 5 characters"
                 />
               </div>
