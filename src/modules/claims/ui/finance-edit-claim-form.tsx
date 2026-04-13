@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -21,6 +21,16 @@ type FinanceEditClaimActionResult = {
 
 type FinanceEditFieldScope = "full" | "quick-view-core";
 type FinanceEditPresentation = "inline-toggle" | "embedded";
+
+type ExpenseAmountState = {
+  basicAmount: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+  totalAmount: number;
+};
+
+type ExpenseComponentAmountField = "basicAmount" | "cgstAmount" | "sgstAmount" | "igstAmount";
 
 type FinanceEditClaimFormProps = {
   claim: {
@@ -75,6 +85,58 @@ type FinanceEditClaimFormProps = {
   action: (formData: FormData) => Promise<FinanceEditClaimActionResult>;
 };
 
+function roundCurrency(value: number): number {
+  return Math.round((Number.isFinite(value) ? value : 0) * 100) / 100;
+}
+
+function toNonNegativeCurrency(value: number | null | undefined): number {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return 0;
+  }
+
+  return roundCurrency(Math.max(0, value));
+}
+
+function calculateExpenseTotal(input: {
+  basicAmount: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+}): number {
+  return roundCurrency(input.basicAmount + input.cgstAmount + input.sgstAmount + input.igstAmount);
+}
+
+function buildExpenseAmountState(
+  expense:
+    | Pick<
+        NonNullable<FinanceEditClaimFormProps["claim"]["expense"]>,
+        "basicAmount" | "cgstAmount" | "sgstAmount" | "igstAmount" | "totalAmount"
+      >
+    | null
+    | undefined,
+): ExpenseAmountState {
+  const basicAmount = toNonNegativeCurrency(expense?.basicAmount);
+  const cgstAmount = toNonNegativeCurrency(expense?.cgstAmount);
+  const sgstAmount = toNonNegativeCurrency(expense?.sgstAmount);
+  const igstAmount = toNonNegativeCurrency(expense?.igstAmount);
+  const totalAmount =
+    expense?.totalAmount === null || expense?.totalAmount === undefined
+      ? calculateExpenseTotal({ basicAmount, cgstAmount, sgstAmount, igstAmount })
+      : toNonNegativeCurrency(expense.totalAmount);
+
+  return {
+    basicAmount,
+    cgstAmount,
+    sgstAmount,
+    igstAmount,
+    totalAmount,
+  };
+}
+
+function toCurrencyInputValue(value: number): string {
+  return Number.isFinite(value) ? String(value) : "";
+}
+
 function toDateInputValue(value: string | null | undefined): string {
   if (!value) {
     return "";
@@ -97,14 +159,105 @@ export function FinanceEditClaimForm({
   onCancel,
   action,
 }: FinanceEditClaimFormProps) {
+  const initialExpenseAmounts = buildExpenseAmountState(claim.expense);
   const [isInlineOpen, setIsInlineOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [expenseAmounts, setExpenseAmounts] = useState<ExpenseAmountState>(
+    () => initialExpenseAmounts,
+  );
+  const [totalAmountInputValue, setTotalAmountInputValue] = useState<string>(() =>
+    toCurrencyInputValue(initialExpenseAmounts.totalAmount),
+  );
+  const expenseId = claim.expense?.id ?? null;
+  const expenseBasicAmount = claim.expense?.basicAmount ?? null;
+  const expenseCgstAmount = claim.expense?.cgstAmount ?? null;
+  const expenseSgstAmount = claim.expense?.sgstAmount ?? null;
+  const expenseIgstAmount = claim.expense?.igstAmount ?? null;
+  const expenseTotalAmount = claim.expense?.totalAmount ?? null;
   const isEmbeddedPresentation = presentation === "embedded";
   const isQuickViewScope = fieldScope === "quick-view-core";
   const isOpen = isEmbeddedPresentation ? true : isInlineOpen;
   const isRoutingFieldLocked = isEditMode;
   const lockedFieldClassName =
     "rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400";
+
+  useEffect(() => {
+    const nextExpenseAmounts = buildExpenseAmountState({
+      basicAmount: expenseBasicAmount,
+      cgstAmount: expenseCgstAmount,
+      sgstAmount: expenseSgstAmount,
+      igstAmount: expenseIgstAmount,
+      totalAmount: expenseTotalAmount,
+    });
+
+    setExpenseAmounts(nextExpenseAmounts);
+    setTotalAmountInputValue(toCurrencyInputValue(nextExpenseAmounts.totalAmount));
+  }, [
+    expenseId,
+    expenseBasicAmount,
+    expenseCgstAmount,
+    expenseSgstAmount,
+    expenseIgstAmount,
+    expenseTotalAmount,
+  ]);
+
+  const handleExpenseComponentAmountChange = (
+    field: ExpenseComponentAmountField,
+    value: number | null,
+  ) => {
+    setExpenseAmounts((current) => {
+      const next = {
+        ...current,
+        [field]: toNonNegativeCurrency(value),
+      } as ExpenseAmountState;
+      const nextTotalAmount = calculateExpenseTotal(next);
+
+      setTotalAmountInputValue(toCurrencyInputValue(nextTotalAmount));
+
+      return {
+        ...next,
+        totalAmount: nextTotalAmount,
+      };
+    });
+  };
+
+  const handleExpenseTotalAmountChange = (value: number | null) => {
+    setExpenseAmounts((current) => {
+      const enteredTotalAmount = toNonNegativeCurrency(value);
+      const taxAmount = roundCurrency(current.cgstAmount + current.sgstAmount + current.igstAmount);
+
+      if (enteredTotalAmount < taxAmount) {
+        return {
+          basicAmount: enteredTotalAmount,
+          cgstAmount: 0,
+          sgstAmount: 0,
+          igstAmount: 0,
+          totalAmount: enteredTotalAmount,
+        };
+      }
+
+      return {
+        ...current,
+        basicAmount: roundCurrency(Math.max(0, enteredTotalAmount - taxAmount)),
+        totalAmount: enteredTotalAmount,
+      };
+    });
+  };
+
+  const handleTotalAmountInputChange = (nextValue: string) => {
+    setTotalAmountInputValue(nextValue);
+
+    if (nextValue.trim().length === 0) {
+      return;
+    }
+
+    const parsedValue = Number(nextValue);
+    if (!Number.isFinite(parsedValue)) {
+      return;
+    }
+
+    handleExpenseTotalAmountChange(parsedValue);
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -334,12 +487,16 @@ export function FinanceEditClaimForm({
                 </label>
 
                 <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                  Amount
+                  Total Amount
                   <CurrencyInput
-                    name="basicAmount"
+                    name="totalAmount"
                     min="0"
+                    step="0.01"
                     required
-                    defaultValue={expense?.basicAmount ?? ""}
+                    value={totalAmountInputValue}
+                    onChange={(event) => {
+                      handleTotalAmountInputChange(event.currentTarget.value);
+                    }}
                     className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                   />
                 </label>
@@ -362,14 +519,10 @@ export function FinanceEditClaimForm({
                 />
                 <input type="hidden" name="gstNumber" value={expense?.gstNumber ?? ""} />
                 <input type="hidden" name="vendorName" value={expense?.vendorName ?? ""} />
-                <input type="hidden" name="cgstAmount" value={expense?.cgstAmount ?? 0} />
-                <input type="hidden" name="sgstAmount" value={expense?.sgstAmount ?? 0} />
-                <input type="hidden" name="igstAmount" value={expense?.igstAmount ?? 0} />
-                <input
-                  type="hidden"
-                  name="totalAmount"
-                  value={expense?.totalAmount ?? expense?.basicAmount ?? ""}
-                />
+                <input type="hidden" name="basicAmount" value={expenseAmounts.basicAmount} />
+                <input type="hidden" name="cgstAmount" value={expenseAmounts.cgstAmount} />
+                <input type="hidden" name="sgstAmount" value={expenseAmounts.sgstAmount} />
+                <input type="hidden" name="igstAmount" value={expenseAmounts.igstAmount} />
                 <input type="hidden" name="productId" value={expense?.productId ?? ""} />
                 <input type="hidden" name="peopleInvolved" value={expense?.peopleInvolved ?? ""} />
                 <input type="hidden" name="remarks" value={expense?.remarks ?? ""} />
@@ -470,8 +623,12 @@ export function FinanceEditClaimForm({
                   <CurrencyInput
                     name="basicAmount"
                     min="0"
+                    step="0.01"
                     required
-                    defaultValue={expense?.basicAmount ?? ""}
+                    value={expenseAmounts.basicAmount}
+                    onValueChange={(value) => {
+                      handleExpenseComponentAmountChange("basicAmount", value);
+                    }}
                     className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                   />
                 </label>
@@ -481,7 +638,11 @@ export function FinanceEditClaimForm({
                   <CurrencyInput
                     name="cgstAmount"
                     min="0"
-                    defaultValue={expense?.cgstAmount ?? 0}
+                    step="0.01"
+                    value={expenseAmounts.cgstAmount}
+                    onValueChange={(value) => {
+                      handleExpenseComponentAmountChange("cgstAmount", value);
+                    }}
                     className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                   />
                 </label>
@@ -491,7 +652,11 @@ export function FinanceEditClaimForm({
                   <CurrencyInput
                     name="sgstAmount"
                     min="0"
-                    defaultValue={expense?.sgstAmount ?? 0}
+                    step="0.01"
+                    value={expenseAmounts.sgstAmount}
+                    onValueChange={(value) => {
+                      handleExpenseComponentAmountChange("sgstAmount", value);
+                    }}
                     className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                   />
                 </label>
@@ -501,7 +666,11 @@ export function FinanceEditClaimForm({
                   <CurrencyInput
                     name="igstAmount"
                     min="0"
-                    defaultValue={expense?.igstAmount ?? 0}
+                    step="0.01"
+                    value={expenseAmounts.igstAmount}
+                    onValueChange={(value) => {
+                      handleExpenseComponentAmountChange("igstAmount", value);
+                    }}
                     className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                   />
                 </label>
@@ -511,8 +680,12 @@ export function FinanceEditClaimForm({
                   <CurrencyInput
                     name="totalAmount"
                     min="0"
+                    step="0.01"
                     required
-                    defaultValue={expense?.totalAmount ?? ""}
+                    value={totalAmountInputValue}
+                    onChange={(event) => {
+                      handleTotalAmountInputChange(event.currentTarget.value);
+                    }}
                     className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                   />
                 </label>
@@ -580,6 +753,7 @@ export function FinanceEditClaimForm({
                 <CurrencyInput
                   name="requestedAmount"
                   min="0"
+                  step="0.01"
                   required
                   defaultValue={advance?.requestedAmount ?? ""}
                   className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
@@ -649,6 +823,7 @@ export function FinanceEditClaimForm({
                 <CurrencyInput
                   name="requestedAmount"
                   min="0"
+                  step="0.01"
                   required
                   defaultValue={advance?.requestedAmount ?? ""}
                   className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
