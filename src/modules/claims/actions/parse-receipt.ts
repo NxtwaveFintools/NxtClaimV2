@@ -109,35 +109,121 @@ function extractAllowedCategoryNames(input: FormData): string[] {
 function buildGeminiSystemInstruction(allowedCategoryNames: string[]): string {
   const categoryInstructionBlock =
     allowedCategoryNames.length > 0
-      ? `ALLOWED EXPENSE CATEGORY NAMES (EXACT VALUES):\n${allowedCategoryNames
-          .map((name) => `- ${name}`)
-          .join("\n")}`
-      : "ALLOWED EXPENSE CATEGORY NAMES (EXACT VALUES):\n- No categories provided. Set category_name to null.";
+      ? `ALLOWED EXPENSE CATEGORY NAMES (EXACT VALUES ONLY):\n${allowedCategoryNames.map((name) => `- ${name}`).join("\n")}`
+      : `ALLOWED EXPENSE CATEGORY NAMES:\n- No categories provided → category_name MUST be null`;
 
-  return `You are an expert financial document parser. Extract structured financial data from the attached receipt/invoice.
-The document may be torn, blurred, rotated, or missing edges. Use contextual reasoning.
+  return `
+ROLE:
+You are a high-precision financial document parser specialized in receipts and invoices.
 
-EXTRACTION RULES:
-- billNo: Look for Invoice No, Bill No, Txn No.
-- transactionDate: strictly YYYY-MM-DD.
-- You MUST return these tax fields in the JSON object: gst_number, cgst_amount, sgst_amount, igst_amount.
-- Do not use camelCase tax keys (gstNumber, cgstAmount, sgstAmount, igstAmount) in your response.
-- GST: If percentages (e.g., CGST 9%) appear but amounts do not, calculate the amount from the taxable value.
-- Calculate missing taxes based on standard Indian GST slabs (5%, 12%, 18%, 28%).
-- Math Validation: basicAmount + cgst_amount + sgst_amount + igst_amount MUST equal totalAmount.
+GOAL:
+Extract structured expense data with maximum accuracy.
+Documents may be blurry, rotated, cropped, handwritten, or partially missing.
 
-CATEGORY RULES:
+---
+
+EXTRACTION PRIORITY ORDER:
+1. totalAmount        ← highest priority
+2. cgst / sgst / igst
+3. basicAmount
+4. billNo, transactionDate
+5. vendorName
+6. category_name
+7. confidenceScore
+
+---
+
+RULE 1 — TOTAL AMOUNT ("totalAmount"):
+
+- MUST be the FINAL payable amount BEFORE any wallet/payment adjustments.
+- Ignore: wallet deductions, cashback, discounts, partial payments.
+- For ride apps (Uber/Ola): use "Total Fare", "Trip Fare", or "Amount Charged".
+- NUMBER FORMAT: Strip ALL currency symbols and commas.
+  Example: "₹1,365.40" → 1365.40
+
+---
+
+RULE 2 — TAXES:
+Return: cgst_amount, sgst_amount, igst_amount.
+
+- If tax % shown but amount missing → calculate it.
+- If no GST is found anywhere → all tax fields = 0.
+- NEVER put tax values in fees or basicAmount.
+
+---
+
+RULE 3 — FEES (CRITICAL):
+
+Fees include: platform fees, delivery fees, service charges, ICANN fees, convenience fees.
+
+- Fees are NOT taxes — do NOT put them in cgst/sgst/igst.
+- Fees ARE included in totalAmount.
+- Fees MUST be absorbed into basicAmount.
+
+Correct mental model:
+  basicAmount = subtotal + all fees (if subtotal is listed)
+  OR
+  basicAmount = totalAmount − cgst_amount − sgst_amount − igst_amount
+
+---
+
+RULE 4 — BASIC AMOUNT ("basicAmount"):
+
+SINGLE CANONICAL FORMULA (always use this):
+  basicAmount = totalAmount − (cgst_amount + sgst_amount + igst_amount)
+
+This formula automatically absorbs all fees into basicAmount.
+Do NOT create alternate logic paths.
+
+STRICT MATH VALIDATION:
+  basicAmount + cgst_amount + sgst_amount + igst_amount = totalAmount
+  Allowed rounding tolerance: ±1
+
+If this does not hold → deduct 30 from confidenceScore.
+
+---
+
+RULE 5 — IDENTIFIERS:
+
+- billNo          → Invoice No / Bill No / Receipt No / Txn No
+- transactionDate → YYYY-MM-DD ONLY.
+  Convert ALL regional formats: MM/DD/YYYY, DD-MM-YY, DD/MM/YYYY → YYYY-MM-DD
+- vendorName      → brand / company name
+- gst_number      → GST registration number. If not visible → null. NEVER hallucinate.
+- If any field is unclear → null.
+
+---
+
+RULE 6 — CATEGORY:
 ${categoryInstructionBlock}
-- Based on the receipt, guess the most appropriate expense category. You MUST return the exact string name from the provided list. If unsure, return null.
-- Never return any UUID, database ID, or generated identifier for category_name.
 
-CONFIDENCE SCORING (0-100):
-- Base it on text clarity and numerical consistency.
-- If the Math Validation fails, heavily reduce the confidence score to below 80.
+- MUST match EXACT string from the list above.
+- Use vendor name + line items to reason.
+- If unsure → null.
 
-CRITICAL: You must return exactly ONE JSON object. If multiple receipts or copies are detected in the document, extract data from the first one only. DO NOT return a JSON array.
+---
 
-Return ONLY valid JSON matching this schema:
+RULE 7 — CONFIDENCE SCORE (0–100):
+Start at 100. Deduct:
+  -30 → math mismatch (basicAmount + taxes ≠ totalAmount)
+  -20 → blurry or unreadable image
+  -15 → missing billNo or transactionDate
+  -10 → basicAmount was estimated or guessed
+Clamp result between 0 and 100.
+
+---
+
+STRICT OUTPUT RULES:
+
+- Return EXACTLY ONE JSON object.
+- NO markdown, NO \`\`\`json\`\`\` fences, NO explanation, NO extra text.
+- NEVER leave numeric fields undefined.
+- NEVER output commas inside numbers.
+- If multiple totals appear → pick the most prominent FINAL total.
+
+---
+
+SCHEMA:
 {
   "billNo": string | null,
   "transactionDate": string | null,
@@ -150,7 +236,47 @@ Return ONLY valid JSON matching this schema:
   "totalAmount": number,
   "category_name": string | null,
   "confidenceScore": number
-}`;
+}
+
+---
+
+WORKED EXAMPLES:
+
+Example 1 — Receipt WITH fees, no GST:
+  Input:  Subtotal ₹1,347 | Platform Fee ₹18.40 | GST ₹0 | Total ₹1,365.40
+  Output:
+  {
+    "billNo": null,
+    "transactionDate": null,
+    "vendorName": null,
+    "basicAmount": 1365.40,
+    "gst_number": null,
+    "cgst_amount": 0,
+    "sgst_amount": 0,
+    "igst_amount": 0,
+    "totalAmount": 1365.40,
+    "category_name": null,
+    "confidenceScore": 85
+  }
+  Note: fee is absorbed → basicAmount = 1365.40 (not 1347)
+
+Example 2 — Receipt WITH GST, no fees:
+  Input:  Subtotal ₹1,000 | CGST 9% ₹90 | SGST 9% ₹90 | Total ₹1,180
+  Output:
+  {
+    "billNo": null,
+    "transactionDate": null,
+    "vendorName": null,
+    "basicAmount": 1000,
+    "gst_number": null,
+    "cgst_amount": 90,
+    "sgst_amount": 90,
+    "igst_amount": 0,
+    "totalAmount": 1180,
+    "category_name": null,
+    "confidenceScore": 100
+  }
+`;
 }
 
 export type ParsedReceiptResult = {
@@ -197,6 +323,40 @@ function clampConfidence(value: number): number {
   }
 
   return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function sanitizeGeminiResponseText(response: string): string {
+  const cleanedResponse = response
+    .replace(/```json/g, "")
+    .replace(/```/g, "")
+    .trim();
+  return cleanedResponse.replace(/\\u(?![0-9a-fA-F]{4})/g, "");
+}
+
+function parseGeminiJsonResponse(response: string): unknown {
+  const cleanedResponse = sanitizeGeminiResponseText(response);
+
+  try {
+    return JSON.parse(cleanedResponse);
+  } catch {
+    const firstObjectStart = cleanedResponse.indexOf("{");
+    const lastObjectEnd = cleanedResponse.lastIndexOf("}");
+
+    if (firstObjectStart !== -1 && lastObjectEnd > firstObjectStart) {
+      const candidateObject = cleanedResponse.slice(firstObjectStart, lastObjectEnd + 1);
+      return JSON.parse(candidateObject);
+    }
+
+    const firstArrayStart = cleanedResponse.indexOf("[");
+    const lastArrayEnd = cleanedResponse.lastIndexOf("]");
+
+    if (firstArrayStart !== -1 && lastArrayEnd > firstArrayStart) {
+      const candidateArray = cleanedResponse.slice(firstArrayStart, lastArrayEnd + 1);
+      return JSON.parse(candidateArray);
+    }
+
+    throw new Error("Gemini returned non-JSON content.");
+  }
 }
 
 type GeminiErrorShape = {
@@ -389,13 +549,26 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
       };
     }
 
-    let cleanText = modelText
-      .replace(/```json/gi, "")
-      .replace(/```/g, "")
-      .trim();
-    cleanText = cleanText.replace(/\\u(?![0-9a-fA-F]{4})/g, "");
+    let parsedJson: unknown;
+    try {
+      parsedJson = parseGeminiJsonResponse(modelText);
+    } catch (parseError) {
+      logger.warn("claims.parse_receipt.invalid_json_payload", {
+        errorName: parseError instanceof Error ? parseError.name : "UnknownError",
+        errorMessage:
+          parseError instanceof Error
+            ? parseError.message
+            : "Gemini output could not be parsed as JSON.",
+      });
 
-    let parsedJson = JSON.parse(cleanText);
+      return {
+        ok: false,
+        data: null,
+        autoFillAllowed: false,
+        message: GENERIC_PARSE_FALLBACK_MESSAGE,
+      };
+    }
+
     if (Array.isArray(parsedJson)) {
       parsedJson = parsedJson[0];
     }
