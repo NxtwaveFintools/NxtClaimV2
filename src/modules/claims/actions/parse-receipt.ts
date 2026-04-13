@@ -12,6 +12,10 @@ const GENERIC_PARSE_FALLBACK_MESSAGE =
   "AI could not read the text formatting in this document. Please fill the details manually.";
 const GEMINI_QUOTA_FALLBACK_PREFIX =
   "AI auto-parse is temporarily unavailable due to usage limits.";
+const GEMINI_SERVICE_BUSY_MESSAGE =
+  "The AI service is currently busy. Please try again or fill the form manually.";
+const GEMINI_MAX_ATTEMPTS = 3;
+const GEMINI_RETRY_DELAY_MS = 1_000;
 const ALLOWED_UPLOAD_MIME_TYPES = new Set([
   "application/pdf",
   "image/jpeg",
@@ -438,6 +442,78 @@ function isGeminiQuotaError(error: unknown): boolean {
   );
 }
 
+function isGeminiServiceUnavailableError(error: unknown): boolean {
+  const geminiError = asGeminiErrorShape(error);
+
+  if (geminiError.status === 503) {
+    return true;
+  }
+
+  const lowerStatusText = (geminiError.statusText ?? "").toLowerCase();
+  const lowerMessage = (geminiError.message ?? "").toLowerCase();
+
+  return (
+    lowerStatusText.includes("service unavailable") || lowerMessage.includes("service unavailable")
+  );
+}
+
+function waitForMilliseconds(durationMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, durationMs);
+  });
+}
+
+async function generateGeminiContentWithRetry(
+  model: ReturnType<GoogleGenerativeAI["getGenerativeModel"]>,
+  mimeType: string,
+  base64Payload: string,
+) {
+  let lastError: unknown = null;
+
+  for (let attempt = 1; attempt <= GEMINI_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await model.generateContent({
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                inlineData: {
+                  mimeType,
+                  data: base64Payload,
+                },
+              },
+            ],
+          },
+        ],
+      });
+    } catch (error) {
+      if (!isGeminiServiceUnavailableError(error)) {
+        throw error;
+      }
+
+      lastError = error;
+
+      if (attempt === GEMINI_MAX_ATTEMPTS) {
+        break;
+      }
+
+      logger.warn("claims.parse_receipt.service_unavailable_retry", {
+        attempt,
+        maxAttempts: GEMINI_MAX_ATTEMPTS,
+        retryDelayMs: GEMINI_RETRY_DELAY_MS,
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        errorMessage:
+          error instanceof Error ? error.message : "Gemini service unavailable. Retrying request.",
+      });
+
+      await waitForMilliseconds(GEMINI_RETRY_DELAY_MS);
+    }
+  }
+
+  throw lastError ?? new Error("Gemini service unavailable");
+}
+
 function getQuotaExceededMessage(error: unknown): string {
   const retryDelaySeconds = extractRetryDelaySeconds(error);
   const retryHint =
@@ -524,21 +600,11 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
 
     const buffer = Buffer.from(await receiptFile.arrayBuffer());
     const model = createGeminiModel(geminiInstruction);
-    const generationResult = await model.generateContent({
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              inlineData: {
-                mimeType: receiptFile.type,
-                data: buffer.toString("base64"),
-              },
-            },
-          ],
-        },
-      ],
-    });
+    const generationResult = await generateGeminiContentWithRetry(
+      model,
+      receiptFile.type,
+      buffer.toString("base64"),
+    );
 
     const modelText = generationResult.response.text();
     if (!modelText || modelText.trim().length === 0) {
@@ -659,6 +725,24 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
         data: null,
         autoFillAllowed: false,
         message: getQuotaExceededMessage(error),
+      };
+    }
+
+    if (isGeminiServiceUnavailableError(error)) {
+      logger.warn("claims.parse_receipt.service_unavailable", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        errorMessage:
+          error instanceof Error
+            ? error.message
+            : "Gemini request failed with service unavailable.",
+        maxAttempts: GEMINI_MAX_ATTEMPTS,
+      });
+
+      return {
+        ok: false,
+        data: null,
+        autoFillAllowed: false,
+        message: GEMINI_SERVICE_BUSY_MESSAGE,
       };
     }
 

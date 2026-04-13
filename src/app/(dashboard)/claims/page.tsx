@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AppShellHeader } from "@/components/app-shell-header";
 import { ROUTES } from "@/core/config/route-registry";
 import { CLAIM_STATUSES, type ClaimStatus } from "@/core/constants/statuses";
@@ -81,26 +82,7 @@ export default async function MyClaimsPage({
   const currentUserResult = await authRepository.getCurrentUser();
 
   if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
-    return (
-      <div className="nxt-page-bg">
-        <AppShellHeader />
-        <div className="relative mx-auto max-w-400 px-4 py-6 sm:px-6 lg:px-8">
-          <main className="mx-auto max-w-6xl rounded-[28px] border border-rose-200 bg-white/92 p-6 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-rose-900/40 dark:bg-zinc-900/92">
-            <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">My Claims</h1>
-            <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
-              Unable to authenticate your session.{" "}
-              {currentUserResult.errorMessage ?? "Please log in again."}
-            </p>
-            <Link
-              href={ROUTES.login}
-              className="mt-4 inline-flex rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition-all duration-200 hover:bg-indigo-500 active:scale-[0.98]"
-            >
-              Go to Login
-            </Link>
-          </main>
-        </div>
-      </div>
-    );
+    redirect(ROUTES.login);
   }
 
   const selectedPaymentModeId = firstParamValue(searchParams?.paymentModeId);

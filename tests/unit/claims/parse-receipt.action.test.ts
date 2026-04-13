@@ -39,6 +39,10 @@ describe("parseReceiptAction", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   test("normalizes snake_case tax fields into client camelCase output", async () => {
     const modelJson = {
       billNo: "INV-1001",
@@ -186,6 +190,86 @@ describe("parseReceiptAction", () => {
       message:
         "AI auto-parse is temporarily unavailable due to usage limits. Please retry in about 32 seconds. You can still fill the details manually.",
     });
+    expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+  });
+
+  test("retries 503 failures and succeeds on a later attempt", async () => {
+    jest.useFakeTimers();
+
+    mockGenerateContent
+      .mockRejectedValueOnce({
+        status: 503,
+        statusText: "Service Unavailable",
+        message: "503 Service Unavailable",
+      })
+      .mockRejectedValueOnce({
+        status: 503,
+        statusText: "Service Unavailable",
+        message: "503 Service Unavailable",
+      })
+      .mockResolvedValueOnce({
+        response: {
+          text: () =>
+            JSON.stringify({
+              billNo: "INV-503",
+              transactionDate: "2026-03-18",
+              vendorName: "Retry Vendor",
+              basicAmount: 100,
+              cgstAmount: 9,
+              sgstAmount: 9,
+              igstAmount: 0,
+              totalAmount: 118,
+              category_name: "Travel Domestic",
+              confidenceScore: 95,
+            }),
+        },
+      });
+
+    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
+    const resultPromise = parseReceiptAction(createReceiptFormData());
+
+    await jest.runAllTimersAsync();
+    const result = await resultPromise;
+
+    expect(result.ok).toBe(true);
+    expect(result.autoFillAllowed).toBe(true);
+    expect(result.message).toBeNull();
+    expect(mockGenerateContent).toHaveBeenCalledTimes(3);
+  });
+
+  test("returns busy fallback after exhausting 503 retries", async () => {
+    jest.useFakeTimers();
+
+    mockGenerateContent
+      .mockRejectedValueOnce({
+        status: 503,
+        statusText: "Service Unavailable",
+        message: "503 Service Unavailable",
+      })
+      .mockRejectedValueOnce({
+        status: 503,
+        statusText: "Service Unavailable",
+        message: "503 Service Unavailable",
+      })
+      .mockRejectedValueOnce({
+        status: 503,
+        statusText: "Service Unavailable",
+        message: "503 Service Unavailable",
+      });
+
+    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
+    const resultPromise = parseReceiptAction(createReceiptFormData());
+
+    await jest.runAllTimersAsync();
+    const result = await resultPromise;
+
+    expect(result).toEqual({
+      ok: false,
+      data: null,
+      autoFillAllowed: false,
+      message: "The AI service is currently busy. Please try again or fill the form manually.",
+    });
+    expect(mockGenerateContent).toHaveBeenCalledTimes(3);
   });
 
   test("uses mocked Gemini SDK without real network calls", async () => {

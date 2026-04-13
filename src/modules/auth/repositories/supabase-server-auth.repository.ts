@@ -10,7 +10,10 @@ import {
   applySupabaseAuthCookies,
   clearSupabaseAuthTokenCookies,
 } from "@/core/infra/supabase/supabase-auth-cookie-utils";
-import { isSupabaseTerminalSessionError } from "@/core/infra/supabase/auth-error-utils";
+import {
+  getSupabaseAuthErrorMessage,
+  isSupabaseTerminalSessionError,
+} from "@/core/infra/supabase/auth-error-utils";
 
 type CookieStore = Awaited<ReturnType<typeof cookies>>;
 
@@ -62,46 +65,72 @@ export class SupabaseServerAuthRepository implements AuthRepository {
     errorMessage: string | null;
   }> {
     const { client, cookieStore } = await this.getClientContext();
-    const { data, error } = await client.auth.getUser();
+    try {
+      const { data, error } = await client.auth.getUser();
 
-    if (error) {
+      if (error) {
+        if (isSupabaseTerminalSessionError(error)) {
+          this.clearAuthCookies(cookieStore);
+          return { user: null, errorMessage: null };
+        }
+
+        return { user: null, errorMessage: error.message };
+      }
+
+      if (!data.user) {
+        return { user: null, errorMessage: null };
+      }
+
+      return {
+        user: {
+          id: data.user.id,
+          email: data.user.email ?? null,
+        },
+        errorMessage: null,
+      };
+    } catch (error) {
       if (isSupabaseTerminalSessionError(error)) {
         this.clearAuthCookies(cookieStore);
         return { user: null, errorMessage: null };
       }
 
-      return { user: null, errorMessage: error.message };
+      const errorMessage = getSupabaseAuthErrorMessage(error);
+      return {
+        user: null,
+        errorMessage:
+          errorMessage.length > 0
+            ? errorMessage
+            : error instanceof Error
+              ? error.message
+              : "Unable to load current user.",
+      };
     }
-
-    if (!data.user) {
-      return { user: null, errorMessage: null };
-    }
-
-    return {
-      user: {
-        id: data.user.id,
-        email: data.user.email ?? null,
-      },
-      errorMessage: null,
-    };
   }
 
   async getAccessToken(): Promise<string | null> {
     const { client, cookieStore } = await this.getClientContext();
-    const {
-      data: { session },
-      error,
-    } = await client.auth.getSession();
+    try {
+      const {
+        data: { session },
+        error,
+      } = await client.auth.getSession();
 
-    if (error) {
+      if (error) {
+        if (isSupabaseTerminalSessionError(error)) {
+          this.clearAuthCookies(cookieStore);
+        }
+
+        return null;
+      }
+
+      return session?.access_token ?? null;
+    } catch (error) {
       if (isSupabaseTerminalSessionError(error)) {
         this.clearAuthCookies(cookieStore);
       }
 
       return null;
     }
-
-    return session?.access_token ?? null;
   }
 
   private async getClientContext() {

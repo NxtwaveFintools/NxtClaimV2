@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { ExternalLink } from "lucide-react";
 import { AppShellHeader } from "@/components/app-shell-header";
@@ -469,21 +469,7 @@ async function ClaimDetailCore({
   ]);
 
   if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
-    return (
-      <section className="mx-auto max-w-5xl rounded-2xl border border-rose-200 bg-white p-6 shadow-sm transition-colors dark:border-rose-900/40 dark:bg-slate-900">
-        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Claim Detail</h1>
-        <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
-          Unable to authenticate your session.{" "}
-          {currentUserResult.errorMessage ?? "Please log in again."}
-        </p>
-        <Link
-          href={ROUTES.login}
-          className="mt-4 inline-flex rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:bg-slate-700 active:scale-[0.98] dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-        >
-          Go to Login
-        </Link>
-      </section>
-    );
+    redirect(ROUTES.login);
   }
 
   if (claimResult.errorMessage) {
