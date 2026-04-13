@@ -300,6 +300,22 @@ export type ParseReceiptActionResult = {
   message: string | null;
 };
 
+function toParsedReceiptResult(data: ParsedReceiptResult): ParsedReceiptResult {
+  return {
+    billNo: data.billNo,
+    transactionDate: data.transactionDate,
+    vendorName: data.vendorName,
+    gstNumber: data.gstNumber,
+    basicAmount: data.basicAmount,
+    cgstAmount: data.cgstAmount,
+    sgstAmount: data.sgstAmount,
+    igstAmount: data.igstAmount,
+    totalAmount: data.totalAmount,
+    category_name: data.category_name,
+    confidenceScore: data.confidenceScore,
+  };
+}
+
 function normalizeNullableText(value: string | null): string | null {
   if (typeof value !== "string") {
     return null;
@@ -624,7 +640,7 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
 
     return {
       ok: true,
-      data: normalized,
+      data: toParsedReceiptResult(normalized),
       autoFillAllowed,
       message,
     };

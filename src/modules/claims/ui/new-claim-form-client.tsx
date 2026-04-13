@@ -175,23 +175,6 @@ function parseAiPayload(payload: unknown): Record<string, unknown> | null {
   return toRecord(payload);
 }
 
-function unwrapAiResponsePayload(payload: unknown): unknown {
-  const record = toRecord(payload);
-  if (!record) {
-    return payload;
-  }
-
-  if (record.result !== undefined) {
-    return record.result;
-  }
-
-  if (record.data !== undefined) {
-    return record.data;
-  }
-
-  return payload;
-}
-
 function normalizeCategoryName(value: string | null | undefined): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
@@ -773,21 +756,13 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
       console.log("RAW API RESPONSE:", result);
 
-      const aiDataPayload = unwrapAiResponsePayload(result.data);
-      const aiData = parseAiPayload(aiDataPayload);
+      const aiData = parseAiPayload(result.data);
       if (!aiData) {
         toast.error("AI returned invalid JSON. Please fill the fields manually.", { id: toastId });
         return;
       }
 
-      console.log("AI DATA:", {
-        hasBillNo: typeof aiData.billNo === "string" && aiData.billNo.trim().length > 0,
-        hasTransactionDate:
-          typeof aiData.transactionDate === "string" && aiData.transactionDate.trim().length > 0,
-        hasVendorName: typeof aiData.vendorName === "string" && aiData.vendorName.trim().length > 0,
-        confidenceScoreType: typeof aiData.confidenceScore,
-        totalAmountType: typeof aiData.totalAmount,
-      });
+      console.log("AI DATA:", aiData);
       console.log("TYPE CHECK totalAmount:", typeof aiData.totalAmount);
 
       if (toNumber(aiData.confidenceScore) < 70) {
