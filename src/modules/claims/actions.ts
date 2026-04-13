@@ -98,6 +98,8 @@ const bulkRejectInputSchema = bulkActionInputSchema.extend({
   allowResubmission: z.boolean().optional(),
 });
 const MAX_UPLOAD_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+const BULK_L1_CURSOR_PAGE_SIZE = 200;
+const BULK_L1_PROCESS_CHUNK_SIZE = 10;
 const UNIQUE_VIOLATION_CODE = "23505";
 const DUPLICATE_ACTIVE_EXPENSE_BILL_CONSTRAINT = "uq_expense_details_active_bill";
 const DUPLICATE_ACTIVE_EXPENSE_BILL_MESSAGE =
@@ -1513,6 +1515,234 @@ export async function markPaymentDoneAction(input: {
     redirectToApprovalsView: input.redirectToApprovalsView,
     returnTo: input.returnTo,
   });
+}
+
+function normalizeClaimIds(claimIds: string[]): string[] {
+  return Array.from(new Set(claimIds.map((claimId) => claimId.trim()).filter(Boolean)));
+}
+
+async function collectGlobalL1ClaimIds(
+  actorUserId: string,
+  filters?: GetMyClaimsFilters,
+): Promise<{ data: string[]; errorMessage: string | null }> {
+  const collectedIds: string[] = [];
+  let cursor: string | null = null;
+
+  while (true) {
+    const pageResult = await repository.getPendingApprovalsForL1(
+      actorUserId,
+      cursor,
+      BULK_L1_CURSOR_PAGE_SIZE,
+      filters,
+    );
+
+    if (pageResult.errorMessage) {
+      return { data: [], errorMessage: pageResult.errorMessage };
+    }
+
+    collectedIds.push(...pageResult.data.map((claim) => claim.id));
+
+    if (!pageResult.hasNextPage || !pageResult.nextCursor) {
+      break;
+    }
+
+    cursor = pageResult.nextCursor;
+  }
+
+  return {
+    data: normalizeClaimIds(collectedIds),
+    errorMessage: null,
+  };
+}
+
+async function processBulkL1Decision(input: {
+  actorUserId: string;
+  claimIds: string[];
+  decision: "approve" | "reject";
+  rejectionReason?: string;
+  allowResubmission?: boolean;
+}): Promise<{ processedCount: number; failedCount: number; firstFailureMessage: string | null }> {
+  let processedCount = 0;
+  let failedCount = 0;
+  let firstFailureMessage: string | null = null;
+
+  for (let offset = 0; offset < input.claimIds.length; offset += BULK_L1_PROCESS_CHUNK_SIZE) {
+    const chunkClaimIds = input.claimIds.slice(offset, offset + BULK_L1_PROCESS_CHUNK_SIZE);
+    const chunkResults = await Promise.all(
+      chunkClaimIds.map((claimId) =>
+        processL1ClaimDecisionService.execute({
+          claimId,
+          actorUserId: input.actorUserId,
+          decision: input.decision,
+          rejectionReason: input.rejectionReason,
+          allowResubmission: input.allowResubmission,
+        }),
+      ),
+    );
+
+    chunkResults.forEach((result, index) => {
+      if (result.ok) {
+        processedCount += 1;
+        return;
+      }
+
+      failedCount += 1;
+      firstFailureMessage ??=
+        result.errorMessage ?? "Unable to process one or more selected claims.";
+
+      logger.warn("claims.bulk_l1_decision.claim_skipped", {
+        claimId: chunkClaimIds[index],
+        decision: input.decision,
+        reason: result.errorMessage ?? "unknown",
+      });
+    });
+  }
+
+  return { processedCount, failedCount, firstFailureMessage };
+}
+
+export async function bulkApproveL1(input: {
+  claimIds: string[];
+  isGlobalSelect: boolean;
+  filters?: GetMyClaimsFilters;
+}): Promise<{ ok: boolean; message: string; processedCount: number }> {
+  const parseResult = bulkActionInputSchema.safeParse(input);
+  if (!parseResult.success) {
+    return { ok: false, message: "Invalid bulk approve request.", processedCount: 0 };
+  }
+
+  const currentUserResult = await authRepository.getCurrentUser();
+  if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
+    return {
+      ok: false,
+      message: currentUserResult.errorMessage ?? "Unauthorized session.",
+      processedCount: 0,
+    };
+  }
+
+  const claimIdsResult = parseResult.data.isGlobalSelect
+    ? await collectGlobalL1ClaimIds(currentUserResult.user.id, parseResult.data.filters)
+    : {
+        data: normalizeClaimIds(parseResult.data.claimIds),
+        errorMessage: null,
+      };
+
+  if (claimIdsResult.errorMessage) {
+    return {
+      ok: false,
+      message: claimIdsResult.errorMessage,
+      processedCount: 0,
+    };
+  }
+
+  if (claimIdsResult.data.length === 0) {
+    return {
+      ok: false,
+      message: "No actionable claims selected.",
+      processedCount: 0,
+    };
+  }
+
+  const decisionResult = await processBulkL1Decision({
+    actorUserId: currentUserResult.user.id,
+    claimIds: claimIdsResult.data,
+    decision: "approve",
+  });
+
+  if (decisionResult.processedCount === 0) {
+    return {
+      ok: false,
+      message:
+        decisionResult.firstFailureMessage ??
+        "No claims were approved. They may already be processed or unavailable.",
+      processedCount: 0,
+    };
+  }
+
+  revalidatePath(ROUTES.claims.myClaims);
+
+  return {
+    ok: true,
+    message:
+      decisionResult.failedCount > 0
+        ? `${decisionResult.processedCount} claim(s) approved. ${decisionResult.failedCount} claim(s) skipped.`
+        : `${decisionResult.processedCount} claim(s) approved.`,
+    processedCount: decisionResult.processedCount,
+  };
+}
+
+export async function bulkRejectL1(input: {
+  claimIds: string[];
+  isGlobalSelect: boolean;
+  filters?: GetMyClaimsFilters;
+  rejectionReason: string;
+  allowResubmission?: boolean;
+}): Promise<{ ok: boolean; message: string; processedCount: number }> {
+  const parseResult = bulkRejectInputSchema.safeParse(input);
+  if (!parseResult.success) {
+    return { ok: false, message: "Invalid bulk reject request.", processedCount: 0 };
+  }
+
+  const currentUserResult = await authRepository.getCurrentUser();
+  if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
+    return {
+      ok: false,
+      message: currentUserResult.errorMessage ?? "Unauthorized session.",
+      processedCount: 0,
+    };
+  }
+
+  const claimIdsResult = parseResult.data.isGlobalSelect
+    ? await collectGlobalL1ClaimIds(currentUserResult.user.id, parseResult.data.filters)
+    : {
+        data: normalizeClaimIds(parseResult.data.claimIds),
+        errorMessage: null,
+      };
+
+  if (claimIdsResult.errorMessage) {
+    return {
+      ok: false,
+      message: claimIdsResult.errorMessage,
+      processedCount: 0,
+    };
+  }
+
+  if (claimIdsResult.data.length === 0) {
+    return {
+      ok: false,
+      message: "No actionable claims selected.",
+      processedCount: 0,
+    };
+  }
+
+  const decisionResult = await processBulkL1Decision({
+    actorUserId: currentUserResult.user.id,
+    claimIds: claimIdsResult.data,
+    decision: "reject",
+    rejectionReason: parseResult.data.rejectionReason,
+    allowResubmission: parseResult.data.allowResubmission === true,
+  });
+
+  if (decisionResult.processedCount === 0) {
+    return {
+      ok: false,
+      message:
+        decisionResult.firstFailureMessage ??
+        "No claims were rejected. They may already be processed or unavailable.",
+      processedCount: 0,
+    };
+  }
+
+  revalidatePath(ROUTES.claims.myClaims);
+
+  return {
+    ok: true,
+    message:
+      decisionResult.failedCount > 0
+        ? `${decisionResult.processedCount} claim(s) rejected. ${decisionResult.failedCount} claim(s) skipped.`
+        : `${decisionResult.processedCount} claim(s) rejected.`,
+    processedCount: decisionResult.processedCount,
+  };
 }
 
 export async function bulkApprove(input: {

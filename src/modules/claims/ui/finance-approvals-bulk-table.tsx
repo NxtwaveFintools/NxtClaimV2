@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { RouterLink } from "@/components/ui/router-link";
@@ -11,8 +12,10 @@ import {
   approveClaimAction,
   approveFinanceAction,
   bulkApprove,
+  bulkApproveL1,
   bulkMarkPaid,
   bulkReject,
+  bulkRejectL1,
   markPaymentDoneAction,
   rejectClaimAction,
   rejectFinanceAction,
@@ -23,7 +26,6 @@ import type {
   ClaimSubmissionType,
   GetMyClaimsFilters,
 } from "@/core/domain/claims/contracts";
-import { ApprovalsAuditModeDialog } from "@/modules/claims/ui/approvals-quick-view-sheet";
 import { ClaimDecisionActionForm } from "@/modules/claims/ui/claim-decision-action-form";
 import { ClaimRejectWithReasonForm } from "@/modules/claims/ui/claim-reject-with-reason-form";
 import {
@@ -69,6 +71,16 @@ type FinanceApprovalsBulkTableProps = {
   >;
   auditLogsByClaimId: Record<string, (ClaimAuditLogRecord & { formattedCreatedAt: string })[]>;
 };
+
+const ApprovalsAuditModeDialog = dynamic(
+  () =>
+    import("@/modules/claims/ui/approvals-quick-view-sheet").then(
+      (module) => module.ApprovalsAuditModeDialog,
+    ),
+  {
+    ssr: false,
+  },
+);
 
 function normalizeFilters(filters: GetMyClaimsFilters): GetMyClaimsFilters {
   const status = Array.isArray(filters.status)
@@ -211,18 +223,20 @@ export function FinanceApprovalsBulkTable({
       await toast.promise(
         (async () => {
           if (approvalScope === "l1") {
-            const targetIds = isGlobalSelect ? actionableIds : selectedIds;
+            const result = await bulkApproveL1({
+              claimIds: selectedIds,
+              isGlobalSelect,
+              filters: actionFilters,
+            });
 
-            if (targetIds.length === 0) {
-              throw new Error("No actionable claims selected.");
+            if (!result.ok) {
+              throw new Error(result.message);
             }
 
-            for (const claimId of targetIds) {
-              const result = await approveClaimAction({ claimId });
-              if (!result.ok) {
-                throw new Error(result.message ?? "Unable to approve claim.");
-              }
-            }
+            setSelectedIds([]);
+            setIsGlobalSelect(false);
+            router.refresh();
+            return result.message;
           } else {
             const result = await bulkApprove({
               claimIds: selectedIds,
@@ -233,14 +247,12 @@ export function FinanceApprovalsBulkTable({
             if (!result.ok) {
               throw new Error(result.message);
             }
-          }
 
-          setSelectedIds([]);
-          setIsGlobalSelect(false);
-          router.refresh();
-          return approvalScope === "l1"
-            ? `${(isGlobalSelect ? actionableIds : selectedIds).length} claim(s) approved.`
-            : "Claims approved.";
+            setSelectedIds([]);
+            setIsGlobalSelect(false);
+            router.refresh();
+            return result.message;
+          }
         })(),
         {
           loading: "Bulk approving claims...",
@@ -310,23 +322,23 @@ export function FinanceApprovalsBulkTable({
       await toast.promise(
         (async () => {
           if (approvalScope === "l1") {
-            const targetIds = isGlobalSelect ? actionableIds : selectedIds;
+            const result = await bulkRejectL1({
+              claimIds: selectedIds,
+              isGlobalSelect,
+              filters: actionFilters,
+              rejectionReason,
+              allowResubmission,
+            });
 
-            if (targetIds.length === 0) {
-              throw new Error("No actionable claims selected.");
+            if (!result.ok) {
+              throw new Error(result.message);
             }
 
-            for (const claimId of targetIds) {
-              const result = await rejectClaimAction({
-                claimId,
-                rejectionReason,
-                allowResubmission,
-              });
-
-              if (!result.ok) {
-                throw new Error(result.message ?? "Unable to reject claim.");
-              }
-            }
+            setSelectedIds([]);
+            setIsGlobalSelect(false);
+            setIsRejectModalOpen(false);
+            router.refresh();
+            return result.message;
           } else {
             const result = await bulkReject({
               claimIds: selectedIds,
@@ -339,15 +351,13 @@ export function FinanceApprovalsBulkTable({
             if (!result.ok) {
               throw new Error(result.message);
             }
-          }
 
-          setSelectedIds([]);
-          setIsGlobalSelect(false);
-          setIsRejectModalOpen(false);
-          router.refresh();
-          return approvalScope === "l1"
-            ? `${(isGlobalSelect ? actionableIds : selectedIds).length} claim(s) rejected.`
-            : "Claims rejected.";
+            setSelectedIds([]);
+            setIsGlobalSelect(false);
+            setIsRejectModalOpen(false);
+            router.refresh();
+            return result.message;
+          }
         })(),
         {
           loading: "Bulk rejecting claims...",
