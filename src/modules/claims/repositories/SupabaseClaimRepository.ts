@@ -570,6 +570,10 @@ function normalizeSearchInput(filters?: GetMyClaimsFilters): {
   };
 }
 
+function buildEmployeeEmailOrFilter(searchQuery: string, submitterEmailColumn: string): string {
+  return `${submitterEmailColumn}.ilike.%${searchQuery}%,on_behalf_email.ilike.%${searchQuery}%`;
+}
+
 function resolveEnterpriseDateColumn(dateTarget?: ClaimDateTarget): string {
   if (dateTarget === "hod_action") return "hod_action_date";
   if (dateTarget === "finance_closed") return "finance_action_date";
@@ -593,6 +597,7 @@ type EnterpriseDashboardQueryChain<TQuery> = {
   gte(column: string, value: string | number): TQuery;
   lte(column: string, value: string | number): TQuery;
   ilike(column: string, pattern: string): TQuery;
+  or(filters: string): TQuery;
 };
 
 function applyEnterpriseDashboardFilters<
@@ -701,7 +706,9 @@ function applyEnterpriseDashboardFilters<
     }
 
     if (params.normalizedSearch.field === "employee_email") {
-      query = query.ilike("submitter_email", `%${params.normalizedSearch.query}%`);
+      query = query.or(
+        buildEmployeeEmailOrFilter(params.normalizedSearch.query, "submitter_email"),
+      );
     }
   }
 
@@ -715,6 +722,7 @@ type PendingApprovalsQueryChain<TQuery> = {
   gte(column: string, value: string): TQuery;
   lte(column: string, value: string): TQuery;
   ilike(column: string, pattern: string): TQuery;
+  or(filters: string): TQuery;
 };
 
 function applyPendingApprovalsFilters<TQuery extends PendingApprovalsQueryChain<TQuery>>(params: {
@@ -807,7 +815,9 @@ function applyPendingApprovalsFilters<TQuery extends PendingApprovalsQueryChain<
     }
 
     if (params.normalizedSearch.field === "employee_email") {
-      query = query.ilike("submitter_user.email", `%${params.normalizedSearch.query}%`);
+      query = query.or(
+        buildEmployeeEmailOrFilter(params.normalizedSearch.query, "submitter_user.email"),
+      );
     }
   }
 
@@ -1309,7 +1319,9 @@ export class SupabaseClaimRepository implements ClaimRepository {
       }
 
       if (normalizedSearch.field === "employee_email") {
-        query = query.ilike("submitter_user.email", `%${normalizedSearch.query}%`);
+        query = query.or(
+          buildEmployeeEmailOrFilter(normalizedSearch.query, "submitter_user.email"),
+        );
       }
     }
 
@@ -2706,7 +2718,9 @@ export class SupabaseClaimRepository implements ClaimRepository {
       }
 
       if (normalizedSearch.field === "employee_email") {
-        query = query.ilike("submitter_user.email", `%${normalizedSearch.query}%`);
+        query = query.or(
+          buildEmployeeEmailOrFilter(normalizedSearch.query, "submitter_user.email"),
+        );
       }
     }
 

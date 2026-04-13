@@ -372,10 +372,10 @@ export class SupabaseAdminRepository implements AdminRepository {
       } else if (filters.searchField === "employee_id") {
         query = query.ilike("employee_id", `%${sq}%`);
       } else if (filters.searchField === "employee_email") {
-        query = query.ilike("submitter_email", `%${sq}%`);
+        query = query.or(`submitter_email.ilike.%${sq}%,on_behalf_email.ilike.%${sq}%`);
       } else {
         query = query.or(
-          `claim_id.ilike.%${sq}%,employee_name.ilike.%${sq}%,employee_id.ilike.%${sq}%,submitter_email.ilike.%${sq}%`,
+          `claim_id.ilike.%${sq}%,employee_name.ilike.%${sq}%,employee_id.ilike.%${sq}%,submitter_email.ilike.%${sq}%,on_behalf_email.ilike.%${sq}%`,
         );
       }
     }

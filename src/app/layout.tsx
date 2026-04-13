@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import { AuthSessionSync } from "@/modules/auth/ui/auth-session-sync";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -25,6 +26,7 @@ export default function RootLayout({
           enableSystem={true}
           disableTransitionOnChange
         >
+          <AuthSessionSync />
           {children}
           <Toaster
             position="top-center"

@@ -66,12 +66,33 @@ test.describe("auth flows", () => {
     expect(response.status()).toBeGreaterThanOrEqual(400);
   });
 
+  test("logout endpoint is idempotent without auth header", async ({ request }) => {
+    const response = await request.post("/api/auth/logout");
+    expect(response.ok()).toBeTruthy();
+
+    const payload = (await response.json()) as {
+      data?: { loggedOut?: boolean };
+    };
+
+    expect(payload.data?.loggedOut).toBe(true);
+  });
+
   test("bootstraps session via API and accesses dashboard", async ({ page }) => {
     await bootstrapSession(page, seedEmails.submitter);
 
     await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
     await expect(page).not.toHaveURL(/\/auth\/login/i);
     await expect(page.getByRole("heading", { name: /my claims|wallet summary/i })).toBeVisible();
+  });
+
+  test("redirects to login after session invalidation", async ({ page }) => {
+    await bootstrapSession(page, seedEmails.submitter);
+
+    const invalidateResponse = await page.request.post("/api/auth/logout");
+    expect(invalidateResponse.ok()).toBeTruthy();
+
+    await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/auth\/login/i, { timeout: 20000 });
   });
 
   test.describe("authenticated sign out", () => {

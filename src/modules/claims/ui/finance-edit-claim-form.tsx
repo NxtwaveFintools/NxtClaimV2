@@ -19,6 +19,9 @@ type FinanceEditClaimActionResult = {
   error?: string;
 };
 
+type FinanceEditFieldScope = "full" | "quick-view-core";
+type FinanceEditPresentation = "inline-toggle" | "embedded";
+
 type FinanceEditClaimFormProps = {
   claim: {
     id: string;
@@ -65,6 +68,10 @@ type FinanceEditClaimFormProps = {
   products: DropdownOption[];
   locations: DropdownOption[];
   isEditMode?: boolean;
+  fieldScope?: FinanceEditFieldScope;
+  presentation?: FinanceEditPresentation;
+  onSuccess?: () => void | Promise<void>;
+  onCancel?: () => void;
   action: (formData: FormData) => Promise<FinanceEditClaimActionResult>;
 };
 
@@ -84,10 +91,17 @@ export function FinanceEditClaimForm({
   products,
   locations,
   isEditMode = true,
+  fieldScope = "full",
+  presentation = "inline-toggle",
+  onSuccess,
+  onCancel,
   action,
 }: FinanceEditClaimFormProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isInlineOpen, setIsInlineOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isEmbeddedPresentation = presentation === "embedded";
+  const isQuickViewScope = fieldScope === "quick-view-core";
+  const isOpen = isEmbeddedPresentation ? true : isInlineOpen;
   const isRoutingFieldLocked = isEditMode;
   const lockedFieldClassName =
     "rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400";
@@ -111,7 +125,12 @@ export function FinanceEditClaimForm({
       }
 
       toast.success("Claim edits saved.");
-      setIsOpen(false);
+
+      if (!isEmbeddedPresentation) {
+        setIsInlineOpen(false);
+      }
+
+      await onSuccess?.();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to save claim edits.");
     } finally {
@@ -123,7 +142,7 @@ export function FinanceEditClaimForm({
     return (
       <Button
         onClick={() => {
-          setIsOpen(true);
+          setIsInlineOpen(true);
         }}
         variant="secondary"
         size="md"
@@ -138,12 +157,16 @@ export function FinanceEditClaimForm({
   const advance = claim.advance;
 
   return (
-    <section className="mt-6 rounded-xl border border-zinc-200 bg-white p-4 dark:border-indigo-700/40 dark:bg-zinc-800">
+    <section
+      className={`${isEmbeddedPresentation ? "" : "mt-6 "}rounded-xl border border-zinc-200 bg-white p-4 dark:border-indigo-700/40 dark:bg-zinc-800`}
+    >
       <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-indigo-600 dark:text-indigo-300">
-        Edit Claim
+        {isQuickViewScope ? "Quick Edit" : "Edit Claim"}
       </h2>
       <p className="mt-2 text-xs text-zinc-600 dark:text-indigo-100/80">
-        Routing context is locked during edits. Only detail fields can be updated.
+        {isQuickViewScope
+          ? "Update core claim fields directly from Quick View."
+          : "Routing context is locked during edits. Only detail fields can be updated."}
       </p>
 
       <form onSubmit={handleSubmit} className="mt-4 grid gap-4">
@@ -155,7 +178,7 @@ export function FinanceEditClaimForm({
         />
 
         <fieldset disabled={isSubmitting} className="contents">
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className={`grid gap-3 ${isQuickViewScope ? "sm:grid-cols-2" : "md:grid-cols-2"}`}>
             <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
               Claim ID (Read-only)
               <FormInput
@@ -174,281 +197,408 @@ export function FinanceEditClaimForm({
               />
             </label>
 
-            <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-              Employee Email (Read-only)
-              <FormInput
-                value={claim.employeeEmail ?? "N/A"}
-                disabled
-                className="rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
-              />
-            </label>
-
-            <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-              Submission Type (Read-only)
-              <FormInput
-                value={claim.submissionType}
-                disabled={isEditMode}
-                readOnly={isEditMode}
-                className={lockedFieldClassName}
-              />
-            </label>
-
-            {claim.submissionType === "On Behalf" ? (
+            {isQuickViewScope ? null : (
               <>
                 <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                  On Behalf Email (Read-only)
+                  Employee Email (Read-only)
                   <FormInput
-                    value={claim.onBehalfEmail ?? "N/A"}
-                    disabled={isEditMode}
-                    readOnly={isEditMode}
-                    className={lockedFieldClassName}
+                    value={claim.employeeEmail ?? "N/A"}
+                    disabled
+                    className="rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
                   />
                 </label>
 
                 <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                  On Behalf Employee ID (Read-only)
+                  Submission Type (Read-only)
                   <FormInput
-                    value={claim.onBehalfEmployeeCode ?? "N/A"}
+                    value={claim.submissionType}
                     disabled={isEditMode}
                     readOnly={isEditMode}
                     className={lockedFieldClassName}
                   />
                 </label>
+
+                {claim.submissionType === "On Behalf" ? (
+                  <>
+                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      On Behalf Email (Read-only)
+                      <FormInput
+                        value={claim.onBehalfEmail ?? "N/A"}
+                        disabled={isEditMode}
+                        readOnly={isEditMode}
+                        className={lockedFieldClassName}
+                      />
+                    </label>
+
+                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      On Behalf Employee ID (Read-only)
+                      <FormInput
+                        value={claim.onBehalfEmployeeCode ?? "N/A"}
+                        disabled={isEditMode}
+                        readOnly={isEditMode}
+                        className={lockedFieldClassName}
+                      />
+                    </label>
+                  </>
+                ) : null}
               </>
-            ) : null}
+            )}
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-              Department
-              <FormSelect
-                name="departmentId"
-                required
-                defaultValue={claim.departmentId}
-                disabled={isRoutingFieldLocked}
-                className={
-                  isRoutingFieldLocked
-                    ? lockedFieldClassName
-                    : "rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                }
-              >
-                {departments.map((department) => (
-                  <option key={department.id} value={department.id}>
-                    {department.name}
-                  </option>
-                ))}
-              </FormSelect>
-            </label>
-
-            <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-              Payment Mode
-              <FormSelect
-                name="paymentModeId"
-                required
-                defaultValue={claim.paymentModeId}
-                disabled={isRoutingFieldLocked}
-                className={
-                  isRoutingFieldLocked
-                    ? lockedFieldClassName
-                    : "rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                }
-              >
-                {paymentModes.map((paymentMode) => (
-                  <option key={paymentMode.id} value={paymentMode.id}>
-                    {paymentMode.name}
-                  </option>
-                ))}
-              </FormSelect>
-            </label>
-          </div>
-
-          {claim.detailType === "expense" ? (
+          {isQuickViewScope ? null : (
             <div className="grid gap-3 md:grid-cols-2">
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                Bill No
-                <FormInput
-                  name="billNo"
-                  required
-                  defaultValue={expense?.billNo ?? ""}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                />
-              </label>
-
-              <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                Expense Category
+                Department
                 <FormSelect
-                  name="expenseCategoryId"
+                  name="departmentId"
                   required
-                  defaultValue={expense?.expenseCategoryId ?? ""}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  defaultValue={claim.departmentId}
+                  disabled={isRoutingFieldLocked}
+                  className={
+                    isRoutingFieldLocked
+                      ? lockedFieldClassName
+                      : "rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  }
                 >
-                  <option value="" disabled>
-                    Select expense category
-                  </option>
-                  {expenseCategories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
+                  {departments.map((department) => (
+                    <option key={department.id} value={department.id}>
+                      {department.name}
                     </option>
                   ))}
                 </FormSelect>
               </label>
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                Vendor Name
-                <FormInput
-                  name="vendorName"
-                  defaultValue={expense?.vendorName ?? ""}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                />
-              </label>
-
-              <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                Location
+                Payment Mode
                 <FormSelect
-                  name="locationId"
+                  name="paymentModeId"
                   required
-                  defaultValue={expense?.locationId ?? ""}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  defaultValue={claim.paymentModeId}
+                  disabled={isRoutingFieldLocked}
+                  className={
+                    isRoutingFieldLocked
+                      ? lockedFieldClassName
+                      : "rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  }
                 >
-                  <option value="" disabled>
-                    Select location
-                  </option>
-                  {locations.map((location) => (
-                    <option key={location.id} value={location.id}>
-                      {location.name}
+                  {paymentModes.map((paymentMode) => (
+                    <option key={paymentMode.id} value={paymentMode.id}>
+                      {paymentMode.name}
                     </option>
                   ))}
                 </FormSelect>
               </label>
+            </div>
+          )}
 
-              <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                Transaction Date
-                <DateInput
-                  name="transactionDate"
-                  required
-                  defaultValue={toDateInputValue(expense?.transactionDate)}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                />
-              </label>
+          {claim.detailType === "expense" ? (
+            isQuickViewScope ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  Bill No
+                  <FormInput
+                    name="billNo"
+                    required
+                    defaultValue={expense?.billNo ?? ""}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </label>
 
-              <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                GST Applicable
-                <FormSelect
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  Expense Category
+                  <FormSelect
+                    name="expenseCategoryId"
+                    required
+                    defaultValue={expense?.expenseCategoryId ?? ""}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  >
+                    <option value="" disabled>
+                      Select expense category
+                    </option>
+                    {expenseCategories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </FormSelect>
+                </label>
+
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  Transaction Date
+                  <DateInput
+                    name="transactionDate"
+                    required
+                    defaultValue={toDateInputValue(expense?.transactionDate)}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  Amount
+                  <CurrencyInput
+                    name="basicAmount"
+                    min="0"
+                    required
+                    defaultValue={expense?.basicAmount ?? ""}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                  Purpose
+                  <FormInput
+                    name="purpose"
+                    required
+                    defaultValue={expense?.purpose ?? ""}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </label>
+
+                <input type="hidden" name="locationId" value={expense?.locationId ?? ""} />
+                <input
+                  type="hidden"
                   name="isGstApplicable"
-                  required
-                  defaultValue={expense?.isGstApplicable ? "true" : "false"}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                >
-                  <option value="true">Yes</option>
-                  <option value="false">No</option>
-                </FormSelect>
-              </label>
-
-              <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                GST Number
-                <FormInput
-                  name="gstNumber"
-                  defaultValue={expense?.gstNumber ?? ""}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  value={expense?.isGstApplicable ? "true" : "false"}
                 />
-              </label>
-
-              <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                Basic Amount
-                <CurrencyInput
-                  name="basicAmount"
-                  min="0"
-                  required
-                  defaultValue={expense?.basicAmount ?? ""}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                />
-              </label>
-
-              <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                CGST Amount
-                <CurrencyInput
-                  name="cgstAmount"
-                  min="0"
-                  defaultValue={expense?.cgstAmount ?? 0}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                />
-              </label>
-
-              <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                SGST Amount
-                <CurrencyInput
-                  name="sgstAmount"
-                  min="0"
-                  defaultValue={expense?.sgstAmount ?? 0}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                />
-              </label>
-
-              <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                IGST Amount
-                <CurrencyInput
-                  name="igstAmount"
-                  min="0"
-                  defaultValue={expense?.igstAmount ?? 0}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                />
-              </label>
-
-              <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                Total Amount
-                <CurrencyInput
+                <input type="hidden" name="gstNumber" value={expense?.gstNumber ?? ""} />
+                <input type="hidden" name="vendorName" value={expense?.vendorName ?? ""} />
+                <input type="hidden" name="cgstAmount" value={expense?.cgstAmount ?? 0} />
+                <input type="hidden" name="sgstAmount" value={expense?.sgstAmount ?? 0} />
+                <input type="hidden" name="igstAmount" value={expense?.igstAmount ?? 0} />
+                <input
+                  type="hidden"
                   name="totalAmount"
-                  min="0"
-                  required
-                  defaultValue={expense?.totalAmount ?? ""}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  value={expense?.totalAmount ?? expense?.basicAmount ?? ""}
                 />
-              </label>
+                <input type="hidden" name="productId" value={expense?.productId ?? ""} />
+                <input type="hidden" name="peopleInvolved" value={expense?.peopleInvolved ?? ""} />
+                <input type="hidden" name="remarks" value={expense?.remarks ?? ""} />
+              </div>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  Bill No
+                  <FormInput
+                    name="billNo"
+                    required
+                    defaultValue={expense?.billNo ?? ""}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </label>
 
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  Expense Category
+                  <FormSelect
+                    name="expenseCategoryId"
+                    required
+                    defaultValue={expense?.expenseCategoryId ?? ""}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  >
+                    <option value="" disabled>
+                      Select expense category
+                    </option>
+                    {expenseCategories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </FormSelect>
+                </label>
+
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  Vendor Name
+                  <FormInput
+                    name="vendorName"
+                    defaultValue={expense?.vendorName ?? ""}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  Location
+                  <FormSelect
+                    name="locationId"
+                    required
+                    defaultValue={expense?.locationId ?? ""}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  >
+                    <option value="" disabled>
+                      Select location
+                    </option>
+                    {locations.map((location) => (
+                      <option key={location.id} value={location.id}>
+                        {location.name}
+                      </option>
+                    ))}
+                  </FormSelect>
+                </label>
+
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  Transaction Date
+                  <DateInput
+                    name="transactionDate"
+                    required
+                    defaultValue={toDateInputValue(expense?.transactionDate)}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  GST Applicable
+                  <FormSelect
+                    name="isGstApplicable"
+                    required
+                    defaultValue={expense?.isGstApplicable ? "true" : "false"}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  >
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </FormSelect>
+                </label>
+
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  GST Number
+                  <FormInput
+                    name="gstNumber"
+                    defaultValue={expense?.gstNumber ?? ""}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  Basic Amount
+                  <CurrencyInput
+                    name="basicAmount"
+                    min="0"
+                    required
+                    defaultValue={expense?.basicAmount ?? ""}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  CGST Amount
+                  <CurrencyInput
+                    name="cgstAmount"
+                    min="0"
+                    defaultValue={expense?.cgstAmount ?? 0}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  SGST Amount
+                  <CurrencyInput
+                    name="sgstAmount"
+                    min="0"
+                    defaultValue={expense?.sgstAmount ?? 0}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  IGST Amount
+                  <CurrencyInput
+                    name="igstAmount"
+                    min="0"
+                    defaultValue={expense?.igstAmount ?? 0}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  Total Amount
+                  <CurrencyInput
+                    name="totalAmount"
+                    min="0"
+                    required
+                    defaultValue={expense?.totalAmount ?? ""}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                  Purpose
+                  <FormInput
+                    name="purpose"
+                    required
+                    defaultValue={expense?.purpose ?? ""}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  Product
+                  <FormSelect
+                    name="productId"
+                    defaultValue={expense?.productId ?? ""}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  >
+                    <option value="">None</option>
+                    {products.map((product) => (
+                      <option key={product.id} value={product.id}>
+                        {product.name}
+                      </option>
+                    ))}
+                  </FormSelect>
+                </label>
+
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  People Involved
+                  <FormInput
+                    name="peopleInvolved"
+                    defaultValue={expense?.peopleInvolved ?? ""}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </label>
+
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                  Remarks
+                  <FormTextarea
+                    name="remarks"
+                    rows={3}
+                    defaultValue={expense?.remarks ?? ""}
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  />
+                </label>
+              </div>
+            )
+          ) : isQuickViewScope ? (
+            <div className="grid gap-3 md:grid-cols-2">
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
                 Purpose
                 <FormInput
                   name="purpose"
                   required
-                  defaultValue={expense?.purpose ?? ""}
+                  defaultValue={advance?.purpose ?? ""}
                   className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                 />
               </label>
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                Product
-                <FormSelect
-                  name="productId"
-                  defaultValue={expense?.productId ?? ""}
+                Requested Amount
+                <CurrencyInput
+                  name="requestedAmount"
+                  min="0"
+                  required
+                  defaultValue={advance?.requestedAmount ?? ""}
                   className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                >
-                  <option value="">None</option>
-                  {products.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.name}
-                    </option>
-                  ))}
-                </FormSelect>
+                />
               </label>
 
               <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                People Involved
-                <FormInput
-                  name="peopleInvolved"
-                  defaultValue={expense?.peopleInvolved ?? ""}
+                Expected Usage Date
+                <DateInput
+                  name="expectedUsageDate"
+                  required
+                  defaultValue={toDateInputValue(advance?.expectedUsageDate)}
                   className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                 />
               </label>
 
-              <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
-                Remarks
-                <FormTextarea
-                  name="remarks"
-                  rows={3}
-                  defaultValue={expense?.remarks ?? ""}
-                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                />
-              </label>
+              <input type="hidden" name="productId" value={advance?.productId ?? ""} />
+              <input type="hidden" name="locationId" value={advance?.locationId ?? ""} />
+              <input type="hidden" name="remarks" value={advance?.remarks ?? ""} />
             </div>
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
@@ -527,27 +677,31 @@ export function FinanceEditClaimForm({
             </div>
           )}
 
-          <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-            Replace Receipt File
-            <input
-              name="receiptFile"
-              type="file"
-              accept=".pdf,.png,.jpg,.jpeg,.webp"
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-zinc-700 dark:file:bg-zinc-700 dark:file:text-zinc-100"
-            />
-          </label>
+          {isQuickViewScope ? null : (
+            <>
+              <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                Replace Receipt File
+                <input
+                  name="receiptFile"
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg,.webp"
+                  className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-zinc-700 dark:file:bg-zinc-700 dark:file:text-zinc-100"
+                />
+              </label>
 
-          {claim.detailType === "expense" ? (
-            <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-              Replace Bank Statement File
-              <input
-                name="bankStatementFile"
-                type="file"
-                accept=".pdf,.png,.jpg,.jpeg,.webp"
-                className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-zinc-700 dark:file:bg-zinc-700 dark:file:text-zinc-100"
-              />
-            </label>
-          ) : null}
+              {claim.detailType === "expense" ? (
+                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                  Replace Bank Statement File
+                  <input
+                    name="bankStatementFile"
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg,.webp"
+                    className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-zinc-700 dark:file:bg-zinc-700 dark:file:text-zinc-100"
+                  />
+                </label>
+              ) : null}
+            </>
+          )}
 
           <div className="flex flex-wrap gap-2">
             <Button
@@ -582,6 +736,8 @@ export function FinanceEditClaimForm({
                   </svg>
                   Processing...
                 </>
+              ) : isQuickViewScope ? (
+                "Save Changes"
               ) : (
                 "Save Claim Edits"
               )}
@@ -589,14 +745,18 @@ export function FinanceEditClaimForm({
             <Button
               disabled={isSubmitting}
               onClick={() => {
-                setIsOpen(false);
+                if (!isEmbeddedPresentation) {
+                  setIsInlineOpen(false);
+                }
+
+                onCancel?.();
               }}
               type="button"
               variant="secondary"
               size="md"
               className="dark:border-zinc-600"
             >
-              Cancel
+              {isEmbeddedPresentation ? "Close" : "Cancel"}
             </Button>
           </div>
         </fieldset>

@@ -111,7 +111,11 @@ export function FinanceApprovalsBulkTable({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isGlobalSelect, setIsGlobalSelect] = useState(false);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [isSubmittingBulkApprove, setIsSubmittingBulkApprove] = useState(false);
+  const [isSubmittingBulkMarkPaid, setIsSubmittingBulkMarkPaid] = useState(false);
   const [isSubmittingBulkReject, setIsSubmittingBulkReject] = useState(false);
+  const isAnyBulkSubmitting =
+    isSubmittingBulkApprove || isSubmittingBulkMarkPaid || isSubmittingBulkReject;
 
   const selectedOnPageCount = useMemo(
     () => actionableIds.filter((id) => selectedIds.includes(id)).length,
@@ -197,27 +201,73 @@ export function FinanceApprovalsBulkTable({
   };
 
   const submitBulkApprove = async () => {
-    if (!canBulkAct) {
+    if (!canBulkAct || !isApproveValid || isAnyBulkSubmitting) {
       return;
     }
 
-    await toast.promise(
-      (async () => {
-        if (approvalScope === "l1") {
-          const targetIds = isGlobalSelect ? actionableIds : selectedIds;
+    setIsSubmittingBulkApprove(true);
 
-          if (targetIds.length === 0) {
-            throw new Error("No actionable claims selected.");
-          }
+    try {
+      await toast.promise(
+        (async () => {
+          if (approvalScope === "l1") {
+            const targetIds = isGlobalSelect ? actionableIds : selectedIds;
 
-          for (const claimId of targetIds) {
-            const result = await approveClaimAction({ claimId });
+            if (targetIds.length === 0) {
+              throw new Error("No actionable claims selected.");
+            }
+
+            for (const claimId of targetIds) {
+              const result = await approveClaimAction({ claimId });
+              if (!result.ok) {
+                throw new Error(result.message ?? "Unable to approve claim.");
+              }
+            }
+          } else {
+            const result = await bulkApprove({
+              claimIds: selectedIds,
+              isGlobalSelect,
+              filters: actionFilters,
+            });
+
             if (!result.ok) {
-              throw new Error(result.message ?? "Unable to approve claim.");
+              throw new Error(result.message);
             }
           }
-        } else {
-          const result = await bulkApprove({
+
+          setSelectedIds([]);
+          setIsGlobalSelect(false);
+          router.refresh();
+          return approvalScope === "l1"
+            ? `${(isGlobalSelect ? actionableIds : selectedIds).length} claim(s) approved.`
+            : "Claims approved.";
+        })(),
+        {
+          loading: "Bulk approving claims...",
+          success: (message) => message,
+          error: (error) => (error instanceof Error ? error.message : "Bulk approve failed."),
+        },
+      );
+    } finally {
+      setIsSubmittingBulkApprove(false);
+    }
+  };
+
+  const submitBulkMarkPaid = async () => {
+    if (approvalScope !== "finance") {
+      return;
+    }
+
+    if (!canBulkAct || !isMarkAsPaidValid || isAnyBulkSubmitting) {
+      return;
+    }
+
+    setIsSubmittingBulkMarkPaid(true);
+
+    try {
+      await toast.promise(
+        (async () => {
+          const result = await bulkMarkPaid({
             claimIds: selectedIds,
             isGlobalSelect,
             filters: actionFilters,
@@ -226,61 +276,27 @@ export function FinanceApprovalsBulkTable({
           if (!result.ok) {
             throw new Error(result.message);
           }
-        }
 
-        setSelectedIds([]);
-        setIsGlobalSelect(false);
-        router.refresh();
-        return approvalScope === "l1"
-          ? `${(isGlobalSelect ? actionableIds : selectedIds).length} claim(s) approved.`
-          : "Claims approved.";
-      })(),
-      {
-        loading: "Bulk approving claims...",
-        success: (message) => message,
-        error: (error) => (error instanceof Error ? error.message : "Bulk approve failed."),
-      },
-    );
-  };
-
-  const submitBulkMarkPaid = async () => {
-    if (approvalScope !== "finance") {
-      return;
+          setSelectedIds([]);
+          setIsGlobalSelect(false);
+          router.refresh();
+          return result.message;
+        })(),
+        {
+          loading: "Bulk marking claims as paid...",
+          success: (message) => message,
+          error: (error) => (error instanceof Error ? error.message : "Bulk mark as paid failed."),
+        },
+      );
+    } finally {
+      setIsSubmittingBulkMarkPaid(false);
     }
-
-    if (!canBulkAct) {
-      return;
-    }
-
-    await toast.promise(
-      (async () => {
-        const result = await bulkMarkPaid({
-          claimIds: selectedIds,
-          isGlobalSelect,
-          filters: actionFilters,
-        });
-
-        if (!result.ok) {
-          throw new Error(result.message);
-        }
-
-        setSelectedIds([]);
-        setIsGlobalSelect(false);
-        router.refresh();
-        return result.message;
-      })(),
-      {
-        loading: "Bulk marking claims as paid...",
-        success: (message) => message,
-        error: (error) => (error instanceof Error ? error.message : "Bulk mark as paid failed."),
-      },
-    );
   };
 
   const submitBulkReject = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!canBulkAct || isSubmittingBulkReject) {
+    if (!canBulkAct || !isRejectValid || isAnyBulkSubmitting) {
       return;
     }
 
@@ -365,11 +381,38 @@ export function FinanceApprovalsBulkTable({
             <button
               type="button"
               onClick={submitBulkApprove}
-              disabled={!isApproveValid}
+              disabled={!isApproveValid || isAnyBulkSubmitting}
               title={approveTitle}
               className="inline-flex h-8 items-center justify-center rounded-lg border border-emerald-300 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 transition-all duration-200 enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-700/60 dark:bg-emerald-950/20 dark:text-emerald-300 dark:enabled:hover:bg-emerald-950/40"
             >
-              Bulk Approve
+              {isSubmittingBulkApprove ? (
+                <>
+                  <svg
+                    className="mr-1.5 h-3 w-3 animate-spin"
+                    viewBox="0 0 20 20"
+                    aria-hidden="true"
+                    fill="none"
+                  >
+                    <circle
+                      cx="10"
+                      cy="10"
+                      r="7"
+                      stroke="currentColor"
+                      strokeOpacity="0.3"
+                      strokeWidth="2"
+                    />
+                    <path
+                      d="M10 3a7 7 0 0 1 7 7"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  Processing...
+                </>
+              ) : (
+                "Bulk Approve"
+              )}
             </button>
             <button
               type="button"
@@ -378,7 +421,7 @@ export function FinanceApprovalsBulkTable({
                   setIsRejectModalOpen(true);
                 }
               }}
-              disabled={!isRejectValid}
+              disabled={!isRejectValid || isAnyBulkSubmitting}
               title={rejectTitle}
               className="inline-flex h-8 items-center justify-center rounded-lg border border-rose-300 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition-all duration-200 enabled:hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-700/60 dark:bg-rose-950/20 dark:text-rose-300 dark:enabled:hover:bg-rose-950/40"
             >
@@ -388,11 +431,38 @@ export function FinanceApprovalsBulkTable({
               <button
                 type="button"
                 onClick={submitBulkMarkPaid}
-                disabled={!isMarkAsPaidValid}
+                disabled={!isMarkAsPaidValid || isAnyBulkSubmitting}
                 title={markPaidTitle}
                 className="inline-flex h-8 items-center justify-center rounded-lg border border-indigo-300 bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 transition-all duration-200 enabled:hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-300 dark:enabled:hover:bg-indigo-950/40"
               >
-                Bulk Mark Paid
+                {isSubmittingBulkMarkPaid ? (
+                  <>
+                    <svg
+                      className="mr-1.5 h-3 w-3 animate-spin"
+                      viewBox="0 0 20 20"
+                      aria-hidden="true"
+                      fill="none"
+                    >
+                      <circle
+                        cx="10"
+                        cy="10"
+                        r="7"
+                        stroke="currentColor"
+                        strokeOpacity="0.3"
+                        strokeWidth="2"
+                      />
+                      <path
+                        d="M10 3a7 7 0 0 1 7 7"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    Processing...
+                  </>
+                ) : (
+                  "Bulk Mark Paid"
+                )}
               </button>
             ) : null}
           </div>
@@ -634,6 +704,7 @@ export function FinanceApprovalsBulkTable({
                             ?.advanceSupportingDocumentSignedUrl ?? null
                         }
                         auditLogs={auditLogsByClaimId[claim.id] ?? []}
+                        canInlineEdit={canApproveOrReject}
                       >
                         {isActionable ? renderRowActions(false) : undefined}
                       </ApprovalsAuditModeDialog>
@@ -680,7 +751,7 @@ export function FinanceApprovalsBulkTable({
                   minLength={5}
                   disabled={isSubmittingBulkReject}
                   rows={4}
-                  className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-indigo-500 transition focus:ring dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="min-h-24 w-full resize-y rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-indigo-500 transition focus:ring dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
                   placeholder="Enter at least 5 characters"
                 />
               </div>

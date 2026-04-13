@@ -1,11 +1,8 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
-import { serverEnv } from "@/core/config/server-env";
 import { logger } from "@/core/infra/logging/logger";
 import { getServiceRoleSupabaseClient } from "@/core/infra/supabase/server-client";
-import { applySupabaseAuthCookies } from "@/core/infra/supabase/supabase-auth-cookie-utils";
+import { getCachedRequestAuthUser } from "@/modules/auth/server/get-request-auth-user";
 import { getUserRoleCacheTag, USER_ROLE_CACHE_TAG } from "@/modules/auth/server/user-role-cache";
 
 const USER_ROLE_REVALIDATE_SECONDS = 60 * 60;
@@ -66,41 +63,6 @@ function readAdminRoleFromAppMetadata(appMetadata: unknown): boolean | null {
   return null;
 }
 
-async function createRequestScopedSupabaseClient() {
-  const cookieStore = await cookies();
-
-  return createServerClient(
-    serverEnv.NEXT_PUBLIC_SUPABASE_URL,
-    serverEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            applySupabaseAuthCookies({
-              existingCookies: cookieStore.getAll(),
-              cookiesToSet,
-              setCookie: (name, value, options) => {
-                cookieStore.set(name, value, options);
-              },
-            });
-          } catch {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              try {
-                cookieStore.set(name, value, options);
-              } catch {
-                // Server components may not set cookies; safe to ignore.
-              }
-            });
-          }
-        },
-      },
-    },
-  );
-}
-
 async function queryAdminMembershipFromDatabase(userId: string): Promise<boolean> {
   const supabase = getServiceRoleSupabaseClient();
 
@@ -144,23 +106,17 @@ const getCachedAdminMembershipForUser = cache(async (userId: string): Promise<bo
  */
 export const isAdmin = cache(async (): Promise<boolean> => {
   try {
-    const supabase = await createRequestScopedSupabaseClient();
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    const authState = await getCachedRequestAuthUser();
+    if (authState.errorMessage || !authState.user) {
       return false;
     }
 
-    const metadataRole = readAdminRoleFromAppMetadata(user.app_metadata);
+    const metadataRole = readAdminRoleFromAppMetadata(authState.user.app_metadata);
     if (metadataRole !== null) {
       return metadataRole;
     }
 
-    return getCachedAdminMembershipForUser(user.id);
+    return getCachedAdminMembershipForUser(authState.user.id);
   } catch {
     return false;
   }

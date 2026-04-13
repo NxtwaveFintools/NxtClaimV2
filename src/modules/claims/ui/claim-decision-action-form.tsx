@@ -27,13 +27,14 @@ export function ClaimDecisionActionForm({
 }: ClaimDecisionActionFormProps) {
   const router = useRouter();
   const quickViewControls = useApprovalsQuickViewControls();
-  const [, startTransition] = useTransition();
+  const [isNavigating, startTransition] = useTransition();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isPending = isSubmitting || isNavigating;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (isSubmitting) {
+    if (isPending) {
       return;
     }
 
@@ -61,7 +62,7 @@ export function ClaimDecisionActionForm({
 
   return (
     <form onSubmit={handleSubmit}>
-      <ClaimDecisionSubmitButton decision={decision} compact={compact} pending={isSubmitting} />
+      <ClaimDecisionSubmitButton decision={decision} compact={compact} pending={isPending} />
     </form>
   );
 }

@@ -6,12 +6,33 @@ import type {
   OAuthProvider,
 } from "@/core/domain/auth/contracts";
 import { getBrowserSupabaseClient } from "@/core/infra/supabase/browser-client";
+import {
+  isSupabaseAuthSessionMissingError,
+  isSupabaseTerminalSessionError,
+} from "@/core/infra/supabase/auth-error-utils";
+import { ROUTES } from "@/core/config/route-registry";
 
 export class SupabaseAuthRepository implements AuthRepository {
-  private isMissingSessionError(message: string | null | undefined): boolean {
-    if (!message) return false;
+  private sessionCleanupInFlight: Promise<void> | null = null;
 
-    return message.toLowerCase().includes("auth session missing");
+  private async cleanupBrokenSession(): Promise<void> {
+    if (this.sessionCleanupInFlight) {
+      return this.sessionCleanupInFlight;
+    }
+
+    const supabase = getBrowserSupabaseClient();
+
+    this.sessionCleanupInFlight = (async () => {
+      await fetch(ROUTES.authApi.logout, {
+        method: "POST",
+      }).catch(() => null);
+
+      await supabase.auth.signOut({ scope: "local" }).catch(() => null);
+    })().finally(() => {
+      this.sessionCleanupInFlight = null;
+    });
+
+    return this.sessionCleanupInFlight;
   }
 
   async signInWithEmail(
@@ -30,7 +51,7 @@ export class SupabaseAuthRepository implements AuthRepository {
     }
 
     if (data.session) {
-      const sessionResponse = await fetch("/api/auth/session", {
+      const sessionResponse = await fetch(ROUTES.authApi.session, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -87,6 +108,11 @@ export class SupabaseAuthRepository implements AuthRepository {
       refresh_token: tokens.refreshToken,
     });
 
+    if (error && isSupabaseTerminalSessionError(error)) {
+      await this.cleanupBrokenSession();
+      return { errorMessage: "Your session has expired. Please sign in again." };
+    }
+
     return { errorMessage: error?.message ?? null };
   }
 
@@ -108,7 +134,8 @@ export class SupabaseAuthRepository implements AuthRepository {
     const { data, error } = await supabase.auth.getUser();
 
     if (error) {
-      if (this.isMissingSessionError(error.message)) {
+      if (isSupabaseAuthSessionMissingError(error) || isSupabaseTerminalSessionError(error)) {
+        await this.cleanupBrokenSession();
         return { user: null, errorMessage: null };
       }
 
@@ -130,7 +157,16 @@ export class SupabaseAuthRepository implements AuthRepository {
 
   async getAccessToken(): Promise<string | null> {
     const supabase = getBrowserSupabaseClient();
-    const { data } = await supabase.auth.getSession();
+    const { data, error } = await supabase.auth.getSession();
+
+    if (error) {
+      if (isSupabaseAuthSessionMissingError(error) || isSupabaseTerminalSessionError(error)) {
+        await this.cleanupBrokenSession();
+      }
+
+      return null;
+    }
+
     return data.session?.access_token ?? null;
   }
 }

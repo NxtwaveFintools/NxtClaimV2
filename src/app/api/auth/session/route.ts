@@ -5,7 +5,11 @@ import { z } from "zod";
 import { withAuth } from "@/core/http/with-auth";
 import { serverEnv } from "@/core/config/server-env";
 import { AUTH_ERROR_CODES } from "@/core/constants/auth";
-import { applySupabaseAuthCookies } from "@/core/infra/supabase/supabase-auth-cookie-utils";
+import {
+  applySupabaseAuthCookies,
+  clearSupabaseAuthTokenCookies,
+} from "@/core/infra/supabase/supabase-auth-cookie-utils";
+import { isSupabaseTerminalSessionError } from "@/core/infra/supabase/auth-error-utils";
 import { createErrorResponse, createSuccessResponse } from "@/types/api";
 
 const sessionSchema = z.object({
@@ -81,6 +85,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   });
 
   if (error) {
+    if (isSupabaseTerminalSessionError(error)) {
+      clearSupabaseAuthTokenCookies({
+        existingCookies: cookieStore.getAll(),
+        setCookie: (name, value, options) => {
+          response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2]);
+        },
+      });
+
+      return NextResponse.json(
+        createErrorResponse(
+          AUTH_ERROR_CODES.sessionExpired,
+          "Session expired. Please sign in again.",
+          correlationId,
+        ),
+        { status: 401 },
+      );
+    }
+
     return NextResponse.json(
       createErrorResponse(AUTH_ERROR_CODES.authFailed, error.message, correlationId),
       { status: 401 },

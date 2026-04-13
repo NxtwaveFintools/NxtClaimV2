@@ -104,6 +104,32 @@ describe("SupabaseServerAuthRepository", () => {
     });
   });
 
+  test("getCurrentUser clears cookies on terminal session errors", async () => {
+    cookieStore.getAll.mockReturnValueOnce([
+      { name: "sb-project-auth-token", value: "token" },
+      { name: "sb-project-auth-token.0", value: "token.0" },
+    ] as never);
+
+    const getUser = jest.fn().mockResolvedValue({
+      data: { user: null },
+      error: {
+        message: "Invalid Refresh Token: Refresh Token Not Found",
+        code: "refresh_token_not_found",
+      },
+    });
+
+    mockCreateServerClient.mockReturnValue({ auth: { getUser } });
+
+    const repository = new SupabaseServerAuthRepository();
+    const result = await repository.getCurrentUser();
+
+    expect(result).toEqual({
+      user: null,
+      errorMessage: null,
+    });
+    expect(cookieStore.set).toHaveBeenCalled();
+  });
+
   test("getCurrentUser maps user payload", async () => {
     const getUser = jest.fn().mockResolvedValue({
       data: { user: { id: "user-1", email: "user@nxtwave.co.in" } },
@@ -133,5 +159,27 @@ describe("SupabaseServerAuthRepository", () => {
 
     await expect(repository.getAccessToken()).resolves.toBe("token-1");
     await expect(repository.getAccessToken()).resolves.toBeNull();
+  });
+
+  test("getAccessToken returns null and clears cookies on terminal session errors", async () => {
+    cookieStore.getAll.mockReturnValueOnce([
+      { name: "sb-project-auth-token", value: "token" },
+    ] as never);
+
+    const getSession = jest.fn().mockResolvedValue({
+      data: { session: null },
+      error: {
+        message: "Invalid Refresh Token: Refresh Token Not Found",
+        code: "refresh_token_not_found",
+      },
+    });
+
+    mockCreateServerClient.mockReturnValue({ auth: { getSession } });
+
+    const repository = new SupabaseServerAuthRepository();
+    const result = await repository.getAccessToken();
+
+    expect(result).toBeNull();
+    expect(cookieStore.set).toHaveBeenCalled();
   });
 });

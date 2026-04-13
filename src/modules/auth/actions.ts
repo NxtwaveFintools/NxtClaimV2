@@ -2,6 +2,7 @@
 
 import { AuthService } from "@/core/domain/auth/auth.service";
 import { AUTH_PROVIDERS } from "@/core/constants/auth";
+import { ROUTES } from "@/core/config/route-registry";
 import { logger } from "@/core/infra/logging/logger";
 import { SupabaseAuthRepository } from "@/modules/auth/repositories/supabase-auth.repository";
 import type { LoginFormValues } from "@/modules/auth/validators/login-schema";
@@ -25,7 +26,7 @@ export async function loginWithEmailAction(
 }
 
 export async function loginWithMicrosoftAction(): Promise<{ ok: boolean; message?: string }> {
-  const redirectTo = `${window.location.origin}/auth/callback`;
+  const redirectTo = `${window.location.origin}${ROUTES.auth.callback}`;
   const result = await authService.loginWithOAuth(AUTH_PROVIDERS.microsoft, redirectTo);
 
   if (result.errorCode) {
@@ -36,7 +37,7 @@ export async function loginWithMicrosoftAction(): Promise<{ ok: boolean; message
 }
 
 export async function loginWithGoogleAction(): Promise<{ ok: boolean; message?: string }> {
-  const redirectTo = `${window.location.origin}/auth/callback`;
+  const redirectTo = `${window.location.origin}${ROUTES.auth.callback}`;
   const result = await authService.loginWithOAuth(AUTH_PROVIDERS.google, redirectTo);
 
   if (result.errorCode) {

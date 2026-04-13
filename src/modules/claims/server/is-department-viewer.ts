@@ -6,6 +6,7 @@ import { serverEnv } from "@/core/config/server-env";
 import { logger } from "@/core/infra/logging/logger";
 import { getServiceRoleSupabaseClient } from "@/core/infra/supabase/server-client";
 import { applySupabaseAuthCookies } from "@/core/infra/supabase/supabase-auth-cookie-utils";
+import { getCachedRequestAuthUser } from "@/modules/auth/server/get-request-auth-user";
 import { getUserRoleCacheTag, USER_ROLE_CACHE_TAG } from "@/modules/auth/server/user-role-cache";
 
 const USER_ROLE_REVALIDATE_SECONDS = 60 * 60;
@@ -157,23 +158,17 @@ const getCachedDepartmentViewerMembershipForUser = cache(
  */
 export const isDepartmentViewer = cache(async (): Promise<boolean> => {
   try {
-    const supabase = await createRequestScopedSupabaseClient();
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    const authState = await getCachedRequestAuthUser();
+    if (authState.errorMessage || !authState.user) {
       return false;
     }
 
-    const metadataRole = readDepartmentViewerRoleFromAppMetadata(user.app_metadata);
+    const metadataRole = readDepartmentViewerRoleFromAppMetadata(authState.user.app_metadata);
     if (metadataRole !== null) {
       return metadataRole;
     }
 
-    return getCachedDepartmentViewerMembershipForUser(user.id);
+    return getCachedDepartmentViewerMembershipForUser(authState.user.id);
   } catch {
     return false;
   }
@@ -186,16 +181,12 @@ export const isDepartmentViewer = cache(async (): Promise<boolean> => {
  */
 export async function getViewerDepartmentIds(userId: string): Promise<string[]> {
   try {
-    const supabase = await createRequestScopedSupabaseClient();
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user || user.id !== userId) {
+    const authState = await getCachedRequestAuthUser();
+    if (authState.errorMessage || !authState.user || authState.user.id !== userId) {
       return [];
     }
+
+    const supabase = await createRequestScopedSupabaseClient();
 
     const { data, error } = await supabase
       .from("department_viewers")

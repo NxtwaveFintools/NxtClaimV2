@@ -17,15 +17,16 @@ export function ClaimRejectWithReasonForm({
   redirectToHref,
 }: ClaimRejectWithReasonFormProps) {
   const router = useRouter();
-  const [, startTransition] = useTransition();
+  const [isNavigating, startTransition] = useTransition();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isPending = isSubmitting || isNavigating;
   const canUseDOM = typeof window !== "undefined" && typeof document !== "undefined";
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (isSubmitting) {
+    if (isPending) {
       return;
     }
 
@@ -55,6 +56,7 @@ export function ClaimRejectWithReasonForm({
     <>
       <button
         type="button"
+        disabled={isPending}
         onClick={() => {
           setIsModalOpen(true);
         }}
@@ -74,7 +76,7 @@ export function ClaimRejectWithReasonForm({
                 type="button"
                 aria-label="Close reject dialog"
                 className="absolute inset-0 bg-zinc-900/50"
-                disabled={isSubmitting}
+                disabled={isPending}
                 onClick={() => {
                   setIsModalOpen(false);
                 }}
@@ -101,7 +103,7 @@ export function ClaimRejectWithReasonForm({
                       name="rejectionReason"
                       required
                       minLength={5}
-                      disabled={isSubmitting}
+                      disabled={isPending}
                       rows={4}
                       className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-indigo-500 transition focus:ring dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
                       placeholder="Enter at least 5 characters"
@@ -113,7 +115,7 @@ export function ClaimRejectWithReasonForm({
                       type="checkbox"
                       name="allowResubmission"
                       value="true"
-                      disabled={isSubmitting}
+                      disabled={isPending}
                       className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 dark:border-zinc-700"
                     />
                     <span className="text-sm text-zinc-700 dark:text-zinc-300">
@@ -124,7 +126,7 @@ export function ClaimRejectWithReasonForm({
                   <div className="flex flex-wrap items-center justify-end gap-2">
                     <button
                       type="button"
-                      disabled={isSubmitting}
+                      disabled={isPending}
                       onClick={() => {
                         setIsModalOpen(false);
                       }}
@@ -134,10 +136,10 @@ export function ClaimRejectWithReasonForm({
                     </button>
                     <button
                       type="submit"
-                      disabled={isSubmitting}
+                      disabled={isPending}
                       className="inline-flex items-center justify-center rounded-xl border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition-all duration-200 hover:bg-rose-100 active:scale-[0.98] disabled:opacity-60 dark:border-rose-700/60 dark:bg-rose-950/20 dark:text-rose-300 dark:hover:bg-rose-950/40"
                     >
-                      {isSubmitting ? "Processing..." : "Confirm Rejection"}
+                      {isPending ? "Processing..." : "Confirm Rejection"}
                     </button>
                   </div>
                 </form>
