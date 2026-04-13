@@ -175,6 +175,23 @@ function parseAiPayload(payload: unknown): Record<string, unknown> | null {
   return toRecord(payload);
 }
 
+function unwrapAiResponsePayload(payload: unknown): unknown {
+  const record = toRecord(payload);
+  if (!record) {
+    return payload;
+  }
+
+  if (record.result !== undefined) {
+    return record.result;
+  }
+
+  if (record.data !== undefined) {
+    return record.data;
+  }
+
+  return payload;
+}
+
 function normalizeCategoryName(value: string | null | undefined): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
@@ -657,12 +674,13 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
   const applyParsedReceiptToForm = (parsed: Record<string, unknown>): void => {
     const parsedCategoryName = toNullableString(parsed.category_name ?? parsed.expenseCategory);
-    const billNo = toNullableString(parsed.billNo) ?? "";
-    const transactionDate = toNullableString(parsed.transactionDate) ?? "";
+    const billNo = toNullableString(parsed.billNo ?? parsed.bill_no) ?? "";
+    const transactionDate =
+      toNullableString(parsed.transactionDate ?? parsed.transaction_date) ?? "";
     const gstNumber = toNullableString(parsed.gstNumber ?? parsed.gst_number);
-    const vendorName = toNullableString(parsed.vendorName);
+    const vendorName = toNullableString(parsed.vendorName ?? parsed.vendor_name);
 
-    const basicAmount = toNumber(parsed.basicAmount);
+    const basicAmount = toNumber(parsed.basicAmount ?? parsed.basic_amount);
     const cgstAmount = toNumber(parsed.cgstAmount ?? parsed.cgst_amount);
     const sgstAmount = toNumber(parsed.sgstAmount ?? parsed.sgst_amount);
     const igstAmount = toNumber(parsed.igstAmount ?? parsed.igst_amount);
@@ -753,7 +771,10 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
         return;
       }
 
-      const aiData = parseAiPayload(result.data);
+      console.log("RAW API RESPONSE:", result);
+
+      const aiDataPayload = unwrapAiResponsePayload(result.data);
+      const aiData = parseAiPayload(aiDataPayload);
       if (!aiData) {
         toast.error("AI returned invalid JSON. Please fill the fields manually.", { id: toastId });
         return;
