@@ -325,37 +325,22 @@ function clampConfidence(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
-function sanitizeGeminiResponseText(response: string): string {
-  const cleanedResponse = response
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
-  return cleanedResponse.replace(/\\u(?![0-9a-fA-F]{4})/g, "");
-}
-
-function parseGeminiJsonResponse(response: string): unknown {
-  const cleanedResponse = sanitizeGeminiResponseText(response);
-
+function safeParseJSON(text: string): unknown | null {
   try {
-    return JSON.parse(cleanedResponse);
+    const cleaned = text
+      .replace(/```json/gi, "")
+      .replace(/```/g, "")
+      .trim();
+    const normalized = cleaned.replace(/\\u(?![0-9a-fA-F]{4})/g, "");
+    const match = normalized.match(/\{[\s\S]*\}/);
+
+    if (!match) {
+      throw new Error("No JSON object found in AI response.");
+    }
+
+    return JSON.parse(match[0]);
   } catch {
-    const firstObjectStart = cleanedResponse.indexOf("{");
-    const lastObjectEnd = cleanedResponse.lastIndexOf("}");
-
-    if (firstObjectStart !== -1 && lastObjectEnd > firstObjectStart) {
-      const candidateObject = cleanedResponse.slice(firstObjectStart, lastObjectEnd + 1);
-      return JSON.parse(candidateObject);
-    }
-
-    const firstArrayStart = cleanedResponse.indexOf("[");
-    const lastArrayEnd = cleanedResponse.lastIndexOf("]");
-
-    if (firstArrayStart !== -1 && lastArrayEnd > firstArrayStart) {
-      const candidateArray = cleanedResponse.slice(firstArrayStart, lastArrayEnd + 1);
-      return JSON.parse(candidateArray);
-    }
-
-    throw new Error("Gemini returned non-JSON content.");
+    return null;
   }
 }
 
@@ -549,16 +534,11 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
       };
     }
 
-    let parsedJson: unknown;
-    try {
-      parsedJson = parseGeminiJsonResponse(modelText);
-    } catch (parseError) {
+    let parsedJson = safeParseJSON(modelText);
+    if (!parsedJson) {
       logger.warn("claims.parse_receipt.invalid_json_payload", {
-        errorName: parseError instanceof Error ? parseError.name : "UnknownError",
-        errorMessage:
-          parseError instanceof Error
-            ? parseError.message
-            : "Gemini output could not be parsed as JSON.",
+        errorName: "AIParseError",
+        errorMessage: "Gemini output could not be parsed as JSON.",
       });
 
       return {

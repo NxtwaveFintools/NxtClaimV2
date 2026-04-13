@@ -110,22 +110,27 @@ function toOptional(value: string): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function toNumberOrZero(value: unknown): number {
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : 0;
+function toNumber(val: unknown): number {
+  if (val === null || val === undefined) {
+    return 0;
   }
 
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (trimmed.length === 0) {
+  if (typeof val === "string") {
+    const normalized = val.trim().replace(/,/g, "");
+    if (normalized.length === 0) {
       return 0;
     }
 
-    const parsed = Number(trimmed.replace(/,/g, ""));
-    return Number.isFinite(parsed) ? parsed : 0;
+    const num = Number(normalized);
+    return Number.isFinite(num) ? num : 0;
   }
 
-  return 0;
+  const num = Number(val);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function toNumberOrZero(value: unknown): number {
+  return toNumber(value);
 }
 
 function toNullableString(value: unknown): string | null {
@@ -154,12 +159,13 @@ function toRecord(value: unknown): Record<string, unknown> | null {
 function parseAiPayload(payload: unknown): Record<string, unknown> | null {
   if (typeof payload === "string") {
     try {
-      const parsed = JSON.parse(stripJsonMarkdownFences(payload)) as unknown;
-
-      if (Array.isArray(parsed)) {
-        return parsed.length > 0 ? toRecord(parsed[0]) : null;
+      const cleanedPayload = stripJsonMarkdownFences(payload);
+      const objectMatch = cleanedPayload.match(/\{[\s\S]*\}/);
+      if (!objectMatch) {
+        return null;
       }
 
+      const parsed = JSON.parse(objectMatch[0]) as unknown;
       return toRecord(parsed);
     } catch {
       return null;
@@ -649,23 +655,18 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     void onSubmit(event);
   };
 
-  const applyParsedReceiptToForm = (payload: unknown): boolean => {
-    const parsed = parseAiPayload(payload);
-    if (!parsed) {
-      return false;
-    }
-
+  const applyParsedReceiptToForm = (parsed: Record<string, unknown>): void => {
     const parsedCategoryName = toNullableString(parsed.category_name ?? parsed.expenseCategory);
     const billNo = toNullableString(parsed.billNo) ?? "";
     const transactionDate = toNullableString(parsed.transactionDate) ?? "";
     const gstNumber = toNullableString(parsed.gstNumber ?? parsed.gst_number);
     const vendorName = toNullableString(parsed.vendorName);
 
-    const basicAmount = toNumberOrZero(parsed.basicAmount);
-    const cgstAmount = toNumberOrZero(parsed.cgstAmount ?? parsed.cgst_amount);
-    const sgstAmount = toNumberOrZero(parsed.sgstAmount ?? parsed.sgst_amount);
-    const igstAmount = toNumberOrZero(parsed.igstAmount ?? parsed.igst_amount);
-    const totalAmount = toNumberOrZero(parsed.totalAmount ?? parsed.total_amount);
+    const basicAmount = toNumber(parsed.basicAmount);
+    const cgstAmount = toNumber(parsed.cgstAmount ?? parsed.cgst_amount);
+    const sgstAmount = toNumber(parsed.sgstAmount ?? parsed.sgst_amount);
+    const igstAmount = toNumber(parsed.igstAmount ?? parsed.igst_amount);
+    const totalAmount = toNumber(parsed.totalAmount ?? parsed.total_amount);
     const normalizedTotalAmount =
       totalAmount > 0
         ? totalAmount
@@ -726,7 +727,6 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       shouldTouch: true,
       shouldValidate: true,
     });
-    return true;
   };
 
   const runReceiptExtraction = async (
@@ -753,11 +753,27 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
         return;
       }
 
-      const didApplyAutofill = applyParsedReceiptToForm(result.data);
-      if (!didApplyAutofill) {
+      const aiData = parseAiPayload(result.data);
+      if (!aiData) {
         toast.error("AI returned invalid JSON. Please fill the fields manually.", { id: toastId });
         return;
       }
+
+      console.log("AI DATA:", {
+        hasBillNo: typeof aiData.billNo === "string" && aiData.billNo.trim().length > 0,
+        hasTransactionDate:
+          typeof aiData.transactionDate === "string" && aiData.transactionDate.trim().length > 0,
+        hasVendorName: typeof aiData.vendorName === "string" && aiData.vendorName.trim().length > 0,
+        confidenceScoreType: typeof aiData.confidenceScore,
+        totalAmountType: typeof aiData.totalAmount,
+      });
+      console.log("TYPE CHECK totalAmount:", typeof aiData.totalAmount);
+
+      if (toNumber(aiData.confidenceScore) < 70) {
+        toast.warning("Receipt quality is low. Please verify all auto-filled fields carefully.");
+      }
+
+      applyParsedReceiptToForm(aiData);
 
       toast.success("Details fetched!", { id: toastId });
     } catch {
