@@ -2,7 +2,7 @@ import { cache } from "react";
 import type { ActivePolicyState } from "@/core/domain/policies/PolicyService";
 import { PolicyService } from "@/core/domain/policies/PolicyService";
 import { logger } from "@/core/infra/logging/logger";
-import { SupabaseServerAuthRepository } from "@/modules/auth/repositories/supabase-server-auth.repository";
+import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
 import { SupabasePolicyRepository } from "@/modules/policies/repositories/SupabasePolicyRepository";
 
 export type PolicyGateState = {
@@ -14,11 +14,10 @@ export type PolicyGateState = {
 };
 
 const policyRepository = new SupabasePolicyRepository();
-const authRepository = new SupabaseServerAuthRepository();
 const policyService = new PolicyService({ repository: policyRepository, logger });
 
 export const getPolicyGateState = cache(async (): Promise<PolicyGateState> => {
-  const currentUserResult = await authRepository.getCurrentUser();
+  const currentUserResult = await getCachedCurrentUser();
 
   if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
     return {

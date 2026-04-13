@@ -6,7 +6,13 @@ import type {
   OAuthProvider,
 } from "@/core/domain/auth/contracts";
 import { serverEnv } from "@/core/config/server-env";
-import { applySupabaseAuthCookies } from "@/core/infra/supabase/supabase-auth-cookie-utils";
+import {
+  applySupabaseAuthCookies,
+  clearSupabaseAuthTokenCookies,
+} from "@/core/infra/supabase/supabase-auth-cookie-utils";
+import { isSupabaseTerminalSessionError } from "@/core/infra/supabase/auth-error-utils";
+
+type CookieStore = Awaited<ReturnType<typeof cookies>>;
 
 export class SupabaseServerAuthRepository implements AuthRepository {
   async signInWithEmail(
@@ -45,8 +51,9 @@ export class SupabaseServerAuthRepository implements AuthRepository {
   }
 
   async signOut(): Promise<{ errorMessage: string | null }> {
-    const client = await this.getClient();
+    const { client, cookieStore } = await this.getClientContext();
     const { error } = await client.auth.signOut();
+    this.clearAuthCookies(cookieStore);
     return { errorMessage: error?.message ?? null };
   }
 
@@ -54,10 +61,15 @@ export class SupabaseServerAuthRepository implements AuthRepository {
     user: { id: string; email: string | null } | null;
     errorMessage: string | null;
   }> {
-    const client = await this.getClient();
+    const { client, cookieStore } = await this.getClientContext();
     const { data, error } = await client.auth.getUser();
 
     if (error) {
+      if (isSupabaseTerminalSessionError(error)) {
+        this.clearAuthCookies(cookieStore);
+        return { user: null, errorMessage: null };
+      }
+
       return { user: null, errorMessage: error.message };
     }
 
@@ -75,18 +87,26 @@ export class SupabaseServerAuthRepository implements AuthRepository {
   }
 
   async getAccessToken(): Promise<string | null> {
-    const client = await this.getClient();
+    const { client, cookieStore } = await this.getClientContext();
     const {
       data: { session },
+      error,
     } = await client.auth.getSession();
+
+    if (error) {
+      if (isSupabaseTerminalSessionError(error)) {
+        this.clearAuthCookies(cookieStore);
+      }
+
+      return null;
+    }
 
     return session?.access_token ?? null;
   }
 
-  private async getClient() {
+  private async getClientContext() {
     const cookieStore = await cookies();
-
-    return createServerClient(
+    const client = createServerClient(
       serverEnv.NEXT_PUBLIC_SUPABASE_URL,
       serverEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       {
@@ -116,5 +136,23 @@ export class SupabaseServerAuthRepository implements AuthRepository {
         },
       },
     );
+
+    return {
+      client,
+      cookieStore,
+    };
+  }
+
+  private clearAuthCookies(cookieStore: CookieStore): void {
+    try {
+      clearSupabaseAuthTokenCookies({
+        existingCookies: cookieStore.getAll(),
+        setCookie: (name, value, options) => {
+          cookieStore.set(name, value, options as Parameters<typeof cookieStore.set>[2]);
+        },
+      });
+    } catch {
+      // Best effort cookie cleanup for terminal session failures.
+    }
   }
 }

@@ -14,7 +14,7 @@ export function ClaimDecisionSubmitButton({
   pending,
 }: ClaimDecisionSubmitButtonProps) {
   const { pending: formPending } = useFormStatus();
-  const isPending = pending ?? formPending;
+  const isPending = pending ?? formPending ?? false;
   const isApprove = decision === "approve";
   const isMarkPaid = decision === "mark-paid";
 

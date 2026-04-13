@@ -4,6 +4,9 @@ export const ROUTES = {
   home: "/",
   dashboard: "/dashboard",
   dashboardAnalytics: "/dashboard/analytics",
+  auth: {
+    callback: "/auth/callback",
+  },
   claims: {
     list: "/claims",
     dashboardList: "/dashboard/claims",

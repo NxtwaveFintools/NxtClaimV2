@@ -8,6 +8,7 @@ export const AUTH_ERROR_CODES = {
   domainNotAllowed: "DOMAIN_NOT_ALLOWED",
   validationError: "VALIDATION_ERROR",
   authFailed: "AUTH_FAILED",
+  sessionExpired: "SESSION_EXPIRED",
 } as const;
 
 export const USER_ROLES = {

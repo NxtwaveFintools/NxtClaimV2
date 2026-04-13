@@ -186,18 +186,70 @@ describe("SupabaseAuthRepository", () => {
     await expect(repository.signOut()).resolves.toEqual({ errorMessage: "logout failed" });
   });
 
+  test("setSession performs cleanup for terminal session errors", async () => {
+    const client = createAuthClient();
+    client.auth.setSession.mockResolvedValue({
+      error: {
+        message: "Invalid Refresh Token: Refresh Token Not Found",
+        code: "refresh_token_not_found",
+      },
+    });
+    client.auth.signOut.mockResolvedValue({ error: null });
+    mockGetBrowserSupabaseClient.mockReturnValue(client);
+
+    mockFetch.mockResolvedValue({ ok: true });
+
+    const repository = new SupabaseAuthRepository();
+    const result = await repository.setSession({ accessToken: "a", refreshToken: "r" });
+
+    expect(result).toEqual({ errorMessage: "Your session has expired. Please sign in again." });
+    expect(mockFetch).toHaveBeenCalledWith("/api/auth/logout", {
+      method: "POST",
+    });
+    expect(client.auth.signOut).toHaveBeenCalledWith({ scope: "local" });
+  });
+
   test("getCurrentUser treats missing-session errors as anonymous", async () => {
     const client = createAuthClient();
     client.auth.getUser.mockResolvedValue({
       data: { user: null },
       error: { message: "Auth Session Missing" },
     });
+    client.auth.signOut.mockResolvedValue({ error: null });
     mockGetBrowserSupabaseClient.mockReturnValue(client);
+    mockFetch.mockResolvedValue({ ok: true });
 
     const repository = new SupabaseAuthRepository();
     const result = await repository.getCurrentUser();
 
     expect(result).toEqual({ user: null, errorMessage: null });
+    expect(mockFetch).toHaveBeenCalledWith("/api/auth/logout", {
+      method: "POST",
+    });
+    expect(client.auth.signOut).toHaveBeenCalledWith({ scope: "local" });
+  });
+
+  test("getCurrentUser treats refresh_token_not_found as anonymous and cleans up", async () => {
+    const client = createAuthClient();
+    client.auth.getUser.mockResolvedValue({
+      data: { user: null },
+      error: {
+        message: "Invalid Refresh Token: Refresh Token Not Found",
+        code: "refresh_token_not_found",
+      },
+    });
+    client.auth.signOut.mockResolvedValue({ error: null });
+    mockGetBrowserSupabaseClient.mockReturnValue(client);
+    mockFetch.mockResolvedValue({ ok: true });
+
+    const repository = new SupabaseAuthRepository();
+    const result = await repository.getCurrentUser();
+
+    expect(result).toEqual({ user: null, errorMessage: null });
+    expect(mockFetch).toHaveBeenCalledWith("/api/auth/logout", {
+      method: "POST",
+    });
+    expect(client.auth.signOut).toHaveBeenCalledWith({ scope: "local" });
   });
 
   test("getCurrentUser returns non-session errors and maps successful user", async () => {
@@ -237,5 +289,28 @@ describe("SupabaseAuthRepository", () => {
 
     await expect(repository.getAccessToken()).resolves.toBe("token-123");
     await expect(repository.getAccessToken()).resolves.toBeNull();
+  });
+
+  test("getAccessToken cleans up on terminal session errors", async () => {
+    const client = createAuthClient();
+    client.auth.getSession.mockResolvedValue({
+      data: { session: null },
+      error: {
+        message: "Invalid Refresh Token: Refresh Token Not Found",
+        code: "refresh_token_not_found",
+      },
+    });
+    client.auth.signOut.mockResolvedValue({ error: null });
+    mockGetBrowserSupabaseClient.mockReturnValue(client);
+    mockFetch.mockResolvedValue({ ok: true });
+
+    const repository = new SupabaseAuthRepository();
+    const token = await repository.getAccessToken();
+
+    expect(token).toBeNull();
+    expect(mockFetch).toHaveBeenCalledWith("/api/auth/logout", {
+      method: "POST",
+    });
+    expect(client.auth.signOut).toHaveBeenCalledWith({ scope: "local" });
   });
 });

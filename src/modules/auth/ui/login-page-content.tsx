@@ -27,9 +27,11 @@ export function LoginPageContent() {
   const queryError =
     queryErrorCode === "unauthorized_domain"
       ? "Your email domain is not authorized for this workspace."
-      : queryErrorCode === "sso-failed"
+      : queryErrorCode === "sso-failed" || queryErrorCode === "sso_failed"
         ? "Microsoft sign-in failed. Please try again."
-        : null;
+        : queryErrorCode === "session_expired"
+          ? "Your session expired. Please sign in again."
+          : null;
 
   useEffect(() => {
     let isMounted = true;

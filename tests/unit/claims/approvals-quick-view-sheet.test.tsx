@@ -4,10 +4,23 @@ import type { ReactNode } from "react";
 import { ApprovalsAuditModeDialog } from "@/modules/claims/ui/approvals-quick-view-sheet";
 
 const mockGetClaimQuickViewHydrationAction = jest.fn();
+const mockGetClaimFormHydrationAction = jest.fn();
+const mockUpdateClaimByFinanceAction = jest.fn();
+const mockRouterRefresh = jest.fn();
+
+jest.mock("next/navigation", () => ({
+  usePathname: () => "/dashboard/my-claims",
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({
+    refresh: mockRouterRefresh,
+  }),
+}));
 
 jest.mock("@/modules/claims/actions", () => ({
   getClaimQuickViewHydrationAction: (...args: unknown[]) =>
     mockGetClaimQuickViewHydrationAction(...args),
+  getClaimFormHydrationAction: (...args: unknown[]) => mockGetClaimFormHydrationAction(...args),
+  updateClaimByFinanceAction: (...args: unknown[]) => mockUpdateClaimByFinanceAction(...args),
 }));
 
 jest.mock("@/modules/claims/ui/claim-semantic-download-button", () => ({
@@ -21,15 +34,37 @@ jest.mock("@/components/ui/router-link", () => ({
 }));
 
 const hydratedClaim = {
+  id: "CLAIM-1",
+  employeeId: "EMP-1",
+  departmentId: "dep-1",
+  paymentModeId: "mode-1",
+  submissionType: "Self" as const,
+  detailType: "expense" as const,
+  onBehalfOfId: null,
+  onBehalfEmail: null,
+  onBehalfEmployeeCode: null,
+  status: "Submitted - Awaiting HOD approval" as const,
+  rejectionReason: null,
   submittedAt: "2026-04-10",
+  assignedL1ApproverId: "hod-user-1",
+  assignedL2ApproverId: null,
+  submittedBy: "submitter-user-1",
+  submitter: "Jane Doe",
+  submitterName: "Jane Doe",
+  submitterEmail: "jane@example.com",
+  beneficiaryName: null,
+  beneficiaryEmail: null,
   departmentName: "Operations",
   paymentModeName: "Corporate Card",
   expense: {
     id: "expense-1",
     billNo: "BILL-100",
     purpose: "Client visit",
+    expenseCategoryId: "cat-1",
     expenseCategoryName: "Printing & Stationery",
+    productId: "prod-1",
     productName: "NxtWave",
+    locationId: "loc-1",
     locationName: "Hyderabad",
     locationType: "Office",
     locationDetails: "Floor 3",
@@ -44,6 +79,8 @@ const hydratedClaim = {
     vendorName: "Foobar Labs",
     peopleInvolved: "Alice, Bob",
     remarks: "Urgent print run",
+    receiptFilePath: null,
+    bankStatementFilePath: null,
   },
   advance: null,
 };
@@ -51,6 +88,7 @@ const hydratedClaim = {
 describe("ApprovalsAuditModeDialog quick view", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockRouterRefresh.mockReset();
     mockGetClaimQuickViewHydrationAction.mockResolvedValue({
       ok: true,
       data: {
@@ -58,6 +96,26 @@ describe("ApprovalsAuditModeDialog quick view", () => {
         auditLogs: [],
       },
     });
+    mockGetClaimFormHydrationAction.mockResolvedValue({
+      data: {
+        currentUser: {
+          id: "finance-user-1",
+          email: "finance@example.com",
+          name: "Finance User",
+          isGlobalHod: false,
+        },
+        options: {
+          departments: [{ id: "dep-1", name: "Operations" }],
+          departmentRouting: [],
+          paymentModes: [{ id: "mode-1", name: "Corporate Card", detailType: "expense" }],
+          expenseCategories: [{ id: "cat-1", name: "Printing & Stationery" }],
+          products: [{ id: "prod-1", name: "NxtWave" }],
+          locations: [{ id: "loc-1", name: "Hyderabad" }],
+        },
+      },
+      errorMessage: null,
+    });
+    mockUpdateClaimByFinanceAction.mockResolvedValue({ ok: true, message: "Claim updated." });
   });
 
   afterEach(() => {
@@ -115,5 +173,66 @@ describe("ApprovalsAuditModeDialog quick view", () => {
     expect(screen.getAllByText(/^Transaction Date$/)).toHaveLength(1);
     expect(screen.getByText(/^Total Amount$/)).toBeInTheDocument();
     expect(screen.getAllByText(/^Bill No$/).length).toBeGreaterThan(0);
+  });
+
+  test("opens nested quick edit dialog and refreshes quick view data after save", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ApprovalsAuditModeDialog
+        claimId="CLAIM-1"
+        detailType="expense"
+        submitter="Jane Doe"
+        amountLabel="₹1,180.00"
+        submissionType="Self"
+        onBehalfEmail={null}
+        expenseReceiptFilePath={null}
+        expenseReceiptSignedUrl={null}
+        expenseBankStatementFilePath={null}
+        expenseBankStatementSignedUrl={null}
+        advanceSupportingDocumentPath={null}
+        advanceSupportingDocumentSignedUrl={null}
+        auditLogs={[]}
+        canInlineEdit
+      >
+        <button type="button">Approve</button>
+      </ApprovalsAuditModeDialog>,
+    );
+
+    await user.click(screen.getByRole("button", { name: /view claim/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Quick Edit Claim")).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(mockGetClaimFormHydrationAction).toHaveBeenCalledTimes(1);
+    });
+
+    const hydrationCallsBeforeSave = mockGetClaimQuickViewHydrationAction.mock.calls.length;
+    const saveButton = await screen.findByRole("button", { name: /save changes/i });
+    await user.click(saveButton);
+
+    await waitFor(() => {
+      expect(mockUpdateClaimByFinanceAction).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(mockGetClaimQuickViewHydrationAction.mock.calls.length).toBeGreaterThan(
+        hydrationCallsBeforeSave,
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockRouterRefresh).toHaveBeenCalledTimes(1);
+    });
+
+    expect(screen.queryByText("Quick Edit Claim")).not.toBeInTheDocument();
   });
 });
