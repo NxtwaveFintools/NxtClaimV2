@@ -2761,7 +2761,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
   async getMyClaimsPaginated(
     userId: string,
-    page: number,
+    cursor: string | null,
     limit: number,
     filters?: GetMyClaimsFilters,
   ): Promise<{
@@ -2790,16 +2790,26 @@ export class SupabaseClaimRepository implements ClaimRepository {
       advanceSupportingDocumentPath: string | null;
     }>;
     totalCount: number;
+    nextCursor: string | null;
+    hasNextPage: boolean;
     errorMessage: string | null;
   }> {
     const client = getServiceRoleSupabaseClient();
+    const decodedCursor = decodeClaimsCursor(cursor);
     const normalizedStatuses = normalizeStatusFilter(filters?.status);
     const { fromDate, toDate } = normalizeDateRange(filters);
     const normalizedSearch = normalizeSearchInput(filters);
     const safeLimit = clampListPageSize(limit);
-    const safePage = Math.max(1, Math.floor(page));
-    const from = (safePage - 1) * safeLimit;
-    const to = from + safeLimit - 1;
+
+    if (cursor && !decodedCursor) {
+      return {
+        data: [],
+        totalCount: 0,
+        nextCursor: null,
+        hasNextPage: false,
+        errorMessage: "Invalid cursor format.",
+      };
+    }
 
     let query = client
       .from("vw_enterprise_claims_dashboard")
@@ -2820,19 +2830,34 @@ export class SupabaseClaimRepository implements ClaimRepository {
       normalizedSearch,
     });
 
-    const { data, count, error } = await query.range(from, to);
+    if (decodedCursor) {
+      query = query.or(
+        `created_at.lt.${decodedCursor.createdAt},and(created_at.eq.${decodedCursor.createdAt},claim_id.lt.${decodedCursor.id})`,
+      );
+    }
+
+    const { data, count, error } = await query.limit(safeLimit + 1);
 
     if (error) {
       return {
         data: [],
         totalCount: 0,
+        nextCursor: null,
+        hasNextPage: false,
         errorMessage: error.message,
       };
     }
 
     const rows = (data ?? []) as EnterpriseClaimsDashboardRow[];
+    const hasExtraRecord = rows.length > safeLimit;
+    const pageRows = hasExtraRecord ? rows.slice(0, safeLimit) : rows;
+    const lastRow = pageRows[pageRows.length - 1] ?? null;
+    const nextCursor =
+      hasExtraRecord && lastRow
+        ? encodeClaimsCursor({ createdAt: lastRow.created_at, id: lastRow.claim_id })
+        : null;
 
-    const mappedRows = rows.map((row) => ({
+    const mappedRows = pageRows.map((row) => ({
       id: row.claim_id,
       employeeId: row.employee_id,
       employeeName: row.employee_name,
@@ -2860,6 +2885,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
     return {
       data: mappedRows,
       totalCount: count ?? 0,
+      nextCursor,
+      hasNextPage: hasExtraRecord,
       errorMessage: null,
     };
   }

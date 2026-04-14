@@ -14,16 +14,13 @@ import { formatDate, formatCurrency } from "@/lib/format";
 import { appendReturnToParam, buildPathWithSearchParams } from "@/lib/pagination-helpers";
 
 type Props = {
-  rows: DepartmentViewerClaimRecord[];
+  claims: DepartmentViewerClaimRecord[];
 };
 
-export function DepartmentClaimsTable({ rows }: Props) {
-  if (rows.length === 0) {
+export function DepartmentClaimsTable({ claims }: Props) {
+  if (claims.length === 0) {
     return (
-      <TableEmptyState
-        title="No claims found for your assigned departments"
-        description="Adjust filters or check back later."
-      />
+      <TableEmptyState title="No claims found" description="Adjust filters or check back later." />
     );
   }
 
@@ -47,7 +44,7 @@ export function DepartmentClaimsTable({ rows }: Props) {
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
-          {rows.map((claim) => (
+          {claims.map((claim) => (
             <DepartmentClaimRow key={claim.claimId} claim={claim} />
           ))}
         </tbody>

@@ -64,12 +64,14 @@ type RepositoryClaimRow = {
 type PaginatedClaimsRepository = {
   getMyClaimsPaginated(
     userId: string,
-    page: number,
+    cursor: string | null,
     limit: number,
     filters?: GetMyClaimsFilters,
   ): Promise<{
     data: RepositoryClaimRow[];
     totalCount: number;
+    nextCursor: string | null;
+    hasNextPage: boolean;
     errorMessage: string | null;
   }>;
 };
@@ -91,17 +93,19 @@ export class GetMyClaimsPaginatedService {
 
   async execute(input: {
     userId: string;
-    page: number;
+    cursor: string | null;
     limit: number;
     filters?: GetMyClaimsFilters;
   }): Promise<{
     data: MyClaimsPaginatedRecord[];
     totalCount: number;
+    nextCursor: string | null;
+    hasNextPage: boolean;
     errorMessage: string | null;
   }> {
     const result = await this.repository.getMyClaimsPaginated(
       input.userId,
-      input.page,
+      input.cursor,
       input.limit,
       input.filters,
     );
@@ -109,13 +113,15 @@ export class GetMyClaimsPaginatedService {
     if (result.errorMessage) {
       this.logger.error("claims.get_my_claims_paginated_failed", {
         userId: input.userId,
-        page: input.page,
+        cursor: input.cursor,
         errorMessage: result.errorMessage,
       });
 
       return {
         data: [],
         totalCount: 0,
+        nextCursor: null,
+        hasNextPage: false,
         errorMessage: result.errorMessage,
       };
     }
@@ -129,6 +135,8 @@ export class GetMyClaimsPaginatedService {
         formattedFinanceActionDate: formatDate(row.financeActionDate),
       })),
       totalCount: result.totalCount,
+      nextCursor: result.nextCursor,
+      hasNextPage: result.hasNextPage,
       errorMessage: null,
     };
   }

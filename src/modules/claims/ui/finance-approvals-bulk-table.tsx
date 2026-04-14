@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { RouterLink } from "@/components/ui/router-link";
+import { TableEmptyState } from "@/components/ui/table-empty-state";
 import { DB_CLAIM_STATUSES, type DbClaimStatus } from "@/core/constants/statuses";
 import { ROUTES } from "@/core/config/route-registry";
 import { appendReturnToParam, buildPathWithSearchParams } from "@/lib/pagination-helpers";
@@ -56,7 +57,7 @@ type FinanceApprovalRow = {
 };
 
 type FinanceApprovalsBulkTableProps = {
-  rows: FinanceApprovalRow[];
+  claims: FinanceApprovalRow[];
   actionableIds: string[];
   totalSelectableCount: number;
   filters: GetMyClaimsFilters;
@@ -104,7 +105,7 @@ function normalizeFilters(filters: GetMyClaimsFilters): GetMyClaimsFilters {
 }
 
 export function FinanceApprovalsBulkTable({
-  rows,
+  claims,
   actionableIds,
   totalSelectableCount,
   filters,
@@ -142,8 +143,8 @@ export function FinanceApprovalsBulkTable({
   // When isGlobalSelect is true we can't inspect all pages, so we fall back to
   // trusting the server-side status guard and mark every action as valid.
   const selectedRows = useMemo(
-    () => rows.filter((row) => selectedIds.includes(row.id)),
-    [rows, selectedIds],
+    () => claims.filter((row) => selectedIds.includes(row.id)),
+    [claims, selectedIds],
   );
 
   const isApproveValid = useMemo(() => {
@@ -370,6 +371,12 @@ export function FinanceApprovalsBulkTable({
     }
   };
 
+  if (claims.length === 0) {
+    return (
+      <TableEmptyState title="No claims found" description="Adjust filters or check back later." />
+    );
+  }
+
   return (
     <div className="min-h-150">
       <div className="border-b border-zinc-200/80 px-5 py-3.5 dark:border-zinc-800">
@@ -545,7 +552,7 @@ export function FinanceApprovalsBulkTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
-            {rows.map((claim) => {
+            {claims.map((claim) => {
               const isChecked = isGlobalSelect || selectedIds.includes(claim.id);
               const userRole = approvalScope === "l1" ? "HOD" : "Finance";
               const availableActions = getAvailableClaimActions(claim.status, userRole);

@@ -15,11 +15,11 @@ import type { AdminClaimRecord } from "@/core/domain/admin/contracts";
 import { formatDate, formatCurrency } from "@/lib/format";
 
 type Props = {
-  rows: AdminClaimRecord[];
+  claims: AdminClaimRecord[];
 };
 
-export function AdminClaimsTable({ rows }: Props) {
-  if (rows.length === 0) {
+export function AdminClaimsTable({ claims }: Props) {
+  if (claims.length === 0) {
     return (
       <TableEmptyState title="No claims found" description="Adjust filters or check back later." />
     );
@@ -47,7 +47,7 @@ export function AdminClaimsTable({ rows }: Props) {
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
-          {rows.map((claim) => (
+          {claims.map((claim) => (
             <AdminClaimRow key={claim.claimId} claim={claim} />
           ))}
         </tbody>

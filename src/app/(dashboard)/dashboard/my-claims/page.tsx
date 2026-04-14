@@ -52,7 +52,6 @@ import {
   CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
   ClaimStatusBadge,
 } from "@/modules/claims/ui/claim-status-badge";
-import { MyClaimsOffsetPaginationControls } from "@/modules/claims/ui/my-claims-offset-pagination-controls";
 import { MyClaimsPaginationControls } from "@/modules/claims/ui/my-claims-pagination-controls";
 import { ApprovalsAuditModeDialog } from "@/modules/claims/ui/approvals-quick-view-sheet";
 import { DeleteClaimButton } from "@/modules/claims/ui/delete-claim-button";
@@ -293,6 +292,7 @@ function buildViewHref(
   const params = toSearchParams(searchParams);
   params.delete("cursor");
   params.delete("prevCursor");
+  params.delete("page");
 
   params.set("view", targetView);
 
@@ -505,6 +505,8 @@ async function ClaimsCommandCenterTable({
   view,
   approvalScope,
   viewerContext,
+  cursor,
+  previousCursorToken,
   searchParams,
   filters,
 }: {
@@ -512,6 +514,8 @@ async function ClaimsCommandCenterTable({
   view: ViewMode;
   approvalScope: "l1" | "finance" | null;
   viewerContext: PendingApprovalsViewerContext;
+  cursor: string | null;
+  previousCursorToken: string | null;
   searchParams?: Record<string, SearchParamsValue>;
   filters: GetMyClaimsFilters;
 }) {
@@ -521,10 +525,6 @@ async function ClaimsCommandCenterTable({
     repository: claimRepository,
     logger,
   });
-
-  const cursor = firstParamValue(searchParams?.cursor) ?? null;
-  const previousCursor = firstParamValue(searchParams?.prevCursor) ?? null;
-  const previousCursorToken = previousCursor ?? (cursor ? "__first__" : null);
   const listReturnToPath = buildPathWithSearchParams(
     ROUTES.claims.myClaims,
     toSearchParams(searchParams).toString(),
@@ -541,15 +541,7 @@ async function ClaimsCommandCenterTable({
 
     const rows = approvalsResult.data;
     const claimIds = rows.map((claim) => claim.id);
-    const approvalCurrentPage = cursor
-      ? Math.max(1, Number(firstParamValue(searchParams?.page)) || 1)
-      : 1;
-    const approvalPageStart = rows.length > 0 ? (approvalCurrentPage - 1) * PAGE_SIZE + 1 : 0;
-    const approvalPageEnd =
-      rows.length > 0
-        ? Math.min((approvalCurrentPage - 1) * PAGE_SIZE + rows.length, approvalsResult.totalCount)
-        : 0;
-    const approvalsSummaryText = `Showing ${approvalPageStart} to ${approvalPageEnd} of ${approvalsResult.totalCount} claims`;
+    const approvalsSummaryText = `Showing ${rows.length} of ${approvalsResult.totalCount} claims`;
 
     if (approvalScope === "finance" || approvalScope === "l1") {
       const [evidenceSignedUrlByClaimId, auditLogsByClaimId] = await Promise.all([
@@ -578,21 +570,9 @@ async function ClaimsCommandCenterTable({
             </>
           ) : (
             <>
-              <MyClaimsPaginationControls
-                hasNextPage={approvalsResult.hasNextPage}
-                hasPreviousPage={Boolean(previousCursorToken)}
-                currentCursor={cursor}
-                nextCursor={approvalsResult.nextCursor}
-                previousCursor={previousCursorToken}
-                currentPage={approvalCurrentPage}
-                summaryText={approvalsSummaryText}
-                position="top"
-                searchParams={searchParams}
-              />
-
               <Suspense key={JSON.stringify(searchParams ?? {})} fallback={<TableSkeleton />}>
                 <FinanceApprovalsBulkTable
-                  rows={rows.map((claim) => ({
+                  claims={rows.map((claim) => ({
                     id: claim.id,
                     employeeId: claim.employeeId,
                     submitter: claim.submitter,
@@ -632,6 +612,15 @@ async function ClaimsCommandCenterTable({
                   auditLogsByClaimId={auditLogsByClaimId}
                 />
               </Suspense>
+
+              <MyClaimsPaginationControls
+                hasNextPage={approvalsResult.hasNextPage}
+                currentCursor={cursor}
+                nextCursor={approvalsResult.nextCursor}
+                prevCursor={previousCursorToken}
+                summaryText={approvalsSummaryText}
+                searchParams={searchParams}
+              />
             </>
           )}
         </section>
@@ -675,18 +664,6 @@ async function ClaimsCommandCenterTable({
           </div>
         ) : (
           <>
-            <MyClaimsPaginationControls
-              hasNextPage={approvalsResult.hasNextPage}
-              hasPreviousPage={Boolean(previousCursorToken)}
-              currentCursor={cursor}
-              nextCursor={approvalsResult.nextCursor}
-              previousCursor={previousCursorToken}
-              currentPage={approvalCurrentPage}
-              summaryText={approvalsSummaryText}
-              position="top"
-              searchParams={searchParams}
-            />
-
             <div className="nxt-scroll w-full overflow-x-auto">
               <table className="min-w-345 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
                 <TableHeader showActions />
@@ -877,22 +854,30 @@ async function ClaimsCommandCenterTable({
                 </tbody>
               </table>
             </div>
+
+            <MyClaimsPaginationControls
+              hasNextPage={approvalsResult.hasNextPage}
+              currentCursor={cursor}
+              nextCursor={approvalsResult.nextCursor}
+              prevCursor={previousCursorToken}
+              summaryText={approvalsSummaryText}
+              searchParams={searchParams}
+            />
           </>
         )}
       </section>
     );
   }
 
-  const currentPage = Math.max(1, Number(firstParamValue(searchParams?.page)) || 1);
-
   const claimsResult = await claimsService.execute({
     userId,
-    page: currentPage,
+    cursor,
     limit: PAGE_SIZE,
     filters,
   });
 
   const rows = claimsResult.data;
+  const submissionsSummaryText = `Showing ${rows.length} of ${claimsResult.totalCount} claims`;
   const claimIds = rows.map((claim) => claim.id);
   // All claim detail fields (submitter, category, purpose, file paths) are now
   // returned directly by getMyClaimsPaginated via the enriched view —
@@ -933,14 +918,6 @@ async function ClaimsCommandCenterTable({
         </div>
       ) : (
         <>
-          <MyClaimsOffsetPaginationControls
-            totalCount={claimsResult.totalCount}
-            page={currentPage}
-            limit={PAGE_SIZE}
-            position="top"
-            searchParams={searchParams}
-          />
-
           <div className="nxt-scroll overflow-x-auto">
             <table className="min-w-325 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
               <TableHeader showActions />
@@ -1048,6 +1025,15 @@ async function ClaimsCommandCenterTable({
               </tbody>
             </table>
           </div>
+
+          <MyClaimsPaginationControls
+            hasNextPage={claimsResult.hasNextPage}
+            currentCursor={cursor}
+            nextCursor={claimsResult.nextCursor}
+            prevCursor={previousCursorToken}
+            summaryText={submissionsSummaryText}
+            searchParams={searchParams}
+          />
         </>
       )}
     </section>
@@ -1137,15 +1123,28 @@ async function MyClaimsDashboardPageContent({
   userId: string;
 }) {
   const resolvedSearchParams = searchParams;
+  const cursor = firstParamValue(resolvedSearchParams?.cursor) ?? null;
+  const previousCursor = firstParamValue(resolvedSearchParams?.prevCursor) ?? null;
+  const previousCursorToken = previousCursor ?? (cursor ? "__first__" : null);
 
   const filters = buildClaimFilters(resolvedSearchParams);
 
   if (activeView === "admin") {
-    return <AdminClaimsSection searchParams={resolvedSearchParams} />;
+    return (
+      <AdminClaimsSection
+        searchParams={resolvedSearchParams}
+        pagination={{ cursor, prevCursor: previousCursorToken }}
+      />
+    );
   }
 
   if (activeView === "department") {
-    return <DepartmentClaimsSection searchParams={resolvedSearchParams} />;
+    return (
+      <DepartmentClaimsSection
+        searchParams={resolvedSearchParams}
+        pagination={{ cursor, prevCursor: previousCursorToken }}
+      />
+    );
   }
 
   return (
@@ -1170,6 +1169,8 @@ async function MyClaimsDashboardPageContent({
           view={activeView}
           approvalScope={viewerContextResult.activeScope}
           viewerContext={viewerContextResult}
+          cursor={cursor}
+          previousCursorToken={previousCursorToken}
           searchParams={resolvedSearchParams}
           filters={filters}
         />

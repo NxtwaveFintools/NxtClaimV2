@@ -168,7 +168,7 @@ describe("SupabaseClaimRepository.getMyClaims", () => {
 
     const repository = new SupabaseClaimRepository();
 
-    await repository.getMyClaimsPaginated("user-1", 1, 20, {
+    await repository.getMyClaimsPaginated("user-1", null, 20, {
       searchField: "claim_id",
       searchQuery: "CLAIM",
     });
@@ -193,7 +193,7 @@ describe("SupabaseClaimRepository.getMyClaims", () => {
 
     const repository = new SupabaseClaimRepository();
 
-    await repository.getMyClaimsPaginated("user-1", 1, 20, {
+    await repository.getMyClaimsPaginated("user-1", null, 20, {
       searchField: "employee_id",
       searchQuery: "EMP-050",
     });

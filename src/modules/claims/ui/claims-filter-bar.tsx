@@ -49,6 +49,18 @@ const SUBMISSION_TYPE_OPTIONS: Array<{ value: ClaimSubmissionType; label: string
   { value: "On Behalf", label: "On Behalf" },
 ];
 
+const SEARCH_DEBOUNCE_MS = 500;
+const MIN_SEARCH_QUERY_LENGTH = 3;
+
+function getSanitizedSearchLength(query: string): number {
+  return query.replace(/-/g, "").trim().length;
+}
+
+function shouldSyncSearchQuery(query: string): boolean {
+  const sanitizedLength = getSanitizedSearchLength(query);
+  return sanitizedLength === 0 || sanitizedLength >= MIN_SEARCH_QUERY_LENGTH;
+}
+
 function updateUrlWithMutation(
   params: URLSearchParams,
   pathname: string,
@@ -189,7 +201,7 @@ function applyStoredFiltersToParams(params: URLSearchParams, filters: StoredFilt
   const searchField = filters.localSearchField.trim() || "claim_id";
   const searchQuery = filters.searchInput.trim();
 
-  if (searchQuery.length > 0) {
+  if (searchQuery.length > 0 && shouldSyncSearchQuery(searchQuery)) {
     params.set("search_query", searchQuery);
     params.set("search_field", searchField);
   } else {
@@ -471,12 +483,12 @@ export function ClaimsFilterBar({
   }, [hasInitializedFilterState, searchParams]);
 
   // ---------------------------------------------------------------------------
-  // Search debounce (400 ms)
+  // Search debounce (500 ms)
   // ---------------------------------------------------------------------------
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchInput(searchInput.trim());
-    }, 400);
+    }, SEARCH_DEBOUNCE_MS);
 
     return () => {
       clearTimeout(timer);
@@ -496,16 +508,21 @@ export function ClaimsFilterBar({
       return;
     }
 
+    const trimmedDebouncedSearchInput = debouncedSearchInput.trim();
     const urlSearchValue = (searchParams.get("search_query") ?? "").trim();
 
-    if (debouncedSearchInput === urlSearchValue) {
+    if (trimmedDebouncedSearchInput === urlSearchValue) {
+      return;
+    }
+
+    if (!shouldSyncSearchQuery(trimmedDebouncedSearchInput)) {
       return;
     }
 
     const nextParams = new URLSearchParams(searchParams.toString());
 
-    if (debouncedSearchInput) {
-      nextParams.set("search_query", debouncedSearchInput);
+    if (trimmedDebouncedSearchInput) {
+      nextParams.set("search_query", trimmedDebouncedSearchInput);
       if (!nextParams.get("search_field")) {
         nextParams.set("search_field", "claim_id");
       }
