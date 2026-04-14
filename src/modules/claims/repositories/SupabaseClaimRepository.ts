@@ -457,6 +457,7 @@ const EXPORT_WALLET_LOOKUP_BATCH_SIZE = 200;
 const MAX_LIST_PAGE_SIZE = 50;
 const UNIQUE_VIOLATION_CODE = "23505";
 const DUPLICATE_ACTIVE_EXPENSE_BILL_CONSTRAINT = "uq_expense_details_active_bill";
+const POSTGREST_NEVER_MATCH_UUID = "00000000-0000-0000-0000-000000000000";
 
 function chunkArray<T>(values: T[], chunkSize: number): T[][] {
   if (chunkSize <= 0) {
@@ -482,6 +483,42 @@ function clampListPageSize(limit: number): number {
 
 function toPostgrestInList(values: string[]): string {
   return `(${values.map((value) => `"${value.replace(/"/g, '\\"')}"`).join(",")})`;
+}
+
+function getNeverMatchUserIdFilter(): string {
+  return toPostgrestInList([POSTGREST_NEVER_MATCH_UUID]);
+}
+
+async function resolveSubmitterUserIdsFilter(input: {
+  client: ReturnType<typeof getServiceRoleSupabaseClient>;
+  searchQuery: string;
+}): Promise<{ data: string; errorMessage: string | null }> {
+  const { data, error } = await input.client
+    .from("users")
+    .select("id")
+    .ilike("email", `%${input.searchQuery}%`)
+    .limit(MAX_LIST_PAGE_SIZE);
+
+  if (error) {
+    return {
+      data: getNeverMatchUserIdFilter(),
+      errorMessage: error.message,
+    };
+  }
+
+  const ids = [...new Set((data ?? []).map((row) => String(row.id)).filter((id) => id.length > 0))];
+
+  if (ids.length === 0) {
+    return {
+      data: getNeverMatchUserIdFilter(),
+      errorMessage: null,
+    };
+  }
+
+  return {
+    data: toPostgrestInList(ids),
+    errorMessage: null,
+  };
 }
 
 function containsDuplicateExpenseBillConstraint(value: string | null | undefined): boolean {
@@ -572,6 +609,13 @@ function normalizeSearchInput(filters?: GetMyClaimsFilters): {
 
 function buildEmployeeEmailOrFilter(searchQuery: string, submitterEmailColumn: string): string {
   return `${submitterEmailColumn}.ilike.%${searchQuery}%,on_behalf_email.ilike.%${searchQuery}%`;
+}
+
+function buildPendingApprovalsEmployeeEmailOrFilter(
+  searchQuery: string,
+  submitterUserIdsFilter: string,
+): string {
+  return `submitted_by.in.${submitterUserIdsFilter},on_behalf_email.ilike.%${searchQuery}%`;
 }
 
 function buildEnterpriseEmployeeIdOrFilter(searchQuery: string): string {
@@ -737,6 +781,7 @@ function applyPendingApprovalsFilters<TQuery extends PendingApprovalsQueryChain<
   toDate?: string;
   dateColumn: string;
   normalizedSearch: { field: GetMyClaimsFilters["searchField"]; query: string };
+  submitterUserIdsFilter: string;
 }): TQuery {
   let { query } = params;
 
@@ -820,7 +865,10 @@ function applyPendingApprovalsFilters<TQuery extends PendingApprovalsQueryChain<
 
     if (params.normalizedSearch.field === "employee_email") {
       query = query.or(
-        buildEmployeeEmailOrFilter(params.normalizedSearch.query, "submitter_user.email"),
+        buildPendingApprovalsEmployeeEmailOrFilter(
+          params.normalizedSearch.query,
+          params.submitterUserIdsFilter,
+        ),
       );
     }
   }
@@ -1323,8 +1371,20 @@ export class SupabaseClaimRepository implements ClaimRepository {
       }
 
       if (normalizedSearch.field === "employee_email") {
+        const submitterUserIdsFilterResult = await resolveSubmitterUserIdsFilter({
+          client,
+          searchQuery: normalizedSearch.query,
+        });
+
+        if (submitterUserIdsFilterResult.errorMessage) {
+          return { count: 0, errorMessage: submitterUserIdsFilterResult.errorMessage };
+        }
+
         query = query.or(
-          buildEmployeeEmailOrFilter(normalizedSearch.query, "submitter_user.email"),
+          buildPendingApprovalsEmployeeEmailOrFilter(
+            normalizedSearch.query,
+            submitterUserIdsFilterResult.data,
+          ),
         );
       }
     }
@@ -2727,8 +2787,20 @@ export class SupabaseClaimRepository implements ClaimRepository {
       }
 
       if (normalizedSearch.field === "employee_email") {
+        const submitterUserIdsFilterResult = await resolveSubmitterUserIdsFilter({
+          client,
+          searchQuery: normalizedSearch.query,
+        });
+
+        if (submitterUserIdsFilterResult.errorMessage) {
+          return { data: [], errorMessage: submitterUserIdsFilterResult.errorMessage };
+        }
+
         query = query.or(
-          buildEmployeeEmailOrFilter(normalizedSearch.query, "submitter_user.email"),
+          buildPendingApprovalsEmployeeEmailOrFilter(
+            normalizedSearch.query,
+            submitterUserIdsFilterResult.data,
+          ),
         );
       }
     }
@@ -2948,6 +3020,27 @@ export class SupabaseClaimRepository implements ClaimRepository {
       };
     }
 
+    let submitterUserIdsFilter = getNeverMatchUserIdFilter();
+
+    if (normalizedSearch.query && normalizedSearch.field === "employee_email") {
+      const submitterUserIdsFilterResult = await resolveSubmitterUserIdsFilter({
+        client,
+        searchQuery: normalizedSearch.query,
+      });
+
+      if (submitterUserIdsFilterResult.errorMessage) {
+        return {
+          data: [],
+          nextCursor: null,
+          hasNextPage: false,
+          totalCount: 0,
+          errorMessage: submitterUserIdsFilterResult.errorMessage,
+        };
+      }
+
+      submitterUserIdsFilter = submitterUserIdsFilterResult.data;
+    }
+
     const needsExpenseInnerJoin =
       filters?.locationId || filters?.productId || filters?.expenseCategoryId;
 
@@ -2974,6 +3067,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
       toDate,
       dateColumn,
       normalizedSearch,
+      submitterUserIdsFilter,
     });
 
     if (decodedCursor) {
@@ -3074,6 +3168,27 @@ export class SupabaseClaimRepository implements ClaimRepository {
       };
     }
 
+    let submitterUserIdsFilter = getNeverMatchUserIdFilter();
+
+    if (normalizedSearch.query && normalizedSearch.field === "employee_email") {
+      const submitterUserIdsFilterResult = await resolveSubmitterUserIdsFilter({
+        client,
+        searchQuery: normalizedSearch.query,
+      });
+
+      if (submitterUserIdsFilterResult.errorMessage) {
+        return {
+          data: [],
+          nextCursor: null,
+          hasNextPage: false,
+          totalCount: 0,
+          errorMessage: submitterUserIdsFilterResult.errorMessage,
+        };
+      }
+
+      submitterUserIdsFilter = submitterUserIdsFilterResult.data;
+    }
+
     const financeNonRejectedStatusesFilter = toPostgrestInList(
       FINANCE_NON_REJECTED_VISIBLE_STATUSES,
     );
@@ -3108,6 +3223,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
       toDate,
       dateColumn,
       normalizedSearch,
+      submitterUserIdsFilter,
     });
 
     if (decodedCursor) {
