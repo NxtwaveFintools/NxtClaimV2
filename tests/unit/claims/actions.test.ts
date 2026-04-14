@@ -19,6 +19,7 @@ const mockUpdateByFinanceExecute = jest.fn();
 const mockDeleteOwnClaimExecute = jest.fn();
 const mockGetApprovalViewerContext = jest.fn();
 const mockGetClaimForFinanceEdit = jest.fn();
+const mockGetPendingApprovalsForL1 = jest.fn();
 const mockRevalidatePath = jest.fn();
 const mockRedirect = jest.fn();
 const mockStorageUpload = jest.fn();
@@ -60,6 +61,7 @@ jest.mock("@/modules/claims/repositories/SupabaseClaimRepository", () => ({
     isUserApprover1InAnyDepartment: mockIsUserApprover1InAnyDepartment,
     getApprovalViewerContext: mockGetApprovalViewerContext,
     getClaimForFinanceEdit: mockGetClaimForFinanceEdit,
+    getPendingApprovalsForL1: mockGetPendingApprovalsForL1,
   })),
 }));
 
@@ -294,6 +296,13 @@ describe("claims actions", () => {
         expenseBankStatementFilePath: "expenses/old_bank.pdf",
         advanceSupportingDocumentPath: null,
       },
+      errorMessage: null,
+    });
+
+    mockGetPendingApprovalsForL1.mockResolvedValue({
+      data: [],
+      nextCursor: null,
+      hasNextPage: false,
       errorMessage: null,
     });
 
@@ -758,5 +767,100 @@ describe("claims actions", () => {
       message: "Routing context fields cannot be edited for an existing claim.",
     });
     expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
+  });
+
+  test("bulkApproveL1 resolves global selection via cursor pages and approves claims", async () => {
+    mockGetPendingApprovalsForL1
+      .mockResolvedValueOnce({
+        data: [{ id: "claim-1" }],
+        nextCursor: "cursor-1",
+        hasNextPage: true,
+        errorMessage: null,
+      })
+      .mockResolvedValueOnce({
+        data: [{ id: "claim-2" }],
+        nextCursor: null,
+        hasNextPage: false,
+        errorMessage: null,
+      });
+
+    const { bulkApproveL1 } = await import("@/modules/claims/actions");
+
+    const result = await bulkApproveL1({
+      claimIds: [],
+      isGlobalSelect: true,
+      filters: { submissionType: "Self" },
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      message: "2 claim(s) approved.",
+      processedCount: 2,
+    });
+    expect(mockGetPendingApprovalsForL1).toHaveBeenNthCalledWith(
+      1,
+      "11111111-1111-4111-8111-111111111111",
+      null,
+      200,
+      { submissionType: "Self" },
+    );
+    expect(mockGetPendingApprovalsForL1).toHaveBeenNthCalledWith(
+      2,
+      "11111111-1111-4111-8111-111111111111",
+      "cursor-1",
+      200,
+      { submissionType: "Self" },
+    );
+    expect(mockProcessL1DecisionExecute).toHaveBeenCalledWith({
+      claimId: "claim-1",
+      actorUserId: "11111111-1111-4111-8111-111111111111",
+      decision: "approve",
+      rejectionReason: undefined,
+      allowResubmission: undefined,
+    });
+    expect(mockProcessL1DecisionExecute).toHaveBeenCalledWith({
+      claimId: "claim-2",
+      actorUserId: "11111111-1111-4111-8111-111111111111",
+      decision: "approve",
+      rejectionReason: undefined,
+      allowResubmission: undefined,
+    });
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/my-claims");
+  });
+
+  test("bulkRejectL1 reports skipped claims when some decisions fail", async () => {
+    mockProcessL1DecisionExecute
+      .mockResolvedValueOnce({ ok: true, errorMessage: null })
+      .mockResolvedValueOnce({ ok: false, errorMessage: "Claim not pending" });
+
+    const { bulkRejectL1 } = await import("@/modules/claims/actions");
+
+    const result = await bulkRejectL1({
+      claimIds: [" claim-1 ", "claim-2", "claim-1"],
+      isGlobalSelect: false,
+      rejectionReason: "Needs correction",
+      allowResubmission: true,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      message: "1 claim(s) rejected. 1 claim(s) skipped.",
+      processedCount: 1,
+    });
+    expect(mockProcessL1DecisionExecute).toHaveBeenNthCalledWith(1, {
+      claimId: "claim-1",
+      actorUserId: "11111111-1111-4111-8111-111111111111",
+      decision: "reject",
+      rejectionReason: "Needs correction",
+      allowResubmission: true,
+    });
+    expect(mockProcessL1DecisionExecute).toHaveBeenNthCalledWith(2, {
+      claimId: "claim-2",
+      actorUserId: "11111111-1111-4111-8111-111111111111",
+      decision: "reject",
+      rejectionReason: "Needs correction",
+      allowResubmission: true,
+    });
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/my-claims");
   });
 });
