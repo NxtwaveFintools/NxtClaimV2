@@ -574,6 +574,10 @@ function buildEmployeeEmailOrFilter(searchQuery: string, submitterEmailColumn: s
   return `${submitterEmailColumn}.ilike.%${searchQuery}%,on_behalf_email.ilike.%${searchQuery}%`;
 }
 
+function buildEnterpriseEmployeeIdOrFilter(searchQuery: string): string {
+  return `claim_employee_id_raw.ilike.%${searchQuery}%,on_behalf_employee_code_raw.ilike.%${searchQuery}%,submitter_email.ilike.%${searchQuery}%,on_behalf_email.ilike.%${searchQuery}%`;
+}
+
 function resolveEnterpriseDateColumn(dateTarget?: ClaimDateTarget): string {
   if (dateTarget === "hod_action") return "hod_action_date";
   if (dateTarget === "finance_closed") return "finance_action_date";
@@ -702,7 +706,7 @@ function applyEnterpriseDashboardFilters<
     }
 
     if (params.normalizedSearch.field === "employee_id") {
-      query = query.ilike("employee_id", `%${params.normalizedSearch.query}%`);
+      query = query.or(buildEnterpriseEmployeeIdOrFilter(params.normalizedSearch.query));
     }
 
     if (params.normalizedSearch.field === "employee_email") {

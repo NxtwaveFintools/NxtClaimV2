@@ -176,6 +176,34 @@ describe("SupabaseClaimRepository.getMyClaims", () => {
     expect(queryBuilder.ilike).toHaveBeenCalledWith("claim_id", "%CLAIM%");
   });
 
+  test("uses raw employee identity OR filter in paginated my claims employee_id search", async () => {
+    const queryBuilder = createQueryBuilder({
+      data: [],
+      count: 0,
+      error: null,
+    });
+
+    mockFrom.mockReturnValue({
+      select: jest.fn(() => queryBuilder),
+    });
+
+    mockGetServiceRoleSupabaseClient.mockReturnValue({
+      from: mockFrom,
+    });
+
+    const repository = new SupabaseClaimRepository();
+
+    await repository.getMyClaimsPaginated("user-1", 1, 20, {
+      searchField: "employee_id",
+      searchQuery: "EMP-050",
+    });
+
+    expect(queryBuilder.or).toHaveBeenCalledWith(
+      "claim_employee_id_raw.ilike.%EMP-050%,on_behalf_employee_code_raw.ilike.%EMP-050%,submitter_email.ilike.%EMP-050%,on_behalf_email.ilike.%EMP-050%",
+    );
+    expect(queryBuilder.ilike).not.toHaveBeenCalledWith("employee_id", "%EMP-050%");
+  });
+
   test("uses partial case-insensitive claim_id search in L1 approvals", async () => {
     const queryBuilder = createQueryBuilder({
       data: [],

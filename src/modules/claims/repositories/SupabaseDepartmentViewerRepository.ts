@@ -50,6 +50,10 @@ function normalizeRelation<T>(value: T | T[] | null | undefined): T | null {
   return value;
 }
 
+function buildEmployeeIdSearchOrFilter(searchQuery: string): string {
+  return `claim_employee_id_raw.ilike.%${searchQuery}%,on_behalf_employee_code_raw.ilike.%${searchQuery}%,submitter_email.ilike.%${searchQuery}%,on_behalf_email.ilike.%${searchQuery}%`;
+}
+
 // ----------------------------------------------------------------
 // Repository implementation
 // ----------------------------------------------------------------
@@ -131,12 +135,12 @@ export class SupabaseDepartmentViewerRepository implements DepartmentViewerRepos
       } else if (filters.searchField === "employee_name") {
         query = query.ilike("employee_name", `%${sq}%`);
       } else if (filters.searchField === "employee_id") {
-        query = query.ilike("employee_id", `%${sq}%`);
+        query = query.or(buildEmployeeIdSearchOrFilter(sq));
       } else if (filters.searchField === "employee_email") {
         query = query.or(`submitter_email.ilike.%${sq}%,on_behalf_email.ilike.%${sq}%`);
       } else {
         query = query.or(
-          `claim_id.ilike.%${sq}%,employee_name.ilike.%${sq}%,employee_id.ilike.%${sq}%,submitter_email.ilike.%${sq}%,on_behalf_email.ilike.%${sq}%`,
+          `claim_id.ilike.%${sq}%,employee_name.ilike.%${sq}%,${buildEmployeeIdSearchOrFilter(sq)}`,
         );
       }
     }

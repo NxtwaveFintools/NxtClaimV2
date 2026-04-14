@@ -185,6 +185,34 @@ describe("SupabaseAdminRepository", () => {
     expect(claimsChain.lte).not.toHaveBeenCalledWith("hod_action_date", "2026-01-31T23:59:59.999Z");
   });
 
+  test("getAllClaims uses raw employee identity OR filter for employee_id search", async () => {
+    const claimsChain = createQueryChain({
+      data: [],
+      error: null,
+    });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "vw_enterprise_claims_dashboard") {
+        return claimsChain;
+      }
+      return createQueryChain({ data: null, error: null });
+    });
+
+    const repository = new SupabaseAdminRepository();
+    await repository.getAllClaims(
+      {
+        searchField: "employee_id",
+        searchQuery: "EMP-001",
+      },
+      { cursor: null, limit: 10 },
+    );
+
+    expect(claimsChain.or).toHaveBeenCalledWith(
+      "claim_employee_id_raw.ilike.%EMP-001%,on_behalf_employee_code_raw.ilike.%EMP-001%,submitter_email.ilike.%EMP-001%,on_behalf_email.ilike.%EMP-001%",
+    );
+    expect(claimsChain.ilike).not.toHaveBeenCalledWith("employee_id", "%EMP-001%");
+  });
+
   test("getAllClaims applies amount range filters", async () => {
     const claimsChain = createQueryChain({
       data: [

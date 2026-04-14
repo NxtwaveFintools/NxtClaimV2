@@ -203,4 +203,26 @@ describe("SupabaseDepartmentViewerRepository", () => {
     expect(chain.gte).toHaveBeenCalledWith("submitted_on", "2026-03-01T00:00:00.000Z");
     expect(chain.lte).toHaveBeenCalledWith("submitted_on", "2026-03-31T23:59:59.999Z");
   });
+
+  test("getClaims uses raw employee identity OR filter for employee_id search", async () => {
+    const chain = createChain({ data: [], error: null });
+
+    mockFrom.mockReturnValue(chain);
+    mockGetServiceRoleSupabaseClient.mockReturnValue({ from: mockFrom });
+
+    const repository = new SupabaseDepartmentViewerRepository();
+    await repository.getClaims(
+      ["dep-1"],
+      {
+        searchField: "employee_id",
+        searchQuery: "EMP-009",
+      },
+      { cursor: null, limit: 10 },
+    );
+
+    expect(chain.or).toHaveBeenCalledWith(
+      "claim_employee_id_raw.ilike.%EMP-009%,on_behalf_employee_code_raw.ilike.%EMP-009%,submitter_email.ilike.%EMP-009%,on_behalf_email.ilike.%EMP-009%",
+    );
+    expect(chain.ilike).not.toHaveBeenCalledWith("employee_id", "%EMP-009%");
+  });
 });
