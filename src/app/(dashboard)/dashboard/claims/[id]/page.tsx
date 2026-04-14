@@ -9,12 +9,14 @@ import { BackButton } from "@/components/ui/back-button";
 import { ROUTES } from "@/core/config/route-registry";
 import {
   DB_CLAIM_STATUSES,
+  DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
   DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
   DB_REJECTED_STATUSES,
   DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
   isPendingFinanceApprovalStatus,
   isSubmitterDeletableClaimStatus,
 } from "@/core/constants/statuses";
+import { isCorporateCardPaymentModeName } from "@/core/constants/payment-modes";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
 import {
   approveClaimAction,
@@ -215,11 +217,14 @@ async function FinanceEditClaimSection({ claim }: { claim: ClaimDetailRecord }) 
   const departmentOptions = departmentsResult.errorMessage ? [] : departmentsResult.data;
   const paymentModeOptions = paymentModesResult.errorMessage
     ? []
-    : paymentModesResult.data.map((mode) => ({ id: mode.id, name: mode.name }));
+    : paymentModesResult.data
+        .filter((mode) => !isCorporateCardPaymentModeName(mode.name))
+        .map((mode) => ({ id: mode.id, name: mode.name }));
   const expenseCategoryOptions = expenseCategoriesResult.errorMessage
     ? []
     : expenseCategoriesResult.data;
   const locationOptions = locationsResult.errorMessage ? [] : locationsResult.data;
+  const canEditPaymentMode = claim.status === DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS;
 
   const updateFinanceDetailFromPage = async (
     formData: FormData,
@@ -288,6 +293,7 @@ async function FinanceEditClaimSection({ claim }: { claim: ClaimDetailRecord }) 
       products={productOptions}
       locations={locationOptions}
       isEditMode
+      canEditPaymentMode={canEditPaymentMode}
       action={updateFinanceDetailFromPage}
     />
   );

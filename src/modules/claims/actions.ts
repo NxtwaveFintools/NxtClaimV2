@@ -12,6 +12,11 @@ import {
   DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
   type DbClaimStatus,
 } from "@/core/constants/statuses";
+import {
+  isAdvancePaymentModeName,
+  isCorporateCardPaymentModeName,
+  isExpensePaymentModeName,
+} from "@/core/constants/payment-modes";
 import { getServiceRoleSupabaseClient } from "@/core/infra/supabase/server-client";
 import { SubmitClaimService } from "@/core/domain/claims/SubmitClaimService";
 import { ProcessL1ClaimDecisionService } from "@/core/domain/claims/ProcessL1ClaimDecisionService";
@@ -51,14 +56,6 @@ const bulkProcessClaimsService = new BulkProcessClaimsService({ repository, logg
 const updateClaimByFinanceService = new UpdateClaimByFinanceService({ repository, logger });
 const deleteOwnClaimService = new DeleteOwnClaimService({ repository, logger });
 
-const expenseModeNames = new Set([
-  "reimbursement",
-  "corporate card",
-  "happay",
-  "forex",
-  "petty cash",
-]);
-const advanceModeNames = new Set(["petty cash request", "bulk petty cash request"]);
 const claimsStorageBucket = "claims";
 type ClaimStorageFolder = "expenses" | "petty_cash_requests";
 const claimIdSchema = z.string().trim().min(1, "Claim ID is required");
@@ -183,13 +180,11 @@ export type ClaimQuickViewHydrationData = {
 };
 
 function classifyDetailType(modeName: string): ClaimDetailType | null {
-  const normalized = modeName.trim().toLowerCase();
-
-  if (expenseModeNames.has(normalized)) {
+  if (isExpensePaymentModeName(modeName)) {
     return "expense";
   }
 
-  if (advanceModeNames.has(normalized)) {
+  if (isAdvancePaymentModeName(modeName)) {
     return "advance";
   }
 
@@ -309,14 +304,23 @@ function canActorEditClaim(input: {
   return false;
 }
 
-function hasRoutingFieldMutationAttempt(formData: FormData): boolean {
+function hasRoutingFieldMutationAttempt(
+  formData: FormData,
+  options?: { allowPaymentModeMutation?: boolean },
+): boolean {
   const immutableRoutingFields = [
     "departmentId",
-    "paymentModeId",
     "onBehalfOfId",
     "onBehalfEmail",
     "onBehalfEmployeeCode",
   ] as const;
+
+  if (!options?.allowPaymentModeMutation) {
+    return ["paymentModeId", ...immutableRoutingFields].some((key) => {
+      const value = formData.get(key);
+      return typeof value === "string" && value.trim().length > 0;
+    });
+  }
 
   return immutableRoutingFields.some((key) => {
     const value = formData.get(key);
@@ -987,6 +991,7 @@ export async function submitClaimAction(input: unknown): Promise<{
 function buildFinanceEditPayload(formData: FormData): unknown {
   const detailType = getFormDataString(formData, "detailType");
   const detailId = getFormDataString(formData, "detailId");
+  const paymentModeId = getFormDataNullableString(formData, "paymentModeId");
   const productId = getFormDataNullableString(formData, "productId");
   const locationId = getFormDataNullableString(formData, "locationId");
   const receiptFileEntry = formData.get("receiptFile");
@@ -1002,6 +1007,7 @@ function buildFinanceEditPayload(formData: FormData): unknown {
     return {
       detailType,
       detailId,
+      paymentModeId,
       billNo: getFormDataString(formData, "billNo"),
       expenseCategoryId: getFormDataString(formData, "expenseCategoryId"),
       locationId: getFormDataString(formData, "locationId"),
@@ -1026,6 +1032,7 @@ function buildFinanceEditPayload(formData: FormData): unknown {
   return {
     detailType,
     detailId,
+    paymentModeId,
     purpose: getFormDataString(formData, "purpose"),
     requestedAmount: getFormDataNumber(formData, "requestedAmount"),
     expectedUsageDate: getFormDataString(formData, "expectedUsageDate"),
@@ -1077,7 +1084,15 @@ export async function updateClaimByFinanceAction(input: {
     };
   }
 
-  if (hasRoutingFieldMutationAttempt(input.formData)) {
+  const canEditPaymentMode =
+    claimSnapshotResult.data.status === DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS &&
+    approvalContextResult.data.isFinance;
+
+  if (
+    hasRoutingFieldMutationAttempt(input.formData, {
+      allowPaymentModeMutation: canEditPaymentMode,
+    })
+  ) {
     return {
       ok: false,
       message: "Routing context fields cannot be edited for an existing claim.",
@@ -1113,6 +1128,38 @@ export async function updateClaimByFinanceAction(input: {
       ok: false,
       message: "Claim detail type mismatch.",
     };
+  }
+
+  if (parseResult.data.paymentModeId) {
+    if (!canEditPaymentMode) {
+      return {
+        ok: false,
+        message: "Routing context fields cannot be edited for an existing claim.",
+      };
+    }
+
+    const paymentModeResult = await repository.getPaymentModeById(parseResult.data.paymentModeId);
+
+    if (paymentModeResult.errorMessage) {
+      return {
+        ok: false,
+        message: paymentModeResult.errorMessage,
+      };
+    }
+
+    if (!paymentModeResult.data || !paymentModeResult.data.isActive) {
+      return {
+        ok: false,
+        message: "Selected payment mode is invalid or inactive.",
+      };
+    }
+
+    if (isCorporateCardPaymentModeName(paymentModeResult.data.name)) {
+      return {
+        ok: false,
+        message: "Corporate Card is not allowed for finance-stage payment mode correction.",
+      };
+    }
   }
 
   let nextExpenseReceiptPath = claimSnapshotResult.data.expenseReceiptFilePath;
@@ -1211,6 +1258,7 @@ export async function updateClaimByFinanceAction(input: {
     financeEditPayload = {
       detailType: "expense",
       detailId: parseResult.data.detailId,
+      paymentModeId: parseResult.data.paymentModeId ?? null,
       billNo: parseResult.data.billNo,
       expenseCategoryId: parseResult.data.expenseCategoryId,
       locationId: parseResult.data.locationId,
@@ -1234,6 +1282,7 @@ export async function updateClaimByFinanceAction(input: {
     financeEditPayload = {
       detailType: "advance",
       detailId: parseResult.data.detailId,
+      paymentModeId: parseResult.data.paymentModeId ?? null,
       purpose: parseResult.data.purpose,
       requestedAmount: parseResult.data.requestedAmount,
       expectedUsageDate: parseResult.data.expectedUsageDate,

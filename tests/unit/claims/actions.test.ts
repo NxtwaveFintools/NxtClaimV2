@@ -8,6 +8,7 @@ const mockGetActivePaymentModes = jest.fn();
 const mockGetActiveExpenseCategories = jest.fn();
 const mockGetActiveProducts = jest.fn();
 const mockGetActiveLocations = jest.fn();
+const mockGetPaymentModeById = jest.fn();
 const mockExistsExpenseByCompositeKey = jest.fn();
 const mockGetActiveUserIdByEmail = jest.fn();
 const mockIsUserApprover1InAnyDepartment = jest.fn();
@@ -56,6 +57,7 @@ jest.mock("@/modules/claims/repositories/SupabaseClaimRepository", () => ({
     getActiveExpenseCategories: mockGetActiveExpenseCategories,
     getActiveProducts: mockGetActiveProducts,
     getActiveLocations: mockGetActiveLocations,
+    getPaymentModeById: mockGetPaymentModeById,
     existsExpenseByCompositeKey: mockExistsExpenseByCompositeKey,
     getActiveUserIdByEmail: mockGetActiveUserIdByEmail,
     isUserApprover1InAnyDepartment: mockIsUserApprover1InAnyDepartment,
@@ -234,6 +236,15 @@ describe("claims actions", () => {
 
     mockGetActiveLocations.mockResolvedValue({
       data: [{ id: "loc-1", name: "Hyderabad" }],
+      errorMessage: null,
+    });
+
+    mockGetPaymentModeById.mockResolvedValue({
+      data: {
+        id: paymentModeId,
+        name: "Reimbursement",
+        isActive: true,
+      },
       errorMessage: null,
     });
 
@@ -666,7 +677,7 @@ describe("claims actions", () => {
     });
     const forwardedPayload = mockUpdateByFinanceExecute.mock.calls[0]?.[0]?.payload;
     expect(forwardedPayload).not.toHaveProperty("departmentId");
-    expect(forwardedPayload).not.toHaveProperty("paymentModeId");
+    expect(forwardedPayload).toHaveProperty("paymentModeId", null);
   });
 
   test("updateClaimByFinanceAction returns friendly message for duplicate active bill unique violation", async () => {
@@ -750,6 +761,96 @@ describe("claims actions", () => {
 
     expect(result).toEqual({ ok: true, message: "Claim details updated." });
     expect(mockUpdateByFinanceExecute).toHaveBeenCalled();
+  });
+
+  test("updateClaimByFinanceAction allows finance-stage payment mode correction", async () => {
+    const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
+    const formData = createValidExpenseEditFormData();
+    formData.append("paymentModeId", "99999999-9999-4999-8999-999999999999");
+
+    mockGetPaymentModeById.mockResolvedValueOnce({
+      data: {
+        id: "99999999-9999-4999-8999-999999999999",
+        name: "Petty Cash",
+        isActive: true,
+      },
+      errorMessage: null,
+    });
+
+    const result = await updateClaimByFinanceAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData,
+    });
+
+    expect(result).toEqual({ ok: true, message: "Claim details updated." });
+    expect(mockUpdateByFinanceExecute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          paymentModeId: "99999999-9999-4999-8999-999999999999",
+        }),
+      }),
+    );
+  });
+
+  test("updateClaimByFinanceAction blocks payment mode correction outside finance stage", async () => {
+    mockGetApprovalViewerContext.mockResolvedValueOnce({
+      data: { isHod: false, isFounder: false, isFinance: false },
+      errorMessage: null,
+    });
+    mockGetClaimForFinanceEdit.mockResolvedValueOnce({
+      data: {
+        id: "claim-1",
+        detailType: "expense",
+        status: "Submitted - Awaiting HOD approval",
+        submittedBy: "11111111-1111-4111-8111-111111111111",
+        assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
+        expenseReceiptFilePath: "expenses/old_receipt.pdf",
+        expenseBankStatementFilePath: "expenses/old_bank.pdf",
+        advanceSupportingDocumentPath: null,
+      },
+      errorMessage: null,
+    });
+
+    const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
+    const formData = createValidExpenseEditFormData();
+    formData.append("paymentModeId", "99999999-9999-4999-8999-999999999999");
+
+    const result = await updateClaimByFinanceAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Routing context fields cannot be edited for an existing claim.",
+    });
+    expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
+  });
+
+  test("updateClaimByFinanceAction blocks corporate card payment mode correction", async () => {
+    const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
+    const formData = createValidExpenseEditFormData();
+    formData.append("paymentModeId", "cccccccc-cccc-4ccc-8ccc-cccccccccccc");
+
+    mockGetPaymentModeById.mockResolvedValueOnce({
+      data: {
+        id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        name: "Corporate Card",
+        isActive: true,
+      },
+      errorMessage: null,
+    });
+
+    const result = await updateClaimByFinanceAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Corporate Card is not allowed for finance-stage payment mode correction.",
+    });
+    expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
   });
 
   test("updateClaimByFinanceAction rejects routing field mutation attempts", async () => {

@@ -20,6 +20,7 @@ function createRepository(overrides?: Partial<AdminRepository>): AdminRepository
     getAllClaims: jest.fn(),
     getClaimOverrideSummary: jest.fn(),
     forceUpdateClaimStatus: jest.fn(),
+    forceUpdatePaymentMode: jest.fn(),
     softDeleteClaim: jest.fn(),
     getMasterDataItems: jest.fn(async () => ({ data: [SAMPLE_ITEM], errorMessage: null })),
     createMasterDataItem: jest.fn(async () => ({ data: SAMPLE_ITEM, errorMessage: null })),

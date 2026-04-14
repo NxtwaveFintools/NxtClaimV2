@@ -7,6 +7,7 @@ const mockGetCurrentUser = jest.fn();
 const mockUpdateUserRole = jest.fn();
 const mockGetClaimOverrideSummary = jest.fn();
 const mockForceUpdateClaimStatus = jest.fn();
+const mockForceUpdatePaymentMode = jest.fn();
 
 const mockSoftDeleteExecute = jest.fn();
 const mockCreateMasterDataItem = jest.fn();
@@ -41,6 +42,7 @@ jest.mock("@/modules/admin/repositories/SupabaseAdminRepository", () => ({
     updateUserRole: (...args: unknown[]) => mockUpdateUserRole(...args),
     getClaimOverrideSummary: (...args: unknown[]) => mockGetClaimOverrideSummary(...args),
     forceUpdateClaimStatus: (...args: unknown[]) => mockForceUpdateClaimStatus(...args),
+    forceUpdatePaymentMode: (...args: unknown[]) => mockForceUpdatePaymentMode(...args),
   })),
 }));
 
@@ -100,6 +102,7 @@ import {
   addFinanceApproverByEmailAction,
   createFinanceApproverAction,
   createMasterDataItemAction,
+  forceUpdatePaymentMode,
   removeAdminAction,
   removeDepartmentViewerAction,
   softDeleteClaimAction,
@@ -142,6 +145,7 @@ describe("admin actions", () => {
       errorMessage: null,
     });
     mockForceUpdateClaimStatus.mockResolvedValue({ success: true, errorMessage: null });
+    mockForceUpdatePaymentMode.mockResolvedValue({ success: true, errorMessage: null });
     mockAddAdminByEmail.mockResolvedValue({ data: { id: "x" }, errorMessage: null });
     mockRemoveAdmin.mockResolvedValue({ success: true, errorMessage: null });
     mockAddViewerByEmail.mockResolvedValue({ data: { id: "x" }, errorMessage: null });
@@ -213,6 +217,35 @@ describe("admin actions", () => {
 
     expect(result).toEqual({ ok: false, message: "Forbidden: admin access required." });
     expect(mockForceUpdateClaimStatus).not.toHaveBeenCalled();
+  });
+
+  test("forceUpdatePaymentMode validates payload and revalidates on success", async () => {
+    const invalidClaim = await forceUpdatePaymentMode(" ", "mode-1");
+    expect(invalidClaim).toEqual({ ok: false, message: "ID is required" });
+
+    const invalidMode = await forceUpdatePaymentMode("claim-1", " ");
+    expect(invalidMode).toEqual({ ok: false, message: "ID is required" });
+
+    const success = await forceUpdatePaymentMode("claim-1", "mode-1");
+
+    expect(success).toEqual({ ok: true });
+    expect(mockForceUpdatePaymentMode).toHaveBeenCalledWith({
+      claimId: "claim-1",
+      actorId: "admin-user-1",
+      newPaymentModeId: "mode-1",
+    });
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/admin/settings");
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/my-claims");
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/claims/claim-1");
+  });
+
+  test("forceUpdatePaymentMode returns forbidden for non-admin", async () => {
+    mockIsAdmin.mockResolvedValue(false);
+
+    const result = await forceUpdatePaymentMode("claim-1", "mode-1");
+
+    expect(result).toEqual({ ok: false, message: "Forbidden: admin access required." });
+    expect(mockForceUpdatePaymentMode).not.toHaveBeenCalled();
   });
 
   test("softDeleteClaimAction returns forbidden for non-admin", async () => {

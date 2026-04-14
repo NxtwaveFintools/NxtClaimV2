@@ -2015,12 +2015,17 @@ export class SupabaseClaimRepository implements ClaimRepository {
     payload: FinanceClaimEditPayload,
   ): Promise<{ errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
+    const claimUpdatePayload: { updated_at: string; payment_mode_id?: string } = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (payload.paymentModeId) {
+      claimUpdatePayload.payment_mode_id = payload.paymentModeId;
+    }
 
     const { data: updatedClaim, error: claimError } = await client
       .from("claims")
-      .update({
-        updated_at: new Date().toISOString(),
-      })
+      .update(claimUpdatePayload)
       .eq("id", claimId)
       .eq("is_active", true)
       .select("id")

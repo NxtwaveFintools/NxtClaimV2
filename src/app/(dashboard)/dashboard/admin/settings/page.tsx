@@ -27,11 +27,13 @@ import { AdminsManagement } from "@/modules/admin/ui/settings/admins-management"
 import { DepartmentViewersManagement } from "@/modules/admin/ui/settings/department-viewers-management";
 import { PolicyManagement } from "@/modules/admin/ui/settings/policy-management";
 import { AdminClaimOverride } from "@/modules/admin/ui/settings/admin-claim-override";
+import { AdminPaymentModeOverride } from "@/modules/admin/ui/settings/admin-payment-mode-override";
 import { BackButton } from "@/components/ui/back-button";
 import type { MasterDataTableName } from "@/core/domain/admin/contracts";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
 import { getPolicyGateState } from "@/modules/policies/server/get-policy-gate-state";
 import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
+import { isAdminPaymentModeOverrideAllowedName } from "@/core/constants/payment-modes";
 
 export const metadata = {
   title: "System Settings | NxtClaim",
@@ -235,6 +237,7 @@ export default async function AdminSettingsPage({
     financeResult,
     usersResult,
     policyGateStateResult,
+    paymentModeOverrideResult,
   ] = await Promise.all([
     activeTab === "admins" ? adminsService.getAdmins() : Promise.resolve(null),
     activeTab === "viewers" ? viewersService.getDepartmentViewers() : Promise.resolve(null),
@@ -249,7 +252,15 @@ export default async function AdminSettingsPage({
       ? adminsService.getAllUsers({ cursor, limit: PAGE_SIZE })
       : Promise.resolve(null),
     activeTab === "policy" ? getPolicyGateState() : Promise.resolve(null),
+    activeTab === "claim-override"
+      ? masterDataService.getItems({ tableName: "master_payment_modes" })
+      : Promise.resolve(null),
   ]);
+
+  const paymentModeOverrideOptions = (paymentModeOverrideResult?.data ?? [])
+    .filter((item) => item.isActive)
+    .filter((item) => isAdminPaymentModeOverrideAllowedName(item.name))
+    .map((item) => ({ id: item.id, name: item.name }));
 
   function tabHref(key: string) {
     return `${ROUTES.admin.settings}?tab=${key}`;
@@ -452,7 +463,16 @@ export default async function AdminSettingsPage({
                 <PolicyManagement initialState={policyGateStateResult} />
               ) : null}
 
-              {activeTab === "claim-override" ? <AdminClaimOverride /> : null}
+              {activeTab === "claim-override" ? (
+                <div className="space-y-4">
+                  <AdminClaimOverride />
+                  {paymentModeOverrideResult?.errorMessage ? (
+                    <ErrorBox message={paymentModeOverrideResult.errorMessage} />
+                  ) : (
+                    <AdminPaymentModeOverride paymentModes={paymentModeOverrideOptions} />
+                  )}
+                </div>
+              ) : null}
             </div>
           </section>
         </div>

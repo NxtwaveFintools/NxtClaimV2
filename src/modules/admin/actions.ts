@@ -185,6 +185,48 @@ export async function adminForceUpdateClaimStatusAction(
   return { ok: true };
 }
 
+export async function forceUpdatePaymentMode(
+  claimId: string,
+  newPaymentModeId: string,
+): Promise<{ ok: boolean; message?: string }> {
+  const guard = await requireAdmin();
+  if ("forbidden" in guard) {
+    return { ok: false, message: "Forbidden: admin access required." };
+  }
+
+  const claimIdResult = idSchema.safeParse(claimId);
+  if (!claimIdResult.success) {
+    return { ok: false, message: claimIdResult.error.issues[0]?.message ?? "Invalid claim ID." };
+  }
+
+  const paymentModeIdResult = idSchema.safeParse(newPaymentModeId);
+  if (!paymentModeIdResult.success) {
+    return {
+      ok: false,
+      message: paymentModeIdResult.error.issues[0]?.message ?? "Invalid payment mode ID.",
+    };
+  }
+
+  const result = await adminRepository.forceUpdatePaymentMode({
+    claimId: claimIdResult.data,
+    actorId: guard.userId,
+    newPaymentModeId: paymentModeIdResult.data,
+  });
+
+  if (!result.success) {
+    return {
+      ok: false,
+      message: result.errorMessage ?? "Failed to force-update payment mode.",
+    };
+  }
+
+  revalidatePath(ROUTES.admin.settings);
+  revalidatePath(ROUTES.claims.myClaims);
+  revalidatePath(ROUTES.claims.detail(claimIdResult.data));
+
+  return { ok: true };
+}
+
 export async function createMasterDataItemAction(
   tableName: MasterDataTableName,
   name: string,

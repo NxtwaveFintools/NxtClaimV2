@@ -8,6 +8,10 @@ import {
   DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
   type DbClaimStatus,
 } from "@/core/constants/statuses";
+import {
+  isAdminPaymentModeOverrideAllowedName,
+  isCorporateCardPaymentModeName,
+} from "@/core/constants/payment-modes";
 import type {
   AdminClaimRecord,
   AdminClaimOverrideSummary,
@@ -323,11 +327,19 @@ type ClaimOverrideRow = {
 type ClaimOverrideTransitionRow = {
   id: string;
   status: DbClaimStatus;
+  is_active: boolean;
+  payment_mode_id: string | null;
   assigned_l2_approver_id: string | null;
   hod_action_at: string | null;
   finance_action_at: string | null;
   rejection_reason: string | null;
   is_resubmission_allowed: boolean;
+};
+
+type ClaimPaymentModeLookupRow = {
+  id: string;
+  name: string;
+  is_active: boolean;
 };
 
 // ----------------------------------------------------------------
@@ -640,6 +652,156 @@ export class SupabaseAdminRepository implements AdminRepository {
     return {
       success: false,
       errorMessage: `Failed to write audit log: ${auditError.message}. Status update was reverted.`,
+    };
+  }
+
+  async forceUpdatePaymentMode(input: {
+    claimId: string;
+    actorId: string;
+    newPaymentModeId: string;
+  }): Promise<{ success: boolean; errorMessage: string | null }> {
+    const { data: currentClaimData, error: fetchError } = await this.client
+      .from("claims")
+      .select("id, status, is_active, payment_mode_id")
+      .eq("id", input.claimId)
+      .maybeSingle();
+
+    if (fetchError) {
+      return { success: false, errorMessage: fetchError.message };
+    }
+
+    if (!currentClaimData) {
+      return { success: false, errorMessage: "Claim not found." };
+    }
+
+    const currentClaim = currentClaimData as Pick<
+      ClaimOverrideTransitionRow,
+      "id" | "status" | "is_active" | "payment_mode_id"
+    >;
+
+    if (!currentClaim.is_active) {
+      return { success: false, errorMessage: "Claim is inactive and cannot be updated." };
+    }
+
+    if (currentClaim.status === DB_PAYMENT_DONE_CLOSED_STATUS) {
+      return {
+        success: false,
+        errorMessage: "Cannot update payment mode after claim is Payment Done - Closed.",
+      };
+    }
+
+    if (currentClaim.status !== DB_FINANCE_APPROVED_PAYMENT_UNDER_PROCESS_STATUS) {
+      return {
+        success: false,
+        errorMessage:
+          "Admin payment mode override is allowed only for Finance Approved - Payment under process claims.",
+      };
+    }
+
+    const { data: targetPaymentModeData, error: targetPaymentModeError } = await this.client
+      .from("master_payment_modes")
+      .select("id, name, is_active")
+      .eq("id", input.newPaymentModeId)
+      .maybeSingle();
+
+    if (targetPaymentModeError) {
+      return { success: false, errorMessage: targetPaymentModeError.message };
+    }
+
+    if (!targetPaymentModeData) {
+      return { success: false, errorMessage: "Selected payment mode was not found." };
+    }
+
+    const targetPaymentMode = targetPaymentModeData as ClaimPaymentModeLookupRow;
+
+    if (!targetPaymentMode.is_active) {
+      return { success: false, errorMessage: "Selected payment mode is inactive." };
+    }
+
+    if (isCorporateCardPaymentModeName(targetPaymentMode.name)) {
+      return {
+        success: false,
+        errorMessage: "Corporate Card cannot be selected for admin payment mode override.",
+      };
+    }
+
+    if (!isAdminPaymentModeOverrideAllowedName(targetPaymentMode.name)) {
+      return {
+        success: false,
+        errorMessage: "Admin payment mode override supports only Reimbursement or Petty Cash.",
+      };
+    }
+
+    if (currentClaim.payment_mode_id === input.newPaymentModeId) {
+      return { success: true, errorMessage: null };
+    }
+
+    let currentPaymentModeName: string | null = null;
+
+    if (currentClaim.payment_mode_id) {
+      const { data: existingPaymentModeData, error: existingPaymentModeError } = await this.client
+        .from("master_payment_modes")
+        .select("id, name, is_active")
+        .eq("id", currentClaim.payment_mode_id)
+        .maybeSingle();
+
+      if (existingPaymentModeError) {
+        return { success: false, errorMessage: existingPaymentModeError.message };
+      }
+
+      currentPaymentModeName =
+        (existingPaymentModeData as ClaimPaymentModeLookupRow | null)?.name ?? null;
+    }
+
+    const { error: updateError } = await this.client
+      .from("claims")
+      .update({
+        payment_mode_id: input.newPaymentModeId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", input.claimId)
+      .eq("is_active", true)
+      .eq("status", DB_FINANCE_APPROVED_PAYMENT_UNDER_PROCESS_STATUS);
+
+    if (updateError) {
+      return { success: false, errorMessage: updateError.message };
+    }
+
+    const sourceLabel =
+      currentPaymentModeName ?? currentClaim.payment_mode_id ?? "Unknown current payment mode";
+    const overrideRemarks = `Admin Override: Payment Mode changed (${sourceLabel} -> ${targetPaymentMode.name}).`;
+
+    const { error: auditError } = await this.client.from("claim_audit_logs").insert({
+      claim_id: input.claimId,
+      actor_id: input.actorId,
+      action_type: "ADMIN_PAYMENT_MODE_OVERRIDDEN",
+      assigned_to_id: null,
+      remarks: overrideRemarks,
+    });
+
+    if (!auditError) {
+      return { success: true, errorMessage: null };
+    }
+
+    const { error: rollbackError } = await this.client
+      .from("claims")
+      .update({
+        payment_mode_id: currentClaim.payment_mode_id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", input.claimId)
+      .eq("is_active", true);
+
+    if (rollbackError) {
+      return {
+        success: false,
+        errorMessage: `Failed to write audit log (${auditError.message}). Rollback also failed (${rollbackError.message}).`,
+      };
+    }
+
+    return {
+      success: false,
+      errorMessage: `Failed to write audit log: ${auditError.message}. Payment mode update was reverted.`,
     };
   }
 

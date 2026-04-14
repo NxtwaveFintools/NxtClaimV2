@@ -173,6 +173,12 @@ export interface AdminRepository {
     reason: string;
   }): Promise<{ success: boolean; errorMessage: string | null }>;
 
+  forceUpdatePaymentMode(input: {
+    claimId: string;
+    actorId: string;
+    newPaymentModeId: string;
+  }): Promise<{ success: boolean; errorMessage: string | null }>;
+
   softDeleteClaim(
     claimId: string,
     actorId: string,

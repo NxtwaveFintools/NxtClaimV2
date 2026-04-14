@@ -416,6 +416,201 @@ describe("SupabaseAdminRepository", () => {
     );
   });
 
+  test("forceUpdatePaymentMode updates payment mode and writes audit log", async () => {
+    const fetchChain = createQueryChain({
+      data: {
+        id: "claim-1",
+        status: "Finance Approved - Payment under process",
+        is_active: true,
+        payment_mode_id: "mode-old",
+      },
+      error: null,
+    });
+    const targetModeChain = createQueryChain({
+      data: {
+        id: "mode-new",
+        name: "Reimbursement",
+        is_active: true,
+      },
+      error: null,
+    });
+    const currentModeChain = createQueryChain({
+      data: {
+        id: "mode-old",
+        name: "Petty Cash",
+        is_active: true,
+      },
+      error: null,
+    });
+    const updateChain = createQueryChain({ data: null, error: null });
+    const auditChain = createQueryChain({ data: null, error: null });
+
+    mockFrom
+      .mockImplementationOnce(() => fetchChain)
+      .mockImplementationOnce(() => targetModeChain)
+      .mockImplementationOnce(() => currentModeChain)
+      .mockImplementationOnce(() => updateChain)
+      .mockImplementationOnce(() => auditChain);
+
+    const repository = new SupabaseAdminRepository();
+    const result = await repository.forceUpdatePaymentMode({
+      claimId: "claim-1",
+      actorId: "admin-1",
+      newPaymentModeId: "mode-new",
+    });
+
+    expect(result).toEqual({ success: true, errorMessage: null });
+    expect(updateChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({ payment_mode_id: "mode-new" }),
+    );
+    expect(auditChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        claim_id: "claim-1",
+        actor_id: "admin-1",
+        action_type: "ADMIN_PAYMENT_MODE_OVERRIDDEN",
+      }),
+    );
+  });
+
+  test("forceUpdatePaymentMode blocks closed claims", async () => {
+    const fetchChain = createQueryChain({
+      data: {
+        id: "claim-1",
+        status: "Payment Done - Closed",
+        is_active: true,
+        payment_mode_id: "mode-old",
+      },
+      error: null,
+    });
+
+    mockFrom.mockImplementationOnce(() => fetchChain);
+
+    const repository = new SupabaseAdminRepository();
+    const result = await repository.forceUpdatePaymentMode({
+      claimId: "claim-1",
+      actorId: "admin-1",
+      newPaymentModeId: "mode-new",
+    });
+
+    expect(result).toEqual({
+      success: false,
+      errorMessage: "Cannot update payment mode after claim is Payment Done - Closed.",
+    });
+  });
+
+  test("forceUpdatePaymentMode blocks non-processing statuses", async () => {
+    const fetchChain = createQueryChain({
+      data: {
+        id: "claim-1",
+        status: "HOD approved - Awaiting finance approval",
+        is_active: true,
+        payment_mode_id: "mode-old",
+      },
+      error: null,
+    });
+
+    mockFrom.mockImplementationOnce(() => fetchChain);
+
+    const repository = new SupabaseAdminRepository();
+    const result = await repository.forceUpdatePaymentMode({
+      claimId: "claim-1",
+      actorId: "admin-1",
+      newPaymentModeId: "mode-new",
+    });
+
+    expect(result).toEqual({
+      success: false,
+      errorMessage:
+        "Admin payment mode override is allowed only for Finance Approved - Payment under process claims.",
+    });
+  });
+
+  test("forceUpdatePaymentMode blocks corporate card target", async () => {
+    const fetchChain = createQueryChain({
+      data: {
+        id: "claim-1",
+        status: "Finance Approved - Payment under process",
+        is_active: true,
+        payment_mode_id: "mode-old",
+      },
+      error: null,
+    });
+    const targetModeChain = createQueryChain({
+      data: {
+        id: "mode-corp",
+        name: "Corporate Card",
+        is_active: true,
+      },
+      error: null,
+    });
+
+    mockFrom.mockImplementationOnce(() => fetchChain).mockImplementationOnce(() => targetModeChain);
+
+    const repository = new SupabaseAdminRepository();
+    const result = await repository.forceUpdatePaymentMode({
+      claimId: "claim-1",
+      actorId: "admin-1",
+      newPaymentModeId: "mode-corp",
+    });
+
+    expect(result).toEqual({
+      success: false,
+      errorMessage: "Corporate Card cannot be selected for admin payment mode override.",
+    });
+  });
+
+  test("forceUpdatePaymentMode rolls back when audit insert fails", async () => {
+    const fetchChain = createQueryChain({
+      data: {
+        id: "claim-1",
+        status: "Finance Approved - Payment under process",
+        is_active: true,
+        payment_mode_id: "mode-old",
+      },
+      error: null,
+    });
+    const targetModeChain = createQueryChain({
+      data: {
+        id: "mode-new",
+        name: "Petty Cash",
+        is_active: true,
+      },
+      error: null,
+    });
+    const currentModeChain = createQueryChain({
+      data: {
+        id: "mode-old",
+        name: "Reimbursement",
+        is_active: true,
+      },
+      error: null,
+    });
+    const updateChain = createQueryChain({ data: null, error: null });
+    const auditChain = createQueryChain({ data: null, error: { message: "audit failed" } });
+    const rollbackChain = createQueryChain({ data: null, error: null });
+
+    mockFrom
+      .mockImplementationOnce(() => fetchChain)
+      .mockImplementationOnce(() => targetModeChain)
+      .mockImplementationOnce(() => currentModeChain)
+      .mockImplementationOnce(() => updateChain)
+      .mockImplementationOnce(() => auditChain)
+      .mockImplementationOnce(() => rollbackChain);
+
+    const repository = new SupabaseAdminRepository();
+    const result = await repository.forceUpdatePaymentMode({
+      claimId: "claim-1",
+      actorId: "admin-1",
+      newPaymentModeId: "mode-new",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.errorMessage).toContain("Payment mode update was reverted");
+    expect(rollbackChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({ payment_mode_id: "mode-old" }),
+    );
+  });
+
   test("updateDepartmentActors blocks same user for HOD and Founder", async () => {
     const repository = new SupabaseAdminRepository();
 
