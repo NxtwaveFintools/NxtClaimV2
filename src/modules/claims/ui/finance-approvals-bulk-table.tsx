@@ -39,11 +39,13 @@ type FinanceApprovalRow = {
   id: string;
   employeeId: string;
   submitter: string;
+  submitterEmail: string | null;
   departmentName: string | null;
   paymentModeName: string;
   detailType: ClaimDetailType;
   submissionType: ClaimSubmissionType;
   onBehalfEmail: string | null;
+  onBehalfEmployeeCode: string | null;
   purpose: string | null;
   categoryName: string;
   expenseReceiptFilePath: string | null;
@@ -518,7 +520,7 @@ export function FinanceApprovalsBulkTable({
       ) : null}
 
       <div className="nxt-scroll w-full overflow-x-auto">
-        <table className="min-w-370 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
+        <table className="min-w-430 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
           <thead className="bg-zinc-50/80 text-[11px] uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
             <tr>
               <th className="px-3 py-2.5">
@@ -535,8 +537,10 @@ export function FinanceApprovalsBulkTable({
                 />
               </th>
               <th className="whitespace-nowrap px-3 py-2.5 font-semibold">CLAIM ID</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">EMPLOYEE ID</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">EMPLOYEE NAME</th>
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTER ID</th>
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTER EMAIL</th>
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">ON BEHALF ID</th>
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">ON BEHALF EMAIL</th>
               <th className="whitespace-nowrap px-3 py-2.5 font-semibold">DEPARTMENT</th>
               <th className="whitespace-nowrap px-3 py-2.5 font-semibold">TYPE OF CLAIM</th>
               <th className="whitespace-nowrap px-3 py-2.5 font-semibold">AMOUNT</th>
@@ -673,7 +677,17 @@ export function FinanceApprovalsBulkTable({
                   <td className="whitespace-nowrap px-3 py-2">{claim.employeeId}</td>
                   <td className="px-3 py-2">
                     <span className="inline-block max-w-37.5 truncate align-bottom">
-                      {claim.submitter}
+                      {claim.submitterEmail?.trim() || claim.submitter}
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2">
+                    <span className="inline-block max-w-30 truncate align-bottom">
+                      {claim.onBehalfEmployeeCode?.trim() || "N/A"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className="inline-block max-w-40 truncate align-bottom">
+                      {claim.onBehalfEmail?.trim() || "N/A"}
                     </span>
                   </td>
                   <td className="px-3 py-2">

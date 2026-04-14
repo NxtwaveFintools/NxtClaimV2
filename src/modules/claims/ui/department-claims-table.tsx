@@ -26,12 +26,14 @@ export function DepartmentClaimsTable({ claims }: Props) {
 
   return (
     <div className="nxt-scroll w-full overflow-x-auto">
-      <table className="min-w-325 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
+      <table className="min-w-395 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
         <thead className="bg-zinc-50/80 text-[11px] uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
           <tr>
             <th className="whitespace-nowrap px-3 py-2 font-semibold">CLAIM ID</th>
-            <th className="whitespace-nowrap px-3 py-2 font-semibold">EMPLOYEE ID</th>
-            <th className="whitespace-nowrap px-3 py-2 font-semibold">EMPLOYEE NAME</th>
+            <th className="whitespace-nowrap px-3 py-2 font-semibold">SUBMITTER ID</th>
+            <th className="whitespace-nowrap px-3 py-2 font-semibold">SUBMITTER EMAIL</th>
+            <th className="whitespace-nowrap px-3 py-2 font-semibold">ON BEHALF ID</th>
+            <th className="whitespace-nowrap px-3 py-2 font-semibold">ON BEHALF EMAIL</th>
             <th className="whitespace-nowrap px-3 py-2 font-semibold">DEPARTMENT</th>
             <th className="whitespace-nowrap px-3 py-2 font-semibold">TYPE</th>
             <th className="whitespace-nowrap px-3 py-2 font-semibold">AMOUNT</th>
@@ -75,7 +77,19 @@ function DepartmentClaimRow({ claim }: { claim: DepartmentViewerClaimRecord }) {
         <span className="inline-block max-w-45 truncate align-bottom">{claim.employeeId}</span>
       </td>
       <td className="px-3 py-2">
-        <span className="inline-block max-w-37.5 truncate align-bottom">{claim.employeeName}</span>
+        <span className="inline-block max-w-45 truncate align-bottom">
+          {claim.submitterEmail?.trim() || claim.employeeName}
+        </span>
+      </td>
+      <td className="whitespace-nowrap px-3 py-2">
+        <span className="inline-block max-w-35 truncate align-bottom">
+          {claim.onBehalfEmployeeCode?.trim() || "N/A"}
+        </span>
+      </td>
+      <td className="px-3 py-2">
+        <span className="inline-block max-w-40 truncate align-bottom">
+          {claim.onBehalfEmail?.trim() || "N/A"}
+        </span>
       </td>
       <td className="px-3 py-2">
         <span className="inline-block max-w-32.5 truncate align-bottom">

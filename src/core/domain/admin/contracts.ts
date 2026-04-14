@@ -20,6 +20,9 @@ export type AdminClaimRecord = {
   claimId: string;
   employeeName: string;
   employeeId: string;
+  submitterEmail?: string | null;
+  onBehalfEmail?: string | null;
+  onBehalfEmployeeCode?: string | null;
   departmentName: string;
   typeOfClaim: string;
   amount: number;

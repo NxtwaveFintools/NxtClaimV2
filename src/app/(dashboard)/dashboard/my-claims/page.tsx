@@ -479,8 +479,10 @@ function TableHeader({ showActions }: { showActions: boolean }) {
     <thead className="bg-zinc-50/80 text-[11px] uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
       <tr>
         <th className="whitespace-nowrap px-3 py-2.5 font-semibold">CLAIM ID</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">EMPLOYEE ID</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">EMPLOYEE NAME</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTER ID</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTER EMAIL</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">ON BEHALF ID</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">ON BEHALF EMAIL</th>
         <th className="whitespace-nowrap px-3 py-2.5 font-semibold">DEPARTMENT</th>
         <th className="whitespace-nowrap px-3 py-2.5 font-semibold">TYPE OF CLAIM</th>
         <th className="whitespace-nowrap px-3 py-2.5 font-semibold">AMOUNT</th>
@@ -576,11 +578,13 @@ async function ClaimsCommandCenterTable({
                     id: claim.id,
                     employeeId: claim.employeeId,
                     submitter: claim.submitter,
+                    submitterEmail: claim.submitterEmail,
                     departmentName: claim.departmentName,
                     paymentModeName: claim.paymentModeName,
                     detailType: claim.detailType,
                     submissionType: claim.submissionType,
                     onBehalfEmail: claim.onBehalfEmail,
+                    onBehalfEmployeeCode: claim.onBehalfEmployeeCode,
                     purpose: claim.purpose,
                     categoryName: claim.categoryName,
                     expenseReceiptFilePath: claim.expenseReceiptFilePath,
@@ -665,7 +669,7 @@ async function ClaimsCommandCenterTable({
         ) : (
           <>
             <div className="nxt-scroll w-full overflow-x-auto">
-              <table className="min-w-345 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
+              <table className="min-w-415 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
                 <TableHeader showActions />
                 <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
                   {rows.map((claim) => {
@@ -795,7 +799,15 @@ async function ClaimsCommandCenterTable({
                         </td>
                         <td className="px-3 py-2">
                           <span className="inline-block max-w-[150px] truncate align-bottom">
-                            {claim.submitter}
+                            {claim.submitterEmail?.trim() || claim.submitter}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2">
+                          <span>{claim.onBehalfEmployeeCode?.trim() || "N/A"}</span>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className="inline-block max-w-[150px] truncate align-bottom">
+                            {claim.onBehalfEmail?.trim() || "N/A"}
                           </span>
                         </td>
                         <td className="px-3 py-2">
@@ -919,7 +931,7 @@ async function ClaimsCommandCenterTable({
       ) : (
         <>
           <div className="nxt-scroll overflow-x-auto">
-            <table className="min-w-325 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
+            <table className="min-w-395 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
               <TableHeader showActions />
               <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
                 {rows.map((claim) => {
@@ -951,7 +963,15 @@ async function ClaimsCommandCenterTable({
                       </td>
                       <td className="px-3 py-2">
                         <span className="inline-block max-w-[150px] truncate align-bottom">
-                          {claim.employeeName}
+                          {claim.submitterEmail?.trim() || claim.employeeName}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2">
+                        <span>{claim.onBehalfEmployeeCode?.trim() || "N/A"}</span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className="inline-block max-w-[150px] truncate align-bottom">
+                          {claim.onBehalfEmail?.trim() || "N/A"}
                         </span>
                       </td>
                       <td className="px-3 py-2">

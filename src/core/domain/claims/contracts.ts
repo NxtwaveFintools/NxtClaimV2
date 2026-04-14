@@ -292,6 +292,8 @@ export type MyClaimListRecord = {
   financeActionDate: string | null;
   detailType: ClaimDetailType;
   submissionType: ClaimSubmissionType;
+  onBehalfEmail?: string | null;
+  onBehalfEmployeeCode?: string | null;
   submitterEmail: string | null;
   hodEmail: string | null;
   financeEmail: string | null;
@@ -325,11 +327,13 @@ export type PendingApprovalListRecord = {
   id: string;
   employeeId: string;
   submitter: string;
+  submitterEmail?: string | null;
   departmentName: string | null;
   paymentModeName: string;
   detailType: ClaimDetailType;
   submissionType: ClaimSubmissionType;
   onBehalfEmail: string | null;
+  onBehalfEmployeeCode?: string | null;
   purpose: string | null;
   categoryName: string;
   evidenceFilePath: string | null;
@@ -491,6 +495,9 @@ export type DepartmentViewerClaimRecord = {
   claimId: string;
   employeeName: string;
   employeeId: string;
+  submitterEmail?: string | null;
+  onBehalfEmail?: string | null;
+  onBehalfEmployeeCode?: string | null;
   departmentName: string;
   typeOfClaim: string;
   amount: number;

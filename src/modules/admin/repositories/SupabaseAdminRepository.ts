@@ -230,6 +230,8 @@ type EnterpriseDashboardRow = {
   employee_name: string;
   employee_id: string;
   submitter_email: string | null;
+  on_behalf_email: string | null;
+  on_behalf_employee_code_raw: string | null;
   department_name: string;
   type_of_claim: string;
   amount: number | string;
@@ -365,7 +367,7 @@ export class SupabaseAdminRepository implements AdminRepository {
     let query = this.client
       .from("vw_enterprise_claims_dashboard")
       .select(
-        "claim_id, employee_name, employee_id, submitter_email, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, detail_type, submission_type, is_active, department_id, payment_mode_id, location_id, product_id, expense_category_id",
+        "claim_id, employee_name, employee_id, submitter_email, on_behalf_email, on_behalf_employee_code_raw, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, detail_type, submission_type, is_active, department_id, payment_mode_id, location_id, product_id, expense_category_id",
       )
       .order("submitted_on", { ascending: false })
       .order("claim_id", { ascending: false })
@@ -504,6 +506,9 @@ export class SupabaseAdminRepository implements AdminRepository {
           claimId: row.claim_id,
           employeeName: row.employee_name,
           employeeId: row.employee_id,
+          submitterEmail: row.submitter_email ?? null,
+          onBehalfEmail: row.on_behalf_email ?? null,
+          onBehalfEmployeeCode: row.on_behalf_employee_code_raw ?? null,
           departmentName: row.department_name,
           typeOfClaim: row.type_of_claim,
           amount: normalizeAmount(row.amount),

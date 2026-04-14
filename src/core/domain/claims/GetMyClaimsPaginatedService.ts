@@ -21,6 +21,7 @@ type MyClaimsPaginatedRecord = {
   detailType: ClaimDetailType;
   submissionType: ClaimSubmissionType;
   onBehalfEmail: string | null;
+  onBehalfEmployeeCode: string | null;
   submitterEmail: string | null;
   hodEmail: string | null;
   financeEmail: string | null;
@@ -50,6 +51,7 @@ type RepositoryClaimRow = {
   detailType: ClaimDetailType;
   submissionType: ClaimSubmissionType;
   onBehalfEmail: string | null;
+  onBehalfEmployeeCode: string | null;
   submitterEmail: string | null;
   hodEmail: string | null;
   financeEmail: string | null;
