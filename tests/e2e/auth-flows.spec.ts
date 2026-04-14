@@ -1,5 +1,5 @@
 import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
-import { getAuthStatePathByRole, getDefaultSeedEmails } from "./support/auth-state";
+import { getDefaultSeedEmails } from "./support/auth-state";
 
 const defaultPassword = process.env.E2E_DEFAULT_PASSWORD ?? "password123";
 const seedEmails = getDefaultSeedEmails();
@@ -96,13 +96,15 @@ test.describe("auth flows", () => {
   });
 
   test.describe("authenticated sign out", () => {
-    test.use({ storageState: getAuthStatePathByRole("submitter") });
-
     test("sign out button redirects to login", async ({ page }) => {
+      await bootstrapSession(page, seedEmails.submitter);
       await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
-      await expect(page.getByRole("button", { name: /sign out/i })).toBeVisible();
+      await expect(page).not.toHaveURL(/\/auth\/login/i, { timeout: 20000 });
 
-      await page.getByRole("button", { name: /sign out/i }).click();
+      const signOutButton = page.getByRole("button", { name: /sign out/i });
+      await expect(signOutButton).toBeVisible({ timeout: 15000 });
+
+      await signOutButton.click();
       await expect(page).toHaveURL(/\/auth\/login/i, { timeout: 20000 });
     });
   });
