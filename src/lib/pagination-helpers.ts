@@ -91,7 +91,6 @@ export function buildCursorPageHref(
   searchParams: Record<string, SearchParamsValue> | undefined,
   cursor: string | null,
   prevCursor: string | null,
-  page: number,
 ): string {
   const params = toSearchParams(searchParams);
 
@@ -107,31 +106,7 @@ export function buildCursorPageHref(
     params.delete("prevCursor");
   }
 
-  if (page > 1) {
-    params.set("page", String(page));
-  } else {
-    params.delete("page");
-  }
-
-  const query = params.toString();
-  return query ? `?${query}` : "?";
-}
-
-export function buildOffsetPageHref(
-  searchParams: Record<string, SearchParamsValue> | undefined,
-  page: number,
-): string {
-  const params = toSearchParams(searchParams);
-
-  params.delete("cursor");
-  params.delete("prevCursor");
-  params.delete("limit");
-
-  if (page > 1) {
-    params.set("page", String(page));
-  } else {
-    params.delete("page");
-  }
+  params.delete("page");
 
   const query = params.toString();
   return query ? `?${query}` : "?";

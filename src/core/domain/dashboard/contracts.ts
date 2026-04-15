@@ -62,14 +62,6 @@ export type DashboardAnalyticsAggregateRow = {
   hodApprovalSampleCount: number;
 };
 
-export type DashboardAnalyticsAggregatePayload = {
-  claimCount: number;
-  amounts: DashboardAnalyticsAmountSummary;
-  statusBreakdown: DashboardAnalyticsStatusBreakdownItem[];
-  paymentModeBreakdown: DashboardAnalyticsPaymentModeBreakdownItem[];
-  efficiencyByDepartment: DashboardAnalyticsEfficiencyItem[];
-};
-
 export type DashboardAnalyticsOption = {
   id: string;
   label: string;
@@ -160,7 +152,7 @@ export type DashboardAnalyticsRepository = {
     productId?: string;
     financeApproverId?: string;
   }): Promise<{
-    data: DashboardAnalyticsAggregatePayload | null;
+    data: DashboardAnalyticsAggregateRow[];
     errorMessage: string | null;
   }>;
   getAnalyticsFilterOptions(input: {

@@ -23,6 +23,19 @@ function normalizeString(value: unknown): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
+function normalizeNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
 export function getSupabaseAuthErrorMessage(error: unknown): string {
   const parsed = asSupabaseAuthErrorLike(error);
   return typeof parsed.message === "string" ? parsed.message : "";
@@ -31,6 +44,11 @@ export function getSupabaseAuthErrorMessage(error: unknown): string {
 export function getSupabaseAuthErrorCode(error: unknown): string {
   const parsed = asSupabaseAuthErrorLike(error);
   return normalizeString(parsed.code);
+}
+
+export function getSupabaseAuthErrorStatus(error: unknown): number | null {
+  const parsed = asSupabaseAuthErrorLike(error);
+  return normalizeNumber(parsed.status);
 }
 
 export function isSupabaseAuthSessionMissingError(error: unknown): boolean {
@@ -69,7 +87,10 @@ export function isSupabaseInvalidGrantError(error: unknown): boolean {
  * They require deterministic logout/cookie cleanup and a fresh sign-in.
  */
 export function isSupabaseTerminalSessionError(error: unknown): boolean {
+  const status = getSupabaseAuthErrorStatus(error);
+
   return (
+    status === 400 ||
     isSupabaseAuthSessionMissingError(error) ||
     isSupabaseRefreshTokenNotFoundError(error) ||
     isSupabaseInvalidRefreshTokenError(error) ||

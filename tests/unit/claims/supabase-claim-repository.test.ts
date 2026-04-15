@@ -168,12 +168,40 @@ describe("SupabaseClaimRepository.getMyClaims", () => {
 
     const repository = new SupabaseClaimRepository();
 
-    await repository.getMyClaimsPaginated("user-1", 1, 20, {
+    await repository.getMyClaimsPaginated("user-1", null, 20, {
       searchField: "claim_id",
       searchQuery: "CLAIM",
     });
 
     expect(queryBuilder.ilike).toHaveBeenCalledWith("claim_id", "%CLAIM%");
+  });
+
+  test("uses raw employee identity OR filter in paginated my claims employee_id search", async () => {
+    const queryBuilder = createQueryBuilder({
+      data: [],
+      count: 0,
+      error: null,
+    });
+
+    mockFrom.mockReturnValue({
+      select: jest.fn(() => queryBuilder),
+    });
+
+    mockGetServiceRoleSupabaseClient.mockReturnValue({
+      from: mockFrom,
+    });
+
+    const repository = new SupabaseClaimRepository();
+
+    await repository.getMyClaimsPaginated("user-1", null, 20, {
+      searchField: "employee_id",
+      searchQuery: "EMP-050",
+    });
+
+    expect(queryBuilder.or).toHaveBeenCalledWith(
+      "claim_employee_id_raw.ilike.%EMP-050%,on_behalf_employee_code_raw.ilike.%EMP-050%,submitter_email.ilike.%EMP-050%,on_behalf_email.ilike.%EMP-050%",
+    );
+    expect(queryBuilder.ilike).not.toHaveBeenCalledWith("employee_id", "%EMP-050%");
   });
 
   test("uses partial case-insensitive claim_id search in L1 approvals", async () => {
@@ -388,6 +416,55 @@ describe("SupabaseClaimRepository.updateClaimDetailsByFinance", () => {
     expect(expenseBuilder.eq).toHaveBeenCalledWith("id", "expense-detail-1");
     expect(expenseBuilder.eq).toHaveBeenCalledWith("claim_id", "claim-1");
     expect(expenseBuilder.eq).toHaveBeenCalledWith("is_active", true);
+  });
+
+  test("updates claim payment_mode_id when finance payload includes paymentModeId", async () => {
+    const claimsBuilder = createMutationBuilder({
+      data: { id: "claim-1" },
+      error: null,
+    });
+    const expenseBuilder = createMutationBuilder({
+      data: { id: "expense-1" },
+      error: null,
+    });
+
+    mockFrom.mockReturnValueOnce(claimsBuilder).mockReturnValueOnce(expenseBuilder);
+
+    mockGetServiceRoleSupabaseClient.mockReturnValue({
+      from: mockFrom,
+    });
+
+    const repository = new SupabaseClaimRepository();
+    const result = await repository.updateClaimDetailsByFinance("claim-1", {
+      detailType: "expense",
+      detailId: "expense-detail-1",
+      paymentModeId: "22222222-2222-4222-8222-222222222222",
+      billNo: "BILL-1",
+      expenseCategoryId: "cat-1",
+      locationId: "loc-1",
+      transactionDate: "2026-03-22",
+      isGstApplicable: true,
+      gstNumber: "GSTIN-123",
+      vendorName: "Vendor A",
+      basicAmount: 100,
+      cgstAmount: 9,
+      sgstAmount: 9,
+      igstAmount: 0,
+      totalAmount: 118,
+      purpose: "Travel",
+      productId: "prod-1",
+      peopleInvolved: "Alice",
+      remarks: "updated",
+      receiptFilePath: "expenses/new_receipt.pdf",
+      bankStatementFilePath: "expenses/new_bank_statement.pdf",
+    });
+
+    expect(result).toEqual({ errorMessage: null });
+    expect(claimsBuilder.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payment_mode_id: "22222222-2222-4222-8222-222222222222",
+      }),
+    );
   });
 
   test("returns claim update error without running expense update", async () => {

@@ -11,11 +11,13 @@ type PendingApprovalRecord = {
   id: string;
   employeeId: string;
   submitter: string;
+  submitterEmail: string | null;
   departmentName: string | null;
   paymentModeName: string;
   detailType: ClaimDetailType;
   submissionType: ClaimSubmissionType;
   onBehalfEmail: string | null;
+  onBehalfEmployeeCode: string | null;
   purpose: string | null;
   categoryName: string;
   evidenceFilePath: string | null;

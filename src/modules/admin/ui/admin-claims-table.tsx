@@ -15,11 +15,11 @@ import type { AdminClaimRecord } from "@/core/domain/admin/contracts";
 import { formatDate, formatCurrency } from "@/lib/format";
 
 type Props = {
-  rows: AdminClaimRecord[];
+  claims: AdminClaimRecord[];
 };
 
-export function AdminClaimsTable({ rows }: Props) {
-  if (rows.length === 0) {
+export function AdminClaimsTable({ claims }: Props) {
+  if (claims.length === 0) {
     return (
       <TableEmptyState title="No claims found" description="Adjust filters or check back later." />
     );
@@ -27,12 +27,14 @@ export function AdminClaimsTable({ rows }: Props) {
 
   return (
     <div className="nxt-scroll w-full overflow-x-auto">
-      <table className="min-w-400 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
+      <table className="min-w-470 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
         <thead className="bg-zinc-50/80 text-[11px] uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
           <tr>
             <th className="whitespace-nowrap px-3 py-2 font-semibold">CLAIM ID</th>
-            <th className="whitespace-nowrap px-3 py-2 font-semibold">EMPLOYEE ID</th>
-            <th className="whitespace-nowrap px-3 py-2 font-semibold">EMPLOYEE NAME</th>
+            <th className="whitespace-nowrap px-3 py-2 font-semibold">SUBMITTER ID</th>
+            <th className="whitespace-nowrap px-3 py-2 font-semibold">SUBMITTER EMAIL</th>
+            <th className="whitespace-nowrap px-3 py-2 font-semibold">ON BEHALF ID</th>
+            <th className="whitespace-nowrap px-3 py-2 font-semibold">ON BEHALF EMAIL</th>
             <th className="whitespace-nowrap px-3 py-2 font-semibold">DEPARTMENT</th>
             <th className="whitespace-nowrap px-3 py-2 font-semibold">TYPE</th>
             <th className="whitespace-nowrap px-3 py-2 font-semibold">AMOUNT</th>
@@ -47,7 +49,7 @@ export function AdminClaimsTable({ rows }: Props) {
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
-          {rows.map((claim) => (
+          {claims.map((claim) => (
             <AdminClaimRow key={claim.claimId} claim={claim} />
           ))}
         </tbody>
@@ -89,7 +91,19 @@ function AdminClaimRow({ claim }: { claim: AdminClaimRecord }) {
         <span className="inline-block max-w-45 truncate align-bottom">{claim.employeeId}</span>
       </td>
       <td className="px-3 py-2">
-        <span className="inline-block max-w-55 truncate align-bottom">{claim.employeeName}</span>
+        <span className="inline-block max-w-55 truncate align-bottom">
+          {claim.submitterEmail?.trim() || claim.employeeName}
+        </span>
+      </td>
+      <td className="whitespace-nowrap px-3 py-2">
+        <span className="inline-block max-w-35 truncate align-bottom">
+          {claim.onBehalfEmployeeCode?.trim() || "N/A"}
+        </span>
+      </td>
+      <td className="px-3 py-2">
+        <span className="inline-block max-w-55 truncate align-bottom">
+          {claim.onBehalfEmail?.trim() || "N/A"}
+        </span>
       </td>
       <td className="px-3 py-2">
         <span className="inline-block max-w-50 truncate align-bottom">{claim.departmentName}</span>

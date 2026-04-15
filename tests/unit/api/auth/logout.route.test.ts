@@ -68,6 +68,27 @@ describe("POST /api/auth/logout", () => {
     expect(signOut).toHaveBeenCalledTimes(1);
   });
 
+  test("returns 200 loggedOut=true without requiring auth headers", async () => {
+    const signOut = jest.fn().mockResolvedValue({ error: null });
+    mockCreateServerClient.mockReturnValue({
+      auth: { signOut },
+    });
+
+    const { POST } = await import("@/app/api/auth/logout/route");
+
+    const response = await POST(
+      new Request("http://localhost/api/auth/logout", {
+        method: "POST",
+      }) as never,
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data.loggedOut).toBe(true);
+    expect(typeof body.meta.correlationId).toBe("string");
+    expect(body.meta.correlationId.length).toBeGreaterThan(0);
+  });
+
   test.each([
     {
       label: "signOut throws",

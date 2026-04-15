@@ -78,6 +78,7 @@ type FinanceEditClaimFormProps = {
   products: DropdownOption[];
   locations: DropdownOption[];
   isEditMode?: boolean;
+  canEditPaymentMode?: boolean;
   fieldScope?: FinanceEditFieldScope;
   presentation?: FinanceEditPresentation;
   onSuccess?: () => void | Promise<void>;
@@ -153,6 +154,7 @@ export function FinanceEditClaimForm({
   products,
   locations,
   isEditMode = true,
+  canEditPaymentMode = false,
   fieldScope = "full",
   presentation = "inline-toggle",
   onSuccess,
@@ -177,7 +179,8 @@ export function FinanceEditClaimForm({
   const isEmbeddedPresentation = presentation === "embedded";
   const isQuickViewScope = fieldScope === "quick-view-core";
   const isOpen = isEmbeddedPresentation ? true : isInlineOpen;
-  const isRoutingFieldLocked = isEditMode;
+  const isDepartmentFieldLocked = isEditMode;
+  const isPaymentModeFieldLocked = isEditMode && !canEditPaymentMode;
   const lockedFieldClassName =
     "rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400";
 
@@ -406,9 +409,9 @@ export function FinanceEditClaimForm({
                   name="departmentId"
                   required
                   defaultValue={claim.departmentId}
-                  disabled={isRoutingFieldLocked}
+                  disabled={isDepartmentFieldLocked}
                   className={
-                    isRoutingFieldLocked
+                    isDepartmentFieldLocked
                       ? lockedFieldClassName
                       : "rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                   }
@@ -427,9 +430,9 @@ export function FinanceEditClaimForm({
                   name="paymentModeId"
                   required
                   defaultValue={claim.paymentModeId}
-                  disabled={isRoutingFieldLocked}
+                  disabled={isPaymentModeFieldLocked}
                   className={
-                    isRoutingFieldLocked
+                    isPaymentModeFieldLocked
                       ? lockedFieldClassName
                       : "rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                   }

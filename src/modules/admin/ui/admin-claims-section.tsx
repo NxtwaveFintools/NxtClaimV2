@@ -13,6 +13,10 @@ import type { ClaimSubmissionType } from "@/core/domain/claims/contracts";
 import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
 
 type SearchParamsValue = string | string[] | undefined;
+type ClaimsPaginationState = {
+  cursor: string | null;
+  prevCursor: string | null;
+};
 
 function firstParamValue(value: SearchParamsValue): string | undefined {
   if (Array.isArray(value)) return value[0];
@@ -60,15 +64,13 @@ const PAGE_SIZE = 10;
 
 async function AdminClaimsTableSection({
   searchParams,
+  pagination,
 }: {
   searchParams?: Record<string, SearchParamsValue>;
+  pagination: ClaimsPaginationState;
 }) {
   const adminRepository = new SupabaseAdminRepository();
   const service = new GetAdminClaimsService({ repository: adminRepository, logger });
-
-  const cursor = firstParamValue(searchParams?.cursor) ?? null;
-  const previousCursor = firstParamValue(searchParams?.prevCursor) ?? null;
-  const previousCursorToken = previousCursor ?? (cursor ? "__first__" : null);
 
   const filters: AdminClaimsFilters = {
     status: normalizeStatusFilter(firstParamValue(searchParams?.status)),
@@ -101,7 +103,7 @@ async function AdminClaimsTableSection({
 
   const result = await service.execute({
     filters,
-    pagination: { cursor, limit: PAGE_SIZE },
+    pagination: { cursor: pagination.cursor, limit: PAGE_SIZE },
   });
 
   if (result.errorMessage || !result.data) {
@@ -114,17 +116,16 @@ async function AdminClaimsTableSection({
     );
   }
 
-  const { data: rows, nextCursor, hasNextPage } = result.data;
+  const { data: claims, nextCursor, hasNextPage } = result.data;
 
   return (
     <>
-      <AdminClaimsTable rows={rows} />
+      <AdminClaimsTable claims={claims} />
       <MyClaimsPaginationControls
         hasNextPage={hasNextPage}
-        hasPreviousPage={Boolean(previousCursorToken)}
-        currentCursor={cursor}
+        currentCursor={pagination.cursor}
         nextCursor={nextCursor}
-        previousCursor={previousCursorToken}
+        prevCursor={pagination.prevCursor}
         searchParams={searchParams}
       />
     </>
@@ -158,8 +159,10 @@ async function AdminFilterBarWithData() {
 
 export function AdminClaimsSection({
   searchParams,
+  pagination,
 }: {
   searchParams?: Record<string, SearchParamsValue>;
+  pagination: ClaimsPaginationState;
 }) {
   return (
     <section className="space-y-4">
@@ -173,7 +176,7 @@ export function AdminClaimsSection({
           </h2>
         </div>
         <Suspense fallback={<TableSkeleton />}>
-          <AdminClaimsTableSection searchParams={searchParams} />
+          <AdminClaimsTableSection searchParams={searchParams} pagination={pagination} />
         </Suspense>
       </div>
     </section>

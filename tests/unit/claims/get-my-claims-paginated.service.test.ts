@@ -43,6 +43,8 @@ function createRepository(overrides?: Partial<Repository>): Repository {
         },
       ],
       totalCount: 42,
+      nextCursor: "cursor-next",
+      hasNextPage: true,
       errorMessage: null,
     })),
     ...overrides,
@@ -59,16 +61,18 @@ describe("GetMyClaimsPaginatedService", () => {
 
     const result = await service.execute({
       userId: "user-1",
-      page: 1,
+      cursor: null,
       limit: 20,
       filters: { detailType: "expense" },
     });
 
-    expect(repository.getMyClaimsPaginated).toHaveBeenCalledWith("user-1", 1, 20, {
+    expect(repository.getMyClaimsPaginated).toHaveBeenCalledWith("user-1", null, 20, {
       detailType: "expense",
     });
     expect(result.errorMessage).toBeNull();
     expect(result.totalCount).toBe(42);
+    expect(result.nextCursor).toBe("cursor-next");
+    expect(result.hasNextPage).toBe(true);
     expect(result.data).toHaveLength(1);
     expect(result.data[0]).toMatchObject({
       id: "claim-1",
@@ -85,6 +89,8 @@ describe("GetMyClaimsPaginatedService", () => {
       getMyClaimsPaginated: jest.fn(async () => ({
         data: [],
         totalCount: 0,
+        nextCursor: null,
+        hasNextPage: false,
         errorMessage: "db down",
       })),
     });
@@ -93,20 +99,22 @@ describe("GetMyClaimsPaginatedService", () => {
 
     const result = await service.execute({
       userId: "user-1",
-      page: 2,
+      cursor: "cursor-2",
       limit: 10,
     });
 
     expect(result).toEqual({
       data: [],
       totalCount: 0,
+      nextCursor: null,
+      hasNextPage: false,
       errorMessage: "db down",
     });
     expect(logger.error).toHaveBeenCalledWith(
       "claims.get_my_claims_paginated_failed",
       expect.objectContaining({
         userId: "user-1",
-        page: 2,
+        cursor: "cursor-2",
         errorMessage: "db down",
       }),
     );

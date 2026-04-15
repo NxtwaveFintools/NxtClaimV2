@@ -22,6 +22,8 @@ type EnterpriseDashboardRow = {
   employee_name: string;
   employee_id: string;
   submitter_email: string | null;
+  on_behalf_email: string | null;
+  on_behalf_employee_code_raw: string | null;
   department_name: string;
   type_of_claim: string;
   amount: number | string;
@@ -48,6 +50,10 @@ function normalizeRelation<T>(value: T | T[] | null | undefined): T | null {
   if (!value) return null;
   if (Array.isArray(value)) return value[0] ?? null;
   return value;
+}
+
+function buildEmployeeIdSearchOrFilter(searchQuery: string): string {
+  return `claim_employee_id_raw.ilike.%${searchQuery}%,on_behalf_employee_code_raw.ilike.%${searchQuery}%,submitter_email.ilike.%${searchQuery}%,on_behalf_email.ilike.%${searchQuery}%`;
 }
 
 // ----------------------------------------------------------------
@@ -108,7 +114,7 @@ export class SupabaseDepartmentViewerRepository implements DepartmentViewerRepos
     let query = this.client
       .from("vw_enterprise_claims_dashboard")
       .select(
-        "claim_id, employee_name, employee_id, submitter_email, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, detail_type, submission_type, department_id, payment_mode_id, location_id, product_id, expense_category_id",
+        "claim_id, employee_name, employee_id, submitter_email, on_behalf_email, on_behalf_employee_code_raw, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, detail_type, submission_type, department_id, payment_mode_id, location_id, product_id, expense_category_id",
       )
       .in("department_id", departmentIds)
       .order("submitted_on", { ascending: false })
@@ -131,12 +137,12 @@ export class SupabaseDepartmentViewerRepository implements DepartmentViewerRepos
       } else if (filters.searchField === "employee_name") {
         query = query.ilike("employee_name", `%${sq}%`);
       } else if (filters.searchField === "employee_id") {
-        query = query.ilike("employee_id", `%${sq}%`);
+        query = query.or(buildEmployeeIdSearchOrFilter(sq));
       } else if (filters.searchField === "employee_email") {
         query = query.or(`submitter_email.ilike.%${sq}%,on_behalf_email.ilike.%${sq}%`);
       } else {
         query = query.or(
-          `claim_id.ilike.%${sq}%,employee_name.ilike.%${sq}%,employee_id.ilike.%${sq}%,submitter_email.ilike.%${sq}%,on_behalf_email.ilike.%${sq}%`,
+          `claim_id.ilike.%${sq}%,employee_name.ilike.%${sq}%,${buildEmployeeIdSearchOrFilter(sq)}`,
         );
       }
     }
@@ -211,6 +217,9 @@ export class SupabaseDepartmentViewerRepository implements DepartmentViewerRepos
           claimId: row.claim_id,
           employeeName: row.employee_name,
           employeeId: row.employee_id,
+          submitterEmail: row.submitter_email ?? null,
+          onBehalfEmail: row.on_behalf_email ?? null,
+          onBehalfEmployeeCode: row.on_behalf_employee_code_raw ?? null,
           departmentName: row.department_name,
           typeOfClaim: row.type_of_claim,
           amount: normalizeAmount(row.amount),

@@ -31,6 +31,10 @@ function describeAction(actionType: ClaimAuditLogRecord["actionType"]): string {
     return "Soft-deleted by Admin";
   }
 
+  if (actionType === "ADMIN_PAYMENT_MODE_OVERRIDDEN") {
+    return "Payment mode overridden by Admin";
+  }
+
   return "Rejected by Finance";
 }
 
@@ -63,6 +67,13 @@ function actionAccentClasses(actionType: ClaimAuditLogRecord["actionType"]): {
     return {
       labelClassName: "text-rose-700 dark:text-rose-300",
       dotClassName: "bg-rose-600 dark:bg-rose-400",
+    };
+  }
+
+  if (actionType === "ADMIN_PAYMENT_MODE_OVERRIDDEN") {
+    return {
+      labelClassName: "text-amber-800 dark:text-amber-200",
+      dotClassName: "bg-amber-600 dark:bg-amber-400",
     };
   }
 

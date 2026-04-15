@@ -7,11 +7,9 @@ import { buildCursorPageHref } from "@/lib/pagination-helpers";
 
 type MyClaimsPaginationControlsProps = {
   hasNextPage: boolean;
-  hasPreviousPage: boolean;
   currentCursor: string | null;
   nextCursor: string | null;
-  previousCursor: string | null;
-  currentPage?: number;
+  prevCursor: string | null;
   summaryText?: string;
   position?: "top" | "bottom";
   searchParams?: Record<string, string | string[] | undefined>;
@@ -19,11 +17,9 @@ type MyClaimsPaginationControlsProps = {
 
 export function MyClaimsPaginationControls({
   hasNextPage,
-  hasPreviousPage,
   currentCursor,
   nextCursor,
-  previousCursor,
-  currentPage = 1,
+  prevCursor,
   summaryText,
   position = "bottom",
   searchParams,
@@ -31,26 +27,16 @@ export function MyClaimsPaginationControls({
   const router = useRouter();
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
-  const safeCurrentPage = Math.max(1, Math.floor(currentPage));
+  const hasPreviousPage = Boolean(prevCursor);
 
   const nextHref =
     hasNextPage && nextCursor
-      ? buildCursorPageHref(
-          searchParams,
-          nextCursor,
-          currentCursor ?? "__first__",
-          safeCurrentPage + 1,
-        )
+      ? buildCursorPageHref(searchParams, nextCursor, currentCursor ?? "__first__")
       : null;
 
   const previousHref =
-    hasPreviousPage && previousCursor
-      ? buildCursorPageHref(
-          searchParams,
-          previousCursor === "__first__" ? null : previousCursor,
-          null,
-          safeCurrentPage - 1,
-        )
+    hasPreviousPage && prevCursor
+      ? buildCursorPageHref(searchParams, prevCursor === "__first__" ? null : prevCursor, null)
       : null;
 
   const navigateTo = (href: string | null): void => {

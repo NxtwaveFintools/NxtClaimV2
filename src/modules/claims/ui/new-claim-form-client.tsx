@@ -110,22 +110,69 @@ function toOptional(value: string): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function toNumberOrZero(value: unknown): number {
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : 0;
+function toNumber(val: unknown): number {
+  if (val === null || val === undefined) {
+    return 0;
   }
 
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (trimmed.length === 0) {
+  if (typeof val === "string") {
+    const normalized = val.trim().replace(/,/g, "");
+    if (normalized.length === 0) {
       return 0;
     }
 
-    const parsed = Number(trimmed);
-    return Number.isFinite(parsed) ? parsed : 0;
+    const num = Number(normalized);
+    return Number.isFinite(num) ? num : 0;
   }
 
-  return 0;
+  const num = Number(val);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function toNumberOrZero(value: unknown): number {
+  return toNumber(value);
+}
+
+function toNullableString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  return toNullable(value);
+}
+
+function stripJsonMarkdownFences(response: string): string {
+  return response
+    .replace(/```json/g, "")
+    .replace(/```/g, "")
+    .trim();
+}
+
+function toRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function parseAiPayload(payload: unknown): Record<string, unknown> | null {
+  if (typeof payload === "string") {
+    try {
+      const cleanedPayload = stripJsonMarkdownFences(payload);
+      const objectMatch = cleanedPayload.match(/\{[\s\S]*\}/);
+      if (!objectMatch) {
+        return null;
+      }
+
+      const parsed = JSON.parse(objectMatch[0]) as unknown;
+      return toRecord(parsed);
+    } catch {
+      return null;
+    }
+  }
+
+  return toRecord(payload);
 }
 
 function normalizeCategoryName(value: string | null | undefined): string {
@@ -608,25 +655,45 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     void onSubmit(event);
   };
 
-  const applyParsedReceiptToForm = (
-    parsed: NonNullable<Awaited<ReturnType<typeof parseReceiptAction>>["data"]>,
-  ) => {
+  const applyParsedReceiptToForm = (parsed: Record<string, unknown>): void => {
+    const parsedCategoryName = toNullableString(parsed.category_name ?? parsed.expenseCategory);
+    const billNo = toNullableString(parsed.billNo ?? parsed.bill_no) ?? "";
+    const transactionDate =
+      toNullableString(parsed.transactionDate ?? parsed.transaction_date) ?? "";
+    const gstNumber = toNullableString(parsed.gstNumber ?? parsed.gst_number);
+    const vendorName = toNullableString(parsed.vendorName ?? parsed.vendor_name);
+
+    const basicAmount = toNumber(parsed.basicAmount ?? parsed.basic_amount);
+    const cgstAmount = toNumber(parsed.cgstAmount ?? parsed.cgst_amount);
+    const sgstAmount = toNumber(parsed.sgstAmount ?? parsed.sgst_amount);
+    const igstAmount = toNumber(parsed.igstAmount ?? parsed.igst_amount);
+    const totalAmount = toNumber(parsed.totalAmount ?? parsed.total_amount);
+    const normalizedTotalAmount =
+      totalAmount > 0
+        ? totalAmount
+        : calculateExpenseTotal(basicAmount, cgstAmount, sgstAmount, igstAmount);
+
     const matchedExpenseCategoryId = resolveExpenseCategoryIdFromAi(
-      parsed.category_name,
+      parsedCategoryName,
       options.expenseCategories,
     );
 
-    setValue("expense.billNo", parsed.billNo ?? "", {
+    setValue("expense.billNo", billNo, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
     });
-    setValue("expense.transactionDate", parsed.transactionDate ?? "", {
+    setValue("expense.transactionDate", transactionDate, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
     });
-    setValue("expense.basicAmount", parsed.basicAmount, {
+    setValue("expense.basicAmount", basicAmount, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("expense.totalAmount", normalizedTotalAmount, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
@@ -636,27 +703,27 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       shouldTouch: true,
       shouldValidate: true,
     });
-    setValue("expense.gstNumber", parsed.gstNumber, {
+    setValue("expense.gstNumber", gstNumber, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
     });
-    setValue("expense.cgstAmount", parsed.cgstAmount, {
+    setValue("expense.cgstAmount", cgstAmount, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
     });
-    setValue("expense.sgstAmount", parsed.sgstAmount, {
+    setValue("expense.sgstAmount", sgstAmount, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
     });
-    setValue("expense.igstAmount", parsed.igstAmount, {
+    setValue("expense.igstAmount", igstAmount, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
     });
-    setValue("expense.vendorName", parsed.vendorName, {
+    setValue("expense.vendorName", vendorName, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
@@ -687,7 +754,23 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
         return;
       }
 
-      applyParsedReceiptToForm(result.data);
+      console.log("RAW API RESPONSE:", result);
+
+      const aiData = parseAiPayload(result.data);
+      if (!aiData) {
+        toast.error("AI returned invalid JSON. Please fill the fields manually.", { id: toastId });
+        return;
+      }
+
+      console.log("AI DATA:", aiData);
+      console.log("TYPE CHECK totalAmount:", typeof aiData.totalAmount);
+
+      if (toNumber(aiData.confidenceScore) < 70) {
+        toast.warning("Receipt quality is low. Please verify all auto-filled fields carefully.");
+      }
+
+      applyParsedReceiptToForm(aiData);
+
       toast.success("Details fetched!", { id: toastId });
     } catch {
       toast.error("Failed to fetch AI details.", { id: toastId });
