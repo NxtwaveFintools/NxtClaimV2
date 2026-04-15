@@ -64,8 +64,39 @@ function toEndOfDayIso(date: string): string {
   return `${date}T23:59:59.999Z`;
 }
 
+const POSTGREST_SUBMISSION_TYPE_SELF = '"Self"';
+const POSTGREST_SUBMISSION_TYPE_ON_BEHALF = '"On Behalf"';
+
+function buildBeneficiaryScopedSearchOrFilter(input: {
+  searchQuery: string;
+  selfField: string;
+  onBehalfField: string;
+}): string {
+  return `and(submission_type.eq.${POSTGREST_SUBMISSION_TYPE_SELF},${input.selfField}.ilike.%${input.searchQuery}%),and(submission_type.eq.${POSTGREST_SUBMISSION_TYPE_ON_BEHALF},${input.onBehalfField}.ilike.%${input.searchQuery}%)`;
+}
+
+function buildEmployeeNameSearchOrFilter(searchQuery: string): string {
+  return buildBeneficiaryScopedSearchOrFilter({
+    searchQuery,
+    selfField: "submitter_name_raw",
+    onBehalfField: "beneficiary_name_raw",
+  });
+}
+
+function buildEmployeeEmailSearchOrFilter(searchQuery: string): string {
+  return buildBeneficiaryScopedSearchOrFilter({
+    searchQuery,
+    selfField: "submitter_email",
+    onBehalfField: "on_behalf_email",
+  });
+}
+
 function buildEmployeeIdSearchOrFilter(searchQuery: string): string {
-  return `claim_employee_id_raw.ilike.%${searchQuery}%,on_behalf_employee_code_raw.ilike.%${searchQuery}%,submitter_email.ilike.%${searchQuery}%,on_behalf_email.ilike.%${searchQuery}%`;
+  return buildBeneficiaryScopedSearchOrFilter({
+    searchQuery,
+    selfField: "claim_employee_id_raw",
+    onBehalfField: "on_behalf_employee_code_raw",
+  });
 }
 
 const CLAIM_OVERRIDE_REJECTED_STATUSES: readonly DbClaimStatus[] = [
@@ -384,16 +415,16 @@ export class SupabaseAdminRepository implements AdminRepository {
     if (filters.searchQuery) {
       const sq = filters.searchQuery;
       if (filters.searchField === "claim_id") {
-        query = query.eq("claim_id", sq);
+        query = query.ilike("claim_id", `%${sq}%`);
       } else if (filters.searchField === "employee_name") {
-        query = query.ilike("employee_name", `%${sq}%`);
+        query = query.or(buildEmployeeNameSearchOrFilter(sq));
       } else if (filters.searchField === "employee_id") {
         query = query.or(buildEmployeeIdSearchOrFilter(sq));
       } else if (filters.searchField === "employee_email") {
-        query = query.or(`submitter_email.ilike.%${sq}%,on_behalf_email.ilike.%${sq}%`);
+        query = query.or(buildEmployeeEmailSearchOrFilter(sq));
       } else {
         query = query.or(
-          `claim_id.ilike.%${sq}%,employee_name.ilike.%${sq}%,${buildEmployeeIdSearchOrFilter(sq)}`,
+          `claim_id.ilike.%${sq}%,${buildEmployeeNameSearchOrFilter(sq)},${buildEmployeeIdSearchOrFilter(sq)},${buildEmployeeEmailSearchOrFilter(sq)}`,
         );
       }
     }

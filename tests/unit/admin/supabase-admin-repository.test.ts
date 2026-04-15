@@ -121,6 +121,9 @@ describe("SupabaseAdminRepository", () => {
         claimId: "claim-2",
         employeeName: "Bob",
         employeeId: "EMP-2",
+        submitterEmail: null,
+        onBehalfEmail: null,
+        onBehalfEmployeeCode: null,
         departmentName: "Engineering",
         typeOfClaim: "Expense",
         amount: 100.25,
@@ -208,9 +211,35 @@ describe("SupabaseAdminRepository", () => {
     );
 
     expect(claimsChain.or).toHaveBeenCalledWith(
-      "claim_employee_id_raw.ilike.%EMP-001%,on_behalf_employee_code_raw.ilike.%EMP-001%,submitter_email.ilike.%EMP-001%,on_behalf_email.ilike.%EMP-001%",
+      'and(submission_type.eq."Self",claim_employee_id_raw.ilike.%EMP-001%),and(submission_type.eq."On Behalf",on_behalf_employee_code_raw.ilike.%EMP-001%)',
     );
     expect(claimsChain.ilike).not.toHaveBeenCalledWith("employee_id", "%EMP-001%");
+  });
+
+  test("getAllClaims uses partial claim_id search", async () => {
+    const claimsChain = createQueryChain({
+      data: [],
+      error: null,
+    });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "vw_enterprise_claims_dashboard") {
+        return claimsChain;
+      }
+      return createQueryChain({ data: null, error: null });
+    });
+
+    const repository = new SupabaseAdminRepository();
+    await repository.getAllClaims(
+      {
+        searchField: "claim_id",
+        searchQuery: "CLAIM",
+      },
+      { cursor: null, limit: 10 },
+    );
+
+    expect(claimsChain.ilike).toHaveBeenCalledWith("claim_id", "%CLAIM%");
+    expect(claimsChain.eq).not.toHaveBeenCalledWith("claim_id", "CLAIM");
   });
 
   test("getAllClaims applies amount range filters", async () => {
