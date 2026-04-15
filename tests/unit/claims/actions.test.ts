@@ -8,6 +8,7 @@ const mockGetActivePaymentModes = jest.fn();
 const mockGetActiveExpenseCategories = jest.fn();
 const mockGetActiveProducts = jest.fn();
 const mockGetActiveLocations = jest.fn();
+const mockGetPaymentModeById = jest.fn();
 const mockExistsExpenseByCompositeKey = jest.fn();
 const mockGetActiveUserIdByEmail = jest.fn();
 const mockIsUserApprover1InAnyDepartment = jest.fn();
@@ -19,6 +20,12 @@ const mockUpdateByFinanceExecute = jest.fn();
 const mockDeleteOwnClaimExecute = jest.fn();
 const mockGetApprovalViewerContext = jest.fn();
 const mockGetClaimForFinanceEdit = jest.fn();
+const mockGetPendingApprovalsForL1 = jest.fn();
+const mockGetClaimDetailById = jest.fn();
+const mockGetClaimAuditLogs = jest.fn();
+const mockGetFinanceApproverIdsForUser = jest.fn();
+const mockGetViewerDepartmentIds = jest.fn();
+const mockIsAdmin = jest.fn();
 const mockRevalidatePath = jest.fn();
 const mockRedirect = jest.fn();
 const mockStorageUpload = jest.fn();
@@ -55,12 +62,25 @@ jest.mock("@/modules/claims/repositories/SupabaseClaimRepository", () => ({
     getActiveExpenseCategories: mockGetActiveExpenseCategories,
     getActiveProducts: mockGetActiveProducts,
     getActiveLocations: mockGetActiveLocations,
+    getPaymentModeById: mockGetPaymentModeById,
     existsExpenseByCompositeKey: mockExistsExpenseByCompositeKey,
     getActiveUserIdByEmail: mockGetActiveUserIdByEmail,
     isUserApprover1InAnyDepartment: mockIsUserApprover1InAnyDepartment,
     getApprovalViewerContext: mockGetApprovalViewerContext,
     getClaimForFinanceEdit: mockGetClaimForFinanceEdit,
+    getPendingApprovalsForL1: mockGetPendingApprovalsForL1,
+    getClaimDetailById: mockGetClaimDetailById,
+    getClaimAuditLogs: mockGetClaimAuditLogs,
+    getFinanceApproverIdsForUser: mockGetFinanceApproverIdsForUser,
   })),
+}));
+
+jest.mock("@/modules/claims/server/is-department-viewer", () => ({
+  getViewerDepartmentIds: (...args: unknown[]) => mockGetViewerDepartmentIds(...args),
+}));
+
+jest.mock("@/modules/admin/server/is-admin", () => ({
+  isAdmin: (...args: unknown[]) => mockIsAdmin(...args),
 }));
 
 jest.mock("@/core/infra/supabase/server-client", () => ({
@@ -169,6 +189,65 @@ const validExpensePayload = {
   },
 };
 
+const quickViewClaim = {
+  id: "claim-1",
+  employeeId: "EMP-100",
+  departmentId,
+  paymentModeId,
+  submissionType: "Self" as const,
+  detailType: "expense" as const,
+  onBehalfOfId: null,
+  onBehalfEmail: null,
+  onBehalfEmployeeCode: null,
+  status: "Submitted - Awaiting HOD approval" as const,
+  rejectionReason: null,
+  submittedAt: "2026-04-15",
+  departmentName: "Finance",
+  paymentModeName: "Reimbursement",
+  assignedL1ApproverId: hodId,
+  assignedL2ApproverId: null,
+  submittedBy: "11111111-1111-4111-8111-111111111111",
+  submitter: "Alice Employee",
+  submitterName: "Alice Employee",
+  submitterEmail: "user@nxtwave.co.in",
+  beneficiaryName: null,
+  beneficiaryEmail: null,
+  expense: {
+    id: "expense-1",
+    billNo: "BILL-1",
+    purpose: "Client meeting",
+    expenseCategoryId: "66666666-6666-4666-8666-666666666666",
+    expenseCategoryName: "Travel",
+    productId: "77777777-7777-4777-8777-777777777777",
+    productName: "NxtWave",
+    locationId: "88888888-8888-4888-8888-888888888888",
+    locationName: "Hyderabad",
+    locationType: null,
+    locationDetails: null,
+    transactionDate: "2026-03-14",
+    isGstApplicable: true,
+    gstNumber: "GSTIN-123",
+    basicAmount: 100,
+    cgstAmount: 9,
+    sgstAmount: 9,
+    igstAmount: 0,
+    totalAmount: 118,
+    vendorName: "Vendor",
+    peopleInvolved: null,
+    remarks: null,
+    aiMetadata: {
+      edited_fields: {
+        total_amount: {
+          original: 113,
+        },
+      },
+    },
+    receiptFilePath: null,
+    bankStatementFilePath: null,
+  },
+  advance: null,
+};
+
 function createValidExpenseEditFormData(): FormData {
   const formData = new FormData();
   formData.append("detailType", "expense");
@@ -235,6 +314,15 @@ describe("claims actions", () => {
       errorMessage: null,
     });
 
+    mockGetPaymentModeById.mockResolvedValue({
+      data: {
+        id: paymentModeId,
+        name: "Reimbursement",
+        isActive: true,
+      },
+      errorMessage: null,
+    });
+
     mockActiveDepartmentsExecute.mockResolvedValue({
       errorCode: null,
       errorMessage: null,
@@ -296,6 +384,31 @@ describe("claims actions", () => {
       },
       errorMessage: null,
     });
+
+    mockGetPendingApprovalsForL1.mockResolvedValue({
+      data: [],
+      nextCursor: null,
+      hasNextPage: false,
+      errorMessage: null,
+    });
+
+    mockGetClaimDetailById.mockResolvedValue({
+      data: quickViewClaim,
+      errorMessage: null,
+    });
+
+    mockGetClaimAuditLogs.mockResolvedValue({
+      data: [],
+      errorMessage: null,
+    });
+
+    mockGetFinanceApproverIdsForUser.mockResolvedValue({
+      data: [],
+      errorMessage: null,
+    });
+
+    mockGetViewerDepartmentIds.mockResolvedValue([]);
+    mockIsAdmin.mockResolvedValue(false);
 
     mockStorageUpload.mockResolvedValue({
       data: { path: "expenses/user/receipt.pdf" },
@@ -415,6 +528,84 @@ describe("claims actions", () => {
         detailType: "expense",
       }),
     );
+  });
+
+  test("submitClaimAction forwards expense aiMetadata when provided", async () => {
+    const { submitClaimAction } = await import("@/modules/claims/actions");
+
+    const result = await submitClaimAction({
+      ...validExpensePayload,
+      expense: {
+        ...validExpensePayload.expense,
+        aiMetadata: {
+          edited_fields: {
+            total_amount: {
+              original: 113,
+            },
+          },
+        },
+      },
+    });
+
+    expect(result).toEqual({ ok: true, claimId: "claim-1" });
+    expect(mockSubmitExecute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expense: expect.objectContaining({
+          aiMetadata: {
+            edited_fields: {
+              total_amount: {
+                original: 113,
+              },
+            },
+          },
+        }),
+      }),
+    );
+  });
+
+  test("getClaimQuickViewHydrationAction redacts ai metadata for non-finance non-admin viewers", async () => {
+    const { getClaimQuickViewHydrationAction } = await import("@/modules/claims/actions");
+
+    mockGetFinanceApproverIdsForUser.mockResolvedValueOnce({
+      data: [],
+      errorMessage: null,
+    });
+    mockIsAdmin.mockResolvedValueOnce(false);
+
+    const result = await getClaimQuickViewHydrationAction({ claimId: "claim-1" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+
+    expect(result.data.canViewAiMetadata).toBe(false);
+    expect(result.data.claim.expense?.aiMetadata).toBeNull();
+  });
+
+  test("getClaimQuickViewHydrationAction returns ai metadata to finance viewers", async () => {
+    const { getClaimQuickViewHydrationAction } = await import("@/modules/claims/actions");
+
+    mockGetFinanceApproverIdsForUser.mockResolvedValueOnce({
+      data: [{ id: "finance-approver-id" }],
+      errorMessage: null,
+    });
+
+    const result = await getClaimQuickViewHydrationAction({ claimId: "claim-1" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+
+    expect(result.data.canViewAiMetadata).toBe(true);
+    expect(result.data.claim.expense?.aiMetadata).toEqual({
+      edited_fields: {
+        total_amount: {
+          original: 113,
+        },
+      },
+    });
   });
 
   test("submitClaimAction surfaces service errors", async () => {
@@ -657,7 +848,7 @@ describe("claims actions", () => {
     });
     const forwardedPayload = mockUpdateByFinanceExecute.mock.calls[0]?.[0]?.payload;
     expect(forwardedPayload).not.toHaveProperty("departmentId");
-    expect(forwardedPayload).not.toHaveProperty("paymentModeId");
+    expect(forwardedPayload).toHaveProperty("paymentModeId", null);
   });
 
   test("updateClaimByFinanceAction returns friendly message for duplicate active bill unique violation", async () => {
@@ -743,6 +934,96 @@ describe("claims actions", () => {
     expect(mockUpdateByFinanceExecute).toHaveBeenCalled();
   });
 
+  test("updateClaimByFinanceAction allows finance-stage payment mode correction", async () => {
+    const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
+    const formData = createValidExpenseEditFormData();
+    formData.append("paymentModeId", "99999999-9999-4999-8999-999999999999");
+
+    mockGetPaymentModeById.mockResolvedValueOnce({
+      data: {
+        id: "99999999-9999-4999-8999-999999999999",
+        name: "Petty Cash",
+        isActive: true,
+      },
+      errorMessage: null,
+    });
+
+    const result = await updateClaimByFinanceAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData,
+    });
+
+    expect(result).toEqual({ ok: true, message: "Claim details updated." });
+    expect(mockUpdateByFinanceExecute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          paymentModeId: "99999999-9999-4999-8999-999999999999",
+        }),
+      }),
+    );
+  });
+
+  test("updateClaimByFinanceAction blocks payment mode correction outside finance stage", async () => {
+    mockGetApprovalViewerContext.mockResolvedValueOnce({
+      data: { isHod: false, isFounder: false, isFinance: false },
+      errorMessage: null,
+    });
+    mockGetClaimForFinanceEdit.mockResolvedValueOnce({
+      data: {
+        id: "claim-1",
+        detailType: "expense",
+        status: "Submitted - Awaiting HOD approval",
+        submittedBy: "11111111-1111-4111-8111-111111111111",
+        assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
+        expenseReceiptFilePath: "expenses/old_receipt.pdf",
+        expenseBankStatementFilePath: "expenses/old_bank.pdf",
+        advanceSupportingDocumentPath: null,
+      },
+      errorMessage: null,
+    });
+
+    const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
+    const formData = createValidExpenseEditFormData();
+    formData.append("paymentModeId", "99999999-9999-4999-8999-999999999999");
+
+    const result = await updateClaimByFinanceAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Routing context fields cannot be edited for an existing claim.",
+    });
+    expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
+  });
+
+  test("updateClaimByFinanceAction blocks corporate card payment mode correction", async () => {
+    const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
+    const formData = createValidExpenseEditFormData();
+    formData.append("paymentModeId", "cccccccc-cccc-4ccc-8ccc-cccccccccccc");
+
+    mockGetPaymentModeById.mockResolvedValueOnce({
+      data: {
+        id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        name: "Corporate Card",
+        isActive: true,
+      },
+      errorMessage: null,
+    });
+
+    const result = await updateClaimByFinanceAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Corporate Card is not allowed for finance-stage payment mode correction.",
+    });
+    expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
+  });
+
   test("updateClaimByFinanceAction rejects routing field mutation attempts", async () => {
     const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
     const formData = createValidExpenseEditFormData();
@@ -758,5 +1039,100 @@ describe("claims actions", () => {
       message: "Routing context fields cannot be edited for an existing claim.",
     });
     expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
+  });
+
+  test("bulkApproveL1 resolves global selection via cursor pages and approves claims", async () => {
+    mockGetPendingApprovalsForL1
+      .mockResolvedValueOnce({
+        data: [{ id: "claim-1" }],
+        nextCursor: "cursor-1",
+        hasNextPage: true,
+        errorMessage: null,
+      })
+      .mockResolvedValueOnce({
+        data: [{ id: "claim-2" }],
+        nextCursor: null,
+        hasNextPage: false,
+        errorMessage: null,
+      });
+
+    const { bulkApproveL1 } = await import("@/modules/claims/actions");
+
+    const result = await bulkApproveL1({
+      claimIds: [],
+      isGlobalSelect: true,
+      filters: { submissionType: "Self" },
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      message: "2 claim(s) approved.",
+      processedCount: 2,
+    });
+    expect(mockGetPendingApprovalsForL1).toHaveBeenNthCalledWith(
+      1,
+      "11111111-1111-4111-8111-111111111111",
+      null,
+      200,
+      { submissionType: "Self" },
+    );
+    expect(mockGetPendingApprovalsForL1).toHaveBeenNthCalledWith(
+      2,
+      "11111111-1111-4111-8111-111111111111",
+      "cursor-1",
+      200,
+      { submissionType: "Self" },
+    );
+    expect(mockProcessL1DecisionExecute).toHaveBeenCalledWith({
+      claimId: "claim-1",
+      actorUserId: "11111111-1111-4111-8111-111111111111",
+      decision: "approve",
+      rejectionReason: undefined,
+      allowResubmission: undefined,
+    });
+    expect(mockProcessL1DecisionExecute).toHaveBeenCalledWith({
+      claimId: "claim-2",
+      actorUserId: "11111111-1111-4111-8111-111111111111",
+      decision: "approve",
+      rejectionReason: undefined,
+      allowResubmission: undefined,
+    });
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/my-claims");
+  });
+
+  test("bulkRejectL1 reports skipped claims when some decisions fail", async () => {
+    mockProcessL1DecisionExecute
+      .mockResolvedValueOnce({ ok: true, errorMessage: null })
+      .mockResolvedValueOnce({ ok: false, errorMessage: "Claim not pending" });
+
+    const { bulkRejectL1 } = await import("@/modules/claims/actions");
+
+    const result = await bulkRejectL1({
+      claimIds: [" claim-1 ", "claim-2", "claim-1"],
+      isGlobalSelect: false,
+      rejectionReason: "Needs correction",
+      allowResubmission: true,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      message: "1 claim(s) rejected. 1 claim(s) skipped.",
+      processedCount: 1,
+    });
+    expect(mockProcessL1DecisionExecute).toHaveBeenNthCalledWith(1, {
+      claimId: "claim-1",
+      actorUserId: "11111111-1111-4111-8111-111111111111",
+      decision: "reject",
+      rejectionReason: "Needs correction",
+      allowResubmission: true,
+    });
+    expect(mockProcessL1DecisionExecute).toHaveBeenNthCalledWith(2, {
+      claimId: "claim-2",
+      actorUserId: "11111111-1111-4111-8111-111111111111",
+      decision: "reject",
+      rejectionReason: "Needs correction",
+      allowResubmission: true,
+    });
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/my-claims");
   });
 });

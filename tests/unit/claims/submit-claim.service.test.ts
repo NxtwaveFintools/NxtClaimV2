@@ -98,6 +98,8 @@ function createRepository(overrides?: Partial<ClaimRepository>): ClaimRepository
     getMyClaimsPaginated: jest.fn(async () => ({
       data: [],
       totalCount: 0,
+      nextCursor: null,
+      hasNextPage: false,
       errorMessage: null,
     })),
     getApprovalViewerContext: jest.fn(async () => ({
@@ -137,6 +139,41 @@ describe("SubmitClaimService", () => {
     expect(repository.createClaimWithDetail).toHaveBeenCalledTimes(1);
   });
 
+  test("forwards expense ai metadata into create_claim_with_detail payload", async () => {
+    const repository = createRepository();
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    await service.execute({
+      ...baseInput,
+      expense: {
+        ...baseInput.expense,
+        aiMetadata: {
+          edited_fields: {
+            total_amount: {
+              original: 113,
+            },
+          },
+        },
+      },
+    });
+
+    const createClaimPayload = (repository.createClaimWithDetail as jest.Mock).mock
+      .calls[0]?.[0] as {
+      expense?: {
+        ai_metadata?: unknown;
+      };
+    };
+
+    expect(createClaimPayload.expense?.ai_metadata).toEqual({
+      edited_fields: {
+        total_amount: {
+          original: 113,
+        },
+      },
+    });
+  });
+
   test("accepts petty cash payment mode as expense", async () => {
     const repository = createRepository({
       getPaymentModeById: jest.fn(async () => ({
@@ -157,6 +194,42 @@ describe("SubmitClaimService", () => {
       claim_id?: string;
     };
     expect(createClaimPayload.claim_id).toMatch(/^CLAIM-/);
+  });
+
+  test("uses submitter employee code in claim ID for self submissions", async () => {
+    const repository = createRepository();
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    const result = await service.execute(baseInput);
+
+    expect(result.errorCode).toBeNull();
+    const createClaimPayload = (repository.createClaimWithDetail as jest.Mock).mock
+      .calls[0]?.[0] as {
+      claim_id?: string;
+    };
+    expect(createClaimPayload.claim_id).toMatch(/^CLAIM-EMP1001-/);
+  });
+
+  test("uses beneficiary employee code in claim ID for on behalf expense submissions", async () => {
+    const repository = createRepository();
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    const result = await service.execute({
+      ...baseInput,
+      submissionType: "On Behalf",
+      onBehalfOfId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      onBehalfEmail: "beneficiary@nxtwave.co.in",
+      onBehalfEmployeeCode: "emp ben-902",
+    });
+
+    expect(result.errorCode).toBeNull();
+    const createClaimPayload = (repository.createClaimWithDetail as jest.Mock).mock
+      .calls[0]?.[0] as {
+      claim_id?: string;
+    };
+    expect(createClaimPayload.claim_id).toMatch(/^CLAIM-EMPBEN902-/);
   });
 
   test("generates EA prefix for petty cash request advances", async () => {
@@ -192,6 +265,44 @@ describe("SubmitClaimService", () => {
       claim_id?: string;
     };
     expect(createClaimPayload.claim_id).toMatch(/^EA-/);
+  });
+
+  test("uses beneficiary employee code in EA claim ID for on behalf petty cash request advances", async () => {
+    const repository = createRepository({
+      getPaymentModeById: jest.fn(async () => ({
+        data: { id: baseInput.paymentModeId, name: "Petty Cash Request", isActive: true },
+        errorMessage: null,
+      })),
+    });
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    const result = await service.execute({
+      ...baseInput,
+      submissionType: "On Behalf",
+      detailType: "advance",
+      onBehalfOfId: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      onBehalfEmail: "beneficiary@nxtwave.co.in",
+      onBehalfEmployeeCode: "obh-77",
+      advance: {
+        requestedAmount: 500,
+        budgetMonth: 3,
+        budgetYear: 2026,
+        expectedUsageDate: "2026-03-25",
+        purpose: "Field activation",
+        supportingDocumentPath: "advances/11111111-1111-1111-1111-111111111111/support.pdf",
+        productId: baseInput.expense.productId,
+        locationId: baseInput.expense.locationId,
+        remarks: null,
+      },
+    });
+
+    expect(result.errorCode).toBeNull();
+    const createClaimPayload = (repository.createClaimWithDetail as jest.Mock).mock
+      .calls[0]?.[0] as {
+      claim_id?: string;
+    };
+    expect(createClaimPayload.claim_id).toMatch(/^EA-OBH77-/);
   });
 
   test("keeps CLAIM prefix for bulk petty cash request advances", async () => {

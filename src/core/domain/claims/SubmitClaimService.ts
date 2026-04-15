@@ -88,6 +88,16 @@ function sanitizeEmployeeId(employeeId: string): string {
   return normalized.length > 0 ? normalized : "UNKNOWN";
 }
 
+function resolveClaimIdEmployeeSegment(
+  input: Pick<ClaimSubmissionInput, "submissionType" | "employeeId" | "onBehalfEmployeeCode">,
+): string {
+  if (input.submissionType === "On Behalf" && input.onBehalfEmployeeCode) {
+    return input.onBehalfEmployeeCode;
+  }
+
+  return input.employeeId;
+}
+
 function generateClaimId(employeeId: string, paymentModeName: string): string {
   const datePart = formatClaimDate(new Date());
   const employeePart = sanitizeEmployeeId(employeeId);
@@ -235,7 +245,10 @@ export class SubmitClaimService {
         };
       }
 
-      const claimId = generateClaimId(input.employeeId, paymentModeResult.data.name);
+      const claimId = generateClaimId(
+        resolveClaimIdEmployeeSegment(input),
+        paymentModeResult.data.name,
+      );
 
       const payload: Record<string, unknown> = {
         claim_id: claimId,
@@ -278,6 +291,7 @@ export class SubmitClaimService {
           bank_statement_file_path: input.expense.bankStatementFilePath,
           people_involved: input.expense.peopleInvolved,
           remarks: input.expense.remarks,
+          ai_metadata: input.expense.aiMetadata,
         };
       }
 

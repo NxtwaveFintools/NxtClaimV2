@@ -7,7 +7,10 @@ import {
   applySupabaseAuthCookies,
   clearSupabaseAuthTokenCookies,
 } from "@/core/infra/supabase/supabase-auth-cookie-utils";
-import { isSupabaseTerminalSessionError } from "@/core/infra/supabase/auth-error-utils";
+import {
+  getSupabaseAuthErrorMessage,
+  isSupabaseTerminalSessionError,
+} from "@/core/infra/supabase/auth-error-utils";
 
 type RequestAuthUserState = {
   user: User | null;
@@ -61,10 +64,16 @@ export const getCachedRequestAuthUser = cache(async (): Promise<RequestAuthUserS
     },
   );
 
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+  let user: User | null = null;
+  let error: unknown = null;
+
+  try {
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+    error = result.error;
+  } catch (caughtError) {
+    error = caughtError;
+  }
 
   if (error) {
     if (isSupabaseTerminalSessionError(error)) {
@@ -75,9 +84,16 @@ export const getCachedRequestAuthUser = cache(async (): Promise<RequestAuthUserS
       };
     }
 
+    const errorMessage = getSupabaseAuthErrorMessage(error);
+
     return {
       user: null,
-      errorMessage: error.message,
+      errorMessage:
+        errorMessage.length > 0
+          ? errorMessage
+          : error instanceof Error
+            ? error.message
+            : "Unable to authenticate current request.",
     };
   }
 

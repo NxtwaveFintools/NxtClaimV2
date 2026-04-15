@@ -1,24 +1,14 @@
 import {
-  DB_CLAIM_STATUSES,
-  DB_FINANCE_APPROVED_PAYMENT_UNDER_PROCESS_STATUS,
   DB_FINANCE_ANALYTICS_PIPELINE_STATUSES,
-  DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
-  DB_PAYMENT_DONE_CLOSED_STATUS,
-  DB_REJECTED_STATUSES,
-  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
   type DbClaimStatus,
 } from "@/core/constants/statuses";
 import { getServiceRoleSupabaseClient } from "@/core/infra/supabase/server-client";
 import type {
   DashboardAnalyticsAdvancedFilters,
-  DashboardAnalyticsAggregatePayload,
-  DashboardAnalyticsAmountSummary,
-  DashboardAnalyticsEfficiencyItem,
+  DashboardAnalyticsAggregateRow,
   DashboardAnalyticsOption,
-  DashboardAnalyticsPaymentModeBreakdownItem,
   DashboardAnalyticsRepository,
   DashboardAnalyticsScope,
-  DashboardAnalyticsStatusBreakdownItem,
   DashboardAnalyticsViewerContext,
   DashboardRepository,
 } from "@/core/domain/dashboard/contracts";
@@ -78,6 +68,37 @@ type FinanceScopedApproverRow = {
   assigned_l2_approver_id: string | null;
 };
 
+type NamedRelationRow = {
+  name: string;
+};
+
+type AnalyticsAggregateQueryRow = {
+  status: DbClaimStatus;
+  claim_count: number | string | null;
+  total_amount: number | string | null;
+  payment_mode_id: string | null;
+  department_id: string | null;
+  assigned_l2_approver_id: string | null;
+  expense_category_id: string | null;
+  product_id: string | null;
+  hod_approval_hours_sum: number | string | null;
+  hod_approval_sample_count: number | string | null;
+  master_departments: NamedRelationRow | NamedRelationRow[] | null;
+  master_payment_modes: NamedRelationRow | NamedRelationRow[] | null;
+};
+
+type LegacyAnalyticsClaimQueryRow = {
+  status: DbClaimStatus;
+  amount: number | string | null;
+  payment_mode_id: string | null;
+  type_of_claim: string | null;
+  department_id: string | null;
+  department_name: string | null;
+  assigned_l2_approver_id: string | null;
+  submitted_on: string;
+  hod_action_date: string | null;
+};
+
 const EMPTY_WALLET_TOTALS = {
   totalPettyCashReceived: 0,
   totalPettyCashSpent: 0,
@@ -89,25 +110,8 @@ const TRANSIENT_FETCH_ERROR_FRAGMENT = "fetch failed";
 const MISSING_ANALYTICS_CACHE_TABLE_FRAGMENT = "claims_analytics_daily_stats";
 
 const FINANCE_PIPELINE_STATUSES: DbClaimStatus[] = [...DB_FINANCE_ANALYTICS_PIPELINE_STATUSES];
-const APPROVED_STATUSES: DbClaimStatus[] = [
-  DB_FINANCE_APPROVED_PAYMENT_UNDER_PROCESS_STATUS,
-  DB_PAYMENT_DONE_CLOSED_STATUS,
-];
-const PENDING_STATUSES: DbClaimStatus[] = [
-  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
-  DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
-];
 
-const EMPTY_ANALYTICS_AMOUNTS: DashboardAnalyticsAmountSummary = {
-  totalAmount: 0,
-  approvedAmount: 0,
-  pendingAmount: 0,
-  hodPendingAmount: 0,
-  hodPendingCount: 0,
-  rejectedAmount: 0,
-};
-
-function toNumber(value: unknown): number {
+function toNumber(value: number | string | null | undefined): number {
   if (typeof value === "number") {
     return Number.isFinite(value) ? value : 0;
   }
@@ -134,6 +138,10 @@ function isMissingAnalyticsCacheTableError(error: { message: string } | null): b
   }
 
   return error.message.toLowerCase().includes(MISSING_ANALYTICS_CACHE_TABLE_FRAGMENT);
+}
+
+function toPostgrestInList(values: string[]): string {
+  return `(${values.map((value) => `"${value.replace(/"/g, '\\"')}"`).join(",")})`;
 }
 
 function normalizeRelation<T>(value: T | T[] | null): T | null {
@@ -167,166 +175,6 @@ function toOptionLabel(input: {
   return input.fallback;
 }
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
-  }
-
-  return value as Record<string, unknown>;
-}
-
-function toKnownClaimStatus(value: unknown): DbClaimStatus | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  if (DB_CLAIM_STATUSES.includes(value as DbClaimStatus)) {
-    return value as DbClaimStatus;
-  }
-
-  return null;
-}
-
-function createEmptyAnalyticsAggregatePayload(): DashboardAnalyticsAggregatePayload {
-  return {
-    claimCount: 0,
-    amounts: EMPTY_ANALYTICS_AMOUNTS,
-    statusBreakdown: DB_CLAIM_STATUSES.map((status) => ({
-      status,
-      count: 0,
-      amount: 0,
-    })),
-    paymentModeBreakdown: [],
-    efficiencyByDepartment: [],
-  };
-}
-
-function parseAmountSummary(raw: unknown): DashboardAnalyticsAmountSummary {
-  const record = asRecord(raw);
-  if (!record) {
-    return EMPTY_ANALYTICS_AMOUNTS;
-  }
-
-  return {
-    totalAmount: toNumber(record.totalAmount),
-    approvedAmount: toNumber(record.approvedAmount),
-    pendingAmount: toNumber(record.pendingAmount),
-    hodPendingAmount: toNumber(record.hodPendingAmount),
-    hodPendingCount: Math.max(0, Math.trunc(toNumber(record.hodPendingCount))),
-    rejectedAmount: toNumber(record.rejectedAmount),
-  };
-}
-
-function parseStatusBreakdown(raw: unknown): DashboardAnalyticsStatusBreakdownItem[] {
-  const statusByCode = new Map<DbClaimStatus, DashboardAnalyticsStatusBreakdownItem>();
-
-  if (Array.isArray(raw)) {
-    for (const item of raw) {
-      const record = asRecord(item);
-      if (!record) {
-        continue;
-      }
-
-      const status = toKnownClaimStatus(record.status);
-      if (!status) {
-        continue;
-      }
-
-      statusByCode.set(status, {
-        status,
-        count: Math.max(0, Math.trunc(toNumber(record.count))),
-        amount: toNumber(record.amount),
-      });
-    }
-  }
-
-  return DB_CLAIM_STATUSES.map(
-    (status) =>
-      statusByCode.get(status) ?? {
-        status,
-        count: 0,
-        amount: 0,
-      },
-  );
-}
-
-function parsePaymentModeBreakdown(raw: unknown): DashboardAnalyticsPaymentModeBreakdownItem[] {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-
-  const rows: DashboardAnalyticsPaymentModeBreakdownItem[] = [];
-
-  for (const item of raw) {
-    const record = asRecord(item);
-    if (!record) {
-      continue;
-    }
-
-    const paymentModeId = typeof record.paymentModeId === "string" ? record.paymentModeId : null;
-    const paymentModeName =
-      typeof record.paymentModeName === "string" && record.paymentModeName.trim().length > 0
-        ? record.paymentModeName
-        : "Unknown";
-
-    rows.push({
-      paymentModeId,
-      paymentModeName,
-      count: Math.max(0, Math.trunc(toNumber(record.count))),
-      amount: toNumber(record.amount),
-    });
-  }
-
-  return rows;
-}
-
-function parseEfficiencyByDepartment(raw: unknown): DashboardAnalyticsEfficiencyItem[] {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-
-  const rows: DashboardAnalyticsEfficiencyItem[] = [];
-
-  for (const item of raw) {
-    const record = asRecord(item);
-    if (!record) {
-      continue;
-    }
-
-    if (typeof record.departmentId !== "string" || record.departmentId.length === 0) {
-      continue;
-    }
-
-    rows.push({
-      departmentId: record.departmentId,
-      departmentName:
-        typeof record.departmentName === "string" && record.departmentName.trim().length > 0
-          ? record.departmentName
-          : "Unknown Department",
-      sampleCount: Math.max(0, Math.trunc(toNumber(record.sampleCount))),
-      averageHoursToApproval: toNumber(record.averageHoursToApproval),
-      averageDaysToApproval: toNumber(record.averageDaysToApproval),
-    });
-  }
-
-  return rows;
-}
-
-function parseAnalyticsAggregatePayload(raw: unknown): DashboardAnalyticsAggregatePayload {
-  const record = asRecord(raw);
-  if (!record) {
-    return createEmptyAnalyticsAggregatePayload();
-  }
-
-  return {
-    claimCount: Math.max(0, Math.trunc(toNumber(record.claimCount))),
-    amounts: parseAmountSummary(record.amounts),
-    statusBreakdown: parseStatusBreakdown(record.statusBreakdown),
-    paymentModeBreakdown: parsePaymentModeBreakdown(record.paymentModeBreakdown),
-    efficiencyByDepartment: parseEfficiencyByDepartment(record.efficiencyByDepartment),
-  };
-}
-
 async function runWithSingleRetry<T>(
   run: () => Promise<{ data: T; error: { message: string } | null }>,
 ): Promise<{
@@ -344,6 +192,126 @@ async function runWithSingleRetry<T>(
 export class SupabaseDashboardRepository
   implements DashboardRepository, DashboardAnalyticsRepository
 {
+  private aggregateLegacyRows(
+    rows: LegacyAnalyticsClaimQueryRow[],
+  ): DashboardAnalyticsAggregateRow[] {
+    const aggregated = new Map<string, DashboardAnalyticsAggregateRow>();
+
+    for (const row of rows) {
+      const key = `${row.status}|${row.payment_mode_id ?? "__null__"}|${row.department_id ?? "__null__"}`;
+      const amount = toNumber(row.amount);
+
+      let hodApprovalHoursSum = 0;
+      let hodApprovalSampleCount = 0;
+      if (row.hod_action_date) {
+        const submittedAt = new Date(row.submitted_on).getTime();
+        const hodActionAt = new Date(row.hod_action_date).getTime();
+
+        if (
+          Number.isFinite(submittedAt) &&
+          Number.isFinite(hodActionAt) &&
+          hodActionAt >= submittedAt
+        ) {
+          hodApprovalHoursSum = Number(((hodActionAt - submittedAt) / (1000 * 60 * 60)).toFixed(4));
+          hodApprovalSampleCount = 1;
+        }
+      }
+
+      const current = aggregated.get(key);
+      if (current) {
+        current.claimCount += 1;
+        current.totalAmount = Number((current.totalAmount + amount).toFixed(2));
+        current.hodApprovalHoursSum = Number(
+          (current.hodApprovalHoursSum + hodApprovalHoursSum).toFixed(4),
+        );
+        current.hodApprovalSampleCount += hodApprovalSampleCount;
+      } else {
+        aggregated.set(key, {
+          status: row.status,
+          claimCount: 1,
+          totalAmount: Number(amount.toFixed(2)),
+          paymentModeId: row.payment_mode_id,
+          paymentModeName: row.type_of_claim ?? "Unknown",
+          departmentId: row.department_id,
+          departmentName: row.department_name ?? "Unknown Department",
+          hodApprovalHoursSum,
+          hodApprovalSampleCount,
+        });
+      }
+    }
+
+    return Array.from(aggregated.values());
+  }
+
+  private async getAnalyticsAggregatesFromLegacyView(input: {
+    scope: DashboardAnalyticsScope;
+    hodDepartmentIds: string[];
+    financeApproverIds: string[];
+    dateFrom: string;
+    dateTo: string;
+    departmentId?: string;
+    expenseCategoryId?: string;
+    productId?: string;
+    financeApproverId?: string;
+  }): Promise<{
+    data: DashboardAnalyticsAggregateRow[];
+    errorMessage: string | null;
+  }> {
+    const client = getServiceRoleSupabaseClient();
+
+    let query = client
+      .from("vw_enterprise_claims_dashboard")
+      .select(
+        "status, amount, payment_mode_id, type_of_claim, department_id, department_name, assigned_l2_approver_id, expense_category_id, product_id, submitted_on, hod_action_date",
+      )
+      .gte("submitted_on", `${input.dateFrom}T00:00:00.000Z`)
+      .lte("submitted_on", `${input.dateTo}T23:59:59.999Z`);
+
+    if (input.scope === "hod") {
+      query = query.in("department_id", input.hodDepartmentIds);
+    }
+
+    if (input.scope === "finance") {
+      if (input.financeApproverIds.length > 0) {
+        query = query.or(
+          `status.in.${toPostgrestInList(FINANCE_PIPELINE_STATUSES)},assigned_l2_approver_id.in.${toPostgrestInList(input.financeApproverIds)}`,
+        );
+      } else {
+        query = query.in("status", FINANCE_PIPELINE_STATUSES);
+      }
+    }
+
+    if (input.departmentId) {
+      query = query.eq("department_id", input.departmentId);
+    }
+
+    if (input.expenseCategoryId) {
+      query = query.eq("expense_category_id", input.expenseCategoryId);
+    }
+
+    if (input.productId) {
+      query = query.eq("product_id", input.productId);
+    }
+
+    if (input.financeApproverId) {
+      query = query.eq("assigned_l2_approver_id", input.financeApproverId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      return {
+        data: [],
+        errorMessage: error.message,
+      };
+    }
+
+    return {
+      data: this.aggregateLegacyRows((data ?? []) as LegacyAnalyticsClaimQueryRow[]),
+      errorMessage: null,
+    };
+  }
+
   async getWalletTotals(userId: string): Promise<{
     data: {
       totalPettyCashReceived: number;
@@ -455,46 +423,83 @@ export class SupabaseDashboardRepository
     productId?: string;
     financeApproverId?: string;
   }): Promise<{
-    data: DashboardAnalyticsAggregatePayload | null;
+    data: DashboardAnalyticsAggregateRow[];
     errorMessage: string | null;
   }> {
     if (input.scope === "hod" && input.hodDepartmentIds.length === 0) {
       return {
-        data: createEmptyAnalyticsAggregatePayload(),
+        data: [],
         errorMessage: null,
       };
     }
 
     const client = getServiceRoleSupabaseClient();
 
-    const { data, error } = await client.rpc("get_dashboard_analytics_payload", {
-      p_scope: input.scope,
-      p_hod_department_ids: input.hodDepartmentIds.length > 0 ? input.hodDepartmentIds : null,
-      p_finance_approver_ids: input.financeApproverIds.length > 0 ? input.financeApproverIds : null,
-      p_date_from: input.dateFrom,
-      p_date_to: input.dateTo,
-      p_department_id: input.departmentId ?? null,
-      p_expense_category_id: input.expenseCategoryId ?? null,
-      p_product_id: input.productId ?? null,
-      p_finance_approver_id: input.financeApproverId ?? null,
-      p_finance_pipeline_statuses: FINANCE_PIPELINE_STATUSES,
-      p_approved_statuses: APPROVED_STATUSES,
-      p_pending_statuses: PENDING_STATUSES,
-      p_rejected_statuses: DB_REJECTED_STATUSES,
-      p_hod_pending_status: DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
-    });
+    let query = client
+      .from("claims_analytics_daily_stats")
+      .select(
+        "status, claim_count, total_amount, payment_mode_id, department_id, assigned_l2_approver_id, expense_category_id, product_id, hod_approval_hours_sum, hod_approval_sample_count, master_departments(name), master_payment_modes(name)",
+      )
+      .gte("date_key", input.dateFrom)
+      .lte("date_key", input.dateTo);
+
+    if (input.scope === "hod") {
+      query = query.in("department_id", input.hodDepartmentIds);
+    }
+
+    if (input.scope === "finance") {
+      if (input.financeApproverIds.length > 0) {
+        query = query.or(
+          `status.in.${toPostgrestInList(FINANCE_PIPELINE_STATUSES)},assigned_l2_approver_id.in.${toPostgrestInList(input.financeApproverIds)}`,
+        );
+      } else {
+        query = query.in("status", FINANCE_PIPELINE_STATUSES);
+      }
+    }
+
+    if (input.departmentId) {
+      query = query.eq("department_id", input.departmentId);
+    }
+
+    if (input.expenseCategoryId) {
+      query = query.eq("expense_category_id", input.expenseCategoryId);
+    }
+
+    if (input.productId) {
+      query = query.eq("product_id", input.productId);
+    }
+
+    if (input.financeApproverId) {
+      query = query.eq("assigned_l2_approver_id", input.financeApproverId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
+      if (isMissingAnalyticsCacheTableError(error)) {
+        return this.getAnalyticsAggregatesFromLegacyView(input);
+      }
+
       return {
-        data: null,
+        data: [],
         errorMessage: error.message,
       };
     }
 
-    const payload = Array.isArray(data) ? data[0] : data;
+    const rows = (data ?? []) as AnalyticsAggregateQueryRow[];
 
     return {
-      data: parseAnalyticsAggregatePayload(payload),
+      data: rows.map((row) => ({
+        claimCount: Math.max(0, Math.trunc(toNumber(row.claim_count))),
+        status: row.status,
+        totalAmount: toNumber(row.total_amount),
+        paymentModeId: row.payment_mode_id,
+        paymentModeName: normalizeRelation(row.master_payment_modes)?.name ?? "Unknown",
+        departmentId: row.department_id,
+        departmentName: normalizeRelation(row.master_departments)?.name ?? "Unknown Department",
+        hodApprovalHoursSum: toNumber(row.hod_approval_hours_sum),
+        hodApprovalSampleCount: Math.max(0, Math.trunc(toNumber(row.hod_approval_sample_count))),
+      })),
       errorMessage: null,
     };
   }

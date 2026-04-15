@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch, type FieldErrors } from "react-hook-form";
 import { useRouter } from "next/navigation";
@@ -110,22 +110,69 @@ function toOptional(value: string): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function toNumberOrZero(value: unknown): number {
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : 0;
+function toNumber(val: unknown): number {
+  if (val === null || val === undefined) {
+    return 0;
   }
 
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (trimmed.length === 0) {
+  if (typeof val === "string") {
+    const normalized = val.trim().replace(/,/g, "");
+    if (normalized.length === 0) {
       return 0;
     }
 
-    const parsed = Number(trimmed);
-    return Number.isFinite(parsed) ? parsed : 0;
+    const num = Number(normalized);
+    return Number.isFinite(num) ? num : 0;
   }
 
-  return 0;
+  const num = Number(val);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function toNumberOrZero(value: unknown): number {
+  return toNumber(value);
+}
+
+function toNullableString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  return toNullable(value);
+}
+
+function stripJsonMarkdownFences(response: string): string {
+  return response
+    .replace(/```json/g, "")
+    .replace(/```/g, "")
+    .trim();
+}
+
+function toRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function parseAiPayload(payload: unknown): Record<string, unknown> | null {
+  if (typeof payload === "string") {
+    try {
+      const cleanedPayload = stripJsonMarkdownFences(payload);
+      const objectMatch = cleanedPayload.match(/\{[\s\S]*\}/);
+      if (!objectMatch) {
+        return null;
+      }
+
+      const parsed = JSON.parse(objectMatch[0]) as unknown;
+      return toRecord(parsed);
+    } catch {
+      return null;
+    }
+  }
+
+  return toRecord(payload);
 }
 
 function normalizeCategoryName(value: string | null | undefined): string {
@@ -197,6 +244,107 @@ function appendFormDataValue(
   formData.append(key, String(value));
 }
 
+type AiEditedFieldEntry = {
+  original: string | number | boolean | null;
+};
+
+type ClaimExpenseAiMetadataPayload = {
+  edited_fields: Record<string, AiEditedFieldEntry>;
+};
+
+type AiExpenseSnapshot = {
+  bill_no: string | null;
+  transaction_date: string | null;
+  vendor_name: string | null;
+  gst_number: string | null;
+  expense_category_id: string | null;
+  basic_amount: number;
+  cgst_amount: number;
+  sgst_amount: number;
+  igst_amount: number;
+  total_amount: number;
+};
+
+function normalizeOptionalText(value: string | null | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function equalsRoundedAmount(left: number, right: number, tolerance = 0.01): boolean {
+  return Math.abs(left - right) <= tolerance;
+}
+
+function buildExpenseAiMetadata(
+  snapshot: AiExpenseSnapshot | null,
+  expense: ClaimFormDraftValues["expense"],
+): ClaimExpenseAiMetadataPayload | null {
+  if (!snapshot) {
+    return null;
+  }
+
+  const editedFields: Record<string, AiEditedFieldEntry> = {};
+
+  const currentTotalAmount = calculateExpenseTotal(
+    expense.basicAmount,
+    expense.cgstAmount,
+    expense.sgstAmount,
+    expense.igstAmount,
+  );
+
+  const comparisons: Array<{
+    key: keyof AiExpenseSnapshot;
+    currentValue: string | number | null;
+  }> = [
+    { key: "bill_no", currentValue: normalizeOptionalText(expense.billNo) },
+    { key: "transaction_date", currentValue: normalizeOptionalText(expense.transactionDate) },
+    { key: "vendor_name", currentValue: normalizeOptionalText(expense.vendorName) },
+    { key: "gst_number", currentValue: normalizeOptionalText(expense.gstNumber) },
+    {
+      key: "expense_category_id",
+      currentValue: normalizeOptionalText(expense.expenseCategoryId),
+    },
+    { key: "basic_amount", currentValue: expense.basicAmount },
+    { key: "cgst_amount", currentValue: expense.cgstAmount },
+    { key: "sgst_amount", currentValue: expense.sgstAmount },
+    { key: "igst_amount", currentValue: expense.igstAmount },
+    { key: "total_amount", currentValue: currentTotalAmount },
+  ];
+
+  for (const comparison of comparisons) {
+    const originalValue = snapshot[comparison.key];
+    const currentValue = comparison.currentValue;
+
+    if (typeof originalValue === "number" && typeof currentValue === "number") {
+      if (!equalsRoundedAmount(originalValue, currentValue)) {
+        editedFields[comparison.key] = { original: originalValue };
+      }
+      continue;
+    }
+
+    if (originalValue === null) {
+      continue;
+    }
+
+    if (originalValue !== currentValue) {
+      editedFields[comparison.key] = {
+        original: typeof originalValue === "string" ? normalizeOptionalText(originalValue) : null,
+      };
+    }
+  }
+
+  if (Object.keys(editedFields).length === 0) {
+    return null;
+  }
+
+  return {
+    edited_fields: editedFields,
+  };
+}
+
 export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientProps) {
   const router = useRouter();
   const [, startNavTransition] = useTransition();
@@ -206,6 +354,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   const [advanceSupportingFile, setAdvanceSupportingFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAiParsing, setIsAiParsing] = useState(false);
+  const originalAiExpenseSnapshotRef = useRef<AiExpenseSnapshot | null>(null);
 
   const defaultPaymentMode = options.paymentModes[0];
 
@@ -491,6 +640,11 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     appendFormDataValue(formData, "detailType", values.detailType);
 
     if (values.detailType === "expense") {
+      const aiMetadata = buildExpenseAiMetadata(
+        originalAiExpenseSnapshotRef.current,
+        values.expense,
+      );
+
       appendFormDataValue(formData, "expense.billNo", values.expense.billNo);
       appendFormDataValue(formData, "expense.purpose", values.expense.purpose);
       appendFormDataValue(formData, "expense.expenseCategoryId", values.expense.expenseCategoryId);
@@ -524,6 +678,10 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       appendFormDataValue(formData, "expense.bankStatementFileName", "");
       appendFormDataValue(formData, "expense.bankStatementFileType", "");
       appendFormDataValue(formData, "expense.bankStatementFileBase64", "");
+
+      if (aiMetadata) {
+        appendFormDataValue(formData, "expense.aiMetadata", JSON.stringify(aiMetadata));
+      }
 
       if (invoiceFile) {
         formData.append("receiptFile", invoiceFile);
@@ -608,25 +766,58 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     void onSubmit(event);
   };
 
-  const applyParsedReceiptToForm = (
-    parsed: NonNullable<Awaited<ReturnType<typeof parseReceiptAction>>["data"]>,
-  ) => {
+  const applyParsedReceiptToForm = (parsed: Record<string, unknown>): void => {
+    const parsedCategoryName = toNullableString(parsed.category_name ?? parsed.expenseCategory);
+    const billNo = toNullableString(parsed.billNo ?? parsed.bill_no) ?? "";
+    const transactionDate =
+      toNullableString(parsed.transactionDate ?? parsed.transaction_date) ?? "";
+    const gstNumber = toNullableString(parsed.gstNumber ?? parsed.gst_number);
+    const vendorName = toNullableString(parsed.vendorName ?? parsed.vendor_name);
+
+    const basicAmount = toNumber(parsed.basicAmount ?? parsed.basic_amount);
+    const cgstAmount = toNumber(parsed.cgstAmount ?? parsed.cgst_amount);
+    const sgstAmount = toNumber(parsed.sgstAmount ?? parsed.sgst_amount);
+    const igstAmount = toNumber(parsed.igstAmount ?? parsed.igst_amount);
+    const totalAmount = toNumber(parsed.totalAmount ?? parsed.total_amount);
+    const normalizedTotalAmount =
+      totalAmount > 0
+        ? totalAmount
+        : calculateExpenseTotal(basicAmount, cgstAmount, sgstAmount, igstAmount);
+
     const matchedExpenseCategoryId = resolveExpenseCategoryIdFromAi(
-      parsed.category_name,
+      parsedCategoryName,
       options.expenseCategories,
     );
 
-    setValue("expense.billNo", parsed.billNo ?? "", {
+    originalAiExpenseSnapshotRef.current = {
+      bill_no: normalizeOptionalText(billNo),
+      transaction_date: normalizeOptionalText(transactionDate),
+      vendor_name: normalizeOptionalText(vendorName),
+      gst_number: normalizeOptionalText(gstNumber),
+      expense_category_id: normalizeOptionalText(matchedExpenseCategoryId),
+      basic_amount: basicAmount,
+      cgst_amount: cgstAmount,
+      sgst_amount: sgstAmount,
+      igst_amount: igstAmount,
+      total_amount: normalizedTotalAmount,
+    };
+
+    setValue("expense.billNo", billNo, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
     });
-    setValue("expense.transactionDate", parsed.transactionDate ?? "", {
+    setValue("expense.transactionDate", transactionDate, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
     });
-    setValue("expense.basicAmount", parsed.basicAmount, {
+    setValue("expense.basicAmount", basicAmount, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("expense.totalAmount", normalizedTotalAmount, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
@@ -636,27 +827,27 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       shouldTouch: true,
       shouldValidate: true,
     });
-    setValue("expense.gstNumber", parsed.gstNumber, {
+    setValue("expense.gstNumber", gstNumber, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
     });
-    setValue("expense.cgstAmount", parsed.cgstAmount, {
+    setValue("expense.cgstAmount", cgstAmount, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
     });
-    setValue("expense.sgstAmount", parsed.sgstAmount, {
+    setValue("expense.sgstAmount", sgstAmount, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
     });
-    setValue("expense.igstAmount", parsed.igstAmount, {
+    setValue("expense.igstAmount", igstAmount, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
     });
-    setValue("expense.vendorName", parsed.vendorName, {
+    setValue("expense.vendorName", vendorName, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
@@ -687,7 +878,23 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
         return;
       }
 
-      applyParsedReceiptToForm(result.data);
+      console.log("RAW API RESPONSE:", result);
+
+      const aiData = parseAiPayload(result.data);
+      if (!aiData) {
+        toast.error("AI returned invalid JSON. Please fill the fields manually.", { id: toastId });
+        return;
+      }
+
+      console.log("AI DATA:", aiData);
+      console.log("TYPE CHECK totalAmount:", typeof aiData.totalAmount);
+
+      if (toNumber(aiData.confidenceScore) < 70) {
+        toast.warning("Receipt quality is low. Please verify all auto-filled fields carefully.");
+      }
+
+      applyParsedReceiptToForm(aiData);
+
       toast.success("Details fetched!", { id: toastId });
     } catch {
       toast.error("Failed to fetch AI details.", { id: toastId });
@@ -705,6 +912,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     });
 
     if (!selectedFile) {
+      originalAiExpenseSnapshotRef.current = null;
       setFileError(null);
       return;
     }
@@ -720,6 +928,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       return;
     }
 
+    originalAiExpenseSnapshotRef.current = null;
     setFileError(null);
     const toastId = toast.loading("Fetching AI details...");
     await runReceiptExtraction(selectedFile, toastId);
@@ -742,6 +951,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       return;
     }
 
+    originalAiExpenseSnapshotRef.current = null;
     setFileError(null);
 
     const toastId = toast.loading("Fetching AI details...");

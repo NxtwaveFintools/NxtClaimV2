@@ -15,6 +15,10 @@ import { ROUTES } from "@/core/config/route-registry";
 import { redirect } from "next/navigation";
 
 type SearchParamsValue = string | string[] | undefined;
+type ClaimsPaginationState = {
+  cursor: string | null;
+  prevCursor: string | null;
+};
 
 function firstParamValue(value: SearchParamsValue): string | undefined {
   if (Array.isArray(value)) return value[0];
@@ -34,8 +38,10 @@ const PAGE_SIZE = 10;
 
 async function DepartmentClaimsTableSection({
   searchParams,
+  pagination,
 }: {
   searchParams?: Record<string, SearchParamsValue>;
+  pagination: ClaimsPaginationState;
 }) {
   const authRepository = new SupabaseServerAuthRepository();
   const currentUserResult = await authRepository.getCurrentUser();
@@ -46,10 +52,6 @@ async function DepartmentClaimsTableSection({
 
   const repository = new SupabaseDepartmentViewerRepository();
   const service = new GetDepartmentViewClaimsService({ repository, logger });
-
-  const cursor = firstParamValue(searchParams?.cursor) ?? null;
-  const previousCursor = firstParamValue(searchParams?.prevCursor) ?? null;
-  const previousCursorToken = previousCursor ?? (cursor ? "__first__" : null);
 
   const filters: DepartmentViewerFilters = {
     status: normalizeStatusFilter(firstParamValue(searchParams?.status)),
@@ -74,7 +76,7 @@ async function DepartmentClaimsTableSection({
   const result = await service.execute({
     userId: currentUserResult.user.id,
     filters,
-    pagination: { cursor, limit: PAGE_SIZE },
+    pagination: { cursor: pagination.cursor, limit: PAGE_SIZE },
   });
 
   if (result.errorMessage || !result.data) {
@@ -87,17 +89,16 @@ async function DepartmentClaimsTableSection({
     );
   }
 
-  const { data: rows, nextCursor, hasNextPage } = result.data;
+  const { data: claims, nextCursor, hasNextPage } = result.data;
 
   return (
     <>
-      <DepartmentClaimsTable rows={rows} />
+      <DepartmentClaimsTable claims={claims} />
       <MyClaimsPaginationControls
         hasNextPage={hasNextPage}
-        hasPreviousPage={Boolean(previousCursorToken)}
-        currentCursor={cursor}
+        currentCursor={pagination.cursor}
         nextCursor={nextCursor}
-        previousCursor={previousCursorToken}
+        prevCursor={pagination.prevCursor}
         searchParams={searchParams}
       />
     </>
@@ -130,8 +131,10 @@ async function DeptFilterBarWithData() {
 
 export function DepartmentClaimsSection({
   searchParams,
+  pagination,
 }: {
   searchParams?: Record<string, SearchParamsValue>;
+  pagination: ClaimsPaginationState;
 }) {
   return (
     <section className="space-y-4">
@@ -145,7 +148,7 @@ export function DepartmentClaimsSection({
           </h2>
         </div>
         <Suspense fallback={<TableSkeleton />}>
-          <DepartmentClaimsTableSection searchParams={searchParams} />
+          <DepartmentClaimsTableSection searchParams={searchParams} pagination={pagination} />
         </Suspense>
       </div>
     </section>

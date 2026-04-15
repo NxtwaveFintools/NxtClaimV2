@@ -42,6 +42,7 @@ function createRepository(overrides?: Partial<AdminRepository>): AdminRepository
     getAllClaims: jest.fn(),
     getClaimOverrideSummary: jest.fn(),
     forceUpdateClaimStatus: jest.fn(),
+    forceUpdatePaymentMode: jest.fn(),
     softDeleteClaim: jest.fn(),
     getMasterDataItems: jest.fn(),
     createMasterDataItem: jest.fn(),

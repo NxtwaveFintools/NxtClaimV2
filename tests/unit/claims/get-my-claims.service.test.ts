@@ -63,6 +63,8 @@ function createRepository(overrides?: Partial<ClaimRepository>): ClaimRepository
     getMyClaimsPaginated: jest.fn(async () => ({
       data: [],
       totalCount: 0,
+      nextCursor: null,
+      hasNextPage: false,
       errorMessage: null,
     })),
     getApprovalViewerContext: jest.fn(async () => ({

@@ -1,4 +1,9 @@
 import { formatDate } from "@/lib/format";
+import type { ReactNode } from "react";
+
+type ClaimExpenseAiMetadata = {
+  edited_fields: Record<string, { original: string | number | boolean | null }>;
+};
 
 type ClaimExpenseDetail = {
   id: string;
@@ -20,6 +25,7 @@ type ClaimExpenseDetail = {
   vendorName: string | null;
   peopleInvolved: string | null;
   remarks: string | null;
+  aiMetadata?: ClaimExpenseAiMetadata | null;
 };
 
 type ClaimAdvanceDetail = {
@@ -43,7 +49,16 @@ type ClaimFullDetailsGridProps = {
   includeExpenseDetail?: boolean;
   includeAdvanceDetail?: boolean;
   viewMode?: "full" | "quick-view";
+  showAiWarnings?: boolean;
 };
+
+const AI_AMOUNT_FIELDS = new Set([
+  "basic_amount",
+  "cgst_amount",
+  "sgst_amount",
+  "igst_amount",
+  "total_amount",
+]);
 
 const indiaAmountFormatter = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -75,6 +90,7 @@ export function ClaimFullDetailsGrid({
   includeExpenseDetail = true,
   includeAdvanceDetail = true,
   viewMode = "full",
+  showAiWarnings = false,
 }: ClaimFullDetailsGridProps) {
   const isQuickViewMode = viewMode === "quick-view";
   const summaryGridClasses = isQuickViewMode
@@ -91,6 +107,47 @@ export function ClaimFullDetailsGrid({
   const transactionDate =
     claim.expense?.transactionDate ?? claim.advance?.expectedUsageDate ?? null;
   const categoryLabel = claim.expense?.expenseCategoryName ?? (claim.advance ? "Advance" : null);
+  const editedFields = showAiWarnings ? claim.expense?.aiMetadata?.edited_fields : undefined;
+
+  const getAiOriginalValue = (field: string): string | number | boolean | null | undefined => {
+    return editedFields?.[field]?.original;
+  };
+
+  const formatAiOriginalValue = (
+    field: string,
+    value: string | number | boolean | null,
+  ): string => {
+    if (value === null) {
+      return "N/A";
+    }
+
+    if (AI_AMOUNT_FIELDS.has(field) && typeof value === "number") {
+      return formatAmount(value);
+    }
+
+    if (field === "transaction_date" && typeof value === "string") {
+      return formatDate(value);
+    }
+
+    if (typeof value === "boolean") {
+      return value ? "Yes" : "No";
+    }
+
+    return String(value);
+  };
+
+  const renderAiWarning = (field: string): ReactNode => {
+    const originalValue = getAiOriginalValue(field);
+    if (originalValue === undefined) {
+      return null;
+    }
+
+    return (
+      <p className="mt-1 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+        AI originally read: {formatAiOriginalValue(field, originalValue)}
+      </p>
+    );
+  };
 
   return (
     <>
@@ -180,6 +237,7 @@ export function ClaimFullDetailsGrid({
               <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
                 {formatOptionalText(claim.expense.billNo, "-")}
               </p>
+              {renderAiWarning("bill_no")}
             </div>
             {isQuickViewMode ? null : (
               <div>
@@ -189,6 +247,7 @@ export function ClaimFullDetailsGrid({
                 <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
                   {formatOptionalText(claim.expense.vendorName)}
                 </p>
+                {renderAiWarning("vendor_name")}
               </div>
             )}
             <div>
@@ -198,6 +257,7 @@ export function ClaimFullDetailsGrid({
               <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
                 {formatDate(claim.expense.transactionDate)}
               </p>
+              {renderAiWarning("transaction_date")}
             </div>
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">
@@ -206,6 +266,7 @@ export function ClaimFullDetailsGrid({
               <p className="mt-0.5 text-sm font-bold text-slate-900 dark:text-slate-100">
                 {formatAmount(claim.expense.totalAmount)}
               </p>
+              {renderAiWarning("total_amount")}
             </div>
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
@@ -224,6 +285,7 @@ export function ClaimFullDetailsGrid({
                   <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
                     {formatOptionalText(claim.expense.expenseCategoryName)}
                   </p>
+                  {renderAiWarning("expense_category_id")}
                 </div>
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
@@ -280,6 +342,7 @@ export function ClaimFullDetailsGrid({
                   <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
                     {formatOptionalText(claim.expense.gstNumber)}
                   </p>
+                  {renderAiWarning("gst_number")}
                 </div>
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
@@ -288,6 +351,7 @@ export function ClaimFullDetailsGrid({
                   <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
                     {formatAmount(claim.expense.basicAmount)}
                   </p>
+                  {renderAiWarning("basic_amount")}
                 </div>
                 {shouldShowExpenseTaxBreakdown ? (
                   <>
@@ -298,6 +362,7 @@ export function ClaimFullDetailsGrid({
                       <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
                         {formatAmount(claim.expense.cgstAmount)}
                       </p>
+                      {renderAiWarning("cgst_amount")}
                     </div>
                     <div>
                       <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
@@ -306,6 +371,7 @@ export function ClaimFullDetailsGrid({
                       <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
                         {formatAmount(claim.expense.sgstAmount)}
                       </p>
+                      {renderAiWarning("sgst_amount")}
                     </div>
                     <div>
                       <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
@@ -314,6 +380,7 @@ export function ClaimFullDetailsGrid({
                       <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
                         {formatAmount(claim.expense.igstAmount)}
                       </p>
+                      {renderAiWarning("igst_amount")}
                     </div>
                   </>
                 ) : null}

@@ -52,7 +52,6 @@ import {
   CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
   ClaimStatusBadge,
 } from "@/modules/claims/ui/claim-status-badge";
-import { MyClaimsOffsetPaginationControls } from "@/modules/claims/ui/my-claims-offset-pagination-controls";
 import { MyClaimsPaginationControls } from "@/modules/claims/ui/my-claims-pagination-controls";
 import { ApprovalsAuditModeDialog } from "@/modules/claims/ui/approvals-quick-view-sheet";
 import { DeleteClaimButton } from "@/modules/claims/ui/delete-claim-button";
@@ -293,6 +292,7 @@ function buildViewHref(
   const params = toSearchParams(searchParams);
   params.delete("cursor");
   params.delete("prevCursor");
+  params.delete("page");
 
   params.set("view", targetView);
 
@@ -479,8 +479,10 @@ function TableHeader({ showActions }: { showActions: boolean }) {
     <thead className="bg-zinc-50/80 text-[11px] uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
       <tr>
         <th className="whitespace-nowrap px-3 py-2.5 font-semibold">CLAIM ID</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">EMPLOYEE ID</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">EMPLOYEE NAME</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTER ID</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTER EMAIL</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">ON BEHALF ID</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">ON BEHALF EMAIL</th>
         <th className="whitespace-nowrap px-3 py-2.5 font-semibold">DEPARTMENT</th>
         <th className="whitespace-nowrap px-3 py-2.5 font-semibold">TYPE OF CLAIM</th>
         <th className="whitespace-nowrap px-3 py-2.5 font-semibold">AMOUNT</th>
@@ -505,6 +507,8 @@ async function ClaimsCommandCenterTable({
   view,
   approvalScope,
   viewerContext,
+  cursor,
+  previousCursorToken,
   searchParams,
   filters,
 }: {
@@ -512,6 +516,8 @@ async function ClaimsCommandCenterTable({
   view: ViewMode;
   approvalScope: "l1" | "finance" | null;
   viewerContext: PendingApprovalsViewerContext;
+  cursor: string | null;
+  previousCursorToken: string | null;
   searchParams?: Record<string, SearchParamsValue>;
   filters: GetMyClaimsFilters;
 }) {
@@ -521,10 +527,6 @@ async function ClaimsCommandCenterTable({
     repository: claimRepository,
     logger,
   });
-
-  const cursor = firstParamValue(searchParams?.cursor) ?? null;
-  const previousCursor = firstParamValue(searchParams?.prevCursor) ?? null;
-  const previousCursorToken = previousCursor ?? (cursor ? "__first__" : null);
   const listReturnToPath = buildPathWithSearchParams(
     ROUTES.claims.myClaims,
     toSearchParams(searchParams).toString(),
@@ -541,15 +543,7 @@ async function ClaimsCommandCenterTable({
 
     const rows = approvalsResult.data;
     const claimIds = rows.map((claim) => claim.id);
-    const approvalCurrentPage = cursor
-      ? Math.max(1, Number(firstParamValue(searchParams?.page)) || 1)
-      : 1;
-    const approvalPageStart = rows.length > 0 ? (approvalCurrentPage - 1) * PAGE_SIZE + 1 : 0;
-    const approvalPageEnd =
-      rows.length > 0
-        ? Math.min((approvalCurrentPage - 1) * PAGE_SIZE + rows.length, approvalsResult.totalCount)
-        : 0;
-    const approvalsSummaryText = `Showing ${approvalPageStart} to ${approvalPageEnd} of ${approvalsResult.totalCount} claims`;
+    const approvalsSummaryText = `Showing ${rows.length} of ${approvalsResult.totalCount} claims`;
 
     if (approvalScope === "finance" || approvalScope === "l1") {
       const [evidenceSignedUrlByClaimId, auditLogsByClaimId] = await Promise.all([
@@ -580,11 +574,9 @@ async function ClaimsCommandCenterTable({
             <>
               <MyClaimsPaginationControls
                 hasNextPage={approvalsResult.hasNextPage}
-                hasPreviousPage={Boolean(previousCursorToken)}
                 currentCursor={cursor}
                 nextCursor={approvalsResult.nextCursor}
-                previousCursor={previousCursorToken}
-                currentPage={approvalCurrentPage}
+                prevCursor={previousCursorToken}
                 summaryText={approvalsSummaryText}
                 position="top"
                 searchParams={searchParams}
@@ -592,15 +584,17 @@ async function ClaimsCommandCenterTable({
 
               <Suspense key={JSON.stringify(searchParams ?? {})} fallback={<TableSkeleton />}>
                 <FinanceApprovalsBulkTable
-                  rows={rows.map((claim) => ({
+                  claims={rows.map((claim) => ({
                     id: claim.id,
                     employeeId: claim.employeeId,
                     submitter: claim.submitter,
+                    submitterEmail: claim.submitterEmail,
                     departmentName: claim.departmentName,
                     paymentModeName: claim.paymentModeName,
                     detailType: claim.detailType,
                     submissionType: claim.submissionType,
                     onBehalfEmail: claim.onBehalfEmail,
+                    onBehalfEmployeeCode: claim.onBehalfEmployeeCode,
                     purpose: claim.purpose,
                     categoryName: claim.categoryName,
                     expenseReceiptFilePath: claim.expenseReceiptFilePath,
@@ -677,18 +671,16 @@ async function ClaimsCommandCenterTable({
           <>
             <MyClaimsPaginationControls
               hasNextPage={approvalsResult.hasNextPage}
-              hasPreviousPage={Boolean(previousCursorToken)}
               currentCursor={cursor}
               nextCursor={approvalsResult.nextCursor}
-              previousCursor={previousCursorToken}
-              currentPage={approvalCurrentPage}
+              prevCursor={previousCursorToken}
               summaryText={approvalsSummaryText}
               position="top"
               searchParams={searchParams}
             />
 
             <div className="nxt-scroll w-full overflow-x-auto">
-              <table className="min-w-345 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
+              <table className="min-w-415 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
                 <TableHeader showActions />
                 <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
                   {rows.map((claim) => {
@@ -818,7 +810,15 @@ async function ClaimsCommandCenterTable({
                         </td>
                         <td className="px-3 py-2">
                           <span className="inline-block max-w-[150px] truncate align-bottom">
-                            {claim.submitter}
+                            {claim.submitterEmail?.trim() || claim.submitter}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2">
+                          <span>{claim.onBehalfEmployeeCode?.trim() || "N/A"}</span>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className="inline-block max-w-[150px] truncate align-bottom">
+                            {claim.onBehalfEmail?.trim() || "N/A"}
                           </span>
                         </td>
                         <td className="px-3 py-2">
@@ -883,16 +883,15 @@ async function ClaimsCommandCenterTable({
     );
   }
 
-  const currentPage = Math.max(1, Number(firstParamValue(searchParams?.page)) || 1);
-
   const claimsResult = await claimsService.execute({
     userId,
-    page: currentPage,
+    cursor,
     limit: PAGE_SIZE,
     filters,
   });
 
   const rows = claimsResult.data;
+  const submissionsSummaryText = `Showing ${rows.length} of ${claimsResult.totalCount} claims`;
   const claimIds = rows.map((claim) => claim.id);
   // All claim detail fields (submitter, category, purpose, file paths) are now
   // returned directly by getMyClaimsPaginated via the enriched view —
@@ -933,16 +932,18 @@ async function ClaimsCommandCenterTable({
         </div>
       ) : (
         <>
-          <MyClaimsOffsetPaginationControls
-            totalCount={claimsResult.totalCount}
-            page={currentPage}
-            limit={PAGE_SIZE}
+          <MyClaimsPaginationControls
+            hasNextPage={claimsResult.hasNextPage}
+            currentCursor={cursor}
+            nextCursor={claimsResult.nextCursor}
+            prevCursor={previousCursorToken}
+            summaryText={submissionsSummaryText}
             position="top"
             searchParams={searchParams}
           />
 
           <div className="nxt-scroll overflow-x-auto">
-            <table className="min-w-325 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
+            <table className="min-w-395 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
               <TableHeader showActions />
               <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
                 {rows.map((claim) => {
@@ -974,7 +975,15 @@ async function ClaimsCommandCenterTable({
                       </td>
                       <td className="px-3 py-2">
                         <span className="inline-block max-w-[150px] truncate align-bottom">
-                          {claim.employeeName}
+                          {claim.submitterEmail?.trim() || claim.employeeName}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2">
+                        <span>{claim.onBehalfEmployeeCode?.trim() || "N/A"}</span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className="inline-block max-w-[150px] truncate align-bottom">
+                          {claim.onBehalfEmail?.trim() || "N/A"}
                         </span>
                       </td>
                       <td className="px-3 py-2">
@@ -1137,15 +1146,28 @@ async function MyClaimsDashboardPageContent({
   userId: string;
 }) {
   const resolvedSearchParams = searchParams;
+  const cursor = firstParamValue(resolvedSearchParams?.cursor) ?? null;
+  const previousCursor = firstParamValue(resolvedSearchParams?.prevCursor) ?? null;
+  const previousCursorToken = previousCursor ?? (cursor ? "__first__" : null);
 
   const filters = buildClaimFilters(resolvedSearchParams);
 
   if (activeView === "admin") {
-    return <AdminClaimsSection searchParams={resolvedSearchParams} />;
+    return (
+      <AdminClaimsSection
+        searchParams={resolvedSearchParams}
+        pagination={{ cursor, prevCursor: previousCursorToken }}
+      />
+    );
   }
 
   if (activeView === "department") {
-    return <DepartmentClaimsSection searchParams={resolvedSearchParams} />;
+    return (
+      <DepartmentClaimsSection
+        searchParams={resolvedSearchParams}
+        pagination={{ cursor, prevCursor: previousCursorToken }}
+      />
+    );
   }
 
   return (
@@ -1170,6 +1192,8 @@ async function MyClaimsDashboardPageContent({
           view={activeView}
           approvalScope={viewerContextResult.activeScope}
           viewerContext={viewerContextResult}
+          cursor={cursor}
+          previousCursorToken={previousCursorToken}
           searchParams={resolvedSearchParams}
           filters={filters}
         />

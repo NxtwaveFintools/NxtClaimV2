@@ -22,6 +22,8 @@ type EnterpriseDashboardRow = {
   employee_name: string;
   employee_id: string;
   submitter_email: string | null;
+  on_behalf_email: string | null;
+  on_behalf_employee_code_raw: string | null;
   department_name: string;
   type_of_claim: string;
   amount: number | string;
@@ -48,6 +50,41 @@ function normalizeRelation<T>(value: T | T[] | null | undefined): T | null {
   if (!value) return null;
   if (Array.isArray(value)) return value[0] ?? null;
   return value;
+}
+
+const POSTGREST_SUBMISSION_TYPE_SELF = '"Self"';
+const POSTGREST_SUBMISSION_TYPE_ON_BEHALF = '"On Behalf"';
+
+function buildBeneficiaryScopedSearchOrFilter(input: {
+  searchQuery: string;
+  selfField: string;
+  onBehalfField: string;
+}): string {
+  return `and(submission_type.eq.${POSTGREST_SUBMISSION_TYPE_SELF},${input.selfField}.ilike.%${input.searchQuery}%),and(submission_type.eq.${POSTGREST_SUBMISSION_TYPE_ON_BEHALF},${input.onBehalfField}.ilike.%${input.searchQuery}%)`;
+}
+
+function buildEmployeeNameSearchOrFilter(searchQuery: string): string {
+  return buildBeneficiaryScopedSearchOrFilter({
+    searchQuery,
+    selfField: "submitter_name_raw",
+    onBehalfField: "beneficiary_name_raw",
+  });
+}
+
+function buildEmployeeEmailSearchOrFilter(searchQuery: string): string {
+  return buildBeneficiaryScopedSearchOrFilter({
+    searchQuery,
+    selfField: "submitter_email",
+    onBehalfField: "on_behalf_email",
+  });
+}
+
+function buildEmployeeIdSearchOrFilter(searchQuery: string): string {
+  return buildBeneficiaryScopedSearchOrFilter({
+    searchQuery,
+    selfField: "claim_employee_id_raw",
+    onBehalfField: "on_behalf_employee_code_raw",
+  });
 }
 
 // ----------------------------------------------------------------
@@ -108,7 +145,7 @@ export class SupabaseDepartmentViewerRepository implements DepartmentViewerRepos
     let query = this.client
       .from("vw_enterprise_claims_dashboard")
       .select(
-        "claim_id, employee_name, employee_id, submitter_email, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, detail_type, submission_type, department_id, payment_mode_id, location_id, product_id, expense_category_id",
+        "claim_id, employee_name, employee_id, submitter_email, on_behalf_email, on_behalf_employee_code_raw, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, detail_type, submission_type, department_id, payment_mode_id, location_id, product_id, expense_category_id",
       )
       .in("department_id", departmentIds)
       .order("submitted_on", { ascending: false })
@@ -127,16 +164,16 @@ export class SupabaseDepartmentViewerRepository implements DepartmentViewerRepos
     if (filters.searchQuery) {
       const sq = filters.searchQuery;
       if (filters.searchField === "claim_id") {
-        query = query.eq("claim_id", sq);
+        query = query.ilike("claim_id", `%${sq}%`);
       } else if (filters.searchField === "employee_name") {
-        query = query.ilike("employee_name", `%${sq}%`);
+        query = query.or(buildEmployeeNameSearchOrFilter(sq));
       } else if (filters.searchField === "employee_id") {
-        query = query.ilike("employee_id", `%${sq}%`);
+        query = query.or(buildEmployeeIdSearchOrFilter(sq));
       } else if (filters.searchField === "employee_email") {
-        query = query.or(`submitter_email.ilike.%${sq}%,on_behalf_email.ilike.%${sq}%`);
+        query = query.or(buildEmployeeEmailSearchOrFilter(sq));
       } else {
         query = query.or(
-          `claim_id.ilike.%${sq}%,employee_name.ilike.%${sq}%,employee_id.ilike.%${sq}%,submitter_email.ilike.%${sq}%,on_behalf_email.ilike.%${sq}%`,
+          `claim_id.ilike.%${sq}%,${buildEmployeeNameSearchOrFilter(sq)},${buildEmployeeIdSearchOrFilter(sq)},${buildEmployeeEmailSearchOrFilter(sq)}`,
         );
       }
     }
@@ -211,6 +248,9 @@ export class SupabaseDepartmentViewerRepository implements DepartmentViewerRepos
           claimId: row.claim_id,
           employeeName: row.employee_name,
           employeeId: row.employee_id,
+          submitterEmail: row.submitter_email ?? null,
+          onBehalfEmail: row.on_behalf_email ?? null,
+          onBehalfEmployeeCode: row.on_behalf_employee_code_raw ?? null,
           departmentName: row.department_name,
           typeOfClaim: row.type_of_claim,
           amount: normalizeAmount(row.amount),

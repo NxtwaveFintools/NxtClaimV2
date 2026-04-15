@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { RouterLink } from "@/components/ui/router-link";
+import { TableEmptyState } from "@/components/ui/table-empty-state";
 import { DB_CLAIM_STATUSES, type DbClaimStatus } from "@/core/constants/statuses";
 import { ROUTES } from "@/core/config/route-registry";
 import { appendReturnToParam, buildPathWithSearchParams } from "@/lib/pagination-helpers";
@@ -11,8 +13,10 @@ import {
   approveClaimAction,
   approveFinanceAction,
   bulkApprove,
+  bulkApproveL1,
   bulkMarkPaid,
   bulkReject,
+  bulkRejectL1,
   markPaymentDoneAction,
   rejectClaimAction,
   rejectFinanceAction,
@@ -23,7 +27,6 @@ import type {
   ClaimSubmissionType,
   GetMyClaimsFilters,
 } from "@/core/domain/claims/contracts";
-import { ApprovalsAuditModeDialog } from "@/modules/claims/ui/approvals-quick-view-sheet";
 import { ClaimDecisionActionForm } from "@/modules/claims/ui/claim-decision-action-form";
 import { ClaimRejectWithReasonForm } from "@/modules/claims/ui/claim-reject-with-reason-form";
 import {
@@ -36,11 +39,13 @@ type FinanceApprovalRow = {
   id: string;
   employeeId: string;
   submitter: string;
+  submitterEmail: string | null;
   departmentName: string | null;
   paymentModeName: string;
   detailType: ClaimDetailType;
   submissionType: ClaimSubmissionType;
   onBehalfEmail: string | null;
+  onBehalfEmployeeCode: string | null;
   purpose: string | null;
   categoryName: string;
   expenseReceiptFilePath: string | null;
@@ -54,7 +59,7 @@ type FinanceApprovalRow = {
 };
 
 type FinanceApprovalsBulkTableProps = {
-  rows: FinanceApprovalRow[];
+  claims: FinanceApprovalRow[];
   actionableIds: string[];
   totalSelectableCount: number;
   filters: GetMyClaimsFilters;
@@ -69,6 +74,16 @@ type FinanceApprovalsBulkTableProps = {
   >;
   auditLogsByClaimId: Record<string, (ClaimAuditLogRecord & { formattedCreatedAt: string })[]>;
 };
+
+const ApprovalsAuditModeDialog = dynamic(
+  () =>
+    import("@/modules/claims/ui/approvals-quick-view-sheet").then(
+      (module) => module.ApprovalsAuditModeDialog,
+    ),
+  {
+    ssr: false,
+  },
+);
 
 function normalizeFilters(filters: GetMyClaimsFilters): GetMyClaimsFilters {
   const status = Array.isArray(filters.status)
@@ -92,7 +107,7 @@ function normalizeFilters(filters: GetMyClaimsFilters): GetMyClaimsFilters {
 }
 
 export function FinanceApprovalsBulkTable({
-  rows,
+  claims,
   actionableIds,
   totalSelectableCount,
   filters,
@@ -130,8 +145,8 @@ export function FinanceApprovalsBulkTable({
   // When isGlobalSelect is true we can't inspect all pages, so we fall back to
   // trusting the server-side status guard and mark every action as valid.
   const selectedRows = useMemo(
-    () => rows.filter((row) => selectedIds.includes(row.id)),
-    [rows, selectedIds],
+    () => claims.filter((row) => selectedIds.includes(row.id)),
+    [claims, selectedIds],
   );
 
   const isApproveValid = useMemo(() => {
@@ -211,18 +226,20 @@ export function FinanceApprovalsBulkTable({
       await toast.promise(
         (async () => {
           if (approvalScope === "l1") {
-            const targetIds = isGlobalSelect ? actionableIds : selectedIds;
+            const result = await bulkApproveL1({
+              claimIds: selectedIds,
+              isGlobalSelect,
+              filters: actionFilters,
+            });
 
-            if (targetIds.length === 0) {
-              throw new Error("No actionable claims selected.");
+            if (!result.ok) {
+              throw new Error(result.message);
             }
 
-            for (const claimId of targetIds) {
-              const result = await approveClaimAction({ claimId });
-              if (!result.ok) {
-                throw new Error(result.message ?? "Unable to approve claim.");
-              }
-            }
+            setSelectedIds([]);
+            setIsGlobalSelect(false);
+            router.refresh();
+            return result.message;
           } else {
             const result = await bulkApprove({
               claimIds: selectedIds,
@@ -233,14 +250,12 @@ export function FinanceApprovalsBulkTable({
             if (!result.ok) {
               throw new Error(result.message);
             }
-          }
 
-          setSelectedIds([]);
-          setIsGlobalSelect(false);
-          router.refresh();
-          return approvalScope === "l1"
-            ? `${(isGlobalSelect ? actionableIds : selectedIds).length} claim(s) approved.`
-            : "Claims approved.";
+            setSelectedIds([]);
+            setIsGlobalSelect(false);
+            router.refresh();
+            return result.message;
+          }
         })(),
         {
           loading: "Bulk approving claims...",
@@ -310,23 +325,23 @@ export function FinanceApprovalsBulkTable({
       await toast.promise(
         (async () => {
           if (approvalScope === "l1") {
-            const targetIds = isGlobalSelect ? actionableIds : selectedIds;
+            const result = await bulkRejectL1({
+              claimIds: selectedIds,
+              isGlobalSelect,
+              filters: actionFilters,
+              rejectionReason,
+              allowResubmission,
+            });
 
-            if (targetIds.length === 0) {
-              throw new Error("No actionable claims selected.");
+            if (!result.ok) {
+              throw new Error(result.message);
             }
 
-            for (const claimId of targetIds) {
-              const result = await rejectClaimAction({
-                claimId,
-                rejectionReason,
-                allowResubmission,
-              });
-
-              if (!result.ok) {
-                throw new Error(result.message ?? "Unable to reject claim.");
-              }
-            }
+            setSelectedIds([]);
+            setIsGlobalSelect(false);
+            setIsRejectModalOpen(false);
+            router.refresh();
+            return result.message;
           } else {
             const result = await bulkReject({
               claimIds: selectedIds,
@@ -339,15 +354,13 @@ export function FinanceApprovalsBulkTable({
             if (!result.ok) {
               throw new Error(result.message);
             }
-          }
 
-          setSelectedIds([]);
-          setIsGlobalSelect(false);
-          setIsRejectModalOpen(false);
-          router.refresh();
-          return approvalScope === "l1"
-            ? `${(isGlobalSelect ? actionableIds : selectedIds).length} claim(s) rejected.`
-            : "Claims rejected.";
+            setSelectedIds([]);
+            setIsGlobalSelect(false);
+            setIsRejectModalOpen(false);
+            router.refresh();
+            return result.message;
+          }
         })(),
         {
           loading: "Bulk rejecting claims...",
@@ -359,6 +372,12 @@ export function FinanceApprovalsBulkTable({
       setIsSubmittingBulkReject(false);
     }
   };
+
+  if (claims.length === 0) {
+    return (
+      <TableEmptyState title="No claims found" description="Adjust filters or check back later." />
+    );
+  }
 
   return (
     <div className="min-h-150">
@@ -501,7 +520,7 @@ export function FinanceApprovalsBulkTable({
       ) : null}
 
       <div className="nxt-scroll w-full overflow-x-auto">
-        <table className="min-w-370 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
+        <table className="min-w-430 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
           <thead className="bg-zinc-50/80 text-[11px] uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
             <tr>
               <th className="px-3 py-2.5">
@@ -518,8 +537,10 @@ export function FinanceApprovalsBulkTable({
                 />
               </th>
               <th className="whitespace-nowrap px-3 py-2.5 font-semibold">CLAIM ID</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">EMPLOYEE ID</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">EMPLOYEE NAME</th>
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTER ID</th>
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTER EMAIL</th>
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">ON BEHALF ID</th>
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">ON BEHALF EMAIL</th>
               <th className="whitespace-nowrap px-3 py-2.5 font-semibold">DEPARTMENT</th>
               <th className="whitespace-nowrap px-3 py-2.5 font-semibold">TYPE OF CLAIM</th>
               <th className="whitespace-nowrap px-3 py-2.5 font-semibold">AMOUNT</th>
@@ -535,7 +556,7 @@ export function FinanceApprovalsBulkTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
-            {rows.map((claim) => {
+            {claims.map((claim) => {
               const isChecked = isGlobalSelect || selectedIds.includes(claim.id);
               const userRole = approvalScope === "l1" ? "HOD" : "Finance";
               const availableActions = getAvailableClaimActions(claim.status, userRole);
@@ -656,7 +677,17 @@ export function FinanceApprovalsBulkTable({
                   <td className="whitespace-nowrap px-3 py-2">{claim.employeeId}</td>
                   <td className="px-3 py-2">
                     <span className="inline-block max-w-37.5 truncate align-bottom">
-                      {claim.submitter}
+                      {claim.submitterEmail?.trim() || claim.submitter}
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2">
+                    <span className="inline-block max-w-30 truncate align-bottom">
+                      {claim.onBehalfEmployeeCode?.trim() || "N/A"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className="inline-block max-w-40 truncate align-bottom">
+                      {claim.onBehalfEmail?.trim() || "N/A"}
                     </span>
                   </td>
                   <td className="px-3 py-2">

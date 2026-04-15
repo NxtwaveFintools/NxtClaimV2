@@ -20,6 +20,9 @@ export type AdminClaimRecord = {
   claimId: string;
   employeeName: string;
   employeeId: string;
+  submitterEmail?: string | null;
+  onBehalfEmail?: string | null;
+  onBehalfEmployeeCode?: string | null;
   departmentName: string;
   typeOfClaim: string;
   amount: number;
@@ -171,6 +174,12 @@ export interface AdminRepository {
     actorId: string;
     newStatus: DbClaimStatus;
     reason: string;
+  }): Promise<{ success: boolean; errorMessage: string | null }>;
+
+  forceUpdatePaymentMode(input: {
+    claimId: string;
+    actorId: string;
+    newPaymentModeId: string;
   }): Promise<{ success: boolean; errorMessage: string | null }>;
 
   softDeleteClaim(

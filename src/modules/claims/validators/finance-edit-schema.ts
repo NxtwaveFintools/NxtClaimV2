@@ -65,6 +65,7 @@ export const financeExpenseEditSchema = z
   .object({
     detailType: z.literal("expense"),
     detailId: uuidSchema,
+    paymentModeId: uuidSchema.nullable().optional(),
     billNo: z.string().trim().min(1, "Bill number is required"),
     expenseCategoryId: uuidSchema,
     locationId: uuidSchema,
@@ -90,6 +91,7 @@ export const financeAdvanceEditSchema = z
   .object({
     detailType: z.literal("advance"),
     detailId: uuidSchema,
+    paymentModeId: uuidSchema.nullable().optional(),
     purpose: z.string().trim().min(1, "Purpose is required"),
     requestedAmount: z.number().positive("Requested amount must be greater than zero"),
     expectedUsageDate: isoDateSchema,

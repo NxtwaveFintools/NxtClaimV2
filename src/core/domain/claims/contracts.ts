@@ -26,6 +26,12 @@ export type ClaimDepartmentApprovers = {
   approver2Id: string | null;
 };
 
+export type ClaimExpenseAiOriginalValue = string | number | boolean | null;
+
+export type ClaimExpenseAiMetadata = {
+  edited_fields: Record<string, { original: ClaimExpenseAiOriginalValue }>;
+};
+
 export type ClaimSubmissionInput = {
   submissionType: ClaimSubmissionType;
   detailType: ClaimDetailType;
@@ -60,6 +66,7 @@ export type ClaimSubmissionInput = {
     bankStatementFilePath: string | null;
     peopleInvolved: string | null;
     remarks: string | null;
+    aiMetadata?: ClaimExpenseAiMetadata | null;
   };
   advance?: {
     requestedAmount: number;
@@ -77,6 +84,7 @@ export type ClaimSubmissionInput = {
 export type FinanceExpenseEditPayload = {
   detailType: "expense";
   detailId: string;
+  paymentModeId?: string | null;
   billNo: string;
   expenseCategoryId: string;
   locationId: string;
@@ -100,6 +108,7 @@ export type FinanceExpenseEditPayload = {
 export type FinanceAdvanceEditPayload = {
   detailType: "advance";
   detailId: string;
+  paymentModeId?: string | null;
   purpose: string;
   requestedAmount: number;
   expectedUsageDate: string;
@@ -290,6 +299,8 @@ export type MyClaimListRecord = {
   financeActionDate: string | null;
   detailType: ClaimDetailType;
   submissionType: ClaimSubmissionType;
+  onBehalfEmail?: string | null;
+  onBehalfEmployeeCode?: string | null;
   submitterEmail: string | null;
   hodEmail: string | null;
   financeEmail: string | null;
@@ -302,7 +313,8 @@ export type ClaimAuditActionType =
   | "L2_APPROVED"
   | "L2_REJECTED"
   | "L2_MARK_PAID"
-  | "ADMIN_SOFT_DELETED";
+  | "ADMIN_SOFT_DELETED"
+  | "ADMIN_PAYMENT_MODE_OVERRIDDEN";
 
 export type ClaimAuditLogRecord = {
   id: string;
@@ -322,11 +334,13 @@ export type PendingApprovalListRecord = {
   id: string;
   employeeId: string;
   submitter: string;
+  submitterEmail?: string | null;
   departmentName: string | null;
   paymentModeName: string;
   detailType: ClaimDetailType;
   submissionType: ClaimSubmissionType;
   onBehalfEmail: string | null;
+  onBehalfEmployeeCode?: string | null;
   purpose: string | null;
   categoryName: string;
   evidenceFilePath: string | null;
@@ -432,10 +446,16 @@ export type ClaimRepository = {
   ): Promise<{ data: MyClaimRecord[]; errorMessage: string | null }>;
   getMyClaimsPaginated(
     userId: string,
-    page: number,
+    cursor: string | null,
     limit: number,
     filters?: GetMyClaimsFilters,
-  ): Promise<{ data: MyClaimListRecord[]; totalCount: number; errorMessage: string | null }>;
+  ): Promise<{
+    data: MyClaimListRecord[];
+    totalCount: number;
+    nextCursor: string | null;
+    hasNextPage: boolean;
+    errorMessage: string | null;
+  }>;
   getApprovalViewerContext(userId: string): Promise<{
     data: ApprovalViewerContext;
     errorMessage: string | null;
@@ -482,6 +502,9 @@ export type DepartmentViewerClaimRecord = {
   claimId: string;
   employeeName: string;
   employeeId: string;
+  submitterEmail?: string | null;
+  onBehalfEmail?: string | null;
+  onBehalfEmployeeCode?: string | null;
   departmentName: string;
   typeOfClaim: string;
   amount: number;
