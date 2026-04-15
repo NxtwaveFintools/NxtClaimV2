@@ -572,6 +572,16 @@ async function ClaimsCommandCenterTable({
             </>
           ) : (
             <>
+              <MyClaimsPaginationControls
+                hasNextPage={approvalsResult.hasNextPage}
+                currentCursor={cursor}
+                nextCursor={approvalsResult.nextCursor}
+                prevCursor={previousCursorToken}
+                summaryText={approvalsSummaryText}
+                position="top"
+                searchParams={searchParams}
+              />
+
               <Suspense key={JSON.stringify(searchParams ?? {})} fallback={<TableSkeleton />}>
                 <FinanceApprovalsBulkTable
                   claims={rows.map((claim) => ({
@@ -616,15 +626,6 @@ async function ClaimsCommandCenterTable({
                   auditLogsByClaimId={auditLogsByClaimId}
                 />
               </Suspense>
-
-              <MyClaimsPaginationControls
-                hasNextPage={approvalsResult.hasNextPage}
-                currentCursor={cursor}
-                nextCursor={approvalsResult.nextCursor}
-                prevCursor={previousCursorToken}
-                summaryText={approvalsSummaryText}
-                searchParams={searchParams}
-              />
             </>
           )}
         </section>
@@ -668,6 +669,16 @@ async function ClaimsCommandCenterTable({
           </div>
         ) : (
           <>
+            <MyClaimsPaginationControls
+              hasNextPage={approvalsResult.hasNextPage}
+              currentCursor={cursor}
+              nextCursor={approvalsResult.nextCursor}
+              prevCursor={previousCursorToken}
+              summaryText={approvalsSummaryText}
+              position="top"
+              searchParams={searchParams}
+            />
+
             <div className="nxt-scroll w-full overflow-x-auto">
               <table className="min-w-415 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
                 <TableHeader showActions />
@@ -866,15 +877,6 @@ async function ClaimsCommandCenterTable({
                 </tbody>
               </table>
             </div>
-
-            <MyClaimsPaginationControls
-              hasNextPage={approvalsResult.hasNextPage}
-              currentCursor={cursor}
-              nextCursor={approvalsResult.nextCursor}
-              prevCursor={previousCursorToken}
-              summaryText={approvalsSummaryText}
-              searchParams={searchParams}
-            />
           </>
         )}
       </section>
@@ -930,6 +932,16 @@ async function ClaimsCommandCenterTable({
         </div>
       ) : (
         <>
+          <MyClaimsPaginationControls
+            hasNextPage={claimsResult.hasNextPage}
+            currentCursor={cursor}
+            nextCursor={claimsResult.nextCursor}
+            prevCursor={previousCursorToken}
+            summaryText={submissionsSummaryText}
+            position="top"
+            searchParams={searchParams}
+          />
+
           <div className="nxt-scroll overflow-x-auto">
             <table className="min-w-395 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
               <TableHeader showActions />
@@ -1045,15 +1057,6 @@ async function ClaimsCommandCenterTable({
               </tbody>
             </table>
           </div>
-
-          <MyClaimsPaginationControls
-            hasNextPage={claimsResult.hasNextPage}
-            currentCursor={cursor}
-            nextCursor={claimsResult.nextCursor}
-            prevCursor={previousCursorToken}
-            summaryText={submissionsSummaryText}
-            searchParams={searchParams}
-          />
         </>
       )}
     </section>
