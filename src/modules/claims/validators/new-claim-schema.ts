@@ -37,6 +37,12 @@ const optionalTaxAmountSchema = z.preprocess(
   z.number().min(0, "Tax amount cannot be negative"),
 );
 
+const aiOriginalValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+
+const aiMetadataSchema = z.object({
+  edited_fields: z.record(z.string(), z.object({ original: aiOriginalValueSchema })),
+});
+
 const baseSubmissionSchema = z.object({
   employeeName: z.string().trim().min(1, "Employee Name is required"),
   employeeId: z.string().trim().min(1, "Employee ID is required"),
@@ -90,6 +96,7 @@ const expenseDetailSchema = z.object({
     bankStatementFileBase64: optionalTextToNA,
     peopleInvolved: optionalTextToNA,
     remarks: optionalTextToNA,
+    aiMetadata: aiMetadataSchema.optional().nullable(),
   }),
   advance: z.object({}).passthrough().optional(),
 });

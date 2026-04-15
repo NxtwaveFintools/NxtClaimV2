@@ -185,6 +185,9 @@ describe("SupabaseDepartmentViewerRepository", () => {
         claimId: "claim-2",
         employeeName: "Bob",
         employeeId: "EMP-2",
+        submitterEmail: null,
+        onBehalfEmail: null,
+        onBehalfEmployeeCode: null,
         departmentName: "Engineering",
         typeOfClaim: "Expense",
         amount: 120.5,
@@ -198,10 +201,32 @@ describe("SupabaseDepartmentViewerRepository", () => {
       },
     ]);
     expect(chain.in).toHaveBeenCalledWith("department_id", ["dep-1"]);
-    expect(chain.ilike).toHaveBeenCalledWith("employee_name", "%Bo%");
+    expect(chain.or).toHaveBeenCalledWith(
+      'and(submission_type.eq."Self",submitter_name_raw.ilike.%Bo%),and(submission_type.eq."On Behalf",beneficiary_name_raw.ilike.%Bo%)',
+    );
     expect(chain.eq).toHaveBeenCalledWith("submission_type", "Self");
     expect(chain.gte).toHaveBeenCalledWith("submitted_on", "2026-03-01T00:00:00.000Z");
     expect(chain.lte).toHaveBeenCalledWith("submitted_on", "2026-03-31T23:59:59.999Z");
+  });
+
+  test("getClaims uses partial claim_id search", async () => {
+    const chain = createChain({ data: [], error: null });
+
+    mockFrom.mockReturnValue(chain);
+    mockGetServiceRoleSupabaseClient.mockReturnValue({ from: mockFrom });
+
+    const repository = new SupabaseDepartmentViewerRepository();
+    await repository.getClaims(
+      ["dep-1"],
+      {
+        searchField: "claim_id",
+        searchQuery: "CLAIM",
+      },
+      { cursor: null, limit: 10 },
+    );
+
+    expect(chain.ilike).toHaveBeenCalledWith("claim_id", "%CLAIM%");
+    expect(chain.eq).not.toHaveBeenCalledWith("claim_id", "CLAIM");
   });
 
   test("getClaims uses raw employee identity OR filter for employee_id search", async () => {
@@ -221,7 +246,7 @@ describe("SupabaseDepartmentViewerRepository", () => {
     );
 
     expect(chain.or).toHaveBeenCalledWith(
-      "claim_employee_id_raw.ilike.%EMP-009%,on_behalf_employee_code_raw.ilike.%EMP-009%,submitter_email.ilike.%EMP-009%,on_behalf_email.ilike.%EMP-009%",
+      'and(submission_type.eq."Self",claim_employee_id_raw.ilike.%EMP-009%),and(submission_type.eq."On Behalf",on_behalf_employee_code_raw.ilike.%EMP-009%)',
     );
     expect(chain.ilike).not.toHaveBeenCalledWith("employee_id", "%EMP-009%");
   });

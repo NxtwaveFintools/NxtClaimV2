@@ -26,6 +26,12 @@ export type ClaimDepartmentApprovers = {
   approver2Id: string | null;
 };
 
+export type ClaimExpenseAiOriginalValue = string | number | boolean | null;
+
+export type ClaimExpenseAiMetadata = {
+  edited_fields: Record<string, { original: ClaimExpenseAiOriginalValue }>;
+};
+
 export type ClaimSubmissionInput = {
   submissionType: ClaimSubmissionType;
   detailType: ClaimDetailType;
@@ -60,6 +66,7 @@ export type ClaimSubmissionInput = {
     bankStatementFilePath: string | null;
     peopleInvolved: string | null;
     remarks: string | null;
+    aiMetadata?: ClaimExpenseAiMetadata | null;
   };
   advance?: {
     requestedAmount: number;

@@ -55,32 +55,32 @@ describe("SupabaseClaimRepository.getMyClaims", () => {
     jest.clearAllMocks();
   });
 
-  test("normalizes relational join shapes (array/object/null) into flat records", async () => {
+  test("maps enterprise dashboard rows into flat records", async () => {
     const queryBuilder = createQueryBuilder({
       data: [
         {
-          id: "claim-1",
+          claim_id: "claim-1",
           employee_id: "EMP-100",
           on_behalf_email: null,
           submission_type: "Self",
           status: "Submitted - Awaiting HOD approval",
-          submitted_at: "2026-03-14T10:00:00.000Z",
-          master_departments: [{ name: "Finance" }],
-          master_payment_modes: { name: "Reimbursement" },
-          expense_details: { total_amount: "118.25" },
-          advance_details: null,
+          submitted_on: "2026-03-14T10:00:00.000Z",
+          detail_type: "expense",
+          amount: "118.25",
+          department_name: "Finance",
+          type_of_claim: "Reimbursement",
         },
         {
-          id: "claim-2",
+          claim_id: "claim-2",
           employee_id: "EMP-200",
           on_behalf_email: "delegate@nxtwave.co.in",
           submission_type: "On Behalf",
           status: "HOD approved - Awaiting finance approval",
-          submitted_at: "2026-03-13T10:00:00.000Z",
-          master_departments: null,
-          master_payment_modes: [{ name: "Petty Cash Request" }],
-          expense_details: null,
-          advance_details: [{ requested_amount: 500 }],
+          submitted_on: "2026-03-13T10:00:00.000Z",
+          detail_type: "advance",
+          amount: 500,
+          department_name: null,
+          type_of_claim: "Petty Cash Request",
         },
       ],
       error: null,
@@ -199,7 +199,7 @@ describe("SupabaseClaimRepository.getMyClaims", () => {
     });
 
     expect(queryBuilder.or).toHaveBeenCalledWith(
-      "claim_employee_id_raw.ilike.%EMP-050%,on_behalf_employee_code_raw.ilike.%EMP-050%,submitter_email.ilike.%EMP-050%,on_behalf_email.ilike.%EMP-050%",
+      'and(submission_type.eq."Self",claim_employee_id_raw.ilike.%EMP-050%),and(submission_type.eq."On Behalf",on_behalf_employee_code_raw.ilike.%EMP-050%)',
     );
     expect(queryBuilder.ilike).not.toHaveBeenCalledWith("employee_id", "%EMP-050%");
   });
@@ -226,7 +226,7 @@ describe("SupabaseClaimRepository.getMyClaims", () => {
       searchQuery: "claim",
     });
 
-    expect(queryBuilder.ilike).toHaveBeenCalledWith("id", "%claim%");
+    expect(queryBuilder.ilike).toHaveBeenCalledWith("claim_id", "%claim%");
   });
 
   test("applies finance approvals status filter on base status column", async () => {

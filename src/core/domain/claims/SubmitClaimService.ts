@@ -291,6 +291,7 @@ export class SubmitClaimService {
           bank_statement_file_path: input.expense.bankStatementFilePath,
           people_involved: input.expense.peopleInvolved,
           remarks: input.expense.remarks,
+          ai_metadata: input.expense.aiMetadata,
         };
       }
 

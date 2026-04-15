@@ -139,6 +139,41 @@ describe("SubmitClaimService", () => {
     expect(repository.createClaimWithDetail).toHaveBeenCalledTimes(1);
   });
 
+  test("forwards expense ai metadata into create_claim_with_detail payload", async () => {
+    const repository = createRepository();
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    await service.execute({
+      ...baseInput,
+      expense: {
+        ...baseInput.expense,
+        aiMetadata: {
+          edited_fields: {
+            total_amount: {
+              original: 113,
+            },
+          },
+        },
+      },
+    });
+
+    const createClaimPayload = (repository.createClaimWithDetail as jest.Mock).mock
+      .calls[0]?.[0] as {
+      expense?: {
+        ai_metadata?: unknown;
+      };
+    };
+
+    expect(createClaimPayload.expense?.ai_metadata).toEqual({
+      edited_fields: {
+        total_amount: {
+          original: 113,
+        },
+      },
+    });
+  });
+
   test("accepts petty cash payment mode as expense", async () => {
     const repository = createRepository({
       getPaymentModeById: jest.fn(async () => ({

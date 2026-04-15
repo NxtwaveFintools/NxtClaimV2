@@ -21,6 +21,11 @@ const mockDeleteOwnClaimExecute = jest.fn();
 const mockGetApprovalViewerContext = jest.fn();
 const mockGetClaimForFinanceEdit = jest.fn();
 const mockGetPendingApprovalsForL1 = jest.fn();
+const mockGetClaimDetailById = jest.fn();
+const mockGetClaimAuditLogs = jest.fn();
+const mockGetFinanceApproverIdsForUser = jest.fn();
+const mockGetViewerDepartmentIds = jest.fn();
+const mockIsAdmin = jest.fn();
 const mockRevalidatePath = jest.fn();
 const mockRedirect = jest.fn();
 const mockStorageUpload = jest.fn();
@@ -64,7 +69,18 @@ jest.mock("@/modules/claims/repositories/SupabaseClaimRepository", () => ({
     getApprovalViewerContext: mockGetApprovalViewerContext,
     getClaimForFinanceEdit: mockGetClaimForFinanceEdit,
     getPendingApprovalsForL1: mockGetPendingApprovalsForL1,
+    getClaimDetailById: mockGetClaimDetailById,
+    getClaimAuditLogs: mockGetClaimAuditLogs,
+    getFinanceApproverIdsForUser: mockGetFinanceApproverIdsForUser,
   })),
+}));
+
+jest.mock("@/modules/claims/server/is-department-viewer", () => ({
+  getViewerDepartmentIds: (...args: unknown[]) => mockGetViewerDepartmentIds(...args),
+}));
+
+jest.mock("@/modules/admin/server/is-admin", () => ({
+  isAdmin: (...args: unknown[]) => mockIsAdmin(...args),
 }));
 
 jest.mock("@/core/infra/supabase/server-client", () => ({
@@ -171,6 +187,65 @@ const validExpensePayload = {
     locationId: null,
     remarks: null,
   },
+};
+
+const quickViewClaim = {
+  id: "claim-1",
+  employeeId: "EMP-100",
+  departmentId,
+  paymentModeId,
+  submissionType: "Self" as const,
+  detailType: "expense" as const,
+  onBehalfOfId: null,
+  onBehalfEmail: null,
+  onBehalfEmployeeCode: null,
+  status: "Submitted - Awaiting HOD approval" as const,
+  rejectionReason: null,
+  submittedAt: "2026-04-15",
+  departmentName: "Finance",
+  paymentModeName: "Reimbursement",
+  assignedL1ApproverId: hodId,
+  assignedL2ApproverId: null,
+  submittedBy: "11111111-1111-4111-8111-111111111111",
+  submitter: "Alice Employee",
+  submitterName: "Alice Employee",
+  submitterEmail: "user@nxtwave.co.in",
+  beneficiaryName: null,
+  beneficiaryEmail: null,
+  expense: {
+    id: "expense-1",
+    billNo: "BILL-1",
+    purpose: "Client meeting",
+    expenseCategoryId: "66666666-6666-4666-8666-666666666666",
+    expenseCategoryName: "Travel",
+    productId: "77777777-7777-4777-8777-777777777777",
+    productName: "NxtWave",
+    locationId: "88888888-8888-4888-8888-888888888888",
+    locationName: "Hyderabad",
+    locationType: null,
+    locationDetails: null,
+    transactionDate: "2026-03-14",
+    isGstApplicable: true,
+    gstNumber: "GSTIN-123",
+    basicAmount: 100,
+    cgstAmount: 9,
+    sgstAmount: 9,
+    igstAmount: 0,
+    totalAmount: 118,
+    vendorName: "Vendor",
+    peopleInvolved: null,
+    remarks: null,
+    aiMetadata: {
+      edited_fields: {
+        total_amount: {
+          original: 113,
+        },
+      },
+    },
+    receiptFilePath: null,
+    bankStatementFilePath: null,
+  },
+  advance: null,
 };
 
 function createValidExpenseEditFormData(): FormData {
@@ -317,6 +392,24 @@ describe("claims actions", () => {
       errorMessage: null,
     });
 
+    mockGetClaimDetailById.mockResolvedValue({
+      data: quickViewClaim,
+      errorMessage: null,
+    });
+
+    mockGetClaimAuditLogs.mockResolvedValue({
+      data: [],
+      errorMessage: null,
+    });
+
+    mockGetFinanceApproverIdsForUser.mockResolvedValue({
+      data: [],
+      errorMessage: null,
+    });
+
+    mockGetViewerDepartmentIds.mockResolvedValue([]);
+    mockIsAdmin.mockResolvedValue(false);
+
     mockStorageUpload.mockResolvedValue({
       data: { path: "expenses/user/receipt.pdf" },
       error: null,
@@ -435,6 +528,84 @@ describe("claims actions", () => {
         detailType: "expense",
       }),
     );
+  });
+
+  test("submitClaimAction forwards expense aiMetadata when provided", async () => {
+    const { submitClaimAction } = await import("@/modules/claims/actions");
+
+    const result = await submitClaimAction({
+      ...validExpensePayload,
+      expense: {
+        ...validExpensePayload.expense,
+        aiMetadata: {
+          edited_fields: {
+            total_amount: {
+              original: 113,
+            },
+          },
+        },
+      },
+    });
+
+    expect(result).toEqual({ ok: true, claimId: "claim-1" });
+    expect(mockSubmitExecute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expense: expect.objectContaining({
+          aiMetadata: {
+            edited_fields: {
+              total_amount: {
+                original: 113,
+              },
+            },
+          },
+        }),
+      }),
+    );
+  });
+
+  test("getClaimQuickViewHydrationAction redacts ai metadata for non-finance non-admin viewers", async () => {
+    const { getClaimQuickViewHydrationAction } = await import("@/modules/claims/actions");
+
+    mockGetFinanceApproverIdsForUser.mockResolvedValueOnce({
+      data: [],
+      errorMessage: null,
+    });
+    mockIsAdmin.mockResolvedValueOnce(false);
+
+    const result = await getClaimQuickViewHydrationAction({ claimId: "claim-1" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+
+    expect(result.data.canViewAiMetadata).toBe(false);
+    expect(result.data.claim.expense?.aiMetadata).toBeNull();
+  });
+
+  test("getClaimQuickViewHydrationAction returns ai metadata to finance viewers", async () => {
+    const { getClaimQuickViewHydrationAction } = await import("@/modules/claims/actions");
+
+    mockGetFinanceApproverIdsForUser.mockResolvedValueOnce({
+      data: [{ id: "finance-approver-id" }],
+      errorMessage: null,
+    });
+
+    const result = await getClaimQuickViewHydrationAction({ claimId: "claim-1" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+
+    expect(result.data.canViewAiMetadata).toBe(true);
+    expect(result.data.claim.expense?.aiMetadata).toEqual({
+      edited_fields: {
+        total_amount: {
+          original: 113,
+        },
+      },
+    });
   });
 
   test("submitClaimAction surfaces service errors", async () => {
