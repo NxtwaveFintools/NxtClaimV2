@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch, type FieldErrors } from "react-hook-form";
 import { useRouter } from "next/navigation";
@@ -244,6 +244,107 @@ function appendFormDataValue(
   formData.append(key, String(value));
 }
 
+type AiEditedFieldEntry = {
+  original: string | number | boolean | null;
+};
+
+type ClaimExpenseAiMetadataPayload = {
+  edited_fields: Record<string, AiEditedFieldEntry>;
+};
+
+type AiExpenseSnapshot = {
+  bill_no: string | null;
+  transaction_date: string | null;
+  vendor_name: string | null;
+  gst_number: string | null;
+  expense_category_id: string | null;
+  basic_amount: number;
+  cgst_amount: number;
+  sgst_amount: number;
+  igst_amount: number;
+  total_amount: number;
+};
+
+function normalizeOptionalText(value: string | null | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function equalsRoundedAmount(left: number, right: number, tolerance = 0.01): boolean {
+  return Math.abs(left - right) <= tolerance;
+}
+
+function buildExpenseAiMetadata(
+  snapshot: AiExpenseSnapshot | null,
+  expense: ClaimFormDraftValues["expense"],
+): ClaimExpenseAiMetadataPayload | null {
+  if (!snapshot) {
+    return null;
+  }
+
+  const editedFields: Record<string, AiEditedFieldEntry> = {};
+
+  const currentTotalAmount = calculateExpenseTotal(
+    expense.basicAmount,
+    expense.cgstAmount,
+    expense.sgstAmount,
+    expense.igstAmount,
+  );
+
+  const comparisons: Array<{
+    key: keyof AiExpenseSnapshot;
+    currentValue: string | number | null;
+  }> = [
+    { key: "bill_no", currentValue: normalizeOptionalText(expense.billNo) },
+    { key: "transaction_date", currentValue: normalizeOptionalText(expense.transactionDate) },
+    { key: "vendor_name", currentValue: normalizeOptionalText(expense.vendorName) },
+    { key: "gst_number", currentValue: normalizeOptionalText(expense.gstNumber) },
+    {
+      key: "expense_category_id",
+      currentValue: normalizeOptionalText(expense.expenseCategoryId),
+    },
+    { key: "basic_amount", currentValue: expense.basicAmount },
+    { key: "cgst_amount", currentValue: expense.cgstAmount },
+    { key: "sgst_amount", currentValue: expense.sgstAmount },
+    { key: "igst_amount", currentValue: expense.igstAmount },
+    { key: "total_amount", currentValue: currentTotalAmount },
+  ];
+
+  for (const comparison of comparisons) {
+    const originalValue = snapshot[comparison.key];
+    const currentValue = comparison.currentValue;
+
+    if (typeof originalValue === "number" && typeof currentValue === "number") {
+      if (!equalsRoundedAmount(originalValue, currentValue)) {
+        editedFields[comparison.key] = { original: originalValue };
+      }
+      continue;
+    }
+
+    if (originalValue === null) {
+      continue;
+    }
+
+    if (originalValue !== currentValue) {
+      editedFields[comparison.key] = {
+        original: typeof originalValue === "string" ? normalizeOptionalText(originalValue) : null,
+      };
+    }
+  }
+
+  if (Object.keys(editedFields).length === 0) {
+    return null;
+  }
+
+  return {
+    edited_fields: editedFields,
+  };
+}
+
 export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientProps) {
   const router = useRouter();
   const [, startNavTransition] = useTransition();
@@ -253,6 +354,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   const [advanceSupportingFile, setAdvanceSupportingFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAiParsing, setIsAiParsing] = useState(false);
+  const originalAiExpenseSnapshotRef = useRef<AiExpenseSnapshot | null>(null);
 
   const defaultPaymentMode = options.paymentModes[0];
 
@@ -538,6 +640,11 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     appendFormDataValue(formData, "detailType", values.detailType);
 
     if (values.detailType === "expense") {
+      const aiMetadata = buildExpenseAiMetadata(
+        originalAiExpenseSnapshotRef.current,
+        values.expense,
+      );
+
       appendFormDataValue(formData, "expense.billNo", values.expense.billNo);
       appendFormDataValue(formData, "expense.purpose", values.expense.purpose);
       appendFormDataValue(formData, "expense.expenseCategoryId", values.expense.expenseCategoryId);
@@ -571,6 +678,10 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       appendFormDataValue(formData, "expense.bankStatementFileName", "");
       appendFormDataValue(formData, "expense.bankStatementFileType", "");
       appendFormDataValue(formData, "expense.bankStatementFileBase64", "");
+
+      if (aiMetadata) {
+        appendFormDataValue(formData, "expense.aiMetadata", JSON.stringify(aiMetadata));
+      }
 
       if (invoiceFile) {
         formData.append("receiptFile", invoiceFile);
@@ -677,6 +788,19 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       parsedCategoryName,
       options.expenseCategories,
     );
+
+    originalAiExpenseSnapshotRef.current = {
+      bill_no: normalizeOptionalText(billNo),
+      transaction_date: normalizeOptionalText(transactionDate),
+      vendor_name: normalizeOptionalText(vendorName),
+      gst_number: normalizeOptionalText(gstNumber),
+      expense_category_id: normalizeOptionalText(matchedExpenseCategoryId),
+      basic_amount: basicAmount,
+      cgst_amount: cgstAmount,
+      sgst_amount: sgstAmount,
+      igst_amount: igstAmount,
+      total_amount: normalizedTotalAmount,
+    };
 
     setValue("expense.billNo", billNo, {
       shouldDirty: true,
@@ -788,6 +912,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     });
 
     if (!selectedFile) {
+      originalAiExpenseSnapshotRef.current = null;
       setFileError(null);
       return;
     }
@@ -803,6 +928,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       return;
     }
 
+    originalAiExpenseSnapshotRef.current = null;
     setFileError(null);
     const toastId = toast.loading("Fetching AI details...");
     await runReceiptExtraction(selectedFile, toastId);
@@ -825,6 +951,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       return;
     }
 
+    originalAiExpenseSnapshotRef.current = null;
     setFileError(null);
 
     const toastId = toast.loading("Fetching AI details...");

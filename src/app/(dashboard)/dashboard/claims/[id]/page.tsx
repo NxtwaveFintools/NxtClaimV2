@@ -525,6 +525,7 @@ async function ClaimDetailCore({
     isAssignedL2Approver ||
     canViewAsFinance ||
     isDepartmentViewerForClaim;
+  const canViewAiMetadata = isFinanceActor || isAdminUser;
   const isPreHodStatus =
     claim.status === DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS ||
     claim.status === DB_REJECTED_RESUBMISSION_ALLOWED_STATUS;
@@ -678,6 +679,7 @@ async function ClaimDetailCore({
           claim={claim}
           includeExpenseDetail={false}
           includeAdvanceDetail={false}
+          showAiWarnings={canViewAiMetadata}
         />
 
         {/* ── Supplementary Info ── */}
@@ -744,7 +746,11 @@ async function ClaimDetailCore({
         </section>
       ) : null}
 
-      <ClaimFullDetailsGrid claim={claim} includeSummary={false} />
+      <ClaimFullDetailsGrid
+        claim={claim}
+        includeSummary={false}
+        showAiWarnings={canViewAiMetadata}
+      />
 
       {canTakeDecision ? (
         <section className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-700/50 dark:bg-amber-900/10">

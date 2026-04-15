@@ -79,6 +79,7 @@ const hydratedClaim = {
     vendorName: "Foobar Labs",
     peopleInvolved: "Alice, Bob",
     remarks: "Urgent print run",
+    aiMetadata: null,
     receiptFilePath: null,
     bankStatementFilePath: null,
   },
@@ -94,6 +95,7 @@ describe("ApprovalsAuditModeDialog quick view", () => {
       data: {
         claim: hydratedClaim,
         auditLogs: [],
+        canViewAiMetadata: false,
       },
     });
     mockGetClaimFormHydrationAction.mockResolvedValue({
@@ -234,5 +236,113 @@ describe("ApprovalsAuditModeDialog quick view", () => {
     });
 
     expect(screen.queryByText("Quick Edit Claim")).not.toBeInTheDocument();
+  });
+
+  test("renders AI warning when viewer is allowed to see AI metadata", async () => {
+    const user = userEvent.setup();
+    const claimId = "CLAIM-AI-WARNING-TRUE";
+
+    mockGetClaimQuickViewHydrationAction.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        claim: {
+          ...hydratedClaim,
+          id: claimId,
+          expense: hydratedClaim.expense
+            ? {
+                ...hydratedClaim.expense,
+                aiMetadata: {
+                  edited_fields: {
+                    total_amount: {
+                      original: 113,
+                    },
+                  },
+                },
+              }
+            : null,
+        },
+        auditLogs: [],
+        canViewAiMetadata: true,
+      },
+    });
+
+    render(
+      <ApprovalsAuditModeDialog
+        claimId={claimId}
+        detailType="expense"
+        submitter="Jane Doe"
+        amountLabel="₹1,180.00"
+        submissionType="Self"
+        onBehalfEmail={null}
+        expenseReceiptFilePath={null}
+        expenseReceiptSignedUrl={null}
+        expenseBankStatementFilePath={null}
+        expenseBankStatementSignedUrl={null}
+        advanceSupportingDocumentPath={null}
+        advanceSupportingDocumentSignedUrl={null}
+        auditLogs={[]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /view claim/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("AI originally read: ₹113.00")).toBeInTheDocument();
+    });
+  });
+
+  test("does not render AI warning when viewer is not allowed", async () => {
+    const user = userEvent.setup();
+    const claimId = "CLAIM-AI-WARNING-FALSE";
+
+    mockGetClaimQuickViewHydrationAction.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        claim: {
+          ...hydratedClaim,
+          id: claimId,
+          expense: hydratedClaim.expense
+            ? {
+                ...hydratedClaim.expense,
+                aiMetadata: {
+                  edited_fields: {
+                    total_amount: {
+                      original: 113,
+                    },
+                  },
+                },
+              }
+            : null,
+        },
+        auditLogs: [],
+        canViewAiMetadata: false,
+      },
+    });
+
+    render(
+      <ApprovalsAuditModeDialog
+        claimId={claimId}
+        detailType="expense"
+        submitter="Jane Doe"
+        amountLabel="₹1,180.00"
+        submissionType="Self"
+        onBehalfEmail={null}
+        expenseReceiptFilePath={null}
+        expenseReceiptSignedUrl={null}
+        expenseBankStatementFilePath={null}
+        expenseBankStatementSignedUrl={null}
+        advanceSupportingDocumentPath={null}
+        advanceSupportingDocumentSignedUrl={null}
+        auditLogs={[]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /view claim/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText(/AI originally read:/i)).not.toBeInTheDocument();
   });
 });

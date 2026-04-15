@@ -15,6 +15,7 @@ import {
 } from "@/core/constants/statuses";
 import type {
   ClaimAuditActionType,
+  ClaimExpenseAiMetadata,
   ClaimAuditLogRecord,
   ClaimDateTarget,
   ClaimDepartmentApprovers,
@@ -221,6 +222,7 @@ type ClaimDetailExpenseRow = {
   product_id: string | null;
   people_involved: string | null;
   remarks: string | null;
+  ai_metadata: Record<string, unknown> | null;
   receipt_file_path: string | null;
   bank_statement_file_path: string | null;
   master_expense_categories: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
@@ -424,6 +426,50 @@ function toNumber(value: number | string | null | undefined): number | null {
   }
 
   return null;
+}
+
+function parseClaimExpenseAiMetadata(
+  value: Record<string, unknown> | null,
+): ClaimExpenseAiMetadata | null {
+  if (!value) {
+    return null;
+  }
+
+  const editedFieldsCandidate = value.edited_fields;
+  if (
+    !editedFieldsCandidate ||
+    typeof editedFieldsCandidate !== "object" ||
+    Array.isArray(editedFieldsCandidate)
+  ) {
+    return null;
+  }
+
+  const editedFields = editedFieldsCandidate as Record<string, unknown>;
+  const normalized: Record<string, { original: string | number | boolean | null }> = {};
+
+  for (const [field, entry] of Object.entries(editedFields)) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      continue;
+    }
+
+    const original = (entry as { original?: unknown }).original;
+    if (
+      typeof original === "string" ||
+      typeof original === "number" ||
+      typeof original === "boolean" ||
+      original === null
+    ) {
+      normalized[field] = { original };
+    }
+  }
+
+  if (Object.keys(normalized).length === 0) {
+    return null;
+  }
+
+  return {
+    edited_fields: normalized,
+  };
 }
 
 const FINANCE_NON_REJECTED_VISIBLE_STATUSES: DbClaimStatus[] = [
@@ -1816,6 +1862,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
         productId: string | null;
         peopleInvolved: string | null;
         remarks: string | null;
+        aiMetadata: ClaimExpenseAiMetadata | null;
         receiptFilePath: string | null;
         bankStatementFilePath: string | null;
       } | null;
@@ -1836,7 +1883,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const { data, error } = await client
       .from("claims")
       .select(
-        "id, employee_id, submission_type, detail_type, on_behalf_of_id, on_behalf_email, on_behalf_employee_code, status, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(id, bill_no, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(id, purpose, requested_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
+        "id, employee_id, submission_type, detail_type, on_behalf_of_id, on_behalf_email, on_behalf_employee_code, status, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(id, bill_no, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, ai_metadata, receipt_file_path, bank_statement_file_path, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(id, purpose, requested_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
       )
       .eq("id", claimId)
       .eq("is_active", true)
@@ -1917,6 +1964,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
               productId: expense.product_id,
               peopleInvolved: expense.people_involved,
               remarks: expense.remarks,
+              aiMetadata: parseClaimExpenseAiMetadata(expense.ai_metadata),
               receiptFilePath: expense.receipt_file_path,
               bankStatementFilePath: expense.bank_statement_file_path,
             }

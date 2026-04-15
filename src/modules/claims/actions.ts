@@ -28,6 +28,7 @@ import type {
   ClaimAuditLogRecord,
   ClaimDetailType,
   ClaimDropdownOption,
+  ClaimExpenseAiMetadata,
   FinanceClaimEditPayload,
   GetMyClaimsFilters,
 } from "@/core/domain/claims/contracts";
@@ -177,6 +178,7 @@ export type CurrentUserHydration = {
 export type ClaimQuickViewHydrationData = {
   claim: NonNullable<Awaited<ReturnType<SupabaseClaimRepository["getClaimDetailById"]>>["data"]>;
   auditLogs: (ClaimAuditLogRecord & { formattedCreatedAt: string })[];
+  canViewAiMetadata: boolean;
 };
 
 function classifyDetailType(modeName: string): ClaimDetailType | null {
@@ -278,6 +280,24 @@ function computeExpenseTotalAmount(input: {
 function getFormDataBoolean(input: FormData, key: string): boolean {
   const value = getFormDataString(input, key);
   return value === "true";
+}
+
+function getFormDataJsonObject(input: FormData, key: string): Record<string, unknown> | null {
+  const raw = getFormDataString(input, key).trim();
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
 }
 
 function isPreHodEditableStatus(status: DbClaimStatus): boolean {
@@ -421,6 +441,7 @@ function extractSubmissionInput(input: unknown): {
       bankStatementFileBase64: getFormDataNullableString(input, "expense.bankStatementFileBase64"),
       peopleInvolved: getFormDataNullableString(input, "expense.peopleInvolved"),
       remarks: getFormDataNullableString(input, "expense.remarks"),
+      aiMetadata: getFormDataJsonObject(input, "expense.aiMetadata"),
     },
     advance: {
       requestedAmount: getFormDataNumber(input, "advance.requestedAmount"),
@@ -636,6 +657,18 @@ export async function getClaimQuickViewHydrationAction(input: {
     };
   }
 
+  const canViewAiMetadata = isFinanceActor || isAdminUser;
+  const hydratedClaim =
+    !canViewAiMetadata && claim.expense
+      ? {
+          ...claim,
+          expense: {
+            ...claim.expense,
+            aiMetadata: null,
+          },
+        }
+      : claim;
+
   const claimAuditLogs = claimAuditLogsResult.errorMessage
     ? []
     : claimAuditLogsResult.data.map((log) => ({
@@ -646,8 +679,9 @@ export async function getClaimQuickViewHydrationAction(input: {
   return {
     ok: true,
     data: {
-      claim,
+      claim: hydratedClaim,
       auditLogs: claimAuditLogs,
+      canViewAiMetadata,
     },
   };
 }
@@ -941,6 +975,7 @@ export async function submitClaimAction(input: unknown): Promise<{
             bankStatementFilePath: uploadedBankStatementFilePath,
             peopleInvolved: parseResult.data.expense.peopleInvolved,
             remarks: parseResult.data.expense.remarks,
+            aiMetadata: parseResult.data.expense.aiMetadata as ClaimExpenseAiMetadata | null,
           }
         : undefined,
     advance:

@@ -495,6 +495,7 @@ export function ApprovalsAuditModeDialog({
 
   const resolvedClaim: QuickViewClaimRecord | null = hydratedData?.claim ?? null;
   const resolvedAuditLogs = hydratedData?.auditLogs ?? auditLogs;
+  const canViewAiMetadata = hydratedData?.canViewAiMetadata ?? false;
   const hasActions = Boolean(children);
   const canRenderInlineEdit = canInlineEdit && hasActions;
   const claimTypeLabel = detailType === "expense" ? "Expense Claim" : "Advance Claim";
@@ -856,7 +857,11 @@ export function ApprovalsAuditModeDialog({
                         {isHydrating && !resolvedClaim ? (
                           <ClaimFullDetailsGridSkeleton />
                         ) : resolvedClaim ? (
-                          <ClaimFullDetailsGrid claim={resolvedClaim} viewMode="quick-view" />
+                          <ClaimFullDetailsGrid
+                            claim={resolvedClaim}
+                            viewMode="quick-view"
+                            showAiWarnings={canViewAiMetadata}
+                          />
                         ) : (
                           <div className="rounded-[20px] border border-rose-200/80 bg-rose-50/80 p-4 text-sm text-rose-700 dark:border-rose-800/60 dark:bg-rose-950/30 dark:text-rose-200">
                             Unable to load full claim details right now.
