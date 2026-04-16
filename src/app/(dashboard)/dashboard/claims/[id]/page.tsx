@@ -468,15 +468,15 @@ async function ClaimDetailCore({
   const returnToPath = sanitizeDashboardReturnToPath(returnToParam) ?? fallbackReturnPath;
   const claimRepository = new SupabaseClaimRepository();
 
-  const [currentUserResult, claimResult, isAdminUser] = await Promise.all([
-    getCachedCurrentUser(),
-    claimRepository.getClaimDetailById(claimId),
-    isAdmin(),
-  ]);
+  const [currentUserResult, isAdminUser] = await Promise.all([getCachedCurrentUser(), isAdmin()]);
 
   if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
     redirect(ROUTES.login);
   }
+
+  const claimResult = await claimRepository.getClaimDetailById(claimId, {
+    includeInactive: isAdminUser,
+  });
 
   if (claimResult.errorMessage) {
     return (
@@ -636,7 +636,7 @@ async function ClaimDetailCore({
 
   return (
     <>
-      {isAdminUser ? <AdminSoftDeletePanel claimId={claim.id} /> : null}
+      {isAdminUser ? <AdminSoftDeletePanel claimId={claim.id} isActive={claim.isActive} /> : null}
       {isDeptViewerOnly ? (
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/50">
           <span className="text-xs font-medium text-slate-600 dark:text-slate-300">

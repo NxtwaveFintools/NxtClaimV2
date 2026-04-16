@@ -24,6 +24,9 @@ const SAMPLE_CLAIM: AdminClaimRecord = {
   submissionType: "Self",
   isActive: true,
   departmentId: "dept-1",
+  deletedByName: null,
+  deletedByRole: null,
+  deletedAt: null,
 };
 
 function createRepository(overrides?: Partial<AdminRepository>): AdminRepository {

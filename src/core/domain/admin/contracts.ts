@@ -34,6 +34,9 @@ export type AdminClaimRecord = {
   submissionType: "Self" | "On Behalf";
   isActive: boolean;
   departmentId: string | null;
+  deletedByName: string | null;
+  deletedByRole: string | null;
+  deletedAt: string | null;
 };
 
 export type AdminClaimOverrideSummary = {
