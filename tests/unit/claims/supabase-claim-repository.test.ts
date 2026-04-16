@@ -541,7 +541,9 @@ describe("SupabaseClaimRepository.updateClaimDetailsByFinance", () => {
       bankStatementFilePath: null,
     });
 
-    expect(result).toEqual({ errorMessage: "Active expense detail not found for claim." });
+    expect(result).toEqual({
+      errorMessage: "Cannot edit: Expense details missing or soft-deleted.",
+    });
   });
 });
 

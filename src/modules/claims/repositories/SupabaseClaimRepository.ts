@@ -2099,7 +2099,9 @@ export class SupabaseClaimRepository implements ClaimRepository {
       }
 
       if (!updatedExpenseDetail) {
-        return { errorMessage: "Active expense detail not found for claim." };
+        return {
+          errorMessage: "Cannot edit: Expense details missing or soft-deleted.",
+        };
       }
     } else {
       const { data: updatedAdvanceDetail, error: advanceError } = await client
@@ -2125,7 +2127,9 @@ export class SupabaseClaimRepository implements ClaimRepository {
       }
 
       if (!updatedAdvanceDetail) {
-        return { errorMessage: "Active advance detail not found for claim." };
+        return {
+          errorMessage: "Cannot edit: Advance details missing or soft-deleted.",
+        };
       }
     }
 
