@@ -274,6 +274,9 @@ type EnterpriseDashboardRow = {
   submission_type: "Self" | "On Behalf";
   is_active: boolean;
   department_id: string | null;
+  deleted_by_name: string | null;
+  deleted_by_role: string | null;
+  deleted_at: string | null;
 };
 
 type UserNameRow = { full_name: string | null; email: string };
@@ -396,9 +399,9 @@ export class SupabaseAdminRepository implements AdminRepository {
     const limit = pagination.limit + 1;
 
     let query = this.client
-      .from("vw_enterprise_claims_dashboard")
+      .from("vw_admin_claims_dashboard")
       .select(
-        "claim_id, employee_name, employee_id, submitter_email, on_behalf_email, on_behalf_employee_code_raw, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, detail_type, submission_type, is_active, department_id, payment_mode_id, location_id, product_id, expense_category_id",
+        "claim_id, employee_name, employee_id, submitter_email, on_behalf_email, on_behalf_employee_code_raw, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, detail_type, submission_type, is_active, department_id, payment_mode_id, location_id, product_id, expense_category_id, deleted_by_name, deleted_by_role, deleted_at",
       )
       .order("submitted_on", { ascending: false })
       .order("claim_id", { ascending: false })
@@ -551,6 +554,9 @@ export class SupabaseAdminRepository implements AdminRepository {
           submissionType: row.submission_type,
           isActive: row.is_active,
           departmentId: row.department_id,
+          deletedByName: row.deleted_by_name ?? null,
+          deletedByRole: row.deleted_by_role ?? null,
+          deletedAt: row.deleted_at ?? null,
         })),
         nextCursor,
         hasNextPage,
@@ -865,10 +871,17 @@ export class SupabaseAdminRepository implements AdminRepository {
       return { success: true, errorMessage: null };
     }
 
+    const deletedAtIso = new Date().toISOString();
+
     // Soft-delete claim header
     const { error: updateError } = await this.client
       .from("claims")
-      .update({ is_active: false })
+      .update({
+        is_active: false,
+        deleted_by: actorId,
+        deleted_at: deletedAtIso,
+        updated_at: deletedAtIso,
+      })
       .eq("id", claimId);
 
     if (updateError) {

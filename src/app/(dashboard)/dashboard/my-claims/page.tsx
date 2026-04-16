@@ -58,7 +58,7 @@ import { DeleteClaimButton } from "@/modules/claims/ui/delete-claim-button";
 
 const PAGE_SIZE = 10;
 type SearchParamsValue = string | string[] | undefined;
-type ViewMode = "submissions" | "approvals" | "admin" | "department";
+type ViewMode = "submissions" | "approvals" | "admin" | "admin-deleted" | "department";
 
 const pendingApprovalsRepository = new SupabaseClaimRepository();
 const pendingApprovalsViewerContextService = new GetPendingApprovalsService({
@@ -125,6 +125,10 @@ function resolveView(
 ): ViewMode {
   if (value === "admin" && isAdminUser) {
     return "admin";
+  }
+
+  if (value === "admin-deleted" && isAdminUser) {
+    return "admin-deleted";
   }
 
   if (value === "department" && isDeptViewer) {
@@ -1157,6 +1161,17 @@ async function MyClaimsDashboardPageContent({
       <AdminClaimsSection
         searchParams={resolvedSearchParams}
         pagination={{ cursor, prevCursor: previousCursorToken }}
+        mode="active"
+      />
+    );
+  }
+
+  if (activeView === "admin-deleted") {
+    return (
+      <AdminClaimsSection
+        searchParams={resolvedSearchParams}
+        pagination={{ cursor, prevCursor: previousCursorToken }}
+        mode="deleted"
       />
     );
   }
@@ -1231,6 +1246,7 @@ async function MyClaimsDashboardResolvedContent({
   const submissionsHref = buildViewHref(searchParams, "submissions");
   const approvalsHref = buildViewHref(searchParams, "approvals");
   const adminHref = buildViewHref(searchParams, "admin");
+  const adminDeletedHref = buildViewHref(searchParams, "admin-deleted");
   const departmentHref = buildViewHref(searchParams, "department");
 
   return (
@@ -1300,6 +1316,18 @@ async function MyClaimsDashboardResolvedContent({
                 }`}
               >
                 Admin Overview
+              </Link>
+            ) : null}
+            {isAdminUser ? (
+              <Link
+                href={adminDeletedHref}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                  activeView === "admin-deleted"
+                    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
+                    : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                }`}
+              >
+                Deleted Claims
               </Link>
             ) : null}
             {isDeptViewer ? (

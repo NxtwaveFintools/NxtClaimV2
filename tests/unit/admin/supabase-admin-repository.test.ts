@@ -104,7 +104,7 @@ describe("SupabaseAdminRepository", () => {
     });
 
     mockFrom.mockImplementation((table: string) => {
-      if (table === "vw_enterprise_claims_dashboard") {
+      if (table === "vw_admin_claims_dashboard") {
         return claimsChain;
       }
       return createQueryChain({ data: null, error: null });
@@ -135,6 +135,9 @@ describe("SupabaseAdminRepository", () => {
         submissionType: "Self",
         isActive: true,
         departmentId: "dep-1",
+        deletedByName: null,
+        deletedByRole: null,
+        deletedAt: null,
       },
     ]);
   });
@@ -163,7 +166,7 @@ describe("SupabaseAdminRepository", () => {
     });
 
     mockFrom.mockImplementation((table: string) => {
-      if (table === "vw_enterprise_claims_dashboard") {
+      if (table === "vw_admin_claims_dashboard") {
         return claimsChain;
       }
       return createQueryChain({ data: null, error: null });
@@ -195,7 +198,7 @@ describe("SupabaseAdminRepository", () => {
     });
 
     mockFrom.mockImplementation((table: string) => {
-      if (table === "vw_enterprise_claims_dashboard") {
+      if (table === "vw_admin_claims_dashboard") {
         return claimsChain;
       }
       return createQueryChain({ data: null, error: null });
@@ -223,7 +226,7 @@ describe("SupabaseAdminRepository", () => {
     });
 
     mockFrom.mockImplementation((table: string) => {
-      if (table === "vw_enterprise_claims_dashboard") {
+      if (table === "vw_admin_claims_dashboard") {
         return claimsChain;
       }
       return createQueryChain({ data: null, error: null });
@@ -266,7 +269,7 @@ describe("SupabaseAdminRepository", () => {
     });
 
     mockFrom.mockImplementation((table: string) => {
-      if (table === "vw_enterprise_claims_dashboard") {
+      if (table === "vw_admin_claims_dashboard") {
         return claimsChain;
       }
       return createQueryChain({ data: null, error: null });
@@ -321,6 +324,12 @@ describe("SupabaseAdminRepository", () => {
 
     expect(result.success).toBe(true);
     expect(result.errorMessage).toContain("audit log failed");
+    expect(updateClaimChain.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        is_active: false,
+        deleted_by: "admin-1",
+      }),
+    );
   });
 
   test("getClaimOverrideSummary returns mapped claim summary", async () => {

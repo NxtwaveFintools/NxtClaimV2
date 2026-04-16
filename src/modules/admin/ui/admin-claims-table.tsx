@@ -18,6 +18,26 @@ type Props = {
   claims: AdminClaimRecord[];
 };
 
+const ROLE_LABELS: Record<string, string> = {
+  employee: "Employee",
+  hod: "HOD",
+  founder: "Founder",
+  finance: "Finance",
+};
+
+function resolveRoleLabel(role: string | null): string {
+  if (!role) {
+    return "User";
+  }
+
+  const normalizedRole = role.trim().toLowerCase();
+  if (!normalizedRole) {
+    return "User";
+  }
+
+  return ROLE_LABELS[normalizedRole] ?? role;
+}
+
 export function AdminClaimsTable({ claims }: Props) {
   if (claims.length === 0) {
     return (
@@ -44,6 +64,7 @@ export function AdminClaimsTable({ claims }: Props) {
               STATUS
             </th>
             <th className="whitespace-nowrap px-3 py-2 font-semibold">ACTIVE</th>
+            <th className="whitespace-nowrap px-3 py-2 font-semibold">DELETED BY</th>
             <th className="whitespace-nowrap px-3 py-2 font-semibold">SUBMITTED ON</th>
             <th className="whitespace-nowrap px-3 py-2 text-right font-semibold">ACTIONS</th>
           </tr>
@@ -125,6 +146,17 @@ function AdminClaimRow({ claim }: { claim: AdminClaimRecord }) {
         ) : (
           <span className="inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
             Soft-deleted
+          </span>
+        )}
+      </td>
+      <td className="whitespace-nowrap px-3 py-2">
+        {claim.deletedByName ? (
+          <span className="inline-block max-w-55 truncate align-bottom">
+            {claim.deletedByName} ({resolveRoleLabel(claim.deletedByRole)})
+          </span>
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+            NA
           </span>
         )}
       </td>

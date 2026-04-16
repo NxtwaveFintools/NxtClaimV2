@@ -1954,11 +1954,14 @@ export class SupabaseClaimRepository implements ClaimRepository {
     actorUserId: string,
   ): Promise<{ success: boolean; errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
+    const deletedAtIso = new Date().toISOString();
     const { data: updatedClaim, error: claimError } = await client
       .from("claims")
       .update({
         is_active: false,
-        updated_at: new Date().toISOString(),
+        deleted_by: actorUserId,
+        deleted_at: deletedAtIso,
+        updated_at: deletedAtIso,
       })
       .eq("id", claimId)
       .eq("submitted_by", actorUserId)
