@@ -272,6 +272,11 @@ type ClaimDeleteSnapshotRow = {
   submitted_by: string;
 };
 
+type ExpenseDuplicateLookupRow = {
+  claim_id: string;
+  basic_amount: number | string | null;
+};
+
 type ExportClaimUserRow = {
   full_name: string | null;
   email: string | null;
@@ -2359,6 +2364,49 @@ export class SupabaseClaimRepository implements ClaimRepository {
     });
 
     return { exists, errorMessage: null };
+  }
+
+  async findActiveExpenseDuplicateClaimIdByCompositeKey(input: {
+    billNo: string;
+    transactionDate: string;
+    basicAmount: number;
+    excludeClaimId?: string;
+  }): Promise<{ claimId: string | null; errorMessage: string | null }> {
+    const client = getServiceRoleSupabaseClient();
+    const epsilon = 0.01;
+
+    let query = client
+      .from("expense_details")
+      .select("claim_id, basic_amount")
+      .eq("bill_no", input.billNo)
+      .eq("transaction_date", input.transactionDate)
+      .eq("is_active", true)
+      .limit(50);
+
+    if (input.excludeClaimId && input.excludeClaimId.trim().length > 0) {
+      query = query.neq("claim_id", input.excludeClaimId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      return { claimId: null, errorMessage: error.message };
+    }
+
+    const rows = (data ?? []) as ExpenseDuplicateLookupRow[];
+    const normalizedBasic = Number(input.basicAmount);
+
+    const duplicateRow = rows.find((row) => {
+      const candidateBasic = Number(row.basic_amount);
+
+      if (!Number.isFinite(candidateBasic)) {
+        return false;
+      }
+
+      return Math.abs(candidateBasic - normalizedBasic) <= epsilon;
+    });
+
+    return { claimId: duplicateRow?.claim_id ?? null, errorMessage: null };
   }
 
   async getDepartmentApprovers(departmentId: string): Promise<{
