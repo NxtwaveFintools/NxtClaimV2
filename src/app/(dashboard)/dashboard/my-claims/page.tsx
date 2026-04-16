@@ -73,7 +73,7 @@ const getCachedPendingApprovalsViewerContext = cache(
 );
 
 export const metadata = {
-  title: "My Claims | NxtClaim",
+  title: "Claims | NxtClaim",
 };
 
 const ClaimsFilterBar = dynamic(
@@ -1258,7 +1258,7 @@ async function MyClaimsDashboardResolvedContent({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="dashboard-font-display text-xl font-bold tracking-[-0.03em] text-zinc-950 sm:text-2xl lg:text-3xl dark:text-zinc-50">
-                My Claims
+                Claims
               </h1>
               <p className="mt-1 text-xs text-zinc-500 sm:text-sm dark:text-zinc-400">
                 Command Center for submissions and approvals

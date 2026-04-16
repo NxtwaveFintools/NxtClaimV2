@@ -26,7 +26,7 @@ export default function NotFound() {
             href={ROUTES.claims.myClaims}
             className="inline-flex rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 transition-all duration-200 hover:bg-zinc-50 active:scale-[0.98] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
           >
-            My Claims
+            Claims
           </Link>
         </div>
       </main>
