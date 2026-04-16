@@ -53,6 +53,7 @@ function createRepository(overrides?: Partial<AdminRepository>): AdminRepository
     })),
     updateDepartmentActors: jest.fn(async () => ({ success: true, errorMessage: null })),
     updateDepartmentActorsByEmail: jest.fn(async () => ({ success: true, errorMessage: null })),
+    createDepartmentWithActorsByEmail: jest.fn(async () => ({ data: null, errorMessage: null })),
     getFinanceApprovers: jest.fn(async () => ({
       data: [SAMPLE_FINANCE_APPROVER],
       errorMessage: null,

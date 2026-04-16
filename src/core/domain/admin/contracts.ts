@@ -96,6 +96,14 @@ export type DepartmentWithActors = {
   founderProvisionalEmail: string | null;
 };
 
+export type CreatedDepartmentRecord = {
+  id: string;
+  name: string;
+  hodUserId: string;
+  founderUserId: string;
+  isActive: boolean;
+};
+
 export type FinanceApproverRecord = {
   id: string;
   /** Null for provisional (pre-registered) entries where the user has not yet signed in. */
@@ -223,6 +231,15 @@ export interface AdminRepository {
     hodEmail: string,
     founderEmail: string,
   ): Promise<{ success: boolean; errorMessage: string | null }>;
+
+  createDepartmentWithActorsByEmail(input: {
+    name: string;
+    hodEmail: string;
+    founderEmail: string;
+  }): Promise<{
+    data: CreatedDepartmentRecord | null;
+    errorMessage: string | null;
+  }>;
 
   // Finance approvers
   getFinanceApprovers(): Promise<{
