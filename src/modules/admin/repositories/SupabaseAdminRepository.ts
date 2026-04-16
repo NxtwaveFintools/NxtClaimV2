@@ -888,6 +888,20 @@ export class SupabaseAdminRepository implements AdminRepository {
       return { success: false, errorMessage: updateError.message };
     }
 
+    let auditWarning: string | null = null;
+
+    const { error: auditError } = await this.client.from("claim_audit_logs").insert({
+      claim_id: claimId,
+      actor_id: actorId,
+      action_type: "ADMIN_SOFT_DELETED",
+      assigned_to_id: null,
+      remarks: "Claim was soft-deleted by admin.",
+    });
+
+    if (auditError) {
+      auditWarning = `Soft-delete succeeded but audit log failed: ${auditError.message}`;
+    }
+
     // Cascade soft-delete to detail rows so the partial unique index
     // (uq_expense_details_active_bill WHERE is_active = true) releases the
     // slot, allowing the user to re-upload the same receipt after deletion.
@@ -909,21 +923,9 @@ export class SupabaseAdminRepository implements AdminRepository {
       return { success: false, errorMessage: advanceDetailError.message };
     }
 
-    // Write audit log
-    const { error: auditError } = await this.client.from("claim_audit_logs").insert({
-      claim_id: claimId,
-      actor_id: actorId,
-      action_type: "ADMIN_SOFT_DELETED",
-      assigned_to_id: null,
-      remarks: null,
-    });
-
-    if (auditError) {
+    if (auditWarning) {
       // Audit log write failed — log as warning but don't roll back the soft-delete
-      return {
-        success: true,
-        errorMessage: `Soft-delete succeeded but audit log failed: ${auditError.message}`,
-      };
+      return { success: true, errorMessage: auditWarning };
     }
 
     return { success: true, errorMessage: null };
