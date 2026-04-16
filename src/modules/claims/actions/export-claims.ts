@@ -11,6 +11,7 @@ import type {
   GetMyClaimsFilters,
 } from "@/core/domain/claims/contracts";
 import { logger } from "@/core/infra/logging/logger";
+import { normalizeIsoDateOnly } from "@/lib/date-only";
 import { SupabaseServerAuthRepository } from "@/modules/auth/repositories/supabase-server-auth.repository";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
 
@@ -22,8 +23,6 @@ const exportClaimsInputSchema = z.object({
   scope: z.enum(["submissions", "approvals"]),
   searchParams: z.string().default(""),
 });
-
-const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
 function normalizeSubmissionType(value: string | null): ClaimSubmissionType | undefined {
   if (value === "Self" || value === "On Behalf") {
@@ -42,16 +41,7 @@ function normalizeDateTarget(value: string | null): ClaimDateTarget {
 }
 
 function normalizeDate(value: string | null): string | undefined {
-  if (!value || !dateRegex.test(value)) {
-    return undefined;
-  }
-
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime())) {
-    return undefined;
-  }
-
-  return value;
+  return normalizeIsoDateOnly(value);
 }
 
 function normalizeSearchField(value: string | null): ClaimSearchField | undefined {

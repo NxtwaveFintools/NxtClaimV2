@@ -1,4 +1,9 @@
 import { getServiceRoleSupabaseClient } from "@/core/infra/supabase/server-client";
+import { toEndOfDayIso, toStartOfDayIso } from "@/lib/date-only";
+import {
+  buildBeneficiaryScopedIlikeOrFilter,
+  toContainsIlikePattern,
+} from "@/lib/postgrest-search";
 import {
   DB_CLAIM_STATUSES,
   DB_FINANCE_ACTIONABLE_STATUSES as SHARED_FINANCE_ACTIONABLE_STATUSES,
@@ -479,8 +484,6 @@ const EXPORT_WALLET_LOOKUP_BATCH_SIZE = 200;
 const MAX_LIST_PAGE_SIZE = 50;
 const UNIQUE_VIOLATION_CODE = "23505";
 const DUPLICATE_ACTIVE_EXPENSE_BILL_CONSTRAINT = "uq_expense_details_active_bill";
-const POSTGREST_SUBMISSION_TYPE_SELF = '"Self"';
-const POSTGREST_SUBMISSION_TYPE_ON_BEHALF = '"On Behalf"';
 
 function chunkArray<T>(values: T[], chunkSize: number): T[][] {
   if (chunkSize <= 0) {
@@ -575,14 +578,6 @@ function hasAdvancedEnterpriseDateFilters(filters?: GetMyClaimsFilters): boolean
   );
 }
 
-function toStartOfDayIso(date: string): string {
-  return `${date}T00:00:00.000Z`;
-}
-
-function toEndOfDayIso(date: string): string {
-  return `${date}T23:59:59.999Z`;
-}
-
 function normalizeSearchInput(filters?: GetMyClaimsFilters): {
   field: GetMyClaimsFilters["searchField"];
   query: string;
@@ -599,7 +594,7 @@ function buildBeneficiaryScopedOrFilter(input: {
   selfField: string;
   onBehalfField: string;
 }): string {
-  return `and(submission_type.eq.${POSTGREST_SUBMISSION_TYPE_SELF},${input.selfField}.ilike.%${input.searchQuery}%),and(submission_type.eq.${POSTGREST_SUBMISSION_TYPE_ON_BEHALF},${input.onBehalfField}.ilike.%${input.searchQuery}%)`;
+  return buildBeneficiaryScopedIlikeOrFilter(input);
 }
 
 function buildEmployeeNameOrFilter(searchQuery: string): string {
@@ -745,7 +740,7 @@ function applyEnterpriseDashboardFilters<
 
   if (params.normalizedSearch.query && params.normalizedSearch.field) {
     if (params.normalizedSearch.field === "claim_id") {
-      query = query.ilike("claim_id", `%${params.normalizedSearch.query}%`);
+      query = query.ilike("claim_id", toContainsIlikePattern(params.normalizedSearch.query));
     }
 
     if (params.normalizedSearch.field === "employee_name") {
@@ -852,7 +847,7 @@ function applyPendingApprovalsFilters<TQuery extends PendingApprovalsQueryChain<
 
   if (params.normalizedSearch.query && params.normalizedSearch.field) {
     if (params.normalizedSearch.field === "claim_id") {
-      query = query.ilike("claim_id", `%${params.normalizedSearch.query}%`);
+      query = query.ilike("claim_id", toContainsIlikePattern(params.normalizedSearch.query));
     }
 
     if (params.normalizedSearch.field === "employee_name") {

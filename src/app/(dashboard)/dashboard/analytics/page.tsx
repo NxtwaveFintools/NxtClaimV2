@@ -9,6 +9,7 @@ import { GetAnalyticsService } from "@/core/domain/dashboard/GetAnalyticsService
 import { logger } from "@/core/infra/logging/logger";
 import { formatCurrency } from "@/lib/format";
 import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
+import { normalizeIsoDateOnly } from "@/lib/date-only";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
 import { SupabaseDashboardRepository } from "@/modules/dashboard/repositories/SupabaseDashboardRepository";
 
@@ -23,8 +24,6 @@ type AnalyticsQueryParams = {
   financeApproverId?: string;
   key: string;
 };
-
-const DATE_FORMAT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export const metadata = {
   title: "Analytics Dashboard | NxtClaim",
@@ -94,11 +93,7 @@ function firstParamValue(value: SearchParamsValue): string | undefined {
 }
 
 function normalizeDate(value: string | undefined): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  return DATE_FORMAT_PATTERN.test(value) ? value : undefined;
+  return normalizeIsoDateOnly(value);
 }
 
 function normalizeIdentifier(value: string | undefined): string | undefined {

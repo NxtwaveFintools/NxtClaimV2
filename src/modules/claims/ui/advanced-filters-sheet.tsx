@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { normalizeIsoDateOnly } from "@/lib/date-only";
 import {
   Sheet,
   SheetContent,
@@ -32,6 +33,20 @@ function setOrDeleteParam(params: URLSearchParams, key: string, value: string): 
   params.delete(key);
 }
 
+function setOrDeleteDateParam(params: URLSearchParams, key: string, value: string): void {
+  const normalized = normalizeIsoDateOnly(value);
+  if (normalized) {
+    params.set(key, normalized);
+    return;
+  }
+
+  params.delete(key);
+}
+
+function normalizeDateValue(value: string | null): string {
+  return normalizeIsoDateOnly(value) ?? "";
+}
+
 export function AdvancedFiltersSheet() {
   const router = useRouter();
   const pathname = usePathname();
@@ -39,22 +54,28 @@ export function AdvancedFiltersSheet() {
 
   const [isOpen, setIsOpen] = useState(false);
 
-  const [submittedFrom, setSubmittedFrom] = useState(searchParams.get("adv_sub_from") ?? "");
-  const [submittedTo, setSubmittedTo] = useState(searchParams.get("adv_sub_to") ?? "");
-  const [hodFrom, setHodFrom] = useState(searchParams.get("adv_hod_from") ?? "");
-  const [hodTo, setHodTo] = useState(searchParams.get("adv_hod_to") ?? "");
-  const [financeFrom, setFinanceFrom] = useState(searchParams.get("adv_fin_from") ?? "");
-  const [financeTo, setFinanceTo] = useState(searchParams.get("adv_fin_to") ?? "");
+  const [submittedFrom, setSubmittedFrom] = useState(
+    normalizeDateValue(searchParams.get("adv_sub_from")),
+  );
+  const [submittedTo, setSubmittedTo] = useState(
+    normalizeDateValue(searchParams.get("adv_sub_to")),
+  );
+  const [hodFrom, setHodFrom] = useState(normalizeDateValue(searchParams.get("adv_hod_from")));
+  const [hodTo, setHodTo] = useState(normalizeDateValue(searchParams.get("adv_hod_to")));
+  const [financeFrom, setFinanceFrom] = useState(
+    normalizeDateValue(searchParams.get("adv_fin_from")),
+  );
+  const [financeTo, setFinanceTo] = useState(normalizeDateValue(searchParams.get("adv_fin_to")));
   const [minAmount, setMinAmount] = useState(searchParams.get("min_amt") ?? "");
   const [maxAmount, setMaxAmount] = useState(searchParams.get("max_amt") ?? "");
 
   function syncStateFromSearchParams(): void {
-    setSubmittedFrom(searchParams.get("adv_sub_from") ?? "");
-    setSubmittedTo(searchParams.get("adv_sub_to") ?? "");
-    setHodFrom(searchParams.get("adv_hod_from") ?? "");
-    setHodTo(searchParams.get("adv_hod_to") ?? "");
-    setFinanceFrom(searchParams.get("adv_fin_from") ?? "");
-    setFinanceTo(searchParams.get("adv_fin_to") ?? "");
+    setSubmittedFrom(normalizeDateValue(searchParams.get("adv_sub_from")));
+    setSubmittedTo(normalizeDateValue(searchParams.get("adv_sub_to")));
+    setHodFrom(normalizeDateValue(searchParams.get("adv_hod_from")));
+    setHodTo(normalizeDateValue(searchParams.get("adv_hod_to")));
+    setFinanceFrom(normalizeDateValue(searchParams.get("adv_fin_from")));
+    setFinanceTo(normalizeDateValue(searchParams.get("adv_fin_to")));
     setMinAmount(searchParams.get("min_amt") ?? "");
     setMaxAmount(searchParams.get("max_amt") ?? "");
   }
@@ -86,12 +107,12 @@ export function AdvancedFiltersSheet() {
   function handleApply(): void {
     const nextParams = new URLSearchParams(searchParams.toString());
 
-    setOrDeleteParam(nextParams, "adv_sub_from", submittedFrom);
-    setOrDeleteParam(nextParams, "adv_sub_to", submittedTo);
-    setOrDeleteParam(nextParams, "adv_hod_from", hodFrom);
-    setOrDeleteParam(nextParams, "adv_hod_to", hodTo);
-    setOrDeleteParam(nextParams, "adv_fin_from", financeFrom);
-    setOrDeleteParam(nextParams, "adv_fin_to", financeTo);
+    setOrDeleteDateParam(nextParams, "adv_sub_from", submittedFrom);
+    setOrDeleteDateParam(nextParams, "adv_sub_to", submittedTo);
+    setOrDeleteDateParam(nextParams, "adv_hod_from", hodFrom);
+    setOrDeleteDateParam(nextParams, "adv_hod_to", hodTo);
+    setOrDeleteDateParam(nextParams, "adv_fin_from", financeFrom);
+    setOrDeleteDateParam(nextParams, "adv_fin_to", financeTo);
     setOrDeleteParam(nextParams, "min_amt", minAmount);
     setOrDeleteParam(nextParams, "max_amt", maxAmount);
 

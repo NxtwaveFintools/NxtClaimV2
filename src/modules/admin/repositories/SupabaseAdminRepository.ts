@@ -1,4 +1,10 @@
 import { getServiceRoleSupabaseClient } from "@/core/infra/supabase/server-client";
+import { toEndOfDayIso, toStartOfDayIso } from "@/lib/date-only";
+import {
+  buildBeneficiaryScopedIlikeOrFilter,
+  toContainsIlikePattern,
+  toQuotedContainsIlikePattern,
+} from "@/lib/postgrest-search";
 import {
   DB_FINANCE_APPROVED_PAYMENT_UNDER_PROCESS_STATUS,
   DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
@@ -57,23 +63,12 @@ function hasAdvancedDateFilters(filters: AdminClaimsFilters): boolean {
   );
 }
 
-function toStartOfDayIso(date: string): string {
-  return `${date}T00:00:00.000Z`;
-}
-
-function toEndOfDayIso(date: string): string {
-  return `${date}T23:59:59.999Z`;
-}
-
-const POSTGREST_SUBMISSION_TYPE_SELF = '"Self"';
-const POSTGREST_SUBMISSION_TYPE_ON_BEHALF = '"On Behalf"';
-
 function buildBeneficiaryScopedSearchOrFilter(input: {
   searchQuery: string;
   selfField: string;
   onBehalfField: string;
 }): string {
-  return `and(submission_type.eq.${POSTGREST_SUBMISSION_TYPE_SELF},${input.selfField}.ilike.%${input.searchQuery}%),and(submission_type.eq.${POSTGREST_SUBMISSION_TYPE_ON_BEHALF},${input.onBehalfField}.ilike.%${input.searchQuery}%)`;
+  return buildBeneficiaryScopedIlikeOrFilter(input);
 }
 
 function buildEmployeeNameSearchOrFilter(searchQuery: string): string {
@@ -501,7 +496,7 @@ export class SupabaseAdminRepository implements AdminRepository {
     if (filters.searchQuery) {
       const sq = filters.searchQuery;
       if (filters.searchField === "claim_id") {
-        query = query.ilike("claim_id", `%${sq}%`);
+        query = query.ilike("claim_id", toContainsIlikePattern(sq));
       } else if (filters.searchField === "employee_name") {
         query = query.or(buildEmployeeNameSearchOrFilter(sq));
       } else if (filters.searchField === "employee_id") {
@@ -510,7 +505,7 @@ export class SupabaseAdminRepository implements AdminRepository {
         query = query.or(buildEmployeeEmailSearchOrFilter(sq));
       } else {
         query = query.or(
-          `claim_id.ilike.%${sq}%,${buildEmployeeNameSearchOrFilter(sq)},${buildEmployeeIdSearchOrFilter(sq)},${buildEmployeeEmailSearchOrFilter(sq)}`,
+          `claim_id.ilike.${toQuotedContainsIlikePattern(sq)},${buildEmployeeNameSearchOrFilter(sq)},${buildEmployeeIdSearchOrFilter(sq)},${buildEmployeeEmailSearchOrFilter(sq)}`,
         );
       }
     }

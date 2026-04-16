@@ -32,6 +32,7 @@ import {
 import { logger } from "@/core/infra/logging/logger";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
+import { normalizeIsoDateOnly } from "@/lib/date-only";
 import { appendReturnToParam, buildPathWithSearchParams } from "@/lib/pagination-helpers";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
 import {
@@ -159,16 +160,7 @@ function normalizeDateTarget(value: string | undefined): ClaimDateTarget {
 }
 
 function normalizeDate(value: string | undefined): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime())) {
-    return undefined;
-  }
-
-  return value;
+  return normalizeIsoDateOnly(value);
 }
 
 function normalizeSearchField(value: string | undefined): ClaimSearchField | undefined {

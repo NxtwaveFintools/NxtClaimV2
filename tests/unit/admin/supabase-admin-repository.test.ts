@@ -222,7 +222,7 @@ describe("SupabaseAdminRepository", () => {
     );
 
     expect(claimsChain.or).toHaveBeenCalledWith(
-      'and(submission_type.eq."Self",claim_employee_id_raw.ilike.%EMP-001%),and(submission_type.eq."On Behalf",on_behalf_employee_code_raw.ilike.%EMP-001%)',
+      'and(submission_type.eq."Self",claim_employee_id_raw.ilike."%EMP-001%"),and(submission_type.eq."On Behalf",on_behalf_employee_code_raw.ilike."%EMP-001%")',
     );
     expect(claimsChain.ilike).not.toHaveBeenCalledWith("employee_id", "%EMP-001%");
   });
