@@ -17,6 +17,7 @@ type ClaimsPaginationState = {
   cursor: string | null;
   prevCursor: string | null;
 };
+export type AdminClaimsViewMode = "active" | "deleted";
 
 function firstParamValue(value: SearchParamsValue): string | undefined {
   if (Array.isArray(value)) return value[0];
@@ -65,9 +66,11 @@ const PAGE_SIZE = 10;
 async function AdminClaimsTableSection({
   searchParams,
   pagination,
+  mode,
 }: {
   searchParams?: Record<string, SearchParamsValue>;
   pagination: ClaimsPaginationState;
+  mode: AdminClaimsViewMode;
 }) {
   const adminRepository = new SupabaseAdminRepository();
   const service = new GetAdminClaimsService({ repository: adminRepository, logger });
@@ -99,6 +102,7 @@ async function AdminClaimsTableSection({
     financeActionTo: normalizeDate(firstParamValue(searchParams?.adv_fin_to)?.trim() || undefined),
     minAmount: normalizeAmountFilter(firstParamValue(searchParams?.min_amt)?.trim() || undefined),
     maxAmount: normalizeAmountFilter(firstParamValue(searchParams?.max_amt)?.trim() || undefined),
+    isActive: mode === "active",
   };
 
   const result = await service.execute({
@@ -160,10 +164,15 @@ async function AdminFilterBarWithData() {
 export function AdminClaimsSection({
   searchParams,
   pagination,
+  mode,
 }: {
   searchParams?: Record<string, SearchParamsValue>;
   pagination: ClaimsPaginationState;
+  mode: AdminClaimsViewMode;
 }) {
+  const sectionTitle =
+    mode === "deleted" ? "Admin Overview - Deleted Claims" : "Admin Overview - Active Claims";
+
   return (
     <section className="space-y-4">
       <Suspense fallback={null}>
@@ -172,11 +181,15 @@ export function AdminClaimsSection({
       <div className="overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/92 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
         <div className="border-b border-zinc-200/80 px-5 py-3.5 dark:border-zinc-800">
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
-            Admin Overview — All Claims
+            {sectionTitle}
           </h2>
         </div>
         <Suspense fallback={<TableSkeleton />}>
-          <AdminClaimsTableSection searchParams={searchParams} pagination={pagination} />
+          <AdminClaimsTableSection
+            searchParams={searchParams}
+            pagination={pagination}
+            mode={mode}
+          />
         </Suspense>
       </div>
     </section>

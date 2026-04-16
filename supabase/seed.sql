@@ -258,3 +258,189 @@ on conflict (version_name) do update
 set
 	file_url = excluded.file_url,
 	is_active = true;
+
+-- START: TA BULK HIRING SEED
+-- Idempotent SQL translation of scripts/seed-ta-bulk-hiring.js
+-- Behavior parity note: If founder auth user (anupam@nxtwave.co.in) does not exist,
+-- this block performs no writes, matching the script's founder-first requirement.
+with seed_constants as (
+	select
+		'anupam@nxtwave.co.in'::text as founder_email,
+		'Anupam Pedarla'::text as founder_fallback_name,
+		'saravan@nxtwave.co.in'::text as hod_email,
+		'Saravan Kumar Bollimunta'::text as hod_fallback_name,
+		'TA - BULK HIRING'::text as department_name,
+		'password123'::text as default_password
+),
+founder_auth as (
+	select
+		au.id,
+		lower(au.email) as email,
+		coalesce(
+			nullif(trim(au.raw_user_meta_data->>'full_name'), ''),
+			nullif(trim(au.raw_user_meta_data->>'name'), ''),
+			nullif(trim(split_part(au.email, '@', 1)), ''),
+			(select founder_fallback_name from seed_constants)
+		) as full_name
+	from auth.users au
+	where lower(au.email) = (select founder_email from seed_constants)
+	limit 1
+),
+founder_present as (
+	select exists(select 1 from founder_auth) as is_present
+),
+insert_hod_auth_user as (
+	insert into auth.users (
+		id,
+		aud,
+		role,
+		email,
+		encrypted_password,
+		email_confirmed_at,
+		raw_app_meta_data,
+		raw_user_meta_data,
+		created_at,
+		updated_at
+	)
+	select
+		gen_random_uuid(),
+		'authenticated',
+		'authenticated',
+		(select hod_email from seed_constants),
+		crypt((select default_password from seed_constants), gen_salt('bf')),
+		now(),
+		jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email')),
+		jsonb_build_object('full_name', (select hod_fallback_name from seed_constants)),
+		now(),
+		now()
+	where
+		(select is_present from founder_present)
+		and not exists (
+			select 1
+			from auth.users au
+			where lower(au.email) = (select hod_email from seed_constants)
+		)
+	on conflict (id) do update
+	set
+		email = excluded.email,
+		encrypted_password = excluded.encrypted_password,
+		email_confirmed_at = excluded.email_confirmed_at,
+		raw_app_meta_data = excluded.raw_app_meta_data,
+		raw_user_meta_data = excluded.raw_user_meta_data,
+		updated_at = now()
+	returning id
+),
+hod_auth as (
+	select
+		au.id,
+		lower(au.email) as email,
+		coalesce(
+			nullif(trim(au.raw_user_meta_data->>'full_name'), ''),
+			nullif(trim(au.raw_user_meta_data->>'name'), ''),
+			nullif(trim(split_part(au.email, '@', 1)), ''),
+			(select hod_fallback_name from seed_constants)
+		) as full_name
+	from auth.users au
+	where
+		(select is_present from founder_present)
+		and lower(au.email) = (select hod_email from seed_constants)
+	limit 1
+),
+insert_hod_identity as (
+	insert into auth.identities (
+		id,
+		user_id,
+		identity_data,
+		provider,
+		provider_id,
+		created_at,
+		updated_at
+	)
+	select
+		gen_random_uuid(),
+		ha.id,
+		jsonb_build_object('sub', ha.id::text, 'email', ha.email),
+		'email',
+		ha.email,
+		now(),
+		now()
+	from hod_auth ha
+	on conflict (provider, provider_id) do update
+	set
+		user_id = excluded.user_id,
+		identity_data = excluded.identity_data,
+		updated_at = now()
+	returning user_id
+),
+insert_founder_public_user as (
+	insert into public.users (id, email, full_name, role, is_active)
+	select
+		fa.id,
+		fa.email,
+		fa.full_name,
+		'founder',
+		true
+	from founder_auth fa
+	where not exists (
+		select 1
+		from public.users pu
+		where lower(pu.email) = fa.email
+			and pu.id <> fa.id
+	)
+	on conflict (id) do update
+	set
+		email = excluded.email,
+		full_name = excluded.full_name,
+		role = excluded.role,
+		is_active = excluded.is_active,
+		updated_at = now()
+	returning id
+),
+insert_hod_public_user as (
+	insert into public.users (id, email, full_name, role, is_active)
+	select
+		ha.id,
+		ha.email,
+		ha.full_name,
+		'hod',
+		true
+	from hod_auth ha
+	where not exists (
+		select 1
+		from public.users pu
+		where lower(pu.email) = ha.email
+			and pu.id <> ha.id
+	)
+	on conflict (id) do update
+	set
+		email = excluded.email,
+		full_name = excluded.full_name,
+		role = excluded.role,
+		is_active = excluded.is_active,
+		updated_at = now()
+	returning id
+),
+insert_hod_wallet as (
+	insert into public.wallets (user_id)
+	select hpu.id
+	from insert_hod_public_user hpu
+	on conflict (user_id) do update
+	set
+		user_id = excluded.user_id
+	returning user_id
+)
+insert into public.master_departments (name, hod_user_id, founder_user_id, is_active)
+select
+	(select department_name from seed_constants),
+	hpu.id,
+	fpu.id,
+	true
+from insert_hod_public_user hpu
+join insert_founder_public_user fpu on true
+on conflict (name) do update
+set
+	hod_user_id = excluded.hod_user_id,
+	founder_user_id = excluded.founder_user_id,
+	is_active = excluded.is_active,
+	updated_at = now();
+-- END: TA BULK HIRING SEED

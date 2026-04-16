@@ -7,9 +7,10 @@ import { softDeleteClaimAction } from "@/modules/admin/actions";
 
 type Props = {
   claimId: string;
+  isActive: boolean;
 };
 
-export function AdminSoftDeletePanel({ claimId }: Props) {
+export function AdminSoftDeletePanel({ claimId, isActive }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
@@ -36,12 +37,17 @@ export function AdminSoftDeletePanel({ claimId }: Props) {
             Admin Control
           </h2>
           <p className="mt-0.5 text-xs text-rose-600/80 dark:text-rose-400/80">
-            Soft-delete this claim. It will be hidden from all submitter and approver views. This
-            action is reversible only via direct database access.
+            {isActive
+              ? "Soft-delete this claim. It will be hidden from all submitter and approver views. This action is reversible only via direct database access."
+              : "This claim is already inactive and can be reviewed in read-only mode."}
           </p>
         </div>
 
-        {!confirming ? (
+        {!isActive ? (
+          <span className="inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+            This claim has been soft-deleted.
+          </span>
+        ) : !confirming ? (
           <button
             type="button"
             onClick={() => setConfirming(true)}
