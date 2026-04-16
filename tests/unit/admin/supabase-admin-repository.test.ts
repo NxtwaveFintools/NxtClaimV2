@@ -315,9 +315,9 @@ describe("SupabaseAdminRepository", () => {
     mockFrom
       .mockImplementationOnce(() => fetchChain)
       .mockImplementationOnce(() => updateClaimChain)
+      .mockImplementationOnce(() => auditChain)
       .mockImplementationOnce(() => updateExpenseDetailsChain)
-      .mockImplementationOnce(() => updateAdvanceDetailsChain)
-      .mockImplementationOnce(() => auditChain);
+      .mockImplementationOnce(() => updateAdvanceDetailsChain);
 
     const repository = new SupabaseAdminRepository();
     const result = await repository.softDeleteClaim("claim-1", "admin-1");
