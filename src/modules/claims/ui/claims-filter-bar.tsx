@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useSessionStorage } from "@/hooks/use-session-storage";
 import { ROUTES } from "@/core/config/route-registry";
 import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
@@ -50,7 +51,7 @@ const SUBMISSION_TYPE_OPTIONS: Array<{ value: ClaimSubmissionType; label: string
   { value: "On Behalf", label: "On Behalf" },
 ];
 
-const SEARCH_DEBOUNCE_MS = 500;
+const SEARCH_DEBOUNCE_MS = 400;
 const MIN_SEARCH_QUERY_LENGTH = 3;
 
 function getSanitizedSearchLength(query: string): number {
@@ -284,7 +285,6 @@ export function ClaimsFilterBar({
   const storageKeys = useMemo(
     () => ({
       searchInput: `${storageKeyPrefix}-search-query`,
-      debouncedSearchInput: `${storageKeyPrefix}-search-query-debounced`,
       searchField: `${storageKeyPrefix}-search-field`,
       submissionType: `${storageKeyPrefix}-submission-type`,
       paymentModeId: `${storageKeyPrefix}-payment-mode-id`,
@@ -306,10 +306,7 @@ export function ClaimsFilterBar({
     storageKeys.searchInput,
     searchParams.get("search_query") ?? "",
   );
-  const [debouncedSearchInput, setDebouncedSearchInput] = useSessionStorage(
-    storageKeys.debouncedSearchInput,
-    searchParams.get("search_query")?.trim() ?? "",
-  );
+  const debouncedSearchInput = useDebouncedValue(searchInput.trim(), SEARCH_DEBOUNCE_MS);
   const [isExporting, setIsExporting] = useState(false);
   const [hasInitializedFilterState, setHasInitializedFilterState] = useState(false);
 
@@ -380,7 +377,6 @@ export function ClaimsFilterBar({
       const nextSearchInput = searchParams.get("search_query") ?? "";
 
       setSearchInput(nextSearchInput);
-      setDebouncedSearchInput(nextSearchInput.trim());
       setLocalSearchField(searchParams.get("search_field") ?? "claim_id");
       setLocalSubmissionType(searchParams.get("submission_type") ?? "");
       setLocalPaymentModeId(searchParams.get("payment_mode_id") ?? "");
@@ -430,7 +426,6 @@ export function ClaimsFilterBar({
     }
 
     setSearchInput(storedFilters.searchInput);
-    setDebouncedSearchInput(storedFilters.searchInput.trim());
     setLocalSearchField(storedFilters.localSearchField || "claim_id");
     setLocalSubmissionType(storedFilters.localSubmissionType);
     setLocalPaymentModeId(storedFilters.localPaymentModeId);
@@ -480,7 +475,6 @@ export function ClaimsFilterBar({
     const nextSearchInput = searchParams.get("search_query") ?? "";
 
     setSearchInput(nextSearchInput);
-    setDebouncedSearchInput(nextSearchInput.trim());
     setLocalSearchField(searchParams.get("search_field") ?? "claim_id");
     setLocalSubmissionType(searchParams.get("submission_type") ?? "");
     setLocalPaymentModeId(searchParams.get("payment_mode_id") ?? "");
@@ -495,22 +489,6 @@ export function ClaimsFilterBar({
     // effect churn from unstable function identities.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasInitializedFilterState, searchParams]);
-
-  // ---------------------------------------------------------------------------
-  // Search debounce (500 ms)
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchInput(searchInput.trim());
-    }, SEARCH_DEBOUNCE_MS);
-
-    return () => {
-      clearTimeout(timer);
-    };
-    // Setter function from useSessionStorage is intentionally omitted to avoid
-    // debounce re-scheduling on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchInput]);
 
   useEffect(() => {
     if (!hasInitializedFilterState) {
@@ -613,7 +591,6 @@ export function ClaimsFilterBar({
       nextParams.delete("search_field");
       nextParams.delete("search_query");
       setSearchInput("");
-      setDebouncedSearchInput("");
     }
 
     nextParams.delete("cursor");
@@ -809,7 +786,6 @@ export function ClaimsFilterBar({
             type="button"
             onClick={() => {
               setSearchInput("");
-              setDebouncedSearchInput("");
               setLocalSearchField("claim_id");
               setLocalSubmissionType("");
               setLocalPaymentModeId("");

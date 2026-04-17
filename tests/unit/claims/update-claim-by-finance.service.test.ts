@@ -252,6 +252,34 @@ describe("UpdateClaimByFinanceService", () => {
     expect(repository.getFinanceApproverIdsForUser).not.toHaveBeenCalled();
   });
 
+  test("allows finance actor edit during payment-under-process stage", async () => {
+    const repository = createRepository({
+      getClaimForFinanceEdit: jest.fn(async () => ({
+        data: {
+          id: "claim-1",
+          detailType: "expense" as const,
+          status: "Finance Approved - Payment under process" as const,
+          submittedBy: "employee-1",
+          assignedL1ApproverId: "hod-1",
+          expenseReceiptFilePath: "expenses/employee-1/old_receipt.pdf",
+          expenseBankStatementFilePath: "expenses/employee-1/old_bank.pdf",
+          advanceSupportingDocumentPath: null,
+        },
+        errorMessage: null,
+      })),
+    });
+    const service = new UpdateClaimByFinanceService({ repository, logger: createLogger() });
+
+    const result = await service.execute({
+      claimId: "claim-1",
+      actorUserId: "finance-user-1",
+      payload: validExpensePayload,
+    });
+
+    expect(result).toEqual({ ok: true, errorMessage: null });
+    expect(repository.getFinanceApproverIdsForUser).toHaveBeenCalledWith("finance-user-1");
+  });
+
   test("blocks non-submitter/non-L1 actor during pre-HOD stage", async () => {
     const repository = createRepository({
       getClaimForFinanceEdit: jest.fn(async () => ({
@@ -284,7 +312,7 @@ describe("UpdateClaimByFinanceService", () => {
     expect(repository.getFinanceApproverIdsForUser).not.toHaveBeenCalled();
   });
 
-  test("blocks edits outside pre-HOD and awaiting-finance stages", async () => {
+  test("blocks edits outside pre-HOD and finance-actionable stages", async () => {
     const repository = createRepository({
       getClaimForFinanceEdit: jest.fn(async () => ({
         data: {

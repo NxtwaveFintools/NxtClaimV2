@@ -7,6 +7,7 @@ import { logger } from "@/core/infra/logging/logger";
 import { ROUTES } from "@/core/config/route-registry";
 import {
   DB_CLAIM_STATUSES,
+  DB_FINANCE_ACTIONABLE_STATUSES,
   DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
   DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
   DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
@@ -311,7 +312,7 @@ function canActorEditClaim(input: {
   assignedL1ApproverId: string;
   isFinanceActor: boolean;
 }): boolean {
-  if (input.status === DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS) {
+  if (DB_FINANCE_ACTIONABLE_STATUSES.some((status) => status === input.status)) {
     return input.isFinanceActor;
   }
 

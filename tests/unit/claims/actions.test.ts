@@ -966,6 +966,32 @@ describe("claims actions", () => {
     expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
   });
 
+  test("updateClaimByFinanceAction allows finance users in payment-under-process stage", async () => {
+    mockGetClaimForFinanceEdit.mockResolvedValueOnce({
+      data: {
+        id: "claim-1",
+        detailType: "expense",
+        status: "Finance Approved - Payment under process",
+        submittedBy: "11111111-1111-4111-8111-111111111111",
+        assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
+        expenseReceiptFilePath: "expenses/old_receipt.pdf",
+        expenseBankStatementFilePath: "expenses/old_bank.pdf",
+        advanceSupportingDocumentPath: null,
+      },
+      errorMessage: null,
+    });
+
+    const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
+
+    const result = await updateClaimByFinanceAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData: createValidExpenseEditFormData(),
+    });
+
+    expect(result).toEqual({ ok: true, message: "Claim details updated." });
+    expect(mockUpdateByFinanceExecute).toHaveBeenCalled();
+  });
+
   test("updateClaimByFinanceAction allows submitter in pre-HOD stage", async () => {
     mockGetApprovalViewerContext.mockResolvedValueOnce({
       data: { isHod: false, isFounder: false, isFinance: false },
@@ -1035,6 +1061,37 @@ describe("claims actions", () => {
         id: "claim-1",
         detailType: "expense",
         status: "Submitted - Awaiting HOD approval",
+        submittedBy: "11111111-1111-4111-8111-111111111111",
+        assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
+        expenseReceiptFilePath: "expenses/old_receipt.pdf",
+        expenseBankStatementFilePath: "expenses/old_bank.pdf",
+        advanceSupportingDocumentPath: null,
+      },
+      errorMessage: null,
+    });
+
+    const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
+    const formData = createValidExpenseEditFormData();
+    formData.append("paymentModeId", "99999999-9999-4999-8999-999999999999");
+
+    const result = await updateClaimByFinanceAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Routing context fields cannot be edited for an existing claim.",
+    });
+    expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
+  });
+
+  test("updateClaimByFinanceAction blocks payment mode correction in payment-under-process stage", async () => {
+    mockGetClaimForFinanceEdit.mockResolvedValueOnce({
+      data: {
+        id: "claim-1",
+        detailType: "expense",
+        status: "Finance Approved - Payment under process",
         submittedBy: "11111111-1111-4111-8111-111111111111",
         assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
         expenseReceiptFilePath: "expenses/old_receipt.pdf",

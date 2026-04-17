@@ -1,5 +1,5 @@
 import {
-  DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
+  DB_FINANCE_ACTIONABLE_STATUSES,
   DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
   DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
   type DbClaimStatus,
@@ -73,9 +73,10 @@ export class UpdateClaimByFinanceService {
       return { ok: false, errorMessage: "Claim not found." };
     }
 
-    const isFinanceStage =
-      claimResult.data.status === DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS;
-    const isPreHodStage = this.isPreHodEditableStatus(claimResult.data.status);
+    const claim = claimResult.data;
+
+    const isFinanceStage = DB_FINANCE_ACTIONABLE_STATUSES.some((status) => status === claim.status);
+    const isPreHodStage = this.isPreHodEditableStatus(claim.status);
 
     if (isFinanceStage) {
       const financeScopeResult = await this.repository.getFinanceApproverIdsForUser(
@@ -95,20 +96,20 @@ export class UpdateClaimByFinanceService {
         this.logger.warn("claims.finance_edit.unauthorized", {
           claimId: input.claimId,
           actorUserId: input.actorUserId,
-          status: claimResult.data.status,
+          status: claim.status,
           reason: "finance_scope_missing",
         });
         return { ok: false, errorMessage: "You are not authorized to edit this claim." };
       }
     } else if (isPreHodStage) {
-      const isSubmitter = input.actorUserId === claimResult.data.submittedBy;
-      const isAssignedL1 = input.actorUserId === claimResult.data.assignedL1ApproverId;
+      const isSubmitter = input.actorUserId === claim.submittedBy;
+      const isAssignedL1 = input.actorUserId === claim.assignedL1ApproverId;
 
       if (!isSubmitter && !isAssignedL1) {
         this.logger.warn("claims.finance_edit.unauthorized", {
           claimId: input.claimId,
           actorUserId: input.actorUserId,
-          status: claimResult.data.status,
+          status: claim.status,
           reason: "not_submitter_or_assigned_l1",
         });
         return { ok: false, errorMessage: "You are not authorized to edit this claim." };
@@ -117,13 +118,13 @@ export class UpdateClaimByFinanceService {
       this.logger.warn("claims.finance_edit.unauthorized", {
         claimId: input.claimId,
         actorUserId: input.actorUserId,
-        status: claimResult.data.status,
+        status: claim.status,
         reason: "status_not_editable",
       });
       return { ok: false, errorMessage: "You are not authorized to edit this claim." };
     }
 
-    if (claimResult.data.detailType !== input.payload.detailType) {
+    if (claim.detailType !== input.payload.detailType) {
       return { ok: false, errorMessage: "Claim detail type mismatch for edit request." };
     }
 
