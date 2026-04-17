@@ -860,7 +860,8 @@ async function ClaimsCommandCenterTable({
                               auditLogs={auditLogsByClaimId[claim.id] ?? []}
                               canInlineEdit={
                                 actionMode === "l1-decision" ||
-                                actionMode === "finance-authorization"
+                                actionMode === "finance-authorization" ||
+                                actionMode === "finance-mark-paid"
                               }
                             >
                               {actionMode !== "none" ? renderActions(false) : undefined}

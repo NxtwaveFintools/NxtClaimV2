@@ -9,6 +9,7 @@ import { BackButton } from "@/components/ui/back-button";
 import { ROUTES } from "@/core/config/route-registry";
 import {
   DB_CLAIM_STATUSES,
+  DB_FINANCE_ACTIONABLE_STATUSES,
   DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
   DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
   DB_REJECTED_STATUSES,
@@ -529,7 +530,7 @@ async function ClaimDetailCore({
   const isPreHodStatus =
     claim.status === DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS ||
     claim.status === DB_REJECTED_RESUBMISSION_ALLOWED_STATUS;
-  const isFinanceStatus = isPendingFinanceApprovalStatus(claim.status);
+  const isFinanceStatus = DB_FINANCE_ACTIONABLE_STATUSES.some((status) => status === claim.status);
   const canEditClaim =
     (isPreHodStatus && (currentUserId === claim.submittedBy || isAssignedL1Approver)) ||
     (isFinanceStatus && isFinanceActor);
@@ -565,55 +566,65 @@ async function ClaimDetailCore({
 
   const approveFromDetail = async () => {
     "use server";
-    await approveClaimAction({
+    const result = await approveClaimAction({
       claimId: claim.id,
-      redirectToApprovalsView: true,
-      returnTo: returnToPath,
     });
+
+    if (!result.ok) {
+      throw new Error(result.message ?? "Unable to approve claim.");
+    }
   };
 
   const rejectFromDetail = async (formData: FormData) => {
     "use server";
     const rejectionReason = String(formData.get("rejectionReason") ?? "").trim();
     const allowResubmission = formData.get("allowResubmission") === "true";
-    await rejectClaimAction({
+    const result = await rejectClaimAction({
       claimId: claim.id,
-      redirectToApprovalsView: true,
-      returnTo: returnToPath,
       rejectionReason,
       allowResubmission,
     });
+
+    if (!result.ok) {
+      throw new Error(result.message ?? "Unable to reject claim.");
+    }
   };
 
   const approveFinanceFromDetail = async () => {
     "use server";
-    await approveFinanceAction({
+    const result = await approveFinanceAction({
       claimId: claim.id,
-      redirectToApprovalsView: true,
-      returnTo: returnToPath,
     });
+
+    if (!result.ok) {
+      throw new Error(result.message ?? "Unable to approve finance step.");
+    }
   };
 
   const rejectFinanceFromDetail = async (formData: FormData) => {
     "use server";
     const rejectionReason = String(formData.get("rejectionReason") ?? "").trim();
     const allowResubmission = formData.get("allowResubmission") === "true";
-    await rejectFinanceAction({
+    const result = await rejectFinanceAction({
       claimId: claim.id,
-      redirectToApprovalsView: true,
-      returnTo: returnToPath,
       rejectionReason,
       allowResubmission,
     });
+
+    if (!result.ok) {
+      throw new Error(result.message ?? "Unable to reject finance step.");
+    }
   };
 
   const markPaidFromDetail = async () => {
     "use server";
-    await markPaymentDoneAction({
+    const result = await markPaymentDoneAction({
       claimId: claim.id,
-      redirectToApprovalsView: true,
-      returnTo: returnToPath,
     });
+
+    if (!result.ok) {
+      throw new Error(result.message ?? "Unable to mark payment as done.");
+    }
   };
 
   const submitterDisplayName = formatOptionalText(claim.submitterName ?? claim.submitter);
