@@ -1,4 +1,9 @@
 import { getServiceRoleSupabaseClient } from "@/core/infra/supabase/server-client";
+import { toEndOfDayIso, toStartOfDayIso } from "@/lib/date-only";
+import {
+  buildBeneficiaryScopedIlikeOrFilter,
+  toContainsIlikePattern,
+} from "@/lib/postgrest-search";
 import {
   DB_CLAIM_STATUSES,
   DB_FINANCE_ACTIONABLE_STATUSES as SHARED_FINANCE_ACTIONABLE_STATUSES,
@@ -272,6 +277,11 @@ type ClaimDeleteSnapshotRow = {
   submitted_by: string;
 };
 
+type ExpenseDuplicateLookupRow = {
+  claim_id: string;
+  basic_amount: number | string | null;
+};
+
 type ExportClaimUserRow = {
   full_name: string | null;
   email: string | null;
@@ -474,8 +484,6 @@ const EXPORT_WALLET_LOOKUP_BATCH_SIZE = 200;
 const MAX_LIST_PAGE_SIZE = 50;
 const UNIQUE_VIOLATION_CODE = "23505";
 const DUPLICATE_ACTIVE_EXPENSE_BILL_CONSTRAINT = "uq_expense_details_active_bill";
-const POSTGREST_SUBMISSION_TYPE_SELF = '"Self"';
-const POSTGREST_SUBMISSION_TYPE_ON_BEHALF = '"On Behalf"';
 
 function chunkArray<T>(values: T[], chunkSize: number): T[][] {
   if (chunkSize <= 0) {
@@ -570,14 +578,6 @@ function hasAdvancedEnterpriseDateFilters(filters?: GetMyClaimsFilters): boolean
   );
 }
 
-function toStartOfDayIso(date: string): string {
-  return `${date}T00:00:00.000Z`;
-}
-
-function toEndOfDayIso(date: string): string {
-  return `${date}T23:59:59.999Z`;
-}
-
 function normalizeSearchInput(filters?: GetMyClaimsFilters): {
   field: GetMyClaimsFilters["searchField"];
   query: string;
@@ -594,7 +594,7 @@ function buildBeneficiaryScopedOrFilter(input: {
   selfField: string;
   onBehalfField: string;
 }): string {
-  return `and(submission_type.eq.${POSTGREST_SUBMISSION_TYPE_SELF},${input.selfField}.ilike.%${input.searchQuery}%),and(submission_type.eq.${POSTGREST_SUBMISSION_TYPE_ON_BEHALF},${input.onBehalfField}.ilike.%${input.searchQuery}%)`;
+  return buildBeneficiaryScopedIlikeOrFilter(input);
 }
 
 function buildEmployeeNameOrFilter(searchQuery: string): string {
@@ -740,7 +740,7 @@ function applyEnterpriseDashboardFilters<
 
   if (params.normalizedSearch.query && params.normalizedSearch.field) {
     if (params.normalizedSearch.field === "claim_id") {
-      query = query.ilike("claim_id", `%${params.normalizedSearch.query}%`);
+      query = query.ilike("claim_id", toContainsIlikePattern(params.normalizedSearch.query));
     }
 
     if (params.normalizedSearch.field === "employee_name") {
@@ -847,7 +847,7 @@ function applyPendingApprovalsFilters<TQuery extends PendingApprovalsQueryChain<
 
   if (params.normalizedSearch.query && params.normalizedSearch.field) {
     if (params.normalizedSearch.field === "claim_id") {
-      query = query.ilike("claim_id", `%${params.normalizedSearch.query}%`);
+      query = query.ilike("claim_id", toContainsIlikePattern(params.normalizedSearch.query));
     }
 
     if (params.normalizedSearch.field === "employee_name") {
@@ -2094,7 +2094,9 @@ export class SupabaseClaimRepository implements ClaimRepository {
       }
 
       if (!updatedExpenseDetail) {
-        return { errorMessage: "Active expense detail not found for claim." };
+        return {
+          errorMessage: "Cannot edit: Expense details missing or soft-deleted.",
+        };
       }
     } else {
       const { data: updatedAdvanceDetail, error: advanceError } = await client
@@ -2120,7 +2122,9 @@ export class SupabaseClaimRepository implements ClaimRepository {
       }
 
       if (!updatedAdvanceDetail) {
-        return { errorMessage: "Active advance detail not found for claim." };
+        return {
+          errorMessage: "Cannot edit: Advance details missing or soft-deleted.",
+        };
       }
     }
 
@@ -2359,6 +2363,49 @@ export class SupabaseClaimRepository implements ClaimRepository {
     });
 
     return { exists, errorMessage: null };
+  }
+
+  async findActiveExpenseDuplicateClaimIdByCompositeKey(input: {
+    billNo: string;
+    transactionDate: string;
+    basicAmount: number;
+    excludeClaimId?: string;
+  }): Promise<{ claimId: string | null; errorMessage: string | null }> {
+    const client = getServiceRoleSupabaseClient();
+    const epsilon = 0.01;
+
+    let query = client
+      .from("expense_details")
+      .select("claim_id, basic_amount")
+      .eq("bill_no", input.billNo)
+      .eq("transaction_date", input.transactionDate)
+      .eq("is_active", true)
+      .limit(50);
+
+    if (input.excludeClaimId && input.excludeClaimId.trim().length > 0) {
+      query = query.neq("claim_id", input.excludeClaimId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      return { claimId: null, errorMessage: error.message };
+    }
+
+    const rows = (data ?? []) as ExpenseDuplicateLookupRow[];
+    const normalizedBasic = Number(input.basicAmount);
+
+    const duplicateRow = rows.find((row) => {
+      const candidateBasic = Number(row.basic_amount);
+
+      if (!Number.isFinite(candidateBasic)) {
+        return false;
+      }
+
+      return Math.abs(candidateBasic - normalizedBasic) <= epsilon;
+    });
+
+    return { claimId: duplicateRow?.claim_id ?? null, errorMessage: null };
   }
 
   async getDepartmentApprovers(departmentId: string): Promise<{

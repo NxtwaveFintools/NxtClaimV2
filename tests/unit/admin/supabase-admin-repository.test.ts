@@ -2,6 +2,7 @@ import { SupabaseAdminRepository } from "@/modules/admin/repositories/SupabaseAd
 
 const mockGetServiceRoleSupabaseClient = jest.fn();
 const mockFrom = jest.fn();
+const mockCreateAuthUser = jest.fn();
 
 jest.mock("@/core/infra/supabase/server-client", () => ({
   getServiceRoleSupabaseClient: () => mockGetServiceRoleSupabaseClient(),
@@ -61,7 +62,14 @@ function createQueryChain(result: QueryResult) {
 describe("SupabaseAdminRepository", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetServiceRoleSupabaseClient.mockReturnValue({ from: mockFrom });
+    mockGetServiceRoleSupabaseClient.mockReturnValue({
+      from: mockFrom,
+      auth: {
+        admin: {
+          createUser: (...args: unknown[]) => mockCreateAuthUser(...args),
+        },
+      },
+    });
   });
 
   test("getAllClaims maps rows and applies cursor pagination", async () => {
@@ -214,7 +222,7 @@ describe("SupabaseAdminRepository", () => {
     );
 
     expect(claimsChain.or).toHaveBeenCalledWith(
-      'and(submission_type.eq."Self",claim_employee_id_raw.ilike.%EMP-001%),and(submission_type.eq."On Behalf",on_behalf_employee_code_raw.ilike.%EMP-001%)',
+      'and(submission_type.eq."Self",claim_employee_id_raw.ilike."%EMP-001%"),and(submission_type.eq."On Behalf",on_behalf_employee_code_raw.ilike."%EMP-001%")',
     );
     expect(claimsChain.ilike).not.toHaveBeenCalledWith("employee_id", "%EMP-001%");
   });
@@ -995,6 +1003,174 @@ describe("SupabaseAdminRepository", () => {
 
     expect(result).toEqual({
       success: false,
+      errorMessage: "HOD and Founder cannot be the same person.",
+    });
+    expect(mockFrom).toHaveBeenCalledTimes(2);
+  });
+
+  test("createDepartmentWithActorsByEmail creates department using existing user IDs", async () => {
+    const hodLookupChain = createQueryChain({ data: { id: "hod-1" }, error: null });
+    const founderLookupChain = createQueryChain({ data: { id: "founder-1" }, error: null });
+    const insertChain = createQueryChain({
+      data: {
+        id: "dep-10",
+        name: "Engineering",
+        hod_user_id: "hod-1",
+        founder_user_id: "founder-1",
+        is_active: true,
+      },
+      error: null,
+    });
+
+    mockFrom
+      .mockImplementationOnce(() => hodLookupChain)
+      .mockImplementationOnce(() => founderLookupChain)
+      .mockImplementationOnce(() => insertChain);
+
+    const repository = new SupabaseAdminRepository();
+    const result = await repository.createDepartmentWithActorsByEmail({
+      name: "Engineering",
+      hodEmail: "hod@nxtwave.co.in",
+      founderEmail: "founder@nxtwave.co.in",
+    });
+
+    expect(result.errorMessage).toBeNull();
+    expect(result.data).toEqual({
+      id: "dep-10",
+      name: "Engineering",
+      hodUserId: "hod-1",
+      founderUserId: "founder-1",
+      isActive: true,
+    });
+    expect(insertChain.insert).toHaveBeenCalledWith({
+      name: "Engineering",
+      hod_user_id: "hod-1",
+      founder_user_id: "founder-1",
+      hod_provisional_email: null,
+      founder_provisional_email: null,
+    });
+    expect(mockCreateAuthUser).not.toHaveBeenCalled();
+  });
+
+  test("createDepartmentWithActorsByEmail provisions missing users via auth admin", async () => {
+    const hodLookupChain = createQueryChain({ data: null, error: null });
+    const founderLookupChain = createQueryChain({ data: null, error: null });
+    const insertChain = createQueryChain({
+      data: {
+        id: "dep-11",
+        name: "Quality",
+        hod_user_id: "hod-new",
+        founder_user_id: "founder-new",
+        is_active: true,
+      },
+      error: null,
+    });
+
+    mockCreateAuthUser
+      .mockResolvedValueOnce({ data: { user: { id: "hod-new" } }, error: null })
+      .mockResolvedValueOnce({ data: { user: { id: "founder-new" } }, error: null });
+
+    mockFrom
+      .mockImplementationOnce(() => hodLookupChain)
+      .mockImplementationOnce(() => founderLookupChain)
+      .mockImplementationOnce(() => insertChain);
+
+    const repository = new SupabaseAdminRepository();
+    const result = await repository.createDepartmentWithActorsByEmail({
+      name: "  Quality  ",
+      hodEmail: "HOD@Nxtwave.co.in",
+      founderEmail: "Founder@Nxtwave.co.in",
+    });
+
+    expect(result.errorMessage).toBeNull();
+    expect(mockCreateAuthUser).toHaveBeenCalledTimes(2);
+    expect(mockCreateAuthUser).toHaveBeenNthCalledWith(1, {
+      email: "hod@nxtwave.co.in",
+      password: "password123",
+      email_confirm: true,
+    });
+    expect(mockCreateAuthUser).toHaveBeenNthCalledWith(2, {
+      email: "founder@nxtwave.co.in",
+      password: "password123",
+      email_confirm: true,
+    });
+  });
+
+  test("createDepartmentWithActorsByEmail retries user lookup when auth reports already registered", async () => {
+    const firstHodLookupChain = createQueryChain({ data: null, error: null });
+    const secondHodLookupChain = createQueryChain({ data: { id: "hod-existing" }, error: null });
+    const founderLookupChain = createQueryChain({ data: { id: "founder-1" }, error: null });
+    const insertChain = createQueryChain({
+      data: {
+        id: "dep-12",
+        name: "Legal",
+        hod_user_id: "hod-existing",
+        founder_user_id: "founder-1",
+        is_active: true,
+      },
+      error: null,
+    });
+
+    mockCreateAuthUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: { message: "User already registered" },
+    });
+
+    mockFrom
+      .mockImplementationOnce(() => firstHodLookupChain)
+      .mockImplementationOnce(() => secondHodLookupChain)
+      .mockImplementationOnce(() => founderLookupChain)
+      .mockImplementationOnce(() => insertChain);
+
+    const repository = new SupabaseAdminRepository();
+    const result = await repository.createDepartmentWithActorsByEmail({
+      name: "Legal",
+      hodEmail: "hod@nxtwave.co.in",
+      founderEmail: "founder@nxtwave.co.in",
+    });
+
+    expect(result.errorMessage).toBeNull();
+    expect(result.data?.hodUserId).toBe("hod-existing");
+    expect(mockCreateAuthUser).toHaveBeenCalledTimes(1);
+  });
+
+  test("createDepartmentWithActorsByEmail returns insert error", async () => {
+    const hodLookupChain = createQueryChain({ data: { id: "hod-1" }, error: null });
+    const founderLookupChain = createQueryChain({ data: { id: "founder-1" }, error: null });
+    const insertChain = createQueryChain({ data: null, error: { message: "duplicate key value" } });
+
+    mockFrom
+      .mockImplementationOnce(() => hodLookupChain)
+      .mockImplementationOnce(() => founderLookupChain)
+      .mockImplementationOnce(() => insertChain);
+
+    const repository = new SupabaseAdminRepository();
+    const result = await repository.createDepartmentWithActorsByEmail({
+      name: "Engineering",
+      hodEmail: "hod@nxtwave.co.in",
+      founderEmail: "founder@nxtwave.co.in",
+    });
+
+    expect(result).toEqual({ data: null, errorMessage: "duplicate key value" });
+  });
+
+  test("createDepartmentWithActorsByEmail blocks same resolved user ID", async () => {
+    const hodLookupChain = createQueryChain({ data: { id: "same-user" }, error: null });
+    const founderLookupChain = createQueryChain({ data: { id: "same-user" }, error: null });
+
+    mockFrom
+      .mockImplementationOnce(() => hodLookupChain)
+      .mockImplementationOnce(() => founderLookupChain);
+
+    const repository = new SupabaseAdminRepository();
+    const result = await repository.createDepartmentWithActorsByEmail({
+      name: "Operations",
+      hodEmail: "same@nxtwave.co.in",
+      founderEmail: "same2@nxtwave.co.in",
+    });
+
+    expect(result).toEqual({
+      data: null,
       errorMessage: "HOD and Founder cannot be the same person.",
     });
     expect(mockFrom).toHaveBeenCalledTimes(2);

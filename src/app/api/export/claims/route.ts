@@ -21,10 +21,10 @@ import type {
 } from "@/core/domain/claims/contracts";
 import { withAuth, type AuthenticatedContext } from "@/core/http/with-auth";
 import { logger } from "@/core/infra/logging/logger";
+import { normalizeIsoDateOnly } from "@/lib/date-only";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
 
 const scopeSchema = z.enum(["submissions", "approvals", "admin", "department"]);
-const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
 function normalizeSubmissionType(value: string | null): ClaimSubmissionType | undefined {
   if (value === "Self" || value === "On Behalf") {
@@ -43,16 +43,7 @@ function normalizeDateTarget(value: string | null): ClaimDateTarget {
 }
 
 function normalizeDate(value: string | null): string | undefined {
-  if (!value || !dateRegex.test(value)) {
-    return undefined;
-  }
-
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime())) {
-    return undefined;
-  }
-
-  return value;
+  return normalizeIsoDateOnly(value);
 }
 
 function normalizeAmount(value: string | null): number | undefined {

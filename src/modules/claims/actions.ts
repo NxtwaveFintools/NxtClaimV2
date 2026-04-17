@@ -371,6 +371,14 @@ function isDuplicateExpenseBillUniqueViolation(error: unknown): boolean {
   );
 }
 
+function buildDuplicateActiveExpenseBillMessage(duplicateClaimId?: string | null): string {
+  if (!duplicateClaimId) {
+    return DUPLICATE_ACTIVE_EXPENSE_BILL_MESSAGE;
+  }
+
+  return `${DUPLICATE_ACTIVE_EXPENSE_BILL_MESSAGE} Duplicate Claim ID: ${duplicateClaimId}.`;
+}
+
 function extractSubmissionInput(input: unknown): {
   payload: unknown;
   receiptFile: File | null;
@@ -1343,9 +1351,31 @@ export async function updateClaimByFinanceAction(input: {
     }
   } catch (error) {
     if (isDuplicateExpenseBillUniqueViolation(error)) {
+      let duplicateClaimId: string | null = null;
+
+      if (approvalContextResult.data.isFinance && financeEditPayload.detailType === "expense") {
+        const duplicateLookupResult =
+          await repository.findActiveExpenseDuplicateClaimIdByCompositeKey({
+            billNo: financeEditPayload.billNo,
+            transactionDate: financeEditPayload.transactionDate,
+            basicAmount: financeEditPayload.basicAmount,
+            excludeClaimId: claimIdParse.data.claimId,
+          });
+
+        if (duplicateLookupResult.errorMessage) {
+          logger.warn("claims.finance_edit.duplicate_lookup_failed", {
+            claimId: claimIdParse.data.claimId,
+            actorUserId: currentUserResult.user.id,
+            errorMessage: duplicateLookupResult.errorMessage,
+          });
+        } else {
+          duplicateClaimId = duplicateLookupResult.claimId;
+        }
+      }
+
       return {
         ok: false,
-        message: DUPLICATE_ACTIVE_EXPENSE_BILL_MESSAGE,
+        message: buildDuplicateActiveExpenseBillMessage(duplicateClaimId),
       };
     }
 

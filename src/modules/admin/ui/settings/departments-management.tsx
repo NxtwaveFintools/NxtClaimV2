@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { DepartmentWithActors } from "@/core/domain/admin/contracts";
 import { updateDepartmentActorsByEmailAction } from "@/modules/admin/actions";
+import { AddDepartmentForm } from "@/modules/admin/ui/add-department-form";
 import { Button } from "@/components/ui/button";
 
 type Props = {
@@ -11,19 +12,17 @@ type Props = {
 };
 
 export function DepartmentsManagement({ departments }: Props) {
-  if (departments.length === 0) {
-    return (
-      <p className="rounded-xl border border-zinc-200 bg-white px-4 py-6 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
-        No departments found.
-      </p>
-    );
-  }
-
   return (
     <div className="space-y-4">
-      {departments.map((dept) => (
-        <DepartmentActorRow key={dept.id} department={dept} />
-      ))}
+      <AddDepartmentForm />
+
+      {departments.length === 0 ? (
+        <p className="rounded-xl border border-zinc-200 bg-white px-4 py-6 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
+          No departments found.
+        </p>
+      ) : (
+        departments.map((dept) => <DepartmentActorRow key={dept.id} department={dept} />)
+      )}
     </div>
   );
 }

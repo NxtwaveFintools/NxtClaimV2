@@ -7,6 +7,7 @@ import { AdminClaimsTable } from "@/modules/admin/ui/admin-claims-table";
 import { MyClaimsPaginationControls } from "@/modules/claims/ui/my-claims-pagination-controls";
 import { ClaimsFilterBar } from "@/modules/claims/ui/claims-filter-bar";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { normalizeIsoDateOnly } from "@/lib/date-only";
 import type { DbClaimStatus } from "@/core/constants/statuses";
 import type { AdminClaimsFilters } from "@/core/domain/admin/contracts";
 import type { ClaimSubmissionType } from "@/core/domain/claims/contracts";
@@ -33,19 +34,8 @@ function normalizeStatusFilter(value: string | undefined): DbClaimStatus[] | und
   return parsed.length === 0 ? undefined : parsed;
 }
 
-const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-
 function normalizeDate(value: string | undefined): string | undefined {
-  if (!value || !dateRegex.test(value)) {
-    return undefined;
-  }
-
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime())) {
-    return undefined;
-  }
-
-  return value;
+  return normalizeIsoDateOnly(value);
 }
 
 function normalizeAmountFilter(value: string | undefined): number | undefined {

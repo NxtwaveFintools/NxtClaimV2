@@ -32,6 +32,7 @@ import {
 import { logger } from "@/core/infra/logging/logger";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
+import { normalizeIsoDateOnly } from "@/lib/date-only";
 import { appendReturnToParam, buildPathWithSearchParams } from "@/lib/pagination-helpers";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
 import {
@@ -73,7 +74,7 @@ const getCachedPendingApprovalsViewerContext = cache(
 );
 
 export const metadata = {
-  title: "My Claims | NxtClaim",
+  title: "Claims | NxtClaim",
 };
 
 const ClaimsFilterBar = dynamic(
@@ -159,16 +160,7 @@ function normalizeDateTarget(value: string | undefined): ClaimDateTarget {
 }
 
 function normalizeDate(value: string | undefined): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime())) {
-    return undefined;
-  }
-
-  return value;
+  return normalizeIsoDateOnly(value);
 }
 
 function normalizeSearchField(value: string | undefined): ClaimSearchField | undefined {
@@ -1258,7 +1250,7 @@ async function MyClaimsDashboardResolvedContent({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="dashboard-font-display text-xl font-bold tracking-[-0.03em] text-zinc-950 sm:text-2xl lg:text-3xl dark:text-zinc-50">
-                My Claims
+                Claims
               </h1>
               <p className="mt-1 text-xs text-zinc-500 sm:text-sm dark:text-zinc-400">
                 Command Center for submissions and approvals
