@@ -10,6 +10,7 @@ const mockGetActiveProducts = jest.fn();
 const mockGetActiveLocations = jest.fn();
 const mockGetPaymentModeById = jest.fn();
 const mockExistsExpenseByCompositeKey = jest.fn();
+const mockFindActiveExpenseDuplicateClaimIdByCompositeKey = jest.fn();
 const mockGetActiveUserIdByEmail = jest.fn();
 const mockIsUserApprover1InAnyDepartment = jest.fn();
 const mockActiveDepartmentsExecute = jest.fn();
@@ -64,6 +65,8 @@ jest.mock("@/modules/claims/repositories/SupabaseClaimRepository", () => ({
     getActiveLocations: mockGetActiveLocations,
     getPaymentModeById: mockGetPaymentModeById,
     existsExpenseByCompositeKey: mockExistsExpenseByCompositeKey,
+    findActiveExpenseDuplicateClaimIdByCompositeKey:
+      mockFindActiveExpenseDuplicateClaimIdByCompositeKey,
     getActiveUserIdByEmail: mockGetActiveUserIdByEmail,
     isUserApprover1InAnyDepartment: mockIsUserApprover1InAnyDepartment,
     getApprovalViewerContext: mockGetApprovalViewerContext,
@@ -353,6 +356,11 @@ describe("claims actions", () => {
 
     mockExistsExpenseByCompositeKey.mockResolvedValue({
       exists: false,
+      errorMessage: null,
+    });
+
+    mockFindActiveExpenseDuplicateClaimIdByCompositeKey.mockResolvedValue({
+      claimId: null,
       errorMessage: null,
     });
 
@@ -852,6 +860,59 @@ describe("claims actions", () => {
   });
 
   test("updateClaimByFinanceAction returns friendly message for duplicate active bill unique violation", async () => {
+    mockFindActiveExpenseDuplicateClaimIdByCompositeKey.mockResolvedValueOnce({
+      claimId: "CLAIM-EXISTING-1",
+      errorMessage: null,
+    });
+
+    mockUpdateByFinanceExecute.mockRejectedValueOnce({
+      code: "23505",
+      message: 'duplicate key value violates unique constraint "uq_expense_details_active_bill"',
+      details: "Key (bill_no, transaction_date, basic_amount) already exists.",
+    });
+
+    const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
+
+    const result = await updateClaimByFinanceAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData: createValidExpenseEditFormData(),
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message:
+        "A claim with this exact Bill Number, Date, and Amount already exists in the system. Please change the Bill Number slightly (e.g., add '-FIX') to make it unique before saving. Duplicate Claim ID: CLAIM-EXISTING-1.",
+    });
+    expect(mockFindActiveExpenseDuplicateClaimIdByCompositeKey).toHaveBeenCalledWith({
+      billNo: "BILL-NEW-1",
+      transactionDate: "2026-03-22",
+      basicAmount: 100,
+      excludeClaimId: "11111111-1111-4111-8111-111111111111",
+    });
+  });
+
+  test("updateClaimByFinanceAction keeps duplicate message generic for non-finance pre-HOD edits", async () => {
+    mockGetApprovalViewerContext.mockResolvedValueOnce({
+      data: { isHod: false, isFounder: false, isFinance: false },
+      errorMessage: null,
+    });
+    mockGetClaimForFinanceEdit.mockResolvedValueOnce({
+      data: {
+        id: "claim-1",
+        detailType: "expense",
+        status: "Submitted - Awaiting HOD approval",
+        submittedBy: "11111111-1111-4111-8111-111111111111",
+        assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
+        expenseReceiptFilePath: "expenses/old_receipt.pdf",
+        expenseBankStatementFilePath: "expenses/old_bank.pdf",
+        advanceSupportingDocumentPath: null,
+      },
+      errorMessage: null,
+    });
+    mockFindActiveExpenseDuplicateClaimIdByCompositeKey.mockResolvedValueOnce({
+      claimId: "CLAIM-EXISTING-1",
+      errorMessage: null,
+    });
     mockUpdateByFinanceExecute.mockRejectedValueOnce({
       code: "23505",
       message: 'duplicate key value violates unique constraint "uq_expense_details_active_bill"',
@@ -870,6 +931,7 @@ describe("claims actions", () => {
       message:
         "A claim with this exact Bill Number, Date, and Amount already exists in the system. Please change the Bill Number slightly (e.g., add '-FIX') to make it unique before saving.",
     });
+    expect(mockFindActiveExpenseDuplicateClaimIdByCompositeKey).not.toHaveBeenCalled();
   });
 
   test("updateClaimByFinanceAction rethrows non-duplicate unexpected errors", async () => {

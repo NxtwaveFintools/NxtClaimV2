@@ -1,4 +1,10 @@
 import { getServiceRoleSupabaseClient } from "@/core/infra/supabase/server-client";
+import { toEndOfDayIso, toStartOfDayIso } from "@/lib/date-only";
+import {
+  buildBeneficiaryScopedIlikeOrFilter,
+  toContainsIlikePattern,
+  toQuotedContainsIlikePattern,
+} from "@/lib/postgrest-search";
 import {
   DB_FINANCE_APPROVED_PAYMENT_UNDER_PROCESS_STATUS,
   DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
@@ -21,6 +27,7 @@ import type {
   AdminRecord,
   AdminRepository,
   AdminUserRecord,
+  CreatedDepartmentRecord,
   DepartmentViewerAdminRecord,
   DepartmentWithActors,
   FinanceApproverRecord,
@@ -56,23 +63,12 @@ function hasAdvancedDateFilters(filters: AdminClaimsFilters): boolean {
   );
 }
 
-function toStartOfDayIso(date: string): string {
-  return `${date}T00:00:00.000Z`;
-}
-
-function toEndOfDayIso(date: string): string {
-  return `${date}T23:59:59.999Z`;
-}
-
-const POSTGREST_SUBMISSION_TYPE_SELF = '"Self"';
-const POSTGREST_SUBMISSION_TYPE_ON_BEHALF = '"On Behalf"';
-
 function buildBeneficiaryScopedSearchOrFilter(input: {
   searchQuery: string;
   selfField: string;
   onBehalfField: string;
 }): string {
-  return `and(submission_type.eq.${POSTGREST_SUBMISSION_TYPE_SELF},${input.selfField}.ilike.%${input.searchQuery}%),and(submission_type.eq.${POSTGREST_SUBMISSION_TYPE_ON_BEHALF},${input.onBehalfField}.ilike.%${input.searchQuery}%)`;
+  return buildBeneficiaryScopedIlikeOrFilter(input);
 }
 
 function buildEmployeeNameSearchOrFilter(searchQuery: string): string {
@@ -252,6 +248,11 @@ function pickClaimAmount(input: {
   return 0;
 }
 
+function isAlreadyRegisteredError(message: string): boolean {
+  const normalized = message.trim().toLowerCase();
+  return normalized.includes("already registered") || normalized.includes("already exists");
+}
+
 // ----------------------------------------------------------------
 // Raw row types (Supabase response shapes)
 // ----------------------------------------------------------------
@@ -335,6 +336,14 @@ type MasterDataRow = {
   is_active: boolean;
 };
 
+type DepartmentInsertRow = {
+  id: string;
+  name: string;
+  hod_user_id: string;
+  founder_user_id: string;
+  is_active: boolean;
+};
+
 type ClaimOverrideExpenseRow = {
   total_amount: number | string | null;
   is_active: boolean | null;
@@ -387,6 +396,75 @@ export class SupabaseAdminRepository implements AdminRepository {
     return getServiceRoleSupabaseClient();
   }
 
+  private async lookupUserIdByEmail(
+    email: string,
+  ): Promise<{ userId: string | null; errorMessage: string | null }> {
+    const { data, error } = await this.client
+      .from("users")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (error) {
+      return { userId: null, errorMessage: error.message };
+    }
+
+    return {
+      userId: (data as { id: string } | null)?.id ?? null,
+      errorMessage: null,
+    };
+  }
+
+  private async resolveUserIdByEmail(
+    email: string,
+  ): Promise<{ userId: string | null; errorMessage: string | null }> {
+    const normalizedEmail = email.trim().toLowerCase();
+    const existingLookup = await this.lookupUserIdByEmail(normalizedEmail);
+
+    if (existingLookup.errorMessage) {
+      return existingLookup;
+    }
+
+    if (existingLookup.userId) {
+      return existingLookup;
+    }
+
+    const { data: createdUserData, error: createUserError } =
+      await this.client.auth.admin.createUser({
+        email: normalizedEmail,
+        password: "password123",
+        email_confirm: true,
+      });
+
+    if (createUserError) {
+      if (isAlreadyRegisteredError(createUserError.message)) {
+        const retryLookup = await this.lookupUserIdByEmail(normalizedEmail);
+        if (retryLookup.errorMessage) {
+          return retryLookup;
+        }
+
+        if (retryLookup.userId) {
+          return retryLookup;
+        }
+
+        return {
+          userId: null,
+          errorMessage:
+            "User account exists but UUID could not be resolved from public.users. Please retry.",
+        };
+      }
+
+      return { userId: null, errorMessage: createUserError.message };
+    }
+
+    const createdUserId = createdUserData.user?.id ?? null;
+    if (!createdUserId) {
+      return { userId: null, errorMessage: "Unable to provision user account." };
+    }
+
+    return { userId: createdUserId, errorMessage: null };
+  }
+
   // ─── Claims ───────────────────────────────────────────────────
 
   async getAllClaims(
@@ -418,7 +496,7 @@ export class SupabaseAdminRepository implements AdminRepository {
     if (filters.searchQuery) {
       const sq = filters.searchQuery;
       if (filters.searchField === "claim_id") {
-        query = query.ilike("claim_id", `%${sq}%`);
+        query = query.ilike("claim_id", toContainsIlikePattern(sq));
       } else if (filters.searchField === "employee_name") {
         query = query.or(buildEmployeeNameSearchOrFilter(sq));
       } else if (filters.searchField === "employee_id") {
@@ -427,7 +505,7 @@ export class SupabaseAdminRepository implements AdminRepository {
         query = query.or(buildEmployeeEmailSearchOrFilter(sq));
       } else {
         query = query.or(
-          `claim_id.ilike.%${sq}%,${buildEmployeeNameSearchOrFilter(sq)},${buildEmployeeIdSearchOrFilter(sq)},${buildEmployeeEmailSearchOrFilter(sq)}`,
+          `claim_id.ilike.${toQuotedContainsIlikePattern(sq)},${buildEmployeeNameSearchOrFilter(sq)},${buildEmployeeIdSearchOrFilter(sq)},${buildEmployeeEmailSearchOrFilter(sq)}`,
         );
       }
     }
@@ -1107,6 +1185,75 @@ export class SupabaseAdminRepository implements AdminRepository {
     }
 
     return { success: true, errorMessage: null };
+  }
+
+  async createDepartmentWithActorsByEmail(input: {
+    name: string;
+    hodEmail: string;
+    founderEmail: string;
+  }): Promise<{ data: CreatedDepartmentRecord | null; errorMessage: string | null }> {
+    const name = input.name.trim();
+    const hodEmail = input.hodEmail.trim().toLowerCase();
+    const founderEmail = input.founderEmail.trim().toLowerCase();
+
+    if (hodEmail === founderEmail) {
+      return { data: null, errorMessage: "HOD and Founder cannot be the same person." };
+    }
+
+    const [hodLookup, founderLookup] = await Promise.all([
+      this.resolveUserIdByEmail(hodEmail),
+      this.resolveUserIdByEmail(founderEmail),
+    ]);
+
+    if (hodLookup.errorMessage) {
+      return { data: null, errorMessage: hodLookup.errorMessage };
+    }
+
+    if (founderLookup.errorMessage) {
+      return { data: null, errorMessage: founderLookup.errorMessage };
+    }
+
+    const hodUserId = hodLookup.userId;
+    const founderUserId = founderLookup.userId;
+
+    if (!hodUserId || !founderUserId) {
+      return {
+        data: null,
+        errorMessage: "Failed to resolve HOD/Founder user IDs.",
+      };
+    }
+
+    if (hodUserId === founderUserId) {
+      return { data: null, errorMessage: "HOD and Founder cannot be the same person." };
+    }
+
+    const { data, error } = await this.client
+      .from("master_departments")
+      .insert({
+        name,
+        hod_user_id: hodUserId,
+        founder_user_id: founderUserId,
+        hod_provisional_email: null,
+        founder_provisional_email: null,
+      })
+      .select("id, name, hod_user_id, founder_user_id, is_active")
+      .single();
+
+    if (error) {
+      return { data: null, errorMessage: error.message };
+    }
+
+    const row = data as DepartmentInsertRow;
+    return {
+      data: {
+        id: row.id,
+        name: row.name,
+        hodUserId: row.hod_user_id,
+        founderUserId: row.founder_user_id,
+        isActive: row.is_active,
+      },
+      errorMessage: null,
+    };
   }
 
   // ─── Finance approvers ────────────────────────────────────────

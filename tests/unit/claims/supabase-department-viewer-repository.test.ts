@@ -202,7 +202,7 @@ describe("SupabaseDepartmentViewerRepository", () => {
     ]);
     expect(chain.in).toHaveBeenCalledWith("department_id", ["dep-1"]);
     expect(chain.or).toHaveBeenCalledWith(
-      'and(submission_type.eq."Self",submitter_name_raw.ilike.%Bo%),and(submission_type.eq."On Behalf",beneficiary_name_raw.ilike.%Bo%)',
+      'and(submission_type.eq."Self",submitter_name_raw.ilike."%Bo%"),and(submission_type.eq."On Behalf",beneficiary_name_raw.ilike."%Bo%")',
     );
     expect(chain.eq).toHaveBeenCalledWith("submission_type", "Self");
     expect(chain.gte).toHaveBeenCalledWith("submitted_on", "2026-03-01T00:00:00.000Z");
@@ -246,7 +246,7 @@ describe("SupabaseDepartmentViewerRepository", () => {
     );
 
     expect(chain.or).toHaveBeenCalledWith(
-      'and(submission_type.eq."Self",claim_employee_id_raw.ilike.%EMP-009%),and(submission_type.eq."On Behalf",on_behalf_employee_code_raw.ilike.%EMP-009%)',
+      'and(submission_type.eq."Self",claim_employee_id_raw.ilike."%EMP-009%"),and(submission_type.eq."On Behalf",on_behalf_employee_code_raw.ilike."%EMP-009%")',
     );
     expect(chain.ilike).not.toHaveBeenCalledWith("employee_id", "%EMP-009%");
   });

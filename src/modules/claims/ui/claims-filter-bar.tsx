@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useSessionStorage } from "@/hooks/use-session-storage";
 import { ROUTES } from "@/core/config/route-registry";
 import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
+import { normalizeIsoDateOnly } from "@/lib/date-only";
 import { getAccessTokenAction } from "@/modules/auth/actions";
 import { AdvancedFiltersSheet } from "@/modules/claims/ui/advanced-filters-sheet";
 import type {
@@ -96,13 +97,12 @@ function resolveSmartDateTarget(status: string): ClaimDateTarget {
 }
 
 function parseIsoDateOnly(value: string): Date | null {
-  const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
-
-  if (!isoDatePattern.test(value)) {
+  const normalized = normalizeIsoDateOnly(value);
+  if (!normalized) {
     return null;
   }
 
-  const parsed = new Date(`${value}T00:00:00.000Z`);
+  const parsed = new Date(`${normalized}T00:00:00.000Z`);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
@@ -173,6 +173,20 @@ function setOrDeleteTrimmedParam(params: URLSearchParams, key: string, value: st
   params.delete(key);
 }
 
+function setOrDeleteIsoDateParam(params: URLSearchParams, key: string, value: string): void {
+  const normalized = normalizeIsoDateOnly(value);
+  if (normalized) {
+    params.set(key, normalized);
+    return;
+  }
+
+  params.delete(key);
+}
+
+function normalizeDateQueryValue(value: string): string {
+  return normalizeIsoDateOnly(value) ?? "";
+}
+
 function hasActiveStoredFilterState(filters: StoredFilterState): boolean {
   if (filters.searchInput.trim().length > 0) {
     return true;
@@ -221,8 +235,8 @@ function applyStoredFiltersToParams(params: URLSearchParams, filters: StoredFilt
   setOrDeleteTrimmedParam(params, "product_id", filters.localProductId);
   setOrDeleteTrimmedParam(params, "expense_category_id", filters.localExpenseCategoryId);
   setOrDeleteTrimmedParam(params, "status", filters.localStatus);
-  setOrDeleteTrimmedParam(params, "from", filters.localFromDate);
-  setOrDeleteTrimmedParam(params, "to", filters.localToDate);
+  setOrDeleteIsoDateParam(params, "from", filters.localFromDate);
+  setOrDeleteIsoDateParam(params, "to", filters.localToDate);
 
   const fromDate = filters.localFromDate.trim();
   const toDate = filters.localToDate.trim();
@@ -333,11 +347,11 @@ export function ClaimsFilterBar({
   );
   const [localFromDate, setLocalFromDate] = useSessionStorage(
     storageKeys.fromDate,
-    searchParams.get("from") ?? "",
+    normalizeDateQueryValue(searchParams.get("from") ?? ""),
   );
   const [localToDate, setLocalToDate] = useSessionStorage(
     storageKeys.toDate,
-    searchParams.get("to") ?? "",
+    normalizeDateQueryValue(searchParams.get("to") ?? ""),
   );
 
   const filtersParam = currentParams.get("filters");
@@ -375,8 +389,8 @@ export function ClaimsFilterBar({
       setLocalProductId(searchParams.get("product_id") ?? "");
       setLocalExpenseCategoryId(searchParams.get("expense_category_id") ?? "");
       setLocalStatus(searchParams.get("status") ?? "");
-      setLocalFromDate(searchParams.get("from") ?? "");
-      setLocalToDate(searchParams.get("to") ?? "");
+      setLocalFromDate(normalizeDateQueryValue(searchParams.get("from") ?? ""));
+      setLocalToDate(normalizeDateQueryValue(searchParams.get("to") ?? ""));
 
       setHasInitializedFilterState(true);
       return;
@@ -406,8 +420,8 @@ export function ClaimsFilterBar({
       localProductId: readStoredValue(storageKeys.productId, ""),
       localExpenseCategoryId: readStoredValue(storageKeys.expenseCategoryId, ""),
       localStatus: readStoredValue(storageKeys.status, ""),
-      localFromDate: readStoredValue(storageKeys.fromDate, ""),
-      localToDate: readStoredValue(storageKeys.toDate, ""),
+      localFromDate: normalizeDateQueryValue(readStoredValue(storageKeys.fromDate, "")),
+      localToDate: normalizeDateQueryValue(readStoredValue(storageKeys.toDate, "")),
     };
 
     if (!hasActiveStoredFilterState(storedFilters)) {
@@ -475,8 +489,8 @@ export function ClaimsFilterBar({
     setLocalProductId(searchParams.get("product_id") ?? "");
     setLocalExpenseCategoryId(searchParams.get("expense_category_id") ?? "");
     setLocalStatus(searchParams.get("status") ?? "");
-    setLocalFromDate(searchParams.get("from") ?? "");
-    setLocalToDate(searchParams.get("to") ?? "");
+    setLocalFromDate(normalizeDateQueryValue(searchParams.get("from") ?? ""));
+    setLocalToDate(normalizeDateQueryValue(searchParams.get("to") ?? ""));
     // Setter functions from useSessionStorage are intentionally omitted to avoid
     // effect churn from unstable function identities.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -554,19 +568,22 @@ export function ClaimsFilterBar({
   // Helpers: update local state immediately → push to URL inside startTransition
   // ---------------------------------------------------------------------------
   function setParam(name: string, value: string, localSetter: (v: string) => void): void {
-    localSetter(value);
+    const nextValue =
+      name === "from" || name === "to" ? (normalizeIsoDateOnly(value) ?? "") : value;
+
+    localSetter(nextValue);
 
     const nextParams = new URLSearchParams(searchParams.toString());
 
-    if (value) {
-      nextParams.set(name, value);
+    if (nextValue) {
+      nextParams.set(name, nextValue);
     } else {
       nextParams.delete(name);
     }
 
     if (name === "status" || name === "from" || name === "to") {
-      const fromDate = (name === "from" ? value : (nextParams.get("from") ?? "")).trim();
-      const toDate = (name === "to" ? value : (nextParams.get("to") ?? "")).trim();
+      const fromDate = (name === "from" ? nextValue : (nextParams.get("from") ?? "")).trim();
+      const toDate = (name === "to" ? nextValue : (nextParams.get("to") ?? "")).trim();
       const activeStatus = (name === "status" ? value : (nextParams.get("status") ?? "")).trim();
 
       if (fromDate || toDate) {

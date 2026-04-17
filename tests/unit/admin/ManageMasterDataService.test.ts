@@ -28,6 +28,7 @@ function createRepository(overrides?: Partial<AdminRepository>): AdminRepository
     getDepartmentsWithActors: jest.fn(),
     updateDepartmentActors: jest.fn(),
     updateDepartmentActorsByEmail: jest.fn(),
+    createDepartmentWithActorsByEmail: jest.fn(async () => ({ data: null, errorMessage: null })),
     getFinanceApprovers: jest.fn(),
     createFinanceApprover: jest.fn(),
     updateFinanceApprover: jest.fn(),

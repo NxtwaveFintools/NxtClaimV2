@@ -1,4 +1,10 @@
 import { getServiceRoleSupabaseClient } from "@/core/infra/supabase/server-client";
+import { toEndOfDayIso, toStartOfDayIso } from "@/lib/date-only";
+import {
+  buildBeneficiaryScopedIlikeOrFilter,
+  toContainsIlikePattern,
+  toQuotedContainsIlikePattern,
+} from "@/lib/postgrest-search";
 import type {
   DepartmentViewerClaimRecord,
   DepartmentViewerDepartment,
@@ -52,15 +58,12 @@ function normalizeRelation<T>(value: T | T[] | null | undefined): T | null {
   return value;
 }
 
-const POSTGREST_SUBMISSION_TYPE_SELF = '"Self"';
-const POSTGREST_SUBMISSION_TYPE_ON_BEHALF = '"On Behalf"';
-
 function buildBeneficiaryScopedSearchOrFilter(input: {
   searchQuery: string;
   selfField: string;
   onBehalfField: string;
 }): string {
-  return `and(submission_type.eq.${POSTGREST_SUBMISSION_TYPE_SELF},${input.selfField}.ilike.%${input.searchQuery}%),and(submission_type.eq.${POSTGREST_SUBMISSION_TYPE_ON_BEHALF},${input.onBehalfField}.ilike.%${input.searchQuery}%)`;
+  return buildBeneficiaryScopedIlikeOrFilter(input);
 }
 
 function buildEmployeeNameSearchOrFilter(searchQuery: string): string {
@@ -164,7 +167,7 @@ export class SupabaseDepartmentViewerRepository implements DepartmentViewerRepos
     if (filters.searchQuery) {
       const sq = filters.searchQuery;
       if (filters.searchField === "claim_id") {
-        query = query.ilike("claim_id", `%${sq}%`);
+        query = query.ilike("claim_id", toContainsIlikePattern(sq));
       } else if (filters.searchField === "employee_name") {
         query = query.or(buildEmployeeNameSearchOrFilter(sq));
       } else if (filters.searchField === "employee_id") {
@@ -173,7 +176,7 @@ export class SupabaseDepartmentViewerRepository implements DepartmentViewerRepos
         query = query.or(buildEmployeeEmailSearchOrFilter(sq));
       } else {
         query = query.or(
-          `claim_id.ilike.%${sq}%,${buildEmployeeNameSearchOrFilter(sq)},${buildEmployeeIdSearchOrFilter(sq)},${buildEmployeeEmailSearchOrFilter(sq)}`,
+          `claim_id.ilike.${toQuotedContainsIlikePattern(sq)},${buildEmployeeNameSearchOrFilter(sq)},${buildEmployeeIdSearchOrFilter(sq)},${buildEmployeeEmailSearchOrFilter(sq)}`,
         );
       }
     }
@@ -213,7 +216,7 @@ export class SupabaseDepartmentViewerRepository implements DepartmentViewerRepos
           : filters.dateTarget === "finance_closed"
             ? "finance_action_date"
             : "submitted_on";
-      query = query.gte(column, `${filters.dateFrom}T00:00:00.000Z`);
+      query = query.gte(column, toStartOfDayIso(filters.dateFrom));
     }
 
     if (filters.dateTo) {
@@ -223,7 +226,7 @@ export class SupabaseDepartmentViewerRepository implements DepartmentViewerRepos
           : filters.dateTarget === "finance_closed"
             ? "finance_action_date"
             : "submitted_on";
-      query = query.lte(column, `${filters.dateTo}T23:59:59.999Z`);
+      query = query.lte(column, toEndOfDayIso(filters.dateTo));
     }
 
     if (pagination.cursor) {

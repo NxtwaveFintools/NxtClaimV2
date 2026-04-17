@@ -13,6 +13,7 @@ import type { DepartmentViewerFilters, ClaimSubmissionType } from "@/core/domain
 import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
 import { ROUTES } from "@/core/config/route-registry";
 import { redirect } from "next/navigation";
+import { normalizeIsoDateOnly } from "@/lib/date-only";
 
 type SearchParamsValue = string | string[] | undefined;
 type ClaimsPaginationState = {
@@ -32,6 +33,10 @@ function normalizeStatusFilter(value: string | undefined): DbClaimStatus[] | und
     .map((entry) => entry.trim())
     .filter((entry): entry is DbClaimStatus => DB_CLAIM_STATUSES.includes(entry as DbClaimStatus));
   return parsed.length === 0 ? undefined : parsed;
+}
+
+function normalizeDate(value: string | undefined): string | undefined {
+  return normalizeIsoDateOnly(value);
 }
 
 const PAGE_SIZE = 10;
@@ -69,8 +74,8 @@ async function DepartmentClaimsTableSection({
     dateTarget:
       (firstParamValue(searchParams?.date_target) as DepartmentViewerFilters["dateTarget"]) ||
       undefined,
-    dateFrom: firstParamValue(searchParams?.from)?.trim() || undefined,
-    dateTo: firstParamValue(searchParams?.to)?.trim() || undefined,
+    dateFrom: normalizeDate(firstParamValue(searchParams?.from)?.trim() || undefined),
+    dateTo: normalizeDate(firstParamValue(searchParams?.to)?.trim() || undefined),
   };
 
   const result = await service.execute({

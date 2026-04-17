@@ -220,6 +220,7 @@ Clamp result between 0 and 100.
 STRICT OUTPUT RULES:
 
 - Return EXACTLY ONE JSON object.
+- Return ONLY raw, valid JSON. Do NOT use markdown formatting, backticks, or conversational text.
 - NO markdown, NO \`\`\`json\`\`\` fences, NO explanation, NO extra text.
 - NEVER leave numeric fields undefined.
 - NEVER output commas inside numbers.
@@ -345,13 +346,13 @@ function clampConfidence(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
-function safeParseJSON(text: string): unknown | null {
+function safeParseJSON(aiResponseText: string): unknown | null {
   try {
-    const cleaned = text
-      .replace(/```json/gi, "")
+    const cleanText = aiResponseText
+      .replace(/```json/g, "")
       .replace(/```/g, "")
       .trim();
-    const normalized = cleaned.replace(/\\u(?![0-9a-fA-F]{4})/g, "");
+    const normalized = cleanText.replace(/\\u(?![0-9a-fA-F]{4})/g, "");
     const match = normalized.match(/\{[\s\S]*\}/);
 
     if (!match) {
@@ -473,6 +474,10 @@ async function generateGeminiContentWithRetry(
   for (let attempt = 1; attempt <= GEMINI_MAX_ATTEMPTS; attempt += 1) {
     try {
       return await model.generateContent({
+        generationConfig: {
+          responseMimeType: "application/json",
+          temperature: 0,
+        },
         contents: [
           {
             role: "user",

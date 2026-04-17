@@ -22,6 +22,7 @@ function createRepository(overrides?: Partial<AdminRepository>): AdminRepository
     getDepartmentsWithActors: jest.fn(),
     updateDepartmentActors: jest.fn(),
     updateDepartmentActorsByEmail: jest.fn(),
+    createDepartmentWithActorsByEmail: jest.fn(),
     getFinanceApprovers: jest.fn(),
     createFinanceApprover: jest.fn(),
     updateFinanceApprover: jest.fn(),

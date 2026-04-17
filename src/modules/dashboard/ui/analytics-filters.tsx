@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { DashboardAnalyticsOption } from "@/core/domain/dashboard/contracts";
+import { normalizeIsoDateOnly } from "@/lib/date-only";
 
 type AnalyticsFiltersProps = {
   fromDate: string;
@@ -69,9 +70,12 @@ function detectPresetValue(fromDate: string, toDate: string): QuickPresetValue {
 }
 
 function applyDateParams(next: URLSearchParams, from: string, to: string): void {
-  if (from && to) {
-    next.set("from", from);
-    next.set("to", to);
+  const normalizedFrom = normalizeIsoDateOnly(from);
+  const normalizedTo = normalizeIsoDateOnly(to);
+
+  if (normalizedFrom && normalizedTo) {
+    next.set("from", normalizedFrom);
+    next.set("to", normalizedTo);
   } else {
     next.delete("from");
     next.delete("to");
@@ -99,8 +103,8 @@ export function AnalyticsFilters({
   const [selectedPreset, setSelectedPreset] = useState<QuickPresetValue>(
     detectPresetValue(fromDate, toDate),
   );
-  const [draftFromDate, setDraftFromDate] = useState(fromDate);
-  const [draftToDate, setDraftToDate] = useState(toDate);
+  const [draftFromDate, setDraftFromDate] = useState(normalizeIsoDateOnly(fromDate) ?? "");
+  const [draftToDate, setDraftToDate] = useState(normalizeIsoDateOnly(toDate) ?? "");
   const [draftDepartmentId, setDraftDepartmentId] = useState(selectedDepartmentId);
   const [draftExpenseCategoryId, setDraftExpenseCategoryId] = useState(selectedExpenseCategoryId);
   const [draftProductId, setDraftProductId] = useState(selectedProductId);

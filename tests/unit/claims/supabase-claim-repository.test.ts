@@ -199,7 +199,7 @@ describe("SupabaseClaimRepository.getMyClaims", () => {
     });
 
     expect(queryBuilder.or).toHaveBeenCalledWith(
-      'and(submission_type.eq."Self",claim_employee_id_raw.ilike.%EMP-050%),and(submission_type.eq."On Behalf",on_behalf_employee_code_raw.ilike.%EMP-050%)',
+      'and(submission_type.eq."Self",claim_employee_id_raw.ilike."%EMP-050%"),and(submission_type.eq."On Behalf",on_behalf_employee_code_raw.ilike."%EMP-050%")',
     );
     expect(queryBuilder.ilike).not.toHaveBeenCalledWith("employee_id", "%EMP-050%");
   });
@@ -541,7 +541,9 @@ describe("SupabaseClaimRepository.updateClaimDetailsByFinance", () => {
       bankStatementFilePath: null,
     });
 
-    expect(result).toEqual({ errorMessage: "Active expense detail not found for claim." });
+    expect(result).toEqual({
+      errorMessage: "Cannot edit: Expense details missing or soft-deleted.",
+    });
   });
 });
 
