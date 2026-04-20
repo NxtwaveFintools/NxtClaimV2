@@ -50,6 +50,7 @@ type ClaimFullDetailsGridProps = {
   includeAdvanceDetail?: boolean;
   viewMode?: "full" | "quick-view";
   showAiWarnings?: boolean;
+  visualStyle?: "default" | "minimal";
 };
 
 const AI_AMOUNT_FIELDS = new Set([
@@ -91,11 +92,30 @@ export function ClaimFullDetailsGrid({
   includeAdvanceDetail = true,
   viewMode = "full",
   showAiWarnings = false,
+  visualStyle = "default",
 }: ClaimFullDetailsGridProps) {
   const isQuickViewMode = viewMode === "quick-view";
+  const isMinimalVisual = visualStyle === "minimal";
+  const microGridClassName = "grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mt-6";
+  const microCardClassName =
+    "bg-muted/30 border border-border/40 rounded-lg p-4 flex flex-col justify-start h-full";
+  const microLabelClassName =
+    "text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1";
+  const microValueClassName = "text-sm md:text-base text-foreground font-medium break-words";
   const summaryGridClasses = isQuickViewMode
     ? "mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2"
-    : "mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4";
+    : isMinimalVisual
+      ? microGridClassName
+      : "mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4";
+  const summaryCardClassName = isMinimalVisual
+    ? microCardClassName
+    : "rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40";
+  const detailSectionClassName = isMinimalVisual
+    ? "mt-6"
+    : "mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900";
+  const detailHeadingClassName = isMinimalVisual
+    ? "text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400"
+    : "text-xs font-semibold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-400";
   const shouldShowExpenseTaxBreakdown =
     !!claim.expense &&
     (claim.expense.isGstApplicable === true ||
@@ -149,185 +169,161 @@ export function ClaimFullDetailsGrid({
     );
   };
 
+  const fieldLabelClassName = isMinimalVisual
+    ? microLabelClassName
+    : "text-[10px] font-semibold uppercase tracking-wider text-slate-400";
+  const fieldValueClassName = isMinimalVisual
+    ? microValueClassName
+    : "mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100";
+  const emphasizedValueClassName = isMinimalVisual
+    ? microValueClassName
+    : "mt-0.5 text-sm font-bold text-slate-900 dark:text-slate-100";
+  const detailGridClassName = isMinimalVisual
+    ? microGridClassName
+    : "mt-3 grid grid-cols-2 gap-x-6 gap-y-2.5 md:grid-cols-3";
+  const detailCardClassName = isMinimalVisual ? microCardClassName : undefined;
+
   return (
     <>
       {includeSummary ? (
         <div className={summaryGridClasses}>
           {isQuickViewMode ? null : (
-            <article className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Amount
-              </p>
-              <p className="mt-1 text-sm font-bold text-slate-900 dark:text-slate-100">
-                {formatAmount(totalAmount)}
-              </p>
+            <article className={summaryCardClassName}>
+              <p className={fieldLabelClassName}>Amount</p>
+              <p className={emphasizedValueClassName}>{formatAmount(totalAmount)}</p>
             </article>
           )}
           {isQuickViewMode ? null : (
-            <article className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Transaction Date
-              </p>
-              <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
-                {formatDate(transactionDate)}
-              </p>
+            <article className={summaryCardClassName}>
+              <p className={fieldLabelClassName}>Transaction Date</p>
+              <p className={fieldValueClassName}>{formatDate(transactionDate)}</p>
             </article>
           )}
-          <article className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              Category
-            </p>
-            <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
-              {formatOptionalText(categoryLabel)}
-            </p>
-          </article>
           <article
-            className={`rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40 ${
-              isQuickViewMode ? "sm:col-span-2" : ""
+            className={`${summaryCardClassName} ${
+              isMinimalVisual ? "col-span-2 md:col-span-2" : ""
             }`}
           >
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              Payment Mode
-            </p>
-            <p className="mt-1 whitespace-normal break-words text-sm font-medium text-slate-900 dark:text-slate-100">
-              {claim.paymentModeName ?? "Unknown"}
-            </p>
+            <p className={fieldLabelClassName}>Category</p>
+            <p className={fieldValueClassName}>{formatOptionalText(categoryLabel)}</p>
+          </article>
+          <article
+            className={`${summaryCardClassName} ${
+              isQuickViewMode ? "sm:col-span-2" : isMinimalVisual ? "col-span-2 md:col-span-2" : ""
+            }`}
+          >
+            <p className={fieldLabelClassName}>Payment Mode</p>
+            <p className={fieldValueClassName}>{claim.paymentModeName ?? "Unknown"}</p>
           </article>
           {isQuickViewMode ? null : (
-            <article className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Bill No
-              </p>
-              <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+            <article
+              className={`${summaryCardClassName} ${
+                isMinimalVisual ? "col-span-2 md:col-span-2" : ""
+              }`}
+            >
+              <p className={fieldLabelClassName}>Bill No</p>
+              <p className={fieldValueClassName}>
                 {formatOptionalText(claim.expense?.billNo, "-")}
               </p>
             </article>
           )}
-          <article className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              Department
-            </p>
-            <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
-              {claim.departmentName ?? "Unknown"}
-            </p>
+          <article className={summaryCardClassName}>
+            <p className={fieldLabelClassName}>Department</p>
+            <p className={fieldValueClassName}>{claim.departmentName ?? "Unknown"}</p>
           </article>
           {isQuickViewMode ? null : (
-            <article className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-800/40">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Submitted On
-              </p>
-              <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
-                {formatDate(claim.submittedAt)}
-              </p>
+            <article className={summaryCardClassName}>
+              <p className={fieldLabelClassName}>Submitted On</p>
+              <p className={fieldValueClassName}>{formatDate(claim.submittedAt)}</p>
             </article>
           )}
         </div>
       ) : null}
 
       {includeExpenseDetail && claim.expense ? (
-        <section className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-400">
-            Expense Detail
-          </h2>
-          <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2.5 md:grid-cols-3">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                Bill No
-              </p>
-              <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
-                {formatOptionalText(claim.expense.billNo, "-")}
-              </p>
+        <section className={detailSectionClassName}>
+          <h2 className={detailHeadingClassName}>Expense Detail</h2>
+          <div className={detailGridClassName}>
+            <div
+              className={
+                isMinimalVisual ? `${microCardClassName} col-span-2 md:col-span-2` : undefined
+              }
+            >
+              <p className={fieldLabelClassName}>Bill No</p>
+              <p className={fieldValueClassName}>{formatOptionalText(claim.expense.billNo, "-")}</p>
               {renderAiWarning("bill_no")}
             </div>
             {isQuickViewMode ? null : (
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                  Vendor
-                </p>
-                <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+              <div className={detailCardClassName}>
+                <p className={fieldLabelClassName}>Vendor</p>
+                <p className={fieldValueClassName}>
                   {formatOptionalText(claim.expense.vendorName)}
                 </p>
                 {renderAiWarning("vendor_name")}
               </div>
             )}
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                Transaction Date
-              </p>
-              <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
-                {formatDate(claim.expense.transactionDate)}
-              </p>
+            <div className={detailCardClassName}>
+              <p className={fieldLabelClassName}>Transaction Date</p>
+              <p className={fieldValueClassName}>{formatDate(claim.expense.transactionDate)}</p>
               {renderAiWarning("transaction_date")}
             </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">
-                Total Amount
-              </p>
-              <p className="mt-0.5 text-sm font-bold text-slate-900 dark:text-slate-100">
-                {formatAmount(claim.expense.totalAmount)}
-              </p>
+            <div className={detailCardClassName}>
+              <p className={fieldLabelClassName}>Total Amount</p>
+              <p className={emphasizedValueClassName}>{formatAmount(claim.expense.totalAmount)}</p>
               {renderAiWarning("total_amount")}
             </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                Purpose
-              </p>
-              <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
-                {formatOptionalText(claim.expense.purpose)}
-              </p>
+            <div
+              className={
+                isMinimalVisual ? `${microCardClassName} col-span-2 md:col-span-full` : undefined
+              }
+            >
+              <p className={fieldLabelClassName}>Purpose</p>
+              <p className={fieldValueClassName}>{formatOptionalText(claim.expense.purpose)}</p>
             </div>
             {isQuickViewMode ? null : (
               <>
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    Expense Category
-                  </p>
-                  <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                <div
+                  className={
+                    isMinimalVisual ? `${microCardClassName} col-span-2 md:col-span-2` : undefined
+                  }
+                >
+                  <p className={fieldLabelClassName}>Expense Category</p>
+                  <p className={fieldValueClassName}>
                     {formatOptionalText(claim.expense.expenseCategoryName)}
                   </p>
                   {renderAiWarning("expense_category_id")}
                 </div>
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    Product
-                  </p>
-                  <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                <div className={detailCardClassName}>
+                  <p className={fieldLabelClassName}>Product</p>
+                  <p className={fieldValueClassName}>
                     {formatOptionalText(claim.expense.productName)}
                   </p>
                 </div>
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    Location
-                  </p>
-                  <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                <div className={detailCardClassName}>
+                  <p className={fieldLabelClassName}>Location</p>
+                  <p className={fieldValueClassName}>
                     {formatOptionalText(claim.expense.locationName)}
                   </p>
                 </div>
                 {claim.expense.locationType ? (
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                      Location Type
-                    </p>
-                    <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
-                      {claim.expense.locationType}
-                    </p>
+                  <div className={detailCardClassName}>
+                    <p className={fieldLabelClassName}>Location Type</p>
+                    <p className={fieldValueClassName}>{claim.expense.locationType}</p>
                   </div>
                 ) : null}
                 {claim.expense.locationDetails ? (
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                      Location Details
-                    </p>
-                    <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
-                      {claim.expense.locationDetails}
-                    </p>
+                  <div
+                    className={
+                      isMinimalVisual ? `${microCardClassName} col-span-2 md:col-span-2` : undefined
+                    }
+                  >
+                    <p className={fieldLabelClassName}>Location Details</p>
+                    <p className={fieldValueClassName}>{claim.expense.locationDetails}</p>
                   </div>
                 ) : null}
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    GST Applicable
-                  </p>
-                  <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                <div className={detailCardClassName}>
+                  <p className={fieldLabelClassName}>GST Applicable</p>
+                  <p className={fieldValueClassName}>
                     {claim.expense.isGstApplicable === null
                       ? "N/A"
                       : claim.expense.isGstApplicable
@@ -335,68 +331,62 @@ export function ClaimFullDetailsGrid({
                         : "No"}
                   </p>
                 </div>
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    GST Number
-                  </p>
-                  <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                <div className={detailCardClassName}>
+                  <p className={fieldLabelClassName}>GST Number</p>
+                  <p className={fieldValueClassName}>
                     {formatOptionalText(claim.expense.gstNumber)}
                   </p>
                   {renderAiWarning("gst_number")}
                 </div>
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    Basic Amount
-                  </p>
-                  <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
-                    {formatAmount(claim.expense.basicAmount)}
-                  </p>
+                <div className={detailCardClassName}>
+                  <p className={fieldLabelClassName}>Basic Amount</p>
+                  <p className={fieldValueClassName}>{formatAmount(claim.expense.basicAmount)}</p>
                   {renderAiWarning("basic_amount")}
                 </div>
                 {shouldShowExpenseTaxBreakdown ? (
                   <>
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                        CGST
-                      </p>
-                      <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                    <div className={detailCardClassName}>
+                      <p className={fieldLabelClassName}>CGST</p>
+                      <p className={fieldValueClassName}>
                         {formatAmount(claim.expense.cgstAmount)}
                       </p>
                       {renderAiWarning("cgst_amount")}
                     </div>
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                        SGST
-                      </p>
-                      <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                    <div className={detailCardClassName}>
+                      <p className={fieldLabelClassName}>SGST</p>
+                      <p className={fieldValueClassName}>
                         {formatAmount(claim.expense.sgstAmount)}
                       </p>
                       {renderAiWarning("sgst_amount")}
                     </div>
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                        IGST
-                      </p>
-                      <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                    <div className={detailCardClassName}>
+                      <p className={fieldLabelClassName}>IGST</p>
+                      <p className={fieldValueClassName}>
                         {formatAmount(claim.expense.igstAmount)}
                       </p>
                       {renderAiWarning("igst_amount")}
                     </div>
                   </>
                 ) : null}
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    Remarks
-                  </p>
-                  <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
-                    {formatOptionalText(claim.expense.remarks)}
-                  </p>
+                <div
+                  className={
+                    isMinimalVisual
+                      ? `${microCardClassName} col-span-2 md:col-span-full`
+                      : undefined
+                  }
+                >
+                  <p className={fieldLabelClassName}>Remarks</p>
+                  <p className={fieldValueClassName}>{formatOptionalText(claim.expense.remarks)}</p>
                 </div>
-                <div className="col-span-2 md:col-span-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    People Involved
-                  </p>
-                  <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
+                <div
+                  className={
+                    isMinimalVisual
+                      ? `${microCardClassName} col-span-2 md:col-span-full`
+                      : "col-span-2 md:col-span-1"
+                  }
+                >
+                  <p className={fieldLabelClassName}>People Involved</p>
+                  <p className={fieldValueClassName}>
                     {formatOptionalText(claim.expense.peopleInvolved)}
                   </p>
                 </div>
@@ -407,34 +397,26 @@ export function ClaimFullDetailsGrid({
       ) : null}
 
       {includeAdvanceDetail && claim.advance ? (
-        <section className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-400">
-            Advance Detail
-          </h2>
-          <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2.5 md:grid-cols-3">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                Purpose
-              </p>
-              <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
-                {claim.advance.purpose}
-              </p>
+        <section className={detailSectionClassName}>
+          <h2 className={detailHeadingClassName}>Advance Detail</h2>
+          <div className={detailGridClassName}>
+            <div
+              className={
+                isMinimalVisual ? `${microCardClassName} col-span-2 md:col-span-full` : undefined
+              }
+            >
+              <p className={fieldLabelClassName}>Purpose</p>
+              <p className={fieldValueClassName}>{claim.advance.purpose}</p>
             </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">
-                Requested Amount
-              </p>
-              <p className="mt-0.5 text-sm font-bold text-slate-900 dark:text-slate-100">
+            <div className={detailCardClassName}>
+              <p className={fieldLabelClassName}>Requested Amount</p>
+              <p className={emphasizedValueClassName}>
                 {formatAmount(claim.advance.requestedAmount)}
               </p>
             </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                Expected Usage Date
-              </p>
-              <p className="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">
-                {formatDate(claim.advance.expectedUsageDate)}
-              </p>
+            <div className={detailCardClassName}>
+              <p className={fieldLabelClassName}>Expected Usage Date</p>
+              <p className={fieldValueClassName}>{formatDate(claim.advance.expectedUsageDate)}</p>
             </div>
           </div>
         </section>
