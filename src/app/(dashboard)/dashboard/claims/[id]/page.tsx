@@ -25,6 +25,7 @@ import {
   rejectClaimAction,
   rejectFinanceAction,
   updateClaimByFinanceAction,
+  updateOwnClaimAction,
 } from "@/modules/claims/actions";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
 import { ClaimRejectWithReasonForm } from "@/modules/claims/ui/claim-reject-with-reason-form";
@@ -196,7 +197,13 @@ function ClaimAuditHistorySkeleton() {
   );
 }
 
-async function FinanceEditClaimSection({ claim }: { claim: ClaimDetailRecord }) {
+async function FinanceEditClaimSection({
+  claim,
+  editFlow,
+}: {
+  claim: ClaimDetailRecord;
+  editFlow: "finance" | "own";
+}) {
   const claimRepository = new SupabaseClaimRepository();
 
   const [
@@ -224,13 +231,30 @@ async function FinanceEditClaimSection({ claim }: { claim: ClaimDetailRecord }) 
     ? []
     : expenseCategoriesResult.data;
   const locationOptions = locationsResult.errorMessage ? [] : locationsResult.data;
-  const canEditPaymentMode = claim.status === DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS;
+  const canEditPaymentMode =
+    editFlow === "finance" && claim.status === DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS;
 
   const updateFinanceDetailFromPage = async (
     formData: FormData,
   ): Promise<{ ok: boolean; error?: string }> => {
     "use server";
     const result = await updateClaimByFinanceAction({ claimId: claim.id, formData });
+
+    if (!result.ok) {
+      return {
+        ok: false,
+        error: result.message ?? "Unable to update claim details.",
+      };
+    }
+
+    return { ok: true };
+  };
+
+  const updateOwnDetailFromPage = async (
+    formData: FormData,
+  ): Promise<{ ok: boolean; error?: string }> => {
+    "use server";
+    const result = await updateOwnClaimAction({ claimId: claim.id, formData });
 
     if (!result.ok) {
       return {
@@ -294,7 +318,8 @@ async function FinanceEditClaimSection({ claim }: { claim: ClaimDetailRecord }) 
       locations={locationOptions}
       isEditMode
       canEditPaymentMode={canEditPaymentMode}
-      action={updateFinanceDetailFromPage}
+      requireEditReason={editFlow === "finance"}
+      action={editFlow === "finance" ? updateFinanceDetailFromPage : updateOwnDetailFromPage}
     />
   );
 }
@@ -530,9 +555,10 @@ async function ClaimDetailCore({
     claim.status === DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS ||
     claim.status === DB_REJECTED_RESUBMISSION_ALLOWED_STATUS;
   const isFinanceStatus = isPendingFinanceApprovalStatus(claim.status);
-  const canEditClaim =
-    (isPreHodStatus && (currentUserId === claim.submittedBy || isAssignedL1Approver)) ||
-    (isFinanceStatus && isFinanceActor);
+  const canEditOwnClaim =
+    isPreHodStatus && (currentUserId === claim.submittedBy || isAssignedL1Approver);
+  const canEditFinanceClaim = isFinanceStatus && isFinanceActor;
+  const canEditClaim = canEditOwnClaim || canEditFinanceClaim;
   const isDeptViewerOnly =
     isDepartmentViewerForClaim &&
     currentUserId !== claim.submittedBy &&
@@ -742,7 +768,10 @@ async function ClaimDetailCore({
       {canEditClaim ? (
         <section id="claim-edit-section">
           <Suspense fallback={<FinanceEditClaimSkeleton />}>
-            <FinanceEditClaimSection claim={claim} />
+            <FinanceEditClaimSection
+              claim={claim}
+              editFlow={canEditFinanceClaim ? "finance" : "own"}
+            />
           </Suspense>
         </section>
       ) : null}

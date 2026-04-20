@@ -218,6 +218,8 @@ describe("ApprovalsAuditModeDialog quick view", () => {
     });
 
     const hydrationCallsBeforeSave = mockGetClaimQuickViewHydrationAction.mock.calls.length;
+    const editReasonInput = await screen.findByLabelText(/reason for edit/i);
+    await user.type(editReasonInput, "Test edit reason");
     const saveButton = await screen.findByRole("button", { name: /save changes/i });
     await user.click(saveButton);
 

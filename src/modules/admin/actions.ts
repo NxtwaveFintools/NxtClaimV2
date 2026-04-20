@@ -188,6 +188,7 @@ export async function adminForceUpdateClaimStatusAction(
 export async function forceUpdatePaymentMode(
   claimId: string,
   newPaymentModeId: string,
+  editReason: string,
 ): Promise<{ ok: boolean; message?: string }> {
   const guard = await requireAdmin();
   if ("forbidden" in guard) {
@@ -207,10 +208,16 @@ export async function forceUpdatePaymentMode(
     };
   }
 
+  const reasonResult = claimOverrideReasonSchema.safeParse(editReason);
+  if (!reasonResult.success) {
+    return { ok: false, message: reasonResult.error.issues[0]?.message ?? "Invalid reason." };
+  }
+
   const result = await adminRepository.forceUpdatePaymentMode({
     claimId: claimIdResult.data,
     actorId: guard.userId,
     newPaymentModeId: paymentModeIdResult.data,
+    editReason: reasonResult.data,
   });
 
   if (!result.success) {

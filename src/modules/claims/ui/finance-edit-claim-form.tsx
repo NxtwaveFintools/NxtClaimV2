@@ -79,6 +79,7 @@ type FinanceEditClaimFormProps = {
   locations: DropdownOption[];
   isEditMode?: boolean;
   canEditPaymentMode?: boolean;
+  requireEditReason?: boolean;
   fieldScope?: FinanceEditFieldScope;
   presentation?: FinanceEditPresentation;
   onSuccess?: () => void | Promise<void>;
@@ -155,6 +156,7 @@ export function FinanceEditClaimForm({
   locations,
   isEditMode = true,
   canEditPaymentMode = false,
+  requireEditReason = true,
   fieldScope = "full",
   presentation = "inline-toggle",
   onSuccess,
@@ -880,6 +882,20 @@ export function FinanceEditClaimForm({
               ) : null}
             </>
           )}
+
+          {requireEditReason ? (
+            <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+              Reason for Edit
+              <FormTextarea
+                name="editReason"
+                rows={isQuickViewScope ? 3 : 4}
+                required
+                minLength={5}
+                placeholder="Explain why this claim edit is required for audit tracking."
+                className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              />
+            </label>
+          ) : null}
 
           <div className="flex flex-wrap gap-2">
             <Button

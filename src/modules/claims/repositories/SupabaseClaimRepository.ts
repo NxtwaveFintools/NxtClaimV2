@@ -32,6 +32,7 @@ import type {
   ClaimsExportFetchScope,
   FinanceClaimEditPayload,
   GetMyClaimsFilters,
+  OwnClaimEditPayload,
   MyClaimRecord,
   ClaimRepository,
 } from "@/core/domain/claims/contracts";
@@ -2029,20 +2030,40 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
   async updateClaimDetailsByFinance(
     claimId: string,
+    actorUserId: string,
     payload: FinanceClaimEditPayload,
   ): Promise<{ errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
-    const claimUpdatePayload: { updated_at: string; payment_mode_id?: string } = {
-      updated_at: new Date().toISOString(),
-    };
+    const { error } = await client.rpc("update_claim_by_finance", {
+      p_claim_id: claimId,
+      p_actor_id: actorUserId,
+      p_edit_reason: payload.editReason,
+      p_payload: payload,
+    });
 
-    if (payload.paymentModeId) {
-      claimUpdatePayload.payment_mode_id = payload.paymentModeId;
+    if (error) {
+      if (payload.detailType === "expense" && isDuplicateExpenseBillConstraintError(error)) {
+        throw error;
+      }
+
+      return { errorMessage: error.message };
     }
+
+    return { errorMessage: null };
+  }
+
+  async updateClaimDetailsBySubmitter(
+    claimId: string,
+    actorUserId: string,
+    payload: OwnClaimEditPayload,
+  ): Promise<{ errorMessage: string | null }> {
+    const client = getServiceRoleSupabaseClient();
 
     const { data: updatedClaim, error: claimError } = await client
       .from("claims")
-      .update(claimUpdatePayload)
+      .update({
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", claimId)
       .eq("is_active", true)
       .select("id")
@@ -2126,6 +2147,18 @@ export class SupabaseClaimRepository implements ClaimRepository {
           errorMessage: "Cannot edit: Advance details missing or soft-deleted.",
         };
       }
+    }
+
+    const auditResult = await this.createClaimAuditLog({
+      claimId,
+      actorId: actorUserId,
+      actionType: "UPDATED",
+      assignedToId: null,
+      remarks: "Claim details updated before finance review.",
+    });
+
+    if (auditResult.errorMessage) {
+      return { errorMessage: auditResult.errorMessage };
     }
 
     return { errorMessage: null };

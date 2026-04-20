@@ -20,6 +20,7 @@ export function AdminPaymentModeOverride({ paymentModes }: AdminPaymentModeOverr
   const [isPending, startTransition] = useTransition();
   const [claimId, setClaimId] = useState("");
   const [selectedPaymentModeId, setSelectedPaymentModeId] = useState("");
+  const [editReason, setEditReason] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -40,6 +41,7 @@ export function AdminPaymentModeOverride({ paymentModes }: AdminPaymentModeOverr
 
   function handleForceUpdate() {
     const normalizedClaimId = claimId.trim();
+    const normalizedEditReason = editReason.trim();
 
     clearFeedback();
 
@@ -53,10 +55,16 @@ export function AdminPaymentModeOverride({ paymentModes }: AdminPaymentModeOverr
       return;
     }
 
+    if (normalizedEditReason.length < 5) {
+      setErrorMessage("Reason must be at least 5 characters.");
+      return;
+    }
+
     startTransition(async () => {
       const result = await forceUpdatePaymentMode(
         normalizedClaimId,
         effectiveSelectedPaymentModeId,
+        normalizedEditReason,
       );
 
       if (!result.ok) {
@@ -67,6 +75,7 @@ export function AdminPaymentModeOverride({ paymentModes }: AdminPaymentModeOverr
       const selectedLabel = paymentModesById.get(effectiveSelectedPaymentModeId) ?? "selected mode";
       setMessage(`Payment mode updated to ${selectedLabel}.`);
       setClaimId("");
+      setEditReason("");
       router.refresh();
     });
   }
@@ -126,6 +135,22 @@ export function AdminPaymentModeOverride({ paymentModes }: AdminPaymentModeOverr
           </select>
         </label>
       </div>
+
+      <label className="grid gap-2">
+        <span className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
+          Reason for Edit
+        </span>
+        <textarea
+          value={editReason}
+          onChange={(event) => setEditReason(event.target.value)}
+          placeholder="Explain why this payment mode override is required."
+          rows={3}
+          required
+          minLength={5}
+          disabled={isPending}
+          className="nxt-input rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+        />
+      </label>
 
       <div className="flex flex-wrap items-center gap-3">
         <Button

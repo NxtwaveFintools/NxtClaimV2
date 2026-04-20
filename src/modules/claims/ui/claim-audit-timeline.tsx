@@ -23,6 +23,14 @@ function describeAction(actionType: ClaimAuditLogRecord["actionType"]): string {
     return "Approved by Finance";
   }
 
+  if (actionType === "FINANCE_EDITED") {
+    return "Edited by Finance";
+  }
+
+  if (actionType === "UPDATED") {
+    return "Claim Updated";
+  }
+
   if (actionType === "L2_MARK_PAID") {
     return "Marked as Paid by Finance";
   }
@@ -74,6 +82,20 @@ function actionAccentClasses(actionType: ClaimAuditLogRecord["actionType"]): {
     return {
       labelClassName: "text-amber-800 dark:text-amber-200",
       dotClassName: "bg-amber-600 dark:bg-amber-400",
+    };
+  }
+
+  if (actionType === "FINANCE_EDITED") {
+    return {
+      labelClassName: "text-amber-800 dark:text-amber-200",
+      dotClassName: "bg-amber-600 dark:bg-amber-400",
+    };
+  }
+
+  if (actionType === "UPDATED") {
+    return {
+      labelClassName: "text-teal-800 dark:text-teal-200",
+      dotClassName: "bg-teal-600 dark:bg-teal-400",
     };
   }
 

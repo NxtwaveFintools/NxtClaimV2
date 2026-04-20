@@ -84,6 +84,7 @@ export type ClaimSubmissionInput = {
 export type FinanceExpenseEditPayload = {
   detailType: "expense";
   detailId: string;
+  editReason: string;
   paymentModeId?: string | null;
   billNo: string;
   expenseCategoryId: string;
@@ -108,6 +109,7 @@ export type FinanceExpenseEditPayload = {
 export type FinanceAdvanceEditPayload = {
   detailType: "advance";
   detailId: string;
+  editReason: string;
   paymentModeId?: string | null;
   purpose: string;
   requestedAmount: number;
@@ -119,6 +121,12 @@ export type FinanceAdvanceEditPayload = {
 };
 
 export type FinanceClaimEditPayload = FinanceExpenseEditPayload | FinanceAdvanceEditPayload;
+
+export type OwnExpenseEditPayload = Omit<FinanceExpenseEditPayload, "editReason" | "paymentModeId">;
+
+export type OwnAdvanceEditPayload = Omit<FinanceAdvanceEditPayload, "editReason" | "paymentModeId">;
+
+export type OwnClaimEditPayload = OwnExpenseEditPayload | OwnAdvanceEditPayload;
 
 export type ClaimFinanceEditSnapshot = {
   id: string;
@@ -308,11 +316,13 @@ export type MyClaimListRecord = {
 
 export type ClaimAuditActionType =
   | "SUBMITTED"
+  | "UPDATED"
   | "L1_APPROVED"
   | "L1_REJECTED"
   | "L2_APPROVED"
   | "L2_REJECTED"
   | "L2_MARK_PAID"
+  | "FINANCE_EDITED"
   | "ADMIN_SOFT_DELETED"
   | "ADMIN_PAYMENT_MODE_OVERRIDDEN";
 
@@ -438,7 +448,13 @@ export type ClaimRepository = {
   ): Promise<{ success: boolean; errorMessage: string | null }>;
   updateClaimDetailsByFinance(
     claimId: string,
+    actorUserId: string,
     payload: FinanceClaimEditPayload,
+  ): Promise<{ errorMessage: string | null }>;
+  updateClaimDetailsBySubmitter(
+    claimId: string,
+    actorUserId: string,
+    payload: OwnClaimEditPayload,
   ): Promise<{ errorMessage: string | null }>;
   getMyClaims(
     userId: string,

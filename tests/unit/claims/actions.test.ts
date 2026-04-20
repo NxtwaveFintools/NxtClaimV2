@@ -18,6 +18,7 @@ const mockSubmitExecute = jest.fn();
 const mockProcessL1DecisionExecute = jest.fn();
 const mockProcessL2DecisionExecute = jest.fn();
 const mockUpdateByFinanceExecute = jest.fn();
+const mockUpdateOwnClaimExecute = jest.fn();
 const mockDeleteOwnClaimExecute = jest.fn();
 const mockGetApprovalViewerContext = jest.fn();
 const mockGetClaimForFinanceEdit = jest.fn();
@@ -128,6 +129,12 @@ jest.mock("@/core/domain/claims/ProcessL2ClaimDecisionService", () => ({
 jest.mock("@/core/domain/claims/UpdateClaimByFinanceService", () => ({
   UpdateClaimByFinanceService: jest.fn().mockImplementation(() => ({
     execute: mockUpdateByFinanceExecute,
+  })),
+}));
+
+jest.mock("@/core/domain/claims/UpdateOwnClaimService", () => ({
+  UpdateOwnClaimService: jest.fn().mockImplementation(() => ({
+    execute: mockUpdateOwnClaimExecute,
   })),
 }));
 
@@ -255,6 +262,7 @@ function createValidExpenseEditFormData(): FormData {
   const formData = new FormData();
   formData.append("detailType", "expense");
   formData.append("detailId", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+  formData.append("editReason", "Test edit");
   formData.append("billNo", "BILL-NEW-1");
   formData.append("expenseCategoryId", "66666666-6666-4666-8666-666666666666");
   formData.append("locationId", "88888888-8888-4888-8888-888888888888");
@@ -271,6 +279,12 @@ function createValidExpenseEditFormData(): FormData {
   formData.append("productId", "77777777-7777-4777-8777-777777777777");
   formData.append("peopleInvolved", "Alice");
   formData.append("remarks", "Updated remarks");
+  return formData;
+}
+
+function createValidOwnExpenseEditFormData(): FormData {
+  const formData = createValidExpenseEditFormData();
+  formData.delete("editReason");
   return formData;
 }
 
@@ -434,6 +448,11 @@ describe("claims actions", () => {
     });
 
     mockUpdateByFinanceExecute.mockResolvedValue({
+      ok: true,
+      errorMessage: null,
+    });
+
+    mockUpdateOwnClaimExecute.mockResolvedValue({
       ok: true,
       errorMessage: null,
     });
@@ -832,6 +851,72 @@ describe("claims actions", () => {
     });
   });
 
+  test("updateOwnClaimAction forwards validated expense payload without editReason", async () => {
+    mockGetClaimForFinanceEdit.mockResolvedValueOnce({
+      data: {
+        id: "claim-1",
+        detailType: "expense",
+        status: "Submitted - Awaiting HOD approval",
+        submittedBy: "11111111-1111-4111-8111-111111111111",
+        assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
+        expenseReceiptFilePath: "expenses/old_receipt.pdf",
+        expenseBankStatementFilePath: "expenses/old_bank.pdf",
+        advanceSupportingDocumentPath: null,
+      },
+      errorMessage: null,
+    });
+
+    const { updateOwnClaimAction } = await import("@/modules/claims/actions");
+    const result = await updateOwnClaimAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData: createValidOwnExpenseEditFormData(),
+    });
+
+    expect(result).toEqual({ ok: true, message: "Claim details updated." });
+    expect(mockUpdateOwnClaimExecute).toHaveBeenCalledWith({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      actorUserId: "11111111-1111-4111-8111-111111111111",
+      payload: expect.objectContaining({
+        detailType: "expense",
+        detailId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      }),
+    });
+
+    const forwardedPayload = mockUpdateOwnClaimExecute.mock.calls[0]?.[0]?.payload;
+    expect(forwardedPayload).not.toHaveProperty("editReason");
+  });
+
+  test("updateOwnClaimAction rejects routing field mutation attempts", async () => {
+    mockGetClaimForFinanceEdit.mockResolvedValueOnce({
+      data: {
+        id: "claim-1",
+        detailType: "expense",
+        status: "Submitted - Awaiting HOD approval",
+        submittedBy: "11111111-1111-4111-8111-111111111111",
+        assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
+        expenseReceiptFilePath: "expenses/old_receipt.pdf",
+        expenseBankStatementFilePath: "expenses/old_bank.pdf",
+        advanceSupportingDocumentPath: null,
+      },
+      errorMessage: null,
+    });
+
+    const { updateOwnClaimAction } = await import("@/modules/claims/actions");
+    const formData = createValidOwnExpenseEditFormData();
+    formData.append("paymentModeId", "99999999-9999-4999-8999-999999999999");
+
+    const result = await updateOwnClaimAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Routing context fields cannot be edited for an existing claim.",
+    });
+    expect(mockUpdateOwnClaimExecute).not.toHaveBeenCalled();
+  });
+
   test("updateClaimByFinanceAction forwards validated expense payload including GST and bank statement fields", async () => {
     const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
 
@@ -849,6 +934,7 @@ describe("claims actions", () => {
       payload: expect.objectContaining({
         detailType: "expense",
         detailId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        editReason: "Test edit",
         isGstApplicable: true,
         gstNumber: "GSTIN-999",
         bankStatementFilePath: "expenses/old_bank.pdf",

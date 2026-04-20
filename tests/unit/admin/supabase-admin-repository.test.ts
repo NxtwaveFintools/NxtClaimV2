@@ -503,6 +503,7 @@ describe("SupabaseAdminRepository", () => {
       claimId: "claim-1",
       actorId: "admin-1",
       newPaymentModeId: "mode-new",
+      editReason: "Fixing incorrect payment mode",
     });
 
     expect(result).toEqual({ success: true, errorMessage: null });
@@ -514,8 +515,26 @@ describe("SupabaseAdminRepository", () => {
         claim_id: "claim-1",
         actor_id: "admin-1",
         action_type: "ADMIN_PAYMENT_MODE_OVERRIDDEN",
+        remarks: expect.stringContaining("Reason: Fixing incorrect payment mode"),
       }),
     );
+  });
+
+  test("forceUpdatePaymentMode requires a reason with minimum length", async () => {
+    const repository = new SupabaseAdminRepository();
+
+    const result = await repository.forceUpdatePaymentMode({
+      claimId: "claim-1",
+      actorId: "admin-1",
+      newPaymentModeId: "mode-new",
+      editReason: "bad",
+    });
+
+    expect(result).toEqual({
+      success: false,
+      errorMessage: "Reason must be at least 5 characters.",
+    });
+    expect(mockFrom).not.toHaveBeenCalled();
   });
 
   test("forceUpdatePaymentMode blocks closed claims", async () => {
@@ -536,6 +555,7 @@ describe("SupabaseAdminRepository", () => {
       claimId: "claim-1",
       actorId: "admin-1",
       newPaymentModeId: "mode-new",
+      editReason: "Fixing incorrect payment mode",
     });
 
     expect(result).toEqual({
@@ -562,6 +582,7 @@ describe("SupabaseAdminRepository", () => {
       claimId: "claim-1",
       actorId: "admin-1",
       newPaymentModeId: "mode-new",
+      editReason: "Fixing incorrect payment mode",
     });
 
     expect(result).toEqual({
@@ -597,6 +618,7 @@ describe("SupabaseAdminRepository", () => {
       claimId: "claim-1",
       actorId: "admin-1",
       newPaymentModeId: "mode-corp",
+      editReason: "Fixing incorrect payment mode",
     });
 
     expect(result).toEqual({
@@ -648,6 +670,7 @@ describe("SupabaseAdminRepository", () => {
       claimId: "claim-1",
       actorId: "admin-1",
       newPaymentModeId: "mode-new",
+      editReason: "Fixing incorrect payment mode",
     });
 
     expect(result.success).toBe(false);

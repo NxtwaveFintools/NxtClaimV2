@@ -3,6 +3,7 @@ import { UpdateClaimByFinanceService } from "@/core/domain/claims/UpdateClaimByF
 const validExpensePayload = {
   detailType: "expense" as const,
   detailId: "expense-detail-1",
+  editReason: "Correcting bill metadata after finance review",
   billNo: "BILL-2",
   expenseCategoryId: "cat-1",
   locationId: "loc-1",
@@ -75,6 +76,7 @@ describe("UpdateClaimByFinanceService", () => {
     expect(result).toEqual({ ok: true, errorMessage: null });
     expect(repository.updateClaimDetailsByFinance).toHaveBeenCalledWith(
       "claim-1",
+      "finance-user-1",
       validExpensePayload,
     );
   });

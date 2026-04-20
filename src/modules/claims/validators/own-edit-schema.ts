@@ -6,8 +6,6 @@ const isoDateSchema = z
   .trim()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format. Use YYYY-MM-DD");
 
-const editReasonSchema = z.string().trim().min(5, "An edit reason is required for the audit log.");
-
 const normalizedNullableText = z.preprocess((value) => {
   if (typeof value !== "string") {
     return value ?? null;
@@ -63,12 +61,10 @@ const optionalTaxAmountSchema = z.preprocess(
   z.number().min(0, "Tax amount cannot be negative"),
 );
 
-export const financeExpenseEditSchema = z
+export const ownExpenseEditSchema = z
   .object({
     detailType: z.literal("expense"),
     detailId: uuidSchema,
-    editReason: editReasonSchema,
-    paymentModeId: uuidSchema.nullable().optional(),
     billNo: z.string().trim().min(1, "Bill number is required"),
     expenseCategoryId: uuidSchema,
     locationId: uuidSchema,
@@ -90,12 +86,10 @@ export const financeExpenseEditSchema = z
   })
   .strict();
 
-export const financeAdvanceEditSchema = z
+export const ownAdvanceEditSchema = z
   .object({
     detailType: z.literal("advance"),
     detailId: uuidSchema,
-    editReason: editReasonSchema,
-    paymentModeId: uuidSchema.nullable().optional(),
     purpose: z.string().trim().min(1, "Purpose is required"),
     requestedAmount: z.number().positive("Requested amount must be greater than zero"),
     expectedUsageDate: isoDateSchema,
@@ -106,9 +100,9 @@ export const financeAdvanceEditSchema = z
   })
   .strict();
 
-export const financeEditSchema = z.discriminatedUnion("detailType", [
-  financeExpenseEditSchema,
-  financeAdvanceEditSchema,
+export const ownEditSchema = z.discriminatedUnion("detailType", [
+  ownExpenseEditSchema,
+  ownAdvanceEditSchema,
 ]);
 
-export type FinanceEditValues = z.infer<typeof financeEditSchema>;
+export type OwnEditValues = z.infer<typeof ownEditSchema>;
