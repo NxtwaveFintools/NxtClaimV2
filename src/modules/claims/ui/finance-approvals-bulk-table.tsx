@@ -735,7 +735,7 @@ export function FinanceApprovalsBulkTable({
                             ?.advanceSupportingDocumentSignedUrl ?? null
                         }
                         auditLogs={auditLogsByClaimId[claim.id] ?? []}
-                        canInlineEdit={canApproveOrReject || canMarkPaid}
+                        canInlineEdit={canApproveOrReject}
                       >
                         {isActionable ? renderRowActions(false) : undefined}
                       </ApprovalsAuditModeDialog>

@@ -9,7 +9,6 @@ import { BackButton } from "@/components/ui/back-button";
 import { ROUTES } from "@/core/config/route-registry";
 import {
   DB_CLAIM_STATUSES,
-  DB_FINANCE_ACTIONABLE_STATUSES,
   DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
   DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
   DB_REJECTED_STATUSES,
@@ -530,7 +529,7 @@ async function ClaimDetailCore({
   const isPreHodStatus =
     claim.status === DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS ||
     claim.status === DB_REJECTED_RESUBMISSION_ALLOWED_STATUS;
-  const isFinanceStatus = DB_FINANCE_ACTIONABLE_STATUSES.some((status) => status === claim.status);
+  const isFinanceStatus = isPendingFinanceApprovalStatus(claim.status);
   const canEditClaim =
     (isPreHodStatus && (currentUserId === claim.submittedBy || isAssignedL1Approver)) ||
     (isFinanceStatus && isFinanceActor);

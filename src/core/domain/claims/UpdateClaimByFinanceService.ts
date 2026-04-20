@@ -1,5 +1,5 @@
 import {
-  DB_FINANCE_ACTIONABLE_STATUSES,
+  DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
   DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
   DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
   type DbClaimStatus,
@@ -75,7 +75,7 @@ export class UpdateClaimByFinanceService {
 
     const claim = claimResult.data;
 
-    const isFinanceStage = DB_FINANCE_ACTIONABLE_STATUSES.some((status) => status === claim.status);
+    const isFinanceStage = claim.status === DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS;
     const isPreHodStage = this.isPreHodEditableStatus(claim.status);
 
     if (isFinanceStage) {
