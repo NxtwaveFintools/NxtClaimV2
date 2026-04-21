@@ -966,11 +966,13 @@ export function FinanceEditClaimForm({
               <div className={groupedWrapperClassName}>
                 <h4 className={groupedTitleClassName}>Audit Reason</h4>
                 <label className="col-span-full grid gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-                  Reason for Edit (Optional)
+                  Reason for Edit
                   <FormTextarea
                     name="editReason"
                     rows={isQuickViewScope ? 3 : 4}
-                    placeholder="Optional note for the audit log."
+                    required
+                    minLength={5}
+                    placeholder="Explain why this claim edit is required for audit tracking."
                     className="col-span-full rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                   />
                 </label>

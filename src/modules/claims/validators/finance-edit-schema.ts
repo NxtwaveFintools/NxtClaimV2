@@ -6,14 +6,7 @@ const isoDateSchema = z
   .trim()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format. Use YYYY-MM-DD");
 
-const optionalEditReasonSchema = z.preprocess((value) => {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-}, z.string().optional());
+const editReasonSchema = z.string().trim().min(5, "An edit reason is required for the audit log.");
 
 const normalizedNullableText = z.preprocess((value) => {
   if (typeof value !== "string") {
@@ -74,7 +67,7 @@ export const financeExpenseEditSchema = z
   .object({
     detailType: z.literal("expense"),
     detailId: uuidSchema,
-    editReason: optionalEditReasonSchema,
+    editReason: editReasonSchema,
     paymentModeId: uuidSchema.nullable().optional(),
     billNo: z.string().trim().min(1, "Bill number is required"),
     expenseCategoryId: uuidSchema,
@@ -101,7 +94,7 @@ export const financeAdvanceEditSchema = z
   .object({
     detailType: z.literal("advance"),
     detailId: uuidSchema,
-    editReason: optionalEditReasonSchema,
+    editReason: editReasonSchema,
     paymentModeId: uuidSchema.nullable().optional(),
     purpose: z.string().trim().min(1, "Purpose is required"),
     requestedAmount: z.number().positive("Requested amount must be greater than zero"),
