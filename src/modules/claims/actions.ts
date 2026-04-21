@@ -1232,6 +1232,11 @@ export async function updateClaimByFinanceAction(input: {
     };
   }
 
+  const resolvedFinanceEditReason =
+    typeof parseResult.data.editReason === "string" && parseResult.data.editReason.trim().length > 0
+      ? parseResult.data.editReason.trim()
+      : "Edited during Finance review";
+
   if (parseResult.data.paymentModeId) {
     if (!canEditPaymentMode) {
       return {
@@ -1360,7 +1365,7 @@ export async function updateClaimByFinanceAction(input: {
     financeEditPayload = {
       detailType: "expense",
       detailId: parseResult.data.detailId,
-      editReason: parseResult.data.editReason,
+      editReason: resolvedFinanceEditReason,
       paymentModeId: parseResult.data.paymentModeId ?? null,
       billNo: parseResult.data.billNo,
       expenseCategoryId: parseResult.data.expenseCategoryId,
@@ -1385,7 +1390,7 @@ export async function updateClaimByFinanceAction(input: {
     financeEditPayload = {
       detailType: "advance",
       detailId: parseResult.data.detailId,
-      editReason: parseResult.data.editReason,
+      editReason: resolvedFinanceEditReason,
       paymentModeId: parseResult.data.paymentModeId ?? null,
       purpose: parseResult.data.purpose,
       requestedAmount: parseResult.data.requestedAmount,
