@@ -161,8 +161,8 @@ describe("ExportClaimsService", () => {
     expect(row.billUrl).not.toContain("=HYPERLINK");
     expect(row.bankStatementUrl).toMatch(/^https:\/\//);
     expect(row.bankStatementUrl).not.toContain("=HYPERLINK");
-    // expense type: pettyCashPhotoUrl mirrors billUrl (both use receipt path)
-    expect(row.pettyCashPhotoUrl).toBe(row.billUrl);
+    // expense type: pettyCashPhotoUrl is intentionally empty unless a distinct source exists
+    expect(row.pettyCashPhotoUrl).toBeNull();
   });
 
   it("uses the beneficiary email for on-behalf claims when relation email is missing", async () => {
@@ -201,18 +201,28 @@ describe("ExportClaimsService", () => {
     expect(result.rows[0]?.submitterEmployeeId).toBe("SUBMITTER-001");
   });
 
-  it("EXPORT_HEADERS has 42 columns matching the ClaimExportRow field order", () => {
-    expect(EXPORT_HEADERS).toHaveLength(42);
+  it("EXPORT_HEADERS has 36 columns matching the ClaimExportRow field order", () => {
+    expect(EXPORT_HEADERS).toHaveLength(36);
     expect(EXPORT_HEADERS[0]).toBe("Claim ID");
     expect(EXPORT_HEADERS[1]).toBe("Employee ID");
     expect(EXPORT_HEADERS[2]).toBe("Beneficiary Employee ID");
     expect(EXPORT_HEADERS[3]).toBe("Submitter Employee ID");
     expect(EXPORT_HEADERS[9]).toBe("Submitter Email");
-    expect(EXPORT_HEADERS[34]).toBe("Location Details");
-    expect(EXPORT_HEADERS[35]).toBe("Bank Statement URL");
-    expect(EXPORT_HEADERS[36]).toBe("Bill URL");
-    expect(EXPORT_HEADERS[37]).toBe("Petty Cash Photo URL");
-    expect(EXPORT_HEADERS[41]).toBe("Transaction Remarks");
+    expect(EXPORT_HEADERS).toContain("Location Type");
+    expect(EXPORT_HEADERS).toContain("Location Details");
+    expect(EXPORT_HEADERS).toContain("Beneficiary Employee ID");
+    expect(EXPORT_HEADERS).toContain("Submitter Employee ID");
+    expect(EXPORT_HEADERS[29]).toBe("Location Details");
+    expect(EXPORT_HEADERS[30]).toBe("Bank Statement URL");
+    expect(EXPORT_HEADERS[31]).toBe("Bill URL");
+    expect(EXPORT_HEADERS[32]).toBe("Petty Cash Photo URL");
+    expect(EXPORT_HEADERS[35]).toBe("Transaction Remarks");
+    expect(EXPORT_HEADERS).not.toContain("HOD Status");
+    expect(EXPORT_HEADERS).not.toContain("Finance Status");
+    expect(EXPORT_HEADERS).not.toContain("Bill Status");
+    expect(EXPORT_HEADERS).not.toContain("Approved Amount");
+    expect(EXPORT_HEADERS).not.toContain("Transaction Count");
+    expect(EXPORT_HEADERS).not.toContain("Currency");
   });
 
   it("bypasses pagination by requesting multiple backend batches", async () => {
