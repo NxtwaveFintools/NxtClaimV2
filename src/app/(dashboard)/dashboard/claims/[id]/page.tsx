@@ -6,6 +6,12 @@ import { Suspense } from "react";
 import { ExternalLink, X } from "lucide-react";
 import { AppShellHeader } from "@/components/app-shell-header";
 import { BackButton } from "@/components/ui/back-button";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "../../../../../components/ui/accordion";
 import { SheetClose, Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../../../components/ui/tabs";
 import { ROUTES } from "@/core/config/route-registry";
@@ -34,6 +40,7 @@ import { ClaimRejectWithReasonForm } from "@/modules/claims/ui/claim-reject-with
 import { ClaimDecisionActionForm } from "@/modules/claims/ui/claim-decision-action-form";
 import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
 import { ClaimAuditTimeline } from "@/modules/claims/ui/claim-audit-timeline";
+import { CopyableDataCard as DataCard } from "../../../../../modules/claims/ui/copyable-data-card";
 import { DeleteClaimButton } from "@/modules/claims/ui/delete-claim-button";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
@@ -77,29 +84,6 @@ type EvidenceTabValue = "receipt" | "bank-statement" | "supporting-document";
 type ClaimDetailRecord = NonNullable<
   Awaited<ReturnType<SupabaseClaimRepository["getClaimDetailById"]>>["data"]
 >;
-
-const MICRO_CARD_CLASS_NAME =
-  "bg-muted/20 border border-border/40 rounded-xl p-4 flex flex-col justify-center h-full";
-const MICRO_LABEL_CLASS_NAME =
-  "text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1";
-const MICRO_VALUE_CLASS_NAME = "text-sm md:text-base text-foreground font-medium break-words";
-
-function DataCard({
-  label,
-  value,
-  className,
-}: {
-  label: string;
-  value: string;
-  className?: string;
-}) {
-  return (
-    <article className={`${MICRO_CARD_CLASS_NAME}${className ? ` ${className}` : ""}`}>
-      <p className={MICRO_LABEL_CLASS_NAME}>{label}</p>
-      <p className={MICRO_VALUE_CLASS_NAME}>{value}</p>
-    </article>
-  );
-}
 
 function EvidenceTabPanel({ item, value }: { item: EvidenceItem; value: EvidenceTabValue }) {
   return (
@@ -743,8 +727,6 @@ async function ClaimDetailCore({
       ? formatOptionalText(claim.onBehalfEmployeeCode, claim.employeeId)
       : claim.employeeId;
   const isPendingFinanceApproval = isPendingFinanceApprovalStatus(claim.status);
-  const microSectionTitleClassName =
-    "text-xs uppercase tracking-widest text-muted-foreground font-bold mt-8 mb-4";
   const microGridClassName = "grid grid-cols-2 2xl:grid-cols-3 gap-4";
   const detailHeadingLabel = claim.detailType === "expense" ? "Expense Details" : "Advance Details";
   const formatAmountValue = (value: number | null | undefined) => {
@@ -754,6 +736,22 @@ async function ClaimDetailCore({
 
     return formatCurrency(value);
   };
+  const heroTotalAmountValue = claim.expense?.totalAmount ?? claim.advance?.requestedAmount ?? null;
+  const heroCategoryValue = claim.expense
+    ? formatOptionalText(claim.expense.expenseCategoryName)
+    : "N/A";
+  const heroDepartmentValue = claim.departmentName ?? "Unknown";
+  const heroPurposeValue = claim.expense
+    ? formatOptionalText(claim.expense.purpose)
+    : claim.advance
+      ? formatOptionalText(claim.advance.purpose)
+      : "N/A";
+  const submitterInitials = submitterDisplayName
+    .split(/\s+/)
+    .filter((part) => part.length > 0)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
 
   return (
     <>
@@ -804,178 +802,229 @@ async function ClaimDetailCore({
             </section>
           ) : null}
 
-          <section className="bg-card border border-border/50 shadow-sm rounded-xl p-6 md:p-8 flex flex-col gap-6">
-            <div>
-              <h3 className="text-2xl font-bold tracking-tight text-foreground mb-1">
-                What was submitted
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Raw claim facts and extracted fields presented for fast verification.
-              </p>
-            </div>
+          <section className="bg-primary/5 border border-primary/20 rounded-xl p-6 mb-8 flex flex-col gap-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <p className="text-[10px] uppercase text-muted-foreground">Total Amount</p>
+                <p className="text-4xl lg:text-5xl font-black tracking-tight text-foreground">
+                  {formatAmountValue(heroTotalAmountValue)}
+                </p>
+              </div>
 
-            <div>
-              <h4 className={microSectionTitleClassName}>General Info</h4>
-              <div className={microGridClassName}>
-                <DataCard label="Claim ID" value={claim.id} className="col-span-2 2xl:col-span-3" />
-                <DataCard label="Submitted On" value={formatDate(claim.submittedAt)} />
-                <DataCard label="Employee" value={submitterDisplayName} />
-                <DataCard label="Submission Type" value={claim.submissionType} />
-                <DataCard label={employeeIdLabel} value={employeeIdValue} />
-                <DataCard
-                  label="Email"
-                  value={submitterDisplayEmail}
-                  className="col-span-2 2xl:col-span-2"
-                />
-                <DataCard
-                  label="Claim For"
-                  value={`${claimForDisplayName} (${claimForDisplayEmail})`}
-                  className="col-span-2 2xl:col-span-2"
-                />
-                {claim.submissionType === "On Behalf" ? (
-                  <DataCard
-                    label="On Behalf Email"
-                    value={formatOptionalText(claim.onBehalfEmail)}
-                    className="col-span-2 2xl:col-span-2"
-                  />
-                ) : null}
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
+                  {submitterInitials || "NA"}
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase text-muted-foreground">Submitter</p>
+                  <p className="font-medium text-foreground">{submitterDisplayName}</p>
+                  <p className="text-sm text-muted-foreground">{submitterDisplayEmail}</p>
+                </div>
               </div>
             </div>
 
-            <div>
-              <h4 className={microSectionTitleClassName}>Routing Context</h4>
-              <div className={microGridClassName}>
-                <DataCard label="Department" value={claim.departmentName ?? "Unknown"} />
-                <DataCard label="Payment Mode" value={claim.paymentModeName ?? "Unknown"} />
-                {isPendingFinanceApproval ? (
-                  <DataCard label="Assigned To" value="Finance Team" />
-                ) : null}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-primary/10">
+              <div>
+                <p className="text-[10px] uppercase text-muted-foreground">Category</p>
+                <p className="font-medium text-foreground">{heroCategoryValue}</p>
               </div>
-            </div>
-
-            <div>
-              <h4 className={microSectionTitleClassName}>{detailHeadingLabel}</h4>
-              <div className={microGridClassName}>
-                {claim.expense ? (
-                  <>
-                    <DataCard
-                      label="Bill No"
-                      value={formatOptionalText(claim.expense.billNo, "-")}
-                      className="col-span-2 2xl:col-span-2"
-                    />
-                    <DataCard
-                      label="Category"
-                      value={formatOptionalText(claim.expense.expenseCategoryName)}
-                    />
-                    <DataCard
-                      label="Product"
-                      value={formatOptionalText(claim.expense.productName)}
-                    />
-                    <DataCard
-                      label="Transaction Date"
-                      value={formatDate(claim.expense.transactionDate)}
-                    />
-                    <DataCard
-                      label="Location"
-                      value={formatOptionalText(claim.expense.locationName)}
-                    />
-                    <DataCard label="Vendor" value={formatOptionalText(claim.expense.vendorName)} />
-                    <DataCard
-                      label="Purpose"
-                      value={formatOptionalText(claim.expense.purpose)}
-                      className="col-span-2 2xl:col-span-3"
-                    />
-                    {claim.expense.remarks ? (
-                      <DataCard
-                        label="Remarks"
-                        value={formatOptionalText(claim.expense.remarks)}
-                        className="col-span-2 2xl:col-span-3"
-                      />
-                    ) : null}
-                    <DataCard
-                      label="People Involved"
-                      value={formatOptionalText(claim.expense.peopleInvolved)}
-                    />
-                  </>
-                ) : claim.advance ? (
-                  <>
-                    <DataCard
-                      label="Purpose"
-                      value={formatOptionalText(claim.advance.purpose)}
-                      className="col-span-2 2xl:col-span-3"
-                    />
-                    <DataCard
-                      label="Expected Usage Date"
-                      value={formatDate(claim.advance.expectedUsageDate)}
-                    />
-                  </>
-                ) : (
-                  <DataCard label="Details" value="N/A" className="col-span-2 2xl:col-span-3" />
-                )}
+              <div>
+                <p className="text-[10px] uppercase text-muted-foreground">Department</p>
+                <p className="font-medium text-foreground">{heroDepartmentValue}</p>
               </div>
-            </div>
-
-            <div>
-              <h4 className={microSectionTitleClassName}>Financials</h4>
-              <div className={microGridClassName}>
-                {claim.expense ? (
-                  <>
-                    <DataCard
-                      label="Basic Amount"
-                      value={formatAmountValue(claim.expense.basicAmount)}
-                    />
-                    <DataCard
-                      label="CGST Amount"
-                      value={formatAmountValue(claim.expense.cgstAmount)}
-                    />
-                    <DataCard
-                      label="SGST Amount"
-                      value={formatAmountValue(claim.expense.sgstAmount)}
-                    />
-                    <DataCard
-                      label="IGST Amount"
-                      value={formatAmountValue(claim.expense.igstAmount)}
-                    />
-                    <DataCard
-                      label="GST Applicable"
-                      value={
-                        claim.expense.isGstApplicable === null
-                          ? "N/A"
-                          : claim.expense.isGstApplicable
-                            ? "Yes"
-                            : "No"
-                      }
-                    />
-                    <DataCard
-                      label="GST Number"
-                      value={formatOptionalText(claim.expense.gstNumber)}
-                    />
-                    <DataCard
-                      label="Total Amount"
-                      value={formatAmountValue(claim.expense.totalAmount)}
-                    />
-                  </>
-                ) : claim.advance ? (
-                  <DataCard
-                    label="Requested Amount"
-                    value={formatAmountValue(claim.advance.requestedAmount)}
-                  />
-                ) : (
-                  <DataCard label="Amount" value="N/A" />
-                )}
+              <div>
+                <p className="text-[10px] uppercase text-muted-foreground">Purpose</p>
+                <p className="font-medium text-foreground">{heroPurposeValue}</p>
               </div>
             </div>
           </section>
 
           <section className="bg-card border border-border/50 shadow-sm rounded-xl p-6 md:p-8 flex flex-col gap-6">
-            <div>
-              <h3 className="text-2xl font-bold tracking-tight text-foreground mb-1">
-                How decisions evolved
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                A narrative log of edits, assignments, approvals, and payment steps.
-              </p>
-            </div>
+            <Accordion
+              type="multiple"
+              defaultValue={["general-info", "routing-context", "expense-details", "financials"]}
+              className="w-full space-y-4"
+            >
+              <AccordionItem
+                value="general-info"
+                className="border-none bg-muted/10 rounded-xl px-4 py-2"
+              >
+                <AccordionTrigger className="hover:no-underline text-xs uppercase tracking-widest text-muted-foreground font-bold">
+                  General Info
+                </AccordionTrigger>
+                <AccordionContent className="pt-4 pb-2">
+                  <div className={microGridClassName}>
+                    <DataCard
+                      label="Claim ID"
+                      value={claim.id}
+                      className="col-span-2 2xl:col-span-3"
+                    />
+                    <DataCard label="Submitted On" value={formatDate(claim.submittedAt)} />
+                    <DataCard label="Employee" value={submitterDisplayName} />
+                    <DataCard label="Submission Type" value={claim.submissionType} />
+                    <DataCard label={employeeIdLabel} value={employeeIdValue} />
+                    <DataCard
+                      label="Email"
+                      value={submitterDisplayEmail}
+                      className="col-span-2 2xl:col-span-2"
+                    />
+                    <DataCard
+                      label="Claim For"
+                      value={`${claimForDisplayName} (${claimForDisplayEmail})`}
+                      className="col-span-2 2xl:col-span-2"
+                    />
+                    {claim.submissionType === "On Behalf" ? (
+                      <DataCard
+                        label="On Behalf Email"
+                        value={formatOptionalText(claim.onBehalfEmail)}
+                        className="col-span-2 2xl:col-span-2"
+                      />
+                    ) : null}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem
+                value="routing-context"
+                className="border-none bg-muted/10 rounded-xl px-4 py-2"
+              >
+                <AccordionTrigger className="hover:no-underline text-xs uppercase tracking-widest text-muted-foreground font-bold">
+                  Routing Context
+                </AccordionTrigger>
+                <AccordionContent className="pt-4 pb-2">
+                  <div className={microGridClassName}>
+                    <DataCard label="Payment Mode" value={claim.paymentModeName ?? "Unknown"} />
+                    {isPendingFinanceApproval ? (
+                      <DataCard label="Assigned To" value="Finance Team" />
+                    ) : null}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem
+                value="expense-details"
+                className="border-none bg-muted/10 rounded-xl px-4 py-2"
+              >
+                <AccordionTrigger className="hover:no-underline text-xs uppercase tracking-widest text-muted-foreground font-bold">
+                  {detailHeadingLabel}
+                </AccordionTrigger>
+                <AccordionContent className="pt-4 pb-2">
+                  <div className={microGridClassName}>
+                    {claim.expense ? (
+                      <>
+                        <DataCard
+                          label="Bill No"
+                          value={formatOptionalText(claim.expense.billNo, "-")}
+                          className="col-span-2 2xl:col-span-2"
+                        />
+                        <DataCard
+                          label="Product"
+                          value={formatOptionalText(claim.expense.productName)}
+                        />
+                        <DataCard
+                          label="Transaction Date"
+                          value={formatDate(claim.expense.transactionDate)}
+                        />
+                        <DataCard
+                          label="Location"
+                          value={formatOptionalText(claim.expense.locationName)}
+                        />
+                        <DataCard
+                          label="Vendor"
+                          value={formatOptionalText(claim.expense.vendorName)}
+                        />
+                        {claim.expense.remarks ? (
+                          <DataCard
+                            label="Remarks"
+                            value={formatOptionalText(claim.expense.remarks)}
+                            className="col-span-2 2xl:col-span-3"
+                          />
+                        ) : null}
+                        <DataCard
+                          label="People Involved"
+                          value={formatOptionalText(claim.expense.peopleInvolved)}
+                        />
+                      </>
+                    ) : claim.advance ? (
+                      <>
+                        <DataCard
+                          label="Purpose"
+                          value={formatOptionalText(claim.advance.purpose)}
+                          className="col-span-2 2xl:col-span-3"
+                        />
+                        <DataCard
+                          label="Expected Usage Date"
+                          value={formatDate(claim.advance.expectedUsageDate)}
+                        />
+                      </>
+                    ) : (
+                      <DataCard label="Details" value="N/A" className="col-span-2 2xl:col-span-3" />
+                    )}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem
+                value="financials"
+                className="border-none bg-muted/10 rounded-xl px-4 py-2"
+              >
+                <AccordionTrigger className="hover:no-underline text-xs uppercase tracking-widest text-muted-foreground font-bold">
+                  Financials
+                </AccordionTrigger>
+                <AccordionContent className="pt-4 pb-2">
+                  <div className={microGridClassName}>
+                    {claim.expense ? (
+                      <>
+                        <DataCard
+                          label="Basic Amount"
+                          value={formatAmountValue(claim.expense.basicAmount)}
+                        />
+                        <DataCard
+                          label="CGST Amount"
+                          value={formatAmountValue(claim.expense.cgstAmount)}
+                        />
+                        <DataCard
+                          label="SGST Amount"
+                          value={formatAmountValue(claim.expense.sgstAmount)}
+                        />
+                        <DataCard
+                          label="IGST Amount"
+                          value={formatAmountValue(claim.expense.igstAmount)}
+                        />
+                        <DataCard
+                          label="GST Applicable"
+                          value={
+                            claim.expense.isGstApplicable === null
+                              ? "N/A"
+                              : claim.expense.isGstApplicable
+                                ? "Yes"
+                                : "No"
+                          }
+                        />
+                        <DataCard
+                          label="GST Number"
+                          value={formatOptionalText(claim.expense.gstNumber)}
+                        />
+                        <DataCard
+                          label="Total Amount"
+                          value={formatAmountValue(claim.expense.totalAmount)}
+                        />
+                      </>
+                    ) : claim.advance ? (
+                      <DataCard
+                        label="Requested Amount"
+                        value={formatAmountValue(claim.advance.requestedAmount)}
+                      />
+                    ) : (
+                      <DataCard label="Amount" value="N/A" />
+                    )}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </section>
+
+          <section className="bg-card border border-border/50 shadow-sm rounded-xl p-6 md:p-8 flex flex-col gap-6">
             <div>
               <Suspense fallback={<ClaimAuditHistorySkeleton />}>
                 <ClaimAuditHistorySection claimId={claim.id} />

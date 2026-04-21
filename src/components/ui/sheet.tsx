@@ -205,7 +205,7 @@ export function SheetContent({
 type SheetCloseProps = ButtonHTMLAttributes<HTMLButtonElement>;
 
 export function SheetClose({ type = "button", onClick, ...props }: SheetCloseProps) {
-  const { setOpen } = useSheetContext("SheetClose");
+  const context = useContext(SheetContext);
 
   return (
     <button
@@ -214,7 +214,7 @@ export function SheetClose({ type = "button", onClick, ...props }: SheetClosePro
       onClick={(event) => {
         onClick?.(event);
         if (!event.defaultPrevented) {
-          setOpen(false);
+          context?.setOpen(false);
         }
       }}
     />
