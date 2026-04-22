@@ -21,9 +21,12 @@ function getStatusClasses(status: ClaimStatus | DbClaimStatus): string {
   if (
     status === "Submitted" ||
     status === "Pending" ||
-    status === "Submitted - Awaiting HOD approval" ||
-    status === "HOD approved - Awaiting finance approval"
+    status === "Submitted - Awaiting HOD approval"
   ) {
+    return "border-sky-300 bg-sky-50/80 text-sky-800 dark:border-sky-700/60 dark:bg-sky-900/30 dark:text-sky-200";
+  }
+
+  if (status === "HOD approved - Awaiting finance approval") {
     return "border-amber-300 bg-amber-50/80 text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/30 dark:text-amber-200";
   }
 
