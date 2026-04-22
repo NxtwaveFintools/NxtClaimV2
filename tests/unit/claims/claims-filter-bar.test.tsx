@@ -48,7 +48,7 @@ describe("ClaimsFilterBar URL sync", () => {
 
   async function flushDebounceWindow(): Promise<void> {
     await act(async () => {
-      jest.advanceTimersByTime(500);
+      jest.advanceTimersByTime(400);
     });
   }
 

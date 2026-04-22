@@ -220,19 +220,23 @@ describe("admin actions", () => {
   });
 
   test("forceUpdatePaymentMode validates payload and revalidates on success", async () => {
-    const invalidClaim = await forceUpdatePaymentMode(" ", "mode-1");
+    const invalidClaim = await forceUpdatePaymentMode(" ", "mode-1", "Valid reason");
     expect(invalidClaim).toEqual({ ok: false, message: "ID is required" });
 
-    const invalidMode = await forceUpdatePaymentMode("claim-1", " ");
+    const invalidMode = await forceUpdatePaymentMode("claim-1", " ", "Valid reason");
     expect(invalidMode).toEqual({ ok: false, message: "ID is required" });
 
-    const success = await forceUpdatePaymentMode("claim-1", "mode-1");
+    const invalidReason = await forceUpdatePaymentMode("claim-1", "mode-1", "bad");
+    expect(invalidReason).toEqual({ ok: false, message: "Reason must be at least 5 characters." });
+
+    const success = await forceUpdatePaymentMode("claim-1", "mode-1", "Fixing incorrect mode");
 
     expect(success).toEqual({ ok: true });
     expect(mockForceUpdatePaymentMode).toHaveBeenCalledWith({
       claimId: "claim-1",
       actorId: "admin-user-1",
       newPaymentModeId: "mode-1",
+      editReason: "Fixing incorrect mode",
     });
     expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/admin/settings");
     expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/my-claims");
@@ -242,7 +246,7 @@ describe("admin actions", () => {
   test("forceUpdatePaymentMode returns forbidden for non-admin", async () => {
     mockIsAdmin.mockResolvedValue(false);
 
-    const result = await forceUpdatePaymentMode("claim-1", "mode-1");
+    const result = await forceUpdatePaymentMode("claim-1", "mode-1", "Fixing incorrect mode");
 
     expect(result).toEqual({ ok: false, message: "Forbidden: admin access required." });
     expect(mockForceUpdatePaymentMode).not.toHaveBeenCalled();

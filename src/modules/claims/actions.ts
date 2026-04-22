@@ -23,6 +23,7 @@ import { ProcessL1ClaimDecisionService } from "@/core/domain/claims/ProcessL1Cla
 import { ProcessL2ClaimDecisionService } from "@/core/domain/claims/ProcessL2ClaimDecisionService";
 import { BulkProcessClaimsService } from "@/core/domain/claims/BulkProcessClaimsService";
 import { UpdateClaimByFinanceService } from "@/core/domain/claims/UpdateClaimByFinanceService";
+import { UpdateOwnClaimService } from "@/core/domain/claims/UpdateOwnClaimService";
 import { DeleteOwnClaimService } from "@/core/domain/claims/DeleteOwnClaimService";
 import type {
   ClaimAuditLogRecord,
@@ -31,12 +32,14 @@ import type {
   ClaimExpenseAiMetadata,
   FinanceClaimEditPayload,
   GetMyClaimsFilters,
+  OwnClaimEditPayload,
 } from "@/core/domain/claims/contracts";
 import { GetActiveDepartmentsService } from "@/core/domain/departments/GetActiveDepartmentsService";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
 import { SupabaseDepartmentRepository } from "@/modules/departments/repositories/SupabaseDepartmentRepository";
 import { newClaimSubmitSchema } from "@/modules/claims/validators/new-claim-schema";
 import { financeEditSchema } from "@/modules/claims/validators/finance-edit-schema";
+import { ownEditSchema } from "@/modules/claims/validators/own-edit-schema";
 import { formatDateTime } from "@/lib/format";
 import { sanitizeDashboardReturnToPath } from "@/lib/pagination-helpers";
 import { getViewerDepartmentIds } from "@/modules/claims/server/is-department-viewer";
@@ -55,6 +58,7 @@ const processL1ClaimDecisionService = new ProcessL1ClaimDecisionService({ reposi
 const processL2ClaimDecisionService = new ProcessL2ClaimDecisionService({ repository, logger });
 const bulkProcessClaimsService = new BulkProcessClaimsService({ repository, logger });
 const updateClaimByFinanceService = new UpdateClaimByFinanceService({ repository, logger });
+const updateOwnClaimService = new UpdateOwnClaimService({ repository, logger });
 const deleteOwnClaimService = new DeleteOwnClaimService({ repository, logger });
 
 const claimsStorageBucket = "claims";
@@ -1034,6 +1038,7 @@ export async function submitClaimAction(input: unknown): Promise<{
 function buildFinanceEditPayload(formData: FormData): unknown {
   const detailType = getFormDataString(formData, "detailType");
   const detailId = getFormDataString(formData, "detailId");
+  const editReason = getFormDataString(formData, "editReason");
   const paymentModeId = getFormDataNullableString(formData, "paymentModeId");
   const productId = getFormDataNullableString(formData, "productId");
   const locationId = getFormDataNullableString(formData, "locationId");
@@ -1050,6 +1055,7 @@ function buildFinanceEditPayload(formData: FormData): unknown {
     return {
       detailType,
       detailId,
+      editReason,
       paymentModeId,
       billNo: getFormDataString(formData, "billNo"),
       expenseCategoryId: getFormDataString(formData, "expenseCategoryId"),
@@ -1075,7 +1081,60 @@ function buildFinanceEditPayload(formData: FormData): unknown {
   return {
     detailType,
     detailId,
+    editReason,
     paymentModeId,
+    purpose: getFormDataString(formData, "purpose"),
+    requestedAmount: getFormDataNumber(formData, "requestedAmount"),
+    expectedUsageDate: getFormDataString(formData, "expectedUsageDate"),
+    productId,
+    locationId,
+    remarks: getFormDataNullableString(formData, "remarks"),
+    receiptFile,
+  };
+}
+
+function buildOwnEditPayload(formData: FormData): unknown {
+  const detailType = getFormDataString(formData, "detailType");
+  const detailId = getFormDataString(formData, "detailId");
+  const productId = getFormDataNullableString(formData, "productId");
+  const locationId = getFormDataNullableString(formData, "locationId");
+  const receiptFileEntry = formData.get("receiptFile");
+  const receiptFile =
+    receiptFileEntry instanceof File && receiptFileEntry.size > 0 ? receiptFileEntry : null;
+  const bankStatementFileEntry = formData.get("bankStatementFile");
+  const bankStatementFile =
+    bankStatementFileEntry instanceof File && bankStatementFileEntry.size > 0
+      ? bankStatementFileEntry
+      : null;
+
+  if (detailType === "expense") {
+    return {
+      detailType,
+      detailId,
+      billNo: getFormDataString(formData, "billNo"),
+      expenseCategoryId: getFormDataString(formData, "expenseCategoryId"),
+      locationId: getFormDataString(formData, "locationId"),
+      transactionDate: getFormDataString(formData, "transactionDate"),
+      isGstApplicable: getFormDataBoolean(formData, "isGstApplicable"),
+      gstNumber: getFormDataNullableString(formData, "gstNumber"),
+      vendorName: getFormDataNullableString(formData, "vendorName"),
+      basicAmount: getFormDataNumber(formData, "basicAmount"),
+      cgstAmount: getFormDataNumber(formData, "cgstAmount"),
+      sgstAmount: getFormDataNumber(formData, "sgstAmount"),
+      igstAmount: getFormDataNumber(formData, "igstAmount"),
+      totalAmount: getFormDataNumber(formData, "totalAmount"),
+      purpose: getFormDataString(formData, "purpose"),
+      productId,
+      peopleInvolved: getFormDataNullableString(formData, "peopleInvolved"),
+      remarks: getFormDataNullableString(formData, "remarks"),
+      receiptFile,
+      bankStatementFile,
+    };
+  }
+
+  return {
+    detailType,
+    detailId,
     purpose: getFormDataString(formData, "purpose"),
     requestedAmount: getFormDataNumber(formData, "requestedAmount"),
     expectedUsageDate: getFormDataString(formData, "expectedUsageDate"),
@@ -1301,6 +1360,7 @@ export async function updateClaimByFinanceAction(input: {
     financeEditPayload = {
       detailType: "expense",
       detailId: parseResult.data.detailId,
+      editReason: parseResult.data.editReason,
       paymentModeId: parseResult.data.paymentModeId ?? null,
       billNo: parseResult.data.billNo,
       expenseCategoryId: parseResult.data.expenseCategoryId,
@@ -1325,6 +1385,7 @@ export async function updateClaimByFinanceAction(input: {
     financeEditPayload = {
       detailType: "advance",
       detailId: parseResult.data.detailId,
+      editReason: parseResult.data.editReason,
       paymentModeId: parseResult.data.paymentModeId ?? null,
       purpose: parseResult.data.purpose,
       requestedAmount: parseResult.data.requestedAmount,
@@ -1383,6 +1444,243 @@ export async function updateClaimByFinanceAction(input: {
       claimId: claimIdParse.data.claimId,
       actorUserId: currentUserResult.user.id,
       errorMessage: error instanceof Error ? error.message : "Unknown finance edit error",
+    });
+    throw error;
+  }
+
+  revalidatePath(ROUTES.claims.myClaims);
+  revalidatePath(ROUTES.claims.dashboardList);
+  revalidatePath(`${ROUTES.claims.dashboardList}/${claimIdParse.data.claimId}`, "page");
+
+  return {
+    ok: true,
+    message: "Claim details updated.",
+  };
+}
+
+export async function updateOwnClaimAction(input: {
+  claimId: string;
+  formData: FormData;
+}): Promise<{ ok: boolean; message?: string }> {
+  const claimIdParse = financeEditClaimIdSchema.safeParse({ claimId: input.claimId });
+
+  if (!claimIdParse.success) {
+    return {
+      ok: false,
+      message: "Invalid claim identifier.",
+    };
+  }
+
+  const currentUserResult = await authRepository.getCurrentUser();
+
+  if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
+    return {
+      ok: false,
+      message: currentUserResult.errorMessage ?? "Unauthorized session.",
+    };
+  }
+
+  const claimSnapshotResult = await repository.getClaimForFinanceEdit(claimIdParse.data.claimId);
+
+  if (claimSnapshotResult.errorMessage || !claimSnapshotResult.data) {
+    return {
+      ok: false,
+      message: claimSnapshotResult.errorMessage ?? "Claim not found.",
+    };
+  }
+
+  if (hasRoutingFieldMutationAttempt(input.formData, { allowPaymentModeMutation: false })) {
+    return {
+      ok: false,
+      message: "Routing context fields cannot be edited for an existing claim.",
+    };
+  }
+
+  if (
+    !canActorEditClaim({
+      status: claimSnapshotResult.data.status,
+      actorUserId: currentUserResult.user.id,
+      submittedBy: claimSnapshotResult.data.submittedBy,
+      assignedL1ApproverId: claimSnapshotResult.data.assignedL1ApproverId,
+      isFinanceActor: false,
+    })
+  ) {
+    return {
+      ok: false,
+      message: "You are not authorized to edit this claim.",
+    };
+  }
+
+  const parseResult = ownEditSchema.safeParse(buildOwnEditPayload(input.formData));
+
+  if (!parseResult.success) {
+    return {
+      ok: false,
+      message: "Validation failed for claim edit payload.",
+    };
+  }
+
+  if (parseResult.data.detailType !== claimSnapshotResult.data.detailType) {
+    return {
+      ok: false,
+      message: "Claim detail type mismatch.",
+    };
+  }
+
+  let nextExpenseReceiptPath = claimSnapshotResult.data.expenseReceiptFilePath;
+  let nextExpenseBankStatementPath = claimSnapshotResult.data.expenseBankStatementFilePath;
+  let nextAdvanceDocumentPath = claimSnapshotResult.data.advanceSupportingDocumentPath;
+
+  if (parseResult.data.receiptFile && parseResult.data.receiptFile.size > 0) {
+    const receiptSizeError = validateUploadFileSize(parseResult.data.receiptFile, "Receipt file");
+
+    if (receiptSizeError) {
+      return {
+        ok: false,
+        message: receiptSizeError,
+      };
+    }
+
+    const fileBuffer = Buffer.from(await parseResult.data.receiptFile.arrayBuffer());
+
+    const uploadResult = await uploadClaimFile({
+      folder: "expenses",
+      userId: claimSnapshotResult.data.submittedBy,
+      fileName: parseResult.data.receiptFile.name,
+      fileType: parseResult.data.receiptFile.type || "application/octet-stream",
+      fileBuffer,
+    });
+
+    if (uploadResult.errorMessage || !uploadResult.path) {
+      return {
+        ok: false,
+        message: uploadResult.errorMessage ?? "Failed to upload replacement receipt.",
+      };
+    }
+
+    const previousPath =
+      parseResult.data.detailType === "expense"
+        ? claimSnapshotResult.data.expenseReceiptFilePath
+        : claimSnapshotResult.data.advanceSupportingDocumentPath;
+
+    if (previousPath && previousPath !== uploadResult.path) {
+      await removeClaimFile(previousPath);
+    }
+
+    if (parseResult.data.detailType === "expense") {
+      nextExpenseReceiptPath = uploadResult.path;
+    } else {
+      nextAdvanceDocumentPath = uploadResult.path;
+    }
+  }
+
+  if (
+    parseResult.data.detailType === "expense" &&
+    parseResult.data.bankStatementFile &&
+    parseResult.data.bankStatementFile.size > 0
+  ) {
+    const bankStatementSizeError = validateUploadFileSize(
+      parseResult.data.bankStatementFile,
+      "Bank statement file",
+    );
+
+    if (bankStatementSizeError) {
+      return {
+        ok: false,
+        message: bankStatementSizeError,
+      };
+    }
+
+    const fileBuffer = Buffer.from(await parseResult.data.bankStatementFile.arrayBuffer());
+
+    const uploadResult = await uploadClaimFile({
+      folder: "expenses",
+      userId: claimSnapshotResult.data.submittedBy,
+      fileName: parseResult.data.bankStatementFile.name,
+      fileType: parseResult.data.bankStatementFile.type || "application/octet-stream",
+      fileBuffer,
+    });
+
+    if (uploadResult.errorMessage || !uploadResult.path) {
+      return {
+        ok: false,
+        message: uploadResult.errorMessage ?? "Failed to upload replacement bank statement.",
+      };
+    }
+
+    const previousBankStatementPath = claimSnapshotResult.data.expenseBankStatementFilePath;
+
+    if (previousBankStatementPath && previousBankStatementPath !== uploadResult.path) {
+      await removeClaimFile(previousBankStatementPath);
+    }
+
+    nextExpenseBankStatementPath = uploadResult.path;
+  }
+
+  let ownEditPayload: OwnClaimEditPayload;
+
+  if (parseResult.data.detailType === "expense") {
+    ownEditPayload = {
+      detailType: "expense",
+      detailId: parseResult.data.detailId,
+      billNo: parseResult.data.billNo,
+      expenseCategoryId: parseResult.data.expenseCategoryId,
+      locationId: parseResult.data.locationId,
+      transactionDate: parseResult.data.transactionDate,
+      isGstApplicable: parseResult.data.isGstApplicable,
+      gstNumber: parseResult.data.gstNumber,
+      vendorName: parseResult.data.vendorName,
+      basicAmount: parseResult.data.basicAmount,
+      cgstAmount: parseResult.data.cgstAmount,
+      sgstAmount: parseResult.data.sgstAmount,
+      igstAmount: parseResult.data.igstAmount,
+      totalAmount: parseResult.data.totalAmount,
+      purpose: parseResult.data.purpose,
+      productId: parseResult.data.productId,
+      peopleInvolved: parseResult.data.peopleInvolved,
+      remarks: parseResult.data.remarks,
+      receiptFilePath: nextExpenseReceiptPath,
+      bankStatementFilePath: nextExpenseBankStatementPath,
+    };
+  } else {
+    ownEditPayload = {
+      detailType: "advance",
+      detailId: parseResult.data.detailId,
+      purpose: parseResult.data.purpose,
+      requestedAmount: parseResult.data.requestedAmount,
+      expectedUsageDate: parseResult.data.expectedUsageDate,
+      productId: parseResult.data.productId,
+      locationId: parseResult.data.locationId,
+      remarks: parseResult.data.remarks,
+      supportingDocumentPath: nextAdvanceDocumentPath,
+    };
+  }
+
+  try {
+    const result = await updateOwnClaimService.execute({
+      claimId: claimIdParse.data.claimId,
+      actorUserId: currentUserResult.user.id,
+      payload: ownEditPayload,
+    });
+
+    if (!result.ok) {
+      return {
+        ok: false,
+        message: result.errorMessage ?? "Failed to update claim details.",
+      };
+    }
+  } catch (error) {
+    if (isDuplicateExpenseBillUniqueViolation(error)) {
+      return {
+        ok: false,
+        message: buildDuplicateActiveExpenseBillMessage(),
+      };
+    }
+
+    logger.error("claims.own_edit.unhandled_exception", {
+      claimId: claimIdParse.data.claimId,
+      actorUserId: currentUserResult.user.id,
+      errorMessage: error instanceof Error ? error.message : "Unknown own-edit error",
     });
     throw error;
   }
