@@ -4,11 +4,6 @@ import type {
   ClaimsExportFetchScope,
   GetMyClaimsFilters,
 } from "@/core/domain/claims/contracts";
-import {
-  DB_CLAIM_STATUSES,
-  DB_REJECTED_STATUSES,
-  type DbClaimStatus,
-} from "@/core/constants/statuses";
 import { formatDate } from "@/lib/format";
 
 type ExportClaimsRepository = {
@@ -62,17 +57,12 @@ export type ClaimExportRow = {
   financeApprovedDate: string;
   billDate: string;
   claimStatus: string;
-  hodStatus: string;
-  financeStatus: string;
-  billStatus: string;
   billNumber: string;
   basicAmount: string;
   cgst: string;
   sgst: string;
   igst: string;
   totalAmount: string;
-  currency: string;
-  approvedAmount: string;
   vendorName: string;
   transactionCategory: string;
   product: string;
@@ -86,7 +76,6 @@ export type ClaimExportRow = {
   /** Raw signed URL, or null if unavailable. Set as a native hyperlink in the workbook. */
   pettyCashPhotoUrl: string | null;
   pettyCashRequestMonth: string;
-  transactionCount: string;
   claimRemarks: string;
   transactionRemarks: string;
 };
@@ -128,17 +117,12 @@ export const EXPORT_HEADERS = [
   "Finance Approved Date",
   "Bill Date",
   "Claim Status",
-  "HOD Status",
-  "Finance Status",
-  "Bill Status",
   "Bill Number",
   "Basic Amount",
   "CGST",
   "SGST",
   "IGST",
   "Total Amount",
-  "Currency",
-  "Approved Amount",
   "Vendor Name",
   "Transaction Category",
   "Product",
@@ -149,7 +133,6 @@ export const EXPORT_HEADERS = [
   "Bill URL",
   "Petty Cash Photo URL",
   "Petty Cash Request Month",
-  "Transaction Count",
   "Claim Remarks",
   "Transaction Remarks",
 ] as const;
@@ -168,52 +151,6 @@ function toTextValue(value: string | null): string {
   }
 
   return value;
-}
-
-function deriveWorkflowStatuses(input: { status: DbClaimStatus; financeActionAt: string | null }): {
-  hodStatus: string;
-  financeStatus: string;
-  billStatus: string;
-} {
-  switch (input.status) {
-    case DB_CLAIM_STATUSES[0]:
-      return {
-        hodStatus: "Pending",
-        financeStatus: "Pending",
-        billStatus: "Pending",
-      };
-    case DB_CLAIM_STATUSES[1]:
-      return {
-        hodStatus: "Approved",
-        financeStatus: "Pending",
-        billStatus: "Pending",
-      };
-    case DB_CLAIM_STATUSES[2]:
-      return {
-        hodStatus: "Approved",
-        financeStatus: "Approved",
-        billStatus: "Pending",
-      };
-    case DB_CLAIM_STATUSES[3]:
-      return {
-        hodStatus: "Approved",
-        financeStatus: "Approved",
-        billStatus: "Paid",
-      };
-    case DB_REJECTED_STATUSES[0]:
-    case DB_REJECTED_STATUSES[1]:
-      return {
-        hodStatus: input.financeActionAt ? "Approved" : "Rejected",
-        financeStatus: input.financeActionAt ? "Rejected" : "N/A",
-        billStatus: "Rejected",
-      };
-    default:
-      return {
-        hodStatus: "Pending",
-        financeStatus: "Pending",
-        billStatus: "Pending",
-      };
-  }
 }
 
 function resolveExportScope(
@@ -341,10 +278,6 @@ function toExportRow(
     row.detailType === "expense"
       ? formatAmountDisplay(row.expenseTotalAmount)
       : formatAmountDisplay(row.advanceRequestedAmount);
-  const workflowStatuses = deriveWorkflowStatuses({
-    status: row.status,
-    financeActionAt: row.financeActionAt,
-  });
   const beneficiaryName =
     row.submissionType === "On Behalf"
       ? (row.beneficiaryName ?? row.submitterName)
@@ -381,20 +314,12 @@ function toExportRow(
         ? formatDate(row.expenseTransactionDate)
         : formatDate(row.advanceExpectedUsageDate),
     claimStatus: row.status,
-    hodStatus: workflowStatuses.hodStatus,
-    financeStatus: workflowStatuses.financeStatus,
-    billStatus: workflowStatuses.billStatus,
     billNumber: toTextValue(row.expenseBillNo),
     basicAmount: formatAmountDisplay(row.expenseBasicAmount),
     cgst: formatAmountDisplay(row.expenseCgstAmount),
     sgst: formatAmountDisplay(row.expenseSgstAmount),
     igst: formatAmountDisplay(row.expenseIgstAmount),
     totalAmount,
-    currency: toTextValue(row.expenseCurrencyCode ?? "INR"),
-    approvedAmount:
-      row.status === DB_CLAIM_STATUSES[2] || row.status === DB_CLAIM_STATUSES[3]
-        ? totalAmount
-        : "N/A",
     vendorName: toTextValue(row.expenseVendorName),
     transactionCategory: toTextValue(row.expenseCategoryName),
     product: toTextValue(
@@ -407,9 +332,8 @@ function toExportRow(
     locationDetails: toTextValue(row.expenseLocationDetails),
     bankStatementUrl,
     billUrl: receiptUrl,
-    pettyCashPhotoUrl: row.detailType === "expense" ? receiptUrl : supportingUrl,
+    pettyCashPhotoUrl: row.detailType === "expense" ? null : supportingUrl,
     pettyCashRequestMonth: toPettyCashRequestMonth(row.advanceBudgetMonth, row.advanceBudgetYear),
-    transactionCount: "1",
     claimRemarks: toTextValue(row.rejectionReason),
     transactionRemarks: toTextValue(
       row.detailType === "expense" ? row.expenseRemarks : row.advanceRemarks,

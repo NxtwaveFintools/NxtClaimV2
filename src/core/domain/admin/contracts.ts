@@ -191,6 +191,7 @@ export interface AdminRepository {
     claimId: string;
     actorId: string;
     newPaymentModeId: string;
+    editReason: string;
   }): Promise<{ success: boolean; errorMessage: string | null }>;
 
   softDeleteClaim(

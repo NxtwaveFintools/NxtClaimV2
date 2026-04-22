@@ -111,9 +111,16 @@ function SheetPortal({ children }: SheetPortalProps) {
 
 type SheetContentProps = HTMLAttributes<HTMLDivElement> & {
   side?: "left" | "right";
+  hideDefaultCloseButton?: boolean;
 };
 
-export function SheetContent({ className, side = "right", children, ...props }: SheetContentProps) {
+export function SheetContent({
+  className,
+  side = "right",
+  hideDefaultCloseButton = false,
+  children,
+  ...props
+}: SheetContentProps) {
   const { open, setOpen, contentId, titleId, descriptionId } = useSheetContext("SheetContent");
 
   useEffect(() => {
@@ -166,30 +173,51 @@ export function SheetContent({ className, side = "right", children, ...props }: 
           )}
           {...props}
         >
-          <button
-            type="button"
-            className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 text-zinc-600 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
-            aria-label="Close panel"
-            onClick={() => {
-              setOpen(false);
-            }}
-          >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
+          {!hideDefaultCloseButton ? (
+            <button
+              type="button"
+              className="absolute right-4 top-4 z-20 inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 text-zinc-600 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+              aria-label="Close panel"
+              onClick={() => {
+                setOpen(false);
+              }}
             >
-              <path d="M6 6l12 12" />
-              <path d="M18 6 6 18" />
-            </svg>
-          </button>
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
+                <path d="M6 6l12 12" />
+                <path d="M18 6 6 18" />
+              </svg>
+            </button>
+          ) : null}
           {children}
         </div>
       </div>
     </SheetPortal>
+  );
+}
+
+type SheetCloseProps = ButtonHTMLAttributes<HTMLButtonElement>;
+
+export function SheetClose({ type = "button", onClick, ...props }: SheetCloseProps) {
+  const context = useContext(SheetContext);
+
+  return (
+    <button
+      {...props}
+      type={type}
+      onClick={(event) => {
+        onClick?.(event);
+        if (!event.defaultPrevented) {
+          context?.setOpen(false);
+        }
+      }}
+    />
   );
 }
 

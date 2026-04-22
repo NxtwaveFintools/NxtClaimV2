@@ -321,229 +321,122 @@ describe("SupabaseClaimRepository selectable approvals counts", () => {
   });
 });
 
-type MutationResult = {
-  data: unknown;
-  error: { message: string } | null;
-};
-
-type MutationBuilder = {
-  update: jest.Mock;
-  eq: jest.Mock;
-  select: jest.Mock;
-  maybeSingle: jest.Mock;
-};
-
-function createMutationBuilder(result: MutationResult): MutationBuilder {
-  const builder: MutationBuilder = {
-    update: jest.fn(() => builder),
-    eq: jest.fn(() => builder),
-    select: jest.fn(() => builder),
-    maybeSingle: jest.fn(async () => result),
-  };
-
-  return builder;
-}
-
 describe("SupabaseClaimRepository.updateClaimDetailsByFinance", () => {
+  function createFinanceExpenseEditPayload(overrides?: Record<string, unknown>) {
+    return {
+      detailType: "expense" as const,
+      detailId: "expense-detail-1",
+      editReason: "Correcting expense detail data",
+      billNo: "BILL-1",
+      expenseCategoryId: "cat-1",
+      locationId: "loc-1",
+      transactionDate: "2026-03-22",
+      isGstApplicable: true,
+      gstNumber: "GSTIN-123",
+      vendorName: "Vendor A",
+      basicAmount: 100,
+      cgstAmount: 9,
+      sgstAmount: 9,
+      igstAmount: 0,
+      totalAmount: 118,
+      purpose: "Travel",
+      productId: "prod-1",
+      peopleInvolved: "Alice",
+      remarks: "updated",
+      receiptFilePath: "expenses/new_receipt.pdf",
+      bankStatementFilePath: "expenses/new_bank_statement.pdf",
+      ...overrides,
+    };
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  test("updates claims and expense_details with GST and bank statement fields", async () => {
-    const claimsBuilder = createMutationBuilder({
-      data: { id: "claim-1" },
-      error: null,
-    });
-    const expenseBuilder = createMutationBuilder({
-      data: { id: "expense-1" },
-      error: null,
-    });
-
-    mockFrom.mockReturnValueOnce(claimsBuilder).mockReturnValueOnce(expenseBuilder);
+  test("calls update_claim_by_finance RPC with actor id, reason, and payload", async () => {
+    const mockRpc = jest.fn().mockResolvedValue({ data: null, error: null });
 
     mockGetServiceRoleSupabaseClient.mockReturnValue({
-      from: mockFrom,
+      rpc: mockRpc,
     });
 
     const repository = new SupabaseClaimRepository();
-    const result = await repository.updateClaimDetailsByFinance("claim-1", {
-      detailType: "expense",
-      detailId: "expense-detail-1",
-      billNo: "BILL-1",
-      expenseCategoryId: "cat-1",
-      locationId: "loc-1",
-      transactionDate: "2026-03-22",
-      isGstApplicable: true,
-      gstNumber: "GSTIN-123",
-      vendorName: "Vendor A",
-      basicAmount: 100,
-      cgstAmount: 9,
-      sgstAmount: 9,
-      igstAmount: 0,
-      totalAmount: 118,
-      purpose: "Travel",
-      productId: "prod-1",
-      peopleInvolved: "Alice",
-      remarks: "updated",
-      receiptFilePath: "expenses/new_receipt.pdf",
-      bankStatementFilePath: "expenses/new_bank_statement.pdf",
-    });
+    const payload = createFinanceExpenseEditPayload();
+    const result = await repository.updateClaimDetailsByFinance("claim-1", "actor-1", payload);
 
     expect(result).toEqual({ errorMessage: null });
-    expect(mockFrom).toHaveBeenNthCalledWith(1, "claims");
-    expect(mockFrom).toHaveBeenNthCalledWith(2, "expense_details");
-
-    const claimUpdatePayload = claimsBuilder.update.mock.calls[0]?.[0];
-    expect(claimUpdatePayload).toEqual(
+    expect(mockRpc).toHaveBeenCalledWith(
+      "update_claim_by_finance",
       expect.objectContaining({
-        updated_at: expect.any(String),
+        p_claim_id: "claim-1",
+        p_actor_id: "actor-1",
+        p_edit_reason: "Correcting expense detail data",
+        p_payload: payload,
       }),
     );
-    expect(claimUpdatePayload).not.toHaveProperty("department_id");
-    expect(claimUpdatePayload).not.toHaveProperty("payment_mode_id");
-
-    expect(expenseBuilder.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        is_gst_applicable: true,
-        gst_number: "GSTIN-123",
-        cgst_amount: 9,
-        sgst_amount: 9,
-        igst_amount: 0,
-        bank_statement_file_path: "expenses/new_bank_statement.pdf",
-        receipt_file_path: "expenses/new_receipt.pdf",
-      }),
-    );
-    expect(expenseBuilder.eq).toHaveBeenCalledWith("id", "expense-detail-1");
-    expect(expenseBuilder.eq).toHaveBeenCalledWith("claim_id", "claim-1");
-    expect(expenseBuilder.eq).toHaveBeenCalledWith("is_active", true);
   });
 
-  test("updates claim payment_mode_id when finance payload includes paymentModeId", async () => {
-    const claimsBuilder = createMutationBuilder({
-      data: { id: "claim-1" },
-      error: null,
-    });
-    const expenseBuilder = createMutationBuilder({
-      data: { id: "expense-1" },
-      error: null,
-    });
-
-    mockFrom.mockReturnValueOnce(claimsBuilder).mockReturnValueOnce(expenseBuilder);
+  test("passes paymentModeId in RPC payload when present", async () => {
+    const mockRpc = jest.fn().mockResolvedValue({ data: null, error: null });
 
     mockGetServiceRoleSupabaseClient.mockReturnValue({
-      from: mockFrom,
+      rpc: mockRpc,
     });
 
     const repository = new SupabaseClaimRepository();
-    const result = await repository.updateClaimDetailsByFinance("claim-1", {
-      detailType: "expense",
-      detailId: "expense-detail-1",
+    const payload = createFinanceExpenseEditPayload({
       paymentModeId: "22222222-2222-4222-8222-222222222222",
-      billNo: "BILL-1",
-      expenseCategoryId: "cat-1",
-      locationId: "loc-1",
-      transactionDate: "2026-03-22",
-      isGstApplicable: true,
-      gstNumber: "GSTIN-123",
-      vendorName: "Vendor A",
-      basicAmount: 100,
-      cgstAmount: 9,
-      sgstAmount: 9,
-      igstAmount: 0,
-      totalAmount: 118,
-      purpose: "Travel",
-      productId: "prod-1",
-      peopleInvolved: "Alice",
-      remarks: "updated",
-      receiptFilePath: "expenses/new_receipt.pdf",
-      bankStatementFilePath: "expenses/new_bank_statement.pdf",
     });
+    const result = await repository.updateClaimDetailsByFinance("claim-1", "actor-1", payload);
 
     expect(result).toEqual({ errorMessage: null });
-    expect(claimsBuilder.update).toHaveBeenCalledWith(
+    expect(mockRpc).toHaveBeenCalledWith(
+      "update_claim_by_finance",
       expect.objectContaining({
-        payment_mode_id: "22222222-2222-4222-8222-222222222222",
+        p_payload: expect.objectContaining({
+          paymentModeId: "22222222-2222-4222-8222-222222222222",
+        }),
       }),
     );
   });
 
-  test("returns claim update error without running expense update", async () => {
-    const claimsBuilder = createMutationBuilder({
+  test("returns RPC error message when update_claim_by_finance fails", async () => {
+    const mockRpc = jest.fn().mockResolvedValue({
       data: null,
       error: { message: "claim update failed" },
     });
 
-    mockFrom.mockReturnValueOnce(claimsBuilder);
-    mockGetServiceRoleSupabaseClient.mockReturnValue({ from: mockFrom });
+    mockGetServiceRoleSupabaseClient.mockReturnValue({ rpc: mockRpc });
 
     const repository = new SupabaseClaimRepository();
-    const result = await repository.updateClaimDetailsByFinance("claim-1", {
-      detailType: "expense",
-      detailId: "expense-detail-1",
-      billNo: "BILL-1",
-      expenseCategoryId: "cat-1",
-      locationId: "loc-1",
-      transactionDate: "2026-03-22",
-      isGstApplicable: false,
-      gstNumber: null,
-      vendorName: null,
-      basicAmount: 100,
-      cgstAmount: 0,
-      sgstAmount: 0,
-      igstAmount: 0,
-      totalAmount: 100,
-      purpose: "Travel",
-      productId: null,
-      peopleInvolved: null,
-      remarks: null,
-      receiptFilePath: null,
-      bankStatementFilePath: null,
-    });
+    const result = await repository.updateClaimDetailsByFinance(
+      "claim-1",
+      "actor-1",
+      createFinanceExpenseEditPayload(),
+    );
 
     expect(result).toEqual({ errorMessage: "claim update failed" });
-    expect(mockFrom).toHaveBeenCalledTimes(1);
   });
 
-  test("returns expense detail missing error when claim exists but expense row is absent", async () => {
-    const claimsBuilder = createMutationBuilder({
-      data: { id: "claim-1" },
-      error: null,
-    });
-    const expenseBuilder = createMutationBuilder({
-      data: null,
-      error: null,
-    });
+  test("rethrows duplicate active bill unique violations for expense payloads", async () => {
+    const duplicateError = {
+      code: "23505",
+      message: 'duplicate key value violates unique constraint "uq_expense_details_active_bill"',
+      details: "Key (bill_no, transaction_date, basic_amount) already exists.",
+    };
+    const mockRpc = jest.fn().mockResolvedValue({ data: null, error: duplicateError });
 
-    mockFrom.mockReturnValueOnce(claimsBuilder).mockReturnValueOnce(expenseBuilder);
-    mockGetServiceRoleSupabaseClient.mockReturnValue({ from: mockFrom });
+    mockGetServiceRoleSupabaseClient.mockReturnValue({ rpc: mockRpc });
 
     const repository = new SupabaseClaimRepository();
-    const result = await repository.updateClaimDetailsByFinance("claim-1", {
-      detailType: "expense",
-      detailId: "expense-detail-1",
-      billNo: "BILL-1",
-      expenseCategoryId: "cat-1",
-      locationId: "loc-1",
-      transactionDate: "2026-03-22",
-      isGstApplicable: false,
-      gstNumber: null,
-      vendorName: null,
-      basicAmount: 100,
-      cgstAmount: 0,
-      sgstAmount: 0,
-      igstAmount: 0,
-      totalAmount: 100,
-      purpose: "Travel",
-      productId: null,
-      peopleInvolved: null,
-      remarks: null,
-      receiptFilePath: null,
-      bankStatementFilePath: null,
-    });
 
-    expect(result).toEqual({
-      errorMessage: "Cannot edit: Expense details missing or soft-deleted.",
-    });
+    await expect(
+      repository.updateClaimDetailsByFinance(
+        "claim-1",
+        "actor-1",
+        createFinanceExpenseEditPayload(),
+      ),
+    ).rejects.toEqual(duplicateError);
   });
 });
 

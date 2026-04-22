@@ -779,7 +779,14 @@ export class SupabaseAdminRepository implements AdminRepository {
     claimId: string;
     actorId: string;
     newPaymentModeId: string;
+    editReason: string;
   }): Promise<{ success: boolean; errorMessage: string | null }> {
+    const editReason = input.editReason.trim();
+
+    if (editReason.length < 5) {
+      return { success: false, errorMessage: "Reason must be at least 5 characters." };
+    }
+
     const { data: currentClaimData, error: fetchError } = await this.client
       .from("claims")
       .select("id, status, is_active, payment_mode_id")
@@ -889,7 +896,7 @@ export class SupabaseAdminRepository implements AdminRepository {
 
     const sourceLabel =
       currentPaymentModeName ?? currentClaim.payment_mode_id ?? "Unknown current payment mode";
-    const overrideRemarks = `Admin Override: Payment Mode changed (${sourceLabel} -> ${targetPaymentMode.name}).`;
+    const overrideRemarks = `Admin Override: Payment Mode changed (${sourceLabel} -> ${targetPaymentMode.name}). Reason: ${editReason}`;
 
     const { error: auditError } = await this.client.from("claim_audit_logs").insert({
       claim_id: input.claimId,

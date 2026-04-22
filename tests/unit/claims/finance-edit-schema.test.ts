@@ -5,6 +5,7 @@ describe("financeEditSchema", () => {
     const result = financeEditSchema.safeParse({
       detailType: "expense",
       detailId: "11111111-1111-4111-8111-111111111111",
+      editReason: "Correcting receipt metadata",
       billNo: "BILL-100",
       expenseCategoryId: "33333333-3333-4333-8333-333333333333",
       locationId: "44444444-4444-4444-8444-444444444444",
@@ -32,6 +33,7 @@ describe("financeEditSchema", () => {
     const result = financeEditSchema.safeParse({
       detailType: "expense",
       detailId: "11111111-1111-4111-8111-111111111111",
+      editReason: "Correcting receipt metadata",
       billNo: "BILL-100",
       expenseCategoryId: "33333333-3333-4333-8333-333333333333",
       locationId: "44444444-4444-4444-8444-444444444444",
@@ -63,6 +65,7 @@ describe("financeEditSchema", () => {
     const result = financeEditSchema.safeParse({
       detailType: "expense",
       detailId: "11111111-1111-4111-8111-111111111111",
+      editReason: "Correcting payment mode assignment",
       paymentModeId: "22222222-2222-4222-8222-222222222222",
       billNo: "BILL-102",
       expenseCategoryId: "33333333-3333-4333-8333-333333333333",
@@ -90,6 +93,7 @@ describe("financeEditSchema", () => {
   test("rejects expense payload when detailId is missing", () => {
     const result = financeEditSchema.safeParse({
       detailType: "expense",
+      editReason: "Correcting receipt metadata",
       billNo: "BILL-100",
       expenseCategoryId: "33333333-3333-4333-8333-333333333333",
       locationId: "44444444-4444-4444-8444-444444444444",
@@ -117,6 +121,7 @@ describe("financeEditSchema", () => {
     const result = financeEditSchema.safeParse({
       detailType: "advance",
       detailId: "22222222-2222-4222-8222-222222222222",
+      editReason: "Fixing usage date after review",
       purpose: "Petty cash correction",
       requestedAmount: 500,
       expectedUsageDate: "2026-03-20",
@@ -133,6 +138,7 @@ describe("financeEditSchema", () => {
     const result = financeEditSchema.safeParse({
       detailType: "expense",
       detailId: "11111111-1111-4111-8111-111111111111",
+      editReason: "Adjusting tax split after reconciliation",
       billNo: "BILL-101",
       expenseCategoryId: "33333333-3333-4333-8333-333333333333",
       locationId: "44444444-4444-4444-8444-444444444444",
@@ -154,5 +160,49 @@ describe("financeEditSchema", () => {
     });
 
     expect(result.success).toBe(true);
+  });
+
+  test("rejects payloads when editReason is missing", () => {
+    const result = financeEditSchema.safeParse({
+      detailType: "advance",
+      detailId: "22222222-2222-4222-8222-222222222222",
+      purpose: "Petty cash correction",
+      requestedAmount: 500,
+      expectedUsageDate: "2026-03-20",
+      productId: null,
+      locationId: null,
+      remarks: "Advance remarks",
+      receiptFile: null,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  test("rejects payloads when editReason is shorter than 5 characters", () => {
+    const result = financeEditSchema.safeParse({
+      detailType: "expense",
+      detailId: "11111111-1111-4111-8111-111111111111",
+      editReason: "Fix",
+      billNo: "BILL-100",
+      expenseCategoryId: "33333333-3333-4333-8333-333333333333",
+      locationId: "44444444-4444-4444-8444-444444444444",
+      transactionDate: "2026-03-14",
+      isGstApplicable: false,
+      gstNumber: null,
+      vendorName: "Vendor",
+      basicAmount: 120,
+      cgstAmount: 0,
+      sgstAmount: 0,
+      igstAmount: 0,
+      totalAmount: 120,
+      purpose: "Client travel",
+      productId: null,
+      peopleInvolved: null,
+      remarks: null,
+      receiptFile: null,
+      bankStatementFile: null,
+    });
+
+    expect(result.success).toBe(false);
   });
 });

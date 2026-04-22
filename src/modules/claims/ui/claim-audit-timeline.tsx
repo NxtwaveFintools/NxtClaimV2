@@ -4,6 +4,7 @@ type ClaimAuditTimelineProps = {
   logs: (ClaimAuditLogRecord & { formattedCreatedAt: string })[];
   title?: string;
   emptyLabel?: string;
+  visualStyle?: "default" | "minimal";
 };
 
 function describeAction(actionType: ClaimAuditLogRecord["actionType"]): string {
@@ -21,6 +22,14 @@ function describeAction(actionType: ClaimAuditLogRecord["actionType"]): string {
 
   if (actionType === "L2_APPROVED") {
     return "Approved by Finance";
+  }
+
+  if (actionType === "FINANCE_EDITED") {
+    return "Edited by Finance";
+  }
+
+  if (actionType === "UPDATED") {
+    return "Claim Updated";
   }
 
   if (actionType === "L2_MARK_PAID") {
@@ -77,6 +86,20 @@ function actionAccentClasses(actionType: ClaimAuditLogRecord["actionType"]): {
     };
   }
 
+  if (actionType === "FINANCE_EDITED") {
+    return {
+      labelClassName: "text-amber-800 dark:text-amber-200",
+      dotClassName: "bg-amber-600 dark:bg-amber-400",
+    };
+  }
+
+  if (actionType === "UPDATED") {
+    return {
+      labelClassName: "text-teal-800 dark:text-teal-200",
+      dotClassName: "bg-teal-600 dark:bg-teal-400",
+    };
+  }
+
   return {
     labelClassName: "text-indigo-700 dark:text-indigo-300",
     dotClassName: "bg-indigo-600 dark:bg-indigo-400",
@@ -112,16 +135,34 @@ export function ClaimAuditTimeline({
   logs,
   title = "Audit History",
   emptyLabel = "No audit entries are available for this claim.",
+  visualStyle = "default",
 }: ClaimAuditTimelineProps) {
+  const isMinimalVisual = visualStyle === "minimal";
+  const containerClassName = isMinimalVisual
+    ? "rounded-2xl border border-zinc-200/70 bg-white/65 p-5 shadow-[0_14px_35px_-28px_rgba(15,23,42,0.35)] dark:border-zinc-800/90 dark:bg-zinc-950/45"
+    : "rounded-3xl border border-zinc-200/80 bg-white/80 p-5 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.22)] dark:border-zinc-800/80 dark:bg-zinc-950/60 dark:shadow-black/25";
+  const itemClassName = isMinimalVisual
+    ? "relative border-b border-zinc-200/75 py-3 pl-5 last:border-b-0 dark:border-zinc-800"
+    : "relative overflow-hidden rounded-2xl border border-zinc-200/80 bg-zinc-50/90 p-4 pl-5 dark:border-zinc-800/80 dark:bg-zinc-900/80";
+  const remarksClassName = isMinimalVisual
+    ? "mt-2 text-xs leading-5 text-zinc-700 dark:text-zinc-300"
+    : "mt-3 rounded-xl bg-white px-3 py-2 text-xs leading-5 text-zinc-700 shadow-sm dark:bg-zinc-950 dark:text-zinc-300";
+
   return (
-    <section className="rounded-3xl border border-zinc-200/80 bg-white/80 p-5 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.22)] dark:border-zinc-800/80 dark:bg-zinc-950/60 dark:shadow-black/25">
+    <section className={containerClassName}>
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-500">
           {title}
         </h3>
-        <span className="inline-flex rounded-full border border-zinc-200/80 bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
-          {logs.length} event{logs.length === 1 ? "" : "s"}
-        </span>
+        {isMinimalVisual ? (
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            {logs.length} event{logs.length === 1 ? "" : "s"}
+          </span>
+        ) : (
+          <span className="inline-flex rounded-full border border-zinc-200/80 bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+            {logs.length} event{logs.length === 1 ? "" : "s"}
+          </span>
+        )}
       </div>
 
       {logs.length === 0 ? (
@@ -133,10 +174,7 @@ export function ClaimAuditTimeline({
             const actionAccent = actionAccentClasses(log.actionType);
 
             return (
-              <li
-                key={log.id}
-                className="relative overflow-hidden rounded-2xl border border-zinc-200/80 bg-zinc-50/90 p-4 pl-5 dark:border-zinc-800/80 dark:bg-zinc-900/80"
-              >
+              <li key={log.id} className={itemClassName}>
                 <span
                   className={`absolute bottom-4 left-0 top-4 w-1 rounded-full ${actionAccent.dotClassName}`}
                 />
@@ -154,11 +192,7 @@ export function ClaimAuditTimeline({
                     Assigned to {assigneeLabel}
                   </p>
                 ) : null}
-                {log.remarks ? (
-                  <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs leading-5 text-zinc-700 shadow-sm dark:bg-zinc-950 dark:text-zinc-300">
-                    Remarks: {log.remarks}
-                  </p>
-                ) : null}
+                {log.remarks ? <p className={remarksClassName}>Remarks: {log.remarks}</p> : null}
               </li>
             );
           })}

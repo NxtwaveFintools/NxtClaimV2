@@ -1260,6 +1260,7 @@ async function MyClaimsDashboardResolvedContent({
               {isAdminUser ? (
                 <Link
                   href={ROUTES.admin.settings}
+                  prefetch={false}
                   className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white/80 px-4 text-sm font-semibold text-zinc-700 backdrop-blur-sm transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/80 dark:text-zinc-200 dark:hover:bg-zinc-900"
                 >
                   System Settings
@@ -1267,6 +1268,7 @@ async function MyClaimsDashboardResolvedContent({
               ) : null}
               <Link
                 href={ROUTES.claims.new}
+                prefetch={false}
                 className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-colors hover:bg-indigo-500 active:scale-[0.98]"
               >
                 <CirclePlus className="h-4 w-4" aria-hidden="true" />
@@ -1278,6 +1280,7 @@ async function MyClaimsDashboardResolvedContent({
           <div className="mt-4 inline-flex flex-wrap rounded-2xl border border-zinc-200/80 bg-zinc-50/80 p-1 dark:border-zinc-700/60 dark:bg-zinc-900/60">
             <Link
               href={submissionsHref}
+              prefetch={false}
               className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
                 activeView === "submissions"
                   ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
@@ -1289,6 +1292,7 @@ async function MyClaimsDashboardResolvedContent({
             {viewerContextResult.canViewApprovals ? (
               <Link
                 href={approvalsHref}
+                prefetch={false}
                 className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
                   activeView === "approvals"
                     ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
@@ -1301,6 +1305,7 @@ async function MyClaimsDashboardResolvedContent({
             {isAdminUser ? (
               <Link
                 href={adminHref}
+                prefetch={false}
                 className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
                   activeView === "admin"
                     ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
@@ -1313,6 +1318,7 @@ async function MyClaimsDashboardResolvedContent({
             {isAdminUser ? (
               <Link
                 href={adminDeletedHref}
+                prefetch={false}
                 className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
                   activeView === "admin-deleted"
                     ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
@@ -1325,6 +1331,7 @@ async function MyClaimsDashboardResolvedContent({
             {isDeptViewer ? (
               <Link
                 href={departmentHref}
+                prefetch={false}
                 className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
                   activeView === "department"
                     ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
