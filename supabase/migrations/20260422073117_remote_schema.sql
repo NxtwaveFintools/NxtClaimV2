@@ -1531,38 +1531,6 @@ $$;
 ALTER FUNCTION "public"."refresh_claim_analytics_snapshot"("p_claim_id" "text") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."rls_auto_enable"() RETURNS "event_trigger"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'pg_catalog'
-    AS $$
-DECLARE
-  cmd record;
-BEGIN
-  FOR cmd IN
-    SELECT *
-    FROM pg_event_trigger_ddl_commands()
-    WHERE command_tag IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
-      AND object_type IN ('table','partitioned table')
-  LOOP
-     IF cmd.schema_name IS NOT NULL AND cmd.schema_name IN ('public') AND cmd.schema_name NOT IN ('pg_catalog','information_schema') AND cmd.schema_name NOT LIKE 'pg_toast%' AND cmd.schema_name NOT LIKE 'pg_temp%' THEN
-      BEGIN
-        EXECUTE format('alter table if exists %s enable row level security', cmd.object_identity);
-        RAISE LOG 'rls_auto_enable: enabled RLS on %', cmd.object_identity;
-      EXCEPTION
-        WHEN OTHERS THEN
-          RAISE LOG 'rls_auto_enable: failed to enable RLS on %', cmd.object_identity;
-      END;
-     ELSE
-        RAISE LOG 'rls_auto_enable: skip % (either system schema or not in enforced list: %.)', cmd.object_identity, cmd.schema_name;
-     END IF;
-  END LOOP;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."rls_auto_enable"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."trg_refresh_claim_analytics_snapshot"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     SET "search_path" TO 'public'
@@ -1937,6 +1905,16 @@ SET default_tablespace = '';
 SET default_table_access_method = "heap";
 
 
+CREATE TABLE IF NOT EXISTS "public"."_migration_history" (
+    "name" "text" NOT NULL,
+    "applied_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "checksum" "text"
+);
+
+
+ALTER TABLE "public"."_migration_history" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."admins" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "user_id" "uuid",
@@ -2040,6 +2018,10 @@ ALTER TABLE "public"."claims" OWNER TO "postgres";
 
 
 COMMENT ON TABLE "public"."claims" IS 'Claim header table. Strict 1 claim = 1 transaction via child-table uniqueness and consistency triggers. No draft state supported.';
+
+
+
+COMMENT ON COLUMN "public"."claims"."rejection_reason" IS 'Mandatory reason captured when a claim is rejected by L1 or Finance approver.';
 
 
 
@@ -2488,6 +2470,11 @@ CREATE TABLE IF NOT EXISTS "public"."wallets" (
 
 
 ALTER TABLE "public"."wallets" OWNER TO "postgres";
+
+
+ALTER TABLE ONLY "public"."_migration_history"
+    ADD CONSTRAINT "_migration_history_pkey" PRIMARY KEY ("name");
+
 
 
 ALTER TABLE ONLY "public"."admins"
@@ -3874,12 +3861,6 @@ GRANT ALL ON FUNCTION "public"."refresh_claim_analytics_snapshot"("p_claim_id" "
 
 
 
-GRANT ALL ON FUNCTION "public"."rls_auto_enable"() TO "anon";
-GRANT ALL ON FUNCTION "public"."rls_auto_enable"() TO "authenticated";
-GRANT ALL ON FUNCTION "public"."rls_auto_enable"() TO "service_role";
-
-
-
 GRANT ALL ON FUNCTION "public"."set_limit"(real) TO "postgres";
 GRANT ALL ON FUNCTION "public"."set_limit"(real) TO "anon";
 GRANT ALL ON FUNCTION "public"."set_limit"(real) TO "authenticated";
@@ -4049,6 +4030,12 @@ GRANT ALL ON FUNCTION "public"."word_similarity_op"("text", "text") TO "service_
 
 
 
+GRANT ALL ON TABLE "public"."_migration_history" TO "anon";
+GRANT ALL ON TABLE "public"."_migration_history" TO "authenticated";
+GRANT ALL ON TABLE "public"."_migration_history" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."admins" TO "service_role";
 GRANT SELECT,INSERT,DELETE ON TABLE "public"."admins" TO "authenticated";
 
@@ -4203,10 +4190,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "service_role";
-
-
-
-
 
 
 
