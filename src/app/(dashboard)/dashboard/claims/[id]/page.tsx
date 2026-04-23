@@ -89,7 +89,7 @@ function EvidenceTabPanel({ item, value }: { item: EvidenceItem; value: Evidence
   return (
     <TabsContent
       value={value}
-      className="relative mt-0 flex-1 overflow-hidden data-[state=active]:flex data-[state=active]:flex-col"
+      className="relative mt-0 flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
     >
       <a
         href={item.signedUrl}
@@ -101,7 +101,7 @@ function EvidenceTabPanel({ item, value }: { item: EvidenceItem; value: Evidence
         <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
       </a>
 
-      <div className="flex-1 bg-slate-950/40 p-2 pt-14 sm:p-3 sm:pt-16">
+      <div className="flex-1 min-h-0 overflow-auto bg-slate-950/40 p-2 pt-14 sm:p-3 sm:pt-16">
         {isPdf(item.path) ? (
           <iframe
             title={item.label}
@@ -109,14 +109,14 @@ function EvidenceTabPanel({ item, value }: { item: EvidenceItem; value: Evidence
             className="h-full w-full rounded-lg border border-slate-800"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center rounded-lg border border-slate-800 bg-slate-950/40 p-2">
+          <div className="w-full rounded-lg border border-slate-800 bg-slate-950/40 p-2">
             <Image
               src={item.signedUrl}
               alt={item.label}
               width={1800}
               height={2200}
               unoptimized
-              className="h-full w-full object-contain"
+              className="h-auto w-full max-w-none rounded-md"
             />
           </div>
         )}
