@@ -13,6 +13,8 @@ import { getAuthStatePathForEmail, registerAuthStateEmail } from "./support/auth
 const defaultPassword = process.env.E2E_DEFAULT_PASSWORD ?? "password123";
 const runTag = process.env.E2E_RUN_TAG ?? `NAV-FIN-${Date.now()}`;
 const RECEIPT_PATH = path.resolve(process.cwd(), "tests/fixtures/dummy-receipt.pdf");
+const NIAT_OFFLINE_LEAD_GEN_DEPARTMENT = "NIAT Offline Lead Generation Team";
+const OUT_STATION_LOCATION_TYPE = "Out Station";
 
 const ACTORS = {
   employee: {
@@ -240,6 +242,46 @@ async function resolveDepartmentAndCategory(): Promise<{
   };
 }
 
+async function resolveNiatDepartmentAndCategory(): Promise<{
+  departmentName: string;
+  expenseCategoryName: string;
+}> {
+  const client = getAdminSupabaseClient();
+
+  const { data: department, error: deptError } = await client
+    .from("master_departments")
+    .select("name")
+    .eq("is_active", true)
+    .eq("name", NIAT_OFFLINE_LEAD_GEN_DEPARTMENT)
+    .limit(1)
+    .maybeSingle();
+
+  if (deptError || !department?.name) {
+    throw new Error(
+      `Failed to resolve NIAT department: ${deptError?.message ?? "no rows returned"}`,
+    );
+  }
+
+  const { data: category, error: catError } = await client
+    .from("master_expense_categories")
+    .select("name")
+    .eq("is_active", true)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (catError || !category?.name) {
+    throw new Error(
+      `Failed to resolve active expense category for NIAT claim: ${catError?.message ?? "no rows returned"}`,
+    );
+  }
+
+  return {
+    departmentName: String(department.name),
+    expenseCategoryName: String(category.name),
+  };
+}
+
 /**
  * Submit a reimbursement claim and return the semantic claim ID.
  */
@@ -250,9 +292,12 @@ async function submitReimbursementClaim(
     expenseCategoryName: string;
     marker: string;
     amount: number;
+    locationType?: string;
+    locationDetails?: string;
   },
 ): Promise<string> {
-  const { departmentName, expenseCategoryName, marker, amount } = options;
+  const { departmentName, expenseCategoryName, marker, amount, locationType, locationDetails } =
+    options;
 
   await gotoWithRetry(page, "/claims/new");
 
@@ -268,6 +313,14 @@ async function submitReimbursementClaim(
   await selectOptionByLabel(departmentSelect, departmentName);
   await selectOptionByLabel(page.getByLabel(/payment mode/i), "Reimbursement");
   await selectOptionByLabel(page.getByLabel(/expense category/i), expenseCategoryName);
+
+  if (locationType) {
+    await selectOptionByLabel(page.getByRole("combobox", { name: /location type/i }), locationType);
+  }
+
+  if (locationDetails) {
+    await page.getByRole("textbox", { name: /location details/i }).fill(locationDetails);
+  }
 
   await page.locator("#employeeId").fill(`EMP-${marker}`);
   await page.locator("#billNo").fill(`BILL-${marker}`);
@@ -601,7 +654,7 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
       await gotoWithRetry(page, `/dashboard/claims/${claimId}?view=approvals`);
 
       // Verify we're on the claim detail page
-      await expect(page.getByText(claimId)).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText(claimId, { exact: true })).toBeVisible({ timeout: 15000 });
 
       // Click "Edit Claim" to open the edit form
       const editButton = page.getByRole("button", { name: /edit claim/i });
@@ -674,6 +727,53 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
     expect(Number(data!.cgst_amount)).toBe(67.5);
     expect(Number(data!.sgst_amount)).toBe(67.5);
     expect(Number(data!.total_amount)).toBe(885);
+  });
+
+  test("FIN-2: NIAT claim detail shows location type and out-station details", async ({
+    browser,
+  }) => {
+    const niatContext = await resolveNiatDepartmentAndCategory();
+    const marker = `FIN2-NIAT-${runTag}`;
+    const locationDetails = `Out station area ${marker}`;
+
+    const claimId = await withActorPage(browser, ACTORS.employee.email, async (page) => {
+      return submitReimbursementClaim(page, {
+        departmentName: niatContext.departmentName,
+        expenseCategoryName: niatContext.expenseCategoryName,
+        marker,
+        amount: 620,
+        locationType: OUT_STATION_LOCATION_TYPE,
+        locationDetails,
+      });
+    });
+
+    await withActorPage(browser, ACTORS.employee.email, async (page) => {
+      await gotoWithRetry(page, `/dashboard/claims/${claimId}?view=approvals`);
+
+      await expect(page.getByText(claimId, { exact: true })).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText(/^Location Type$/)).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText(OUT_STATION_LOCATION_TYPE, { exact: true })).toBeVisible({
+        timeout: 10000,
+      });
+      await expect(page.getByText(/^Location Details$/)).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText(locationDetails, { exact: true })).toBeVisible({
+        timeout: 10000,
+      });
+    });
+
+    const client = getAdminSupabaseClient();
+    const { data, error } = await client
+      .from("expense_details")
+      .select("location_type, location_details")
+      .eq("claim_id", claimId)
+      .eq("is_active", true)
+      .limit(1)
+      .maybeSingle();
+
+    expect(error).toBeNull();
+    expect(data).not.toBeNull();
+    expect(data?.location_type).toBe(OUT_STATION_LOCATION_TYPE);
+    expect(data?.location_details).toBe(locationDetails);
   });
 
   test("NAV-3: advanced filters are admin-only and apply/reset URL keys", async ({ browser }) => {
