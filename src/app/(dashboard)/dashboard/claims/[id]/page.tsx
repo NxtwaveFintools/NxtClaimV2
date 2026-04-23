@@ -929,6 +929,19 @@ async function ClaimDetailCore({
                           label="Location"
                           value={formatOptionalText(claim.expense.locationName)}
                         />
+                        {claim.expense.locationType ? (
+                          <DataCard
+                            label="Location Type"
+                            value={formatOptionalText(claim.expense.locationType)}
+                          />
+                        ) : null}
+                        {claim.expense.locationDetails ? (
+                          <DataCard
+                            label="Location Details"
+                            value={formatOptionalText(claim.expense.locationDetails)}
+                            className="col-span-2 2xl:col-span-3"
+                          />
+                        ) : null}
                         <DataCard
                           label="Vendor"
                           value={formatOptionalText(claim.expense.vendorName)}
