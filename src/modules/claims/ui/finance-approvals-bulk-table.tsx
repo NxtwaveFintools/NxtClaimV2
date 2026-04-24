@@ -1,10 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, type FormEvent } from "react";
-import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { RouterLink } from "@/components/ui/router-link";
 import { TableEmptyState } from "@/components/ui/table-empty-state";
 import { DB_CLAIM_STATUSES, type DbClaimStatus } from "@/core/constants/statuses";
 import { ROUTES } from "@/core/config/route-registry";
@@ -21,19 +20,19 @@ import {
   rejectClaimAction,
   rejectFinanceAction,
 } from "@/modules/claims/actions";
-import type {
-  ClaimAuditLogRecord,
-  ClaimDetailType,
-  ClaimSubmissionType,
-  GetMyClaimsFilters,
-} from "@/core/domain/claims/contracts";
-import { ClaimDecisionActionForm } from "@/modules/claims/ui/claim-decision-action-form";
-import { ClaimRejectWithReasonForm } from "@/modules/claims/ui/claim-reject-with-reason-form";
+import type { GetMyClaimsFilters } from "@/core/domain/claims/contracts";
 import {
   CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
   ClaimStatusBadge,
 } from "@/modules/claims/ui/claim-status-badge";
 import { getAvailableClaimActions } from "@/modules/claims/utils/get-available-claim-actions";
+
+const STICKY_ACTION_COLUMN_CLASSES =
+  "sticky right-0 bg-background z-10 shadow-[-10px_0_15px_-5px_rgba(0,0,0,0.05)]";
+const CLAIM_ID_LINK_CLASSES =
+  "whitespace-nowrap text-primary hover:underline font-medium cursor-pointer";
+const VIEW_LINK_CLASSES =
+  "inline-flex h-8 items-center justify-center rounded-xl border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
 type FinanceApprovalRow = {
   id: string;
@@ -42,15 +41,8 @@ type FinanceApprovalRow = {
   submitterEmail: string | null;
   departmentName: string | null;
   paymentModeName: string;
-  detailType: ClaimDetailType;
-  submissionType: ClaimSubmissionType;
   onBehalfEmail: string | null;
   onBehalfEmployeeCode: string | null;
-  purpose: string | null;
-  categoryName: string;
-  expenseReceiptFilePath: string | null;
-  expenseBankStatementFilePath: string | null;
-  advanceSupportingDocumentPath: string | null;
   formattedTotalAmount: string;
   status: DbClaimStatus;
   formattedSubmittedAt: string;
@@ -64,26 +56,7 @@ type FinanceApprovalsBulkTableProps = {
   totalSelectableCount: number;
   filters: GetMyClaimsFilters;
   approvalScope: "l1" | "finance";
-  evidenceSignedUrlByClaimId: Record<
-    string,
-    {
-      expenseReceiptSignedUrl: string | null;
-      expenseBankStatementSignedUrl: string | null;
-      advanceSupportingDocumentSignedUrl: string | null;
-    }
-  >;
-  auditLogsByClaimId: Record<string, (ClaimAuditLogRecord & { formattedCreatedAt: string })[]>;
 };
-
-const ApprovalsAuditModeDialog = dynamic(
-  () =>
-    import("@/modules/claims/ui/approvals-quick-view-sheet").then(
-      (module) => module.ApprovalsAuditModeDialog,
-    ),
-  {
-    ssr: false,
-  },
-);
 
 function normalizeFilters(filters: GetMyClaimsFilters): GetMyClaimsFilters {
   const status = Array.isArray(filters.status)
@@ -112,8 +85,6 @@ export function FinanceApprovalsBulkTable({
   totalSelectableCount,
   filters,
   approvalScope,
-  evidenceSignedUrlByClaimId,
-  auditLogsByClaimId,
 }: FinanceApprovalsBulkTableProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -552,7 +523,11 @@ export function FinanceApprovalsBulkTable({
               <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTED ON</th>
               <th className="whitespace-nowrap px-3 py-2.5 font-semibold">HOD DATE</th>
               <th className="whitespace-nowrap px-3 py-2.5 font-semibold">FINANCE DATE</th>
-              <th className="whitespace-nowrap px-3 py-2.5 text-right font-semibold">Review</th>
+              <th
+                className={`${STICKY_ACTION_COLUMN_CLASSES} whitespace-nowrap px-3 py-2.5 text-right font-semibold`}
+              >
+                View
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
@@ -563,85 +538,7 @@ export function FinanceApprovalsBulkTable({
               const canApproveOrReject = availableActions.canApprove && availableActions.canReject;
               const canMarkPaid = availableActions.canMarkPaid;
               const isActionable = canApproveOrReject || canMarkPaid;
-
-              const approveSingle = async () => {
-                const result =
-                  approvalScope === "l1"
-                    ? await approveClaimAction({ claimId: claim.id })
-                    : await approveFinanceAction({ claimId: claim.id });
-                if (!result.ok) {
-                  throw new Error(result.message ?? "Unable to approve claim.");
-                }
-                router.refresh();
-              };
-
-              const rejectSingle = async (formData: FormData) => {
-                const rejectionReason = String(formData.get("rejectionReason") ?? "").trim();
-                const allowResubmission = formData.get("allowResubmission") === "true";
-                const result =
-                  approvalScope === "l1"
-                    ? await rejectClaimAction({
-                        claimId: claim.id,
-                        rejectionReason,
-                        allowResubmission,
-                      })
-                    : await rejectFinanceAction({
-                        claimId: claim.id,
-                        rejectionReason,
-                        allowResubmission,
-                      });
-
-                if (!result.ok) {
-                  throw new Error(result.message ?? "Unable to reject claim.");
-                }
-
-                router.refresh();
-              };
-
-              const markPaidSingle = async () => {
-                const result = await markPaymentDoneAction({ claimId: claim.id });
-                if (!result.ok) {
-                  throw new Error(result.message ?? "Unable to mark as paid.");
-                }
-                router.refresh();
-              };
-
-              const renderRowActions = (compact: boolean) => {
-                if (canApproveOrReject) {
-                  return (
-                    <>
-                      <ClaimDecisionActionForm
-                        action={approveSingle}
-                        decision="approve"
-                        compact={compact}
-                        loadingMessage="Approving finance step..."
-                        successMessage="Finance decision approved."
-                        errorMessage="Unable to approve finance step."
-                      />
-                      <ClaimRejectWithReasonForm action={rejectSingle} compact={compact} />
-                    </>
-                  );
-                }
-
-                if (canMarkPaid) {
-                  return (
-                    <ClaimDecisionActionForm
-                      action={markPaidSingle}
-                      decision="mark-paid"
-                      compact={compact}
-                      loadingMessage="Marking payment as done..."
-                      successMessage="Claim marked as paid."
-                      errorMessage="Unable to mark payment as done."
-                    />
-                  );
-                }
-
-                return (
-                  <span className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
-                    No actions
-                  </span>
-                );
-              };
+              const detailHref = appendReturnToParam(ROUTES.claims.detail(claim.id), returnToPath);
 
               return (
                 <tr
@@ -667,12 +564,9 @@ export function FinanceApprovalsBulkTable({
                     )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
-                    <RouterLink
-                      href={appendReturnToParam(ROUTES.claims.detail(claim.id), returnToPath)}
-                      className="text-indigo-500 hover:text-indigo-400 hover:underline"
-                    >
+                    <Link href={detailHref} className={CLAIM_ID_LINK_CLASSES}>
                       {claim.id}
-                    </RouterLink>
+                    </Link>
                   </td>
                   <td className="whitespace-nowrap px-3 py-2">{claim.employeeId}</td>
                   <td className="px-3 py-2">
@@ -711,34 +605,13 @@ export function FinanceApprovalsBulkTable({
                   <td className="whitespace-nowrap px-3 py-2">
                     {claim.formattedFinanceActionDate}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-right">
+                  <td
+                    className={`${STICKY_ACTION_COLUMN_CLASSES} whitespace-nowrap px-3 py-2 text-right`}
+                  >
                     <div className="flex min-w-28 justify-end">
-                      <ApprovalsAuditModeDialog
-                        claimId={claim.id}
-                        detailType={claim.detailType}
-                        submitter={claim.submitter}
-                        amountLabel={claim.formattedTotalAmount}
-                        submissionType={claim.submissionType}
-                        onBehalfEmail={claim.onBehalfEmail}
-                        expenseReceiptFilePath={claim.expenseReceiptFilePath}
-                        expenseReceiptSignedUrl={
-                          evidenceSignedUrlByClaimId[claim.id]?.expenseReceiptSignedUrl ?? null
-                        }
-                        expenseBankStatementFilePath={claim.expenseBankStatementFilePath}
-                        expenseBankStatementSignedUrl={
-                          evidenceSignedUrlByClaimId[claim.id]?.expenseBankStatementSignedUrl ??
-                          null
-                        }
-                        advanceSupportingDocumentPath={claim.advanceSupportingDocumentPath}
-                        advanceSupportingDocumentSignedUrl={
-                          evidenceSignedUrlByClaimId[claim.id]
-                            ?.advanceSupportingDocumentSignedUrl ?? null
-                        }
-                        auditLogs={auditLogsByClaimId[claim.id] ?? []}
-                        canInlineEdit={canApproveOrReject}
-                      >
-                        {isActionable ? renderRowActions(false) : undefined}
-                      </ApprovalsAuditModeDialog>
+                      <Link href={detailHref} className={VIEW_LINK_CLASSES}>
+                        View
+                      </Link>
                     </div>
                   </td>
                 </tr>

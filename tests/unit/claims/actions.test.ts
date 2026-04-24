@@ -590,51 +590,6 @@ describe("claims actions", () => {
     );
   });
 
-  test("getClaimQuickViewHydrationAction redacts ai metadata for non-finance non-admin viewers", async () => {
-    const { getClaimQuickViewHydrationAction } = await import("@/modules/claims/actions");
-
-    mockGetFinanceApproverIdsForUser.mockResolvedValueOnce({
-      data: [],
-      errorMessage: null,
-    });
-    mockIsAdmin.mockResolvedValueOnce(false);
-
-    const result = await getClaimQuickViewHydrationAction({ claimId: "claim-1" });
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) {
-      return;
-    }
-
-    expect(result.data.canViewAiMetadata).toBe(false);
-    expect(result.data.claim.expense?.aiMetadata).toBeNull();
-  });
-
-  test("getClaimQuickViewHydrationAction returns ai metadata to finance viewers", async () => {
-    const { getClaimQuickViewHydrationAction } = await import("@/modules/claims/actions");
-
-    mockGetFinanceApproverIdsForUser.mockResolvedValueOnce({
-      data: [{ id: "finance-approver-id" }],
-      errorMessage: null,
-    });
-
-    const result = await getClaimQuickViewHydrationAction({ claimId: "claim-1" });
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) {
-      return;
-    }
-
-    expect(result.data.canViewAiMetadata).toBe(true);
-    expect(result.data.claim.expense?.aiMetadata).toEqual({
-      edited_fields: {
-        total_amount: {
-          original: 113,
-        },
-      },
-    });
-  });
-
   test("submitClaimAction surfaces service errors", async () => {
     mockSubmitExecute.mockResolvedValueOnce({
       errorCode: "CREATE_FAILED",

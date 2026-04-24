@@ -18,7 +18,6 @@ import {
   type DbClaimStatus,
 } from "@/core/constants/statuses";
 import type {
-  ClaimAuditLogRecord,
   ClaimDateTarget,
   ClaimSearchField,
   ClaimSubmissionType,
@@ -35,29 +34,26 @@ import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
 import { normalizeIsoDateOnly } from "@/lib/date-only";
 import { appendReturnToParam, buildPathWithSearchParams } from "@/lib/pagination-helpers";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
-import {
-  approveClaimAction,
-  approveFinanceAction,
-  markPaymentDoneAction,
-  rejectClaimAction,
-  rejectFinanceAction,
-} from "@/modules/claims/actions";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
 import { isAdmin } from "@/modules/admin/server/is-admin";
 import { isDepartmentViewer } from "@/modules/claims/server/is-department-viewer";
 import { AdminClaimsSection } from "@/modules/admin/ui/admin-claims-section";
 import { DepartmentClaimsSection } from "@/modules/claims/ui/department-claims-section";
-import { ClaimDecisionActionForm } from "@/modules/claims/ui/claim-decision-action-form";
-import { ClaimRejectWithReasonForm } from "@/modules/claims/ui/claim-reject-with-reason-form";
 import {
   CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
   ClaimStatusBadge,
 } from "@/modules/claims/ui/claim-status-badge";
 import { MyClaimsPaginationControls } from "@/modules/claims/ui/my-claims-pagination-controls";
-import { ApprovalsAuditModeDialog } from "@/modules/claims/ui/approvals-quick-view-sheet";
 import { DeleteClaimButton } from "@/modules/claims/ui/delete-claim-button";
 
 const PAGE_SIZE = 10;
+const STICKY_ACTION_COLUMN_CLASSES =
+  "sticky right-0 bg-background z-10 shadow-[-10px_0_15px_-5px_rgba(0,0,0,0.05)]";
+const CLAIM_ID_LINK_CLASSES =
+  "whitespace-nowrap text-primary hover:underline font-medium cursor-pointer";
+const VIEW_LINK_CLASSES =
+  "inline-flex h-8 items-center justify-center rounded-xl border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
+
 type SearchParamsValue = string | string[] | undefined;
 type ViewMode = "submissions" | "approvals" | "admin" | "admin-deleted" | "department";
 
@@ -347,129 +343,6 @@ function MyClaimsShellSkeleton() {
   );
 }
 
-function isRenderableEvidencePath(path: string | null): path is string {
-  return Boolean(path && path.trim() !== "" && path !== "N/A");
-}
-
-type ApprovalEvidenceSignedUrls = {
-  expenseReceiptSignedUrl: string | null;
-  expenseBankStatementSignedUrl: string | null;
-  advanceSupportingDocumentSignedUrl: string | null;
-};
-
-async function resolveApprovalEvidenceUrls(
-  claimRepository: SupabaseClaimRepository,
-  rows: Array<{
-    id: string;
-    expenseReceiptFilePath: string | null;
-    expenseBankStatementFilePath: string | null;
-    advanceSupportingDocumentPath: string | null;
-  }>,
-): Promise<Record<string, ApprovalEvidenceSignedUrls>> {
-  const filePaths = Array.from(
-    new Set(
-      rows.flatMap((row) =>
-        [
-          row.expenseReceiptFilePath,
-          row.expenseBankStatementFilePath,
-          row.advanceSupportingDocumentPath,
-        ].filter((path): path is string => isRenderableEvidencePath(path)),
-      ),
-    ),
-  );
-
-  const signedUrlByPath: Record<string, string> =
-    filePaths.length === 0
-      ? {}
-      : await claimRepository
-          .createBulkSignedUrls({
-            filePaths,
-            expiresInSeconds: 60 * 10,
-          })
-          .then((result) => (result.errorMessage ? {} : result.data))
-          .catch(() => ({}));
-
-  return Object.fromEntries(
-    rows.map((row) => {
-      const expenseReceiptPath = isRenderableEvidencePath(row.expenseReceiptFilePath)
-        ? row.expenseReceiptFilePath
-        : null;
-      const expenseBankStatementPath = isRenderableEvidencePath(row.expenseBankStatementFilePath)
-        ? row.expenseBankStatementFilePath
-        : null;
-      const advanceSupportingDocumentPath = isRenderableEvidencePath(
-        row.advanceSupportingDocumentPath,
-      )
-        ? row.advanceSupportingDocumentPath
-        : null;
-
-      return [
-        row.id,
-        {
-          expenseReceiptSignedUrl: expenseReceiptPath
-            ? (signedUrlByPath[expenseReceiptPath] ?? null)
-            : null,
-          expenseBankStatementSignedUrl: expenseBankStatementPath
-            ? (signedUrlByPath[expenseBankStatementPath] ?? null)
-            : null,
-          advanceSupportingDocumentSignedUrl: advanceSupportingDocumentPath
-            ? (signedUrlByPath[advanceSupportingDocumentPath] ?? null)
-            : null,
-        },
-      ] as const;
-    }),
-  );
-}
-
-type EnrichedAuditLogRecord = ClaimAuditLogRecord & { formattedCreatedAt: string };
-
-async function resolveAuditLogsByClaimId(
-  claimRepository: SupabaseClaimRepository,
-  claimIds: string[],
-): Promise<Record<string, EnrichedAuditLogRecord[]>> {
-  if (claimIds.length === 0) {
-    return {};
-  }
-
-  const result = await claimRepository.getClaimAuditLogsBatch(claimIds);
-
-  if (result.errorMessage) {
-    return Object.fromEntries(claimIds.map((claimId) => [claimId, []] as const));
-  }
-
-  return Object.fromEntries(
-    claimIds.map((claimId) => [
-      claimId,
-      (result.data[claimId] ?? []).map((log) => ({
-        ...log,
-        formattedCreatedAt: formatDateTime(log.createdAt),
-      })),
-    ]),
-  );
-}
-
-function resolveApprovalActionMode(params: {
-  activeScope: "l1" | "finance" | null;
-  status: DbClaimStatus;
-  gatedStatuses: { l1: string; finance: string };
-}): "l1-decision" | "finance-authorization" | "finance-mark-paid" | "none" {
-  if (params.activeScope === "l1") {
-    return params.status === params.gatedStatuses.l1 ? "l1-decision" : "none";
-  }
-
-  if (params.activeScope === "finance") {
-    if (params.status === params.gatedStatuses.finance) {
-      return "finance-authorization";
-    }
-
-    if (params.status === DB_CLAIM_STATUSES[2]) {
-      return "finance-mark-paid";
-    }
-  }
-
-  return "none";
-}
-
 function TableHeader({ showActions }: { showActions: boolean }) {
   return (
     <thead className="bg-zinc-50/80 text-[11px] uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
@@ -491,7 +364,11 @@ function TableHeader({ showActions }: { showActions: boolean }) {
         <th className="whitespace-nowrap px-3 py-2.5 font-semibold">HOD ACTION DATE</th>
         <th className="whitespace-nowrap px-3 py-2.5 font-semibold">FINANCE ACTION DATE</th>
         {showActions ? (
-          <th className="whitespace-nowrap px-3 py-2.5 text-right font-semibold">Review</th>
+          <th
+            className={`${STICKY_ACTION_COLUMN_CLASSES} whitespace-nowrap px-3 py-2.5 text-right font-semibold`}
+          >
+            Actions
+          </th>
         ) : null}
       </tr>
     </thead>
@@ -538,15 +415,9 @@ async function ClaimsCommandCenterTable({
     });
 
     const rows = approvalsResult.data;
-    const claimIds = rows.map((claim) => claim.id);
     const approvalsSummaryText = `Showing ${rows.length} of ${approvalsResult.totalCount} claims`;
 
     if (approvalScope === "finance" || approvalScope === "l1") {
-      const [evidenceSignedUrlByClaimId, auditLogsByClaimId] = await Promise.all([
-        resolveApprovalEvidenceUrls(claimRepository, rows),
-        resolveAuditLogsByClaimId(claimRepository, claimIds),
-      ]);
-
       return (
         <section className="overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/92 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
           {approvalsResult.errorMessage ? (
@@ -618,8 +489,6 @@ async function ClaimsCommandCenterTable({
                   }
                   filters={filters}
                   approvalScope={approvalScope}
-                  evidenceSignedUrlByClaimId={evidenceSignedUrlByClaimId}
-                  auditLogsByClaimId={auditLogsByClaimId}
                 />
               </Suspense>
             </>
@@ -627,15 +496,6 @@ async function ClaimsCommandCenterTable({
         </section>
       );
     }
-
-    const [evidenceSignedUrlByClaimId, auditLogsByClaimId] = await Promise.all([
-      resolveApprovalEvidenceUrls(claimRepository, rows),
-      resolveAuditLogsByClaimId(claimRepository, claimIds),
-    ]);
-    const gatedStatuses = {
-      l1: DB_CLAIM_STATUSES[0],
-      finance: DB_CLAIM_STATUSES[1],
-    };
 
     return (
       <section className="overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/92 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
@@ -680,110 +540,10 @@ async function ClaimsCommandCenterTable({
                 <TableHeader showActions />
                 <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
                   {rows.map((claim) => {
-                    const evidenceSignedUrls = evidenceSignedUrlByClaimId[claim.id] ?? {
-                      expenseReceiptSignedUrl: null,
-                      expenseBankStatementSignedUrl: null,
-                      advanceSupportingDocumentSignedUrl: null,
-                    };
-
-                    const actionMode = resolveApprovalActionMode({
-                      activeScope: approvalScope,
-                      status: claim.status,
-                      gatedStatuses,
-                    });
-
-                    const approveFromList = async () => {
-                      "use server";
-                      await approveClaimAction({ claimId: claim.id });
-                    };
-
-                    const rejectFromList = async (formData: FormData) => {
-                      "use server";
-                      const rejectionReason = String(formData.get("rejectionReason") ?? "").trim();
-                      const allowResubmission = formData.get("allowResubmission") === "true";
-                      await rejectClaimAction({
-                        claimId: claim.id,
-                        rejectionReason,
-                        allowResubmission,
-                      });
-                    };
-
-                    const approveFinanceFromList = async () => {
-                      "use server";
-                      await approveFinanceAction({ claimId: claim.id });
-                    };
-
-                    const rejectFinanceFromList = async (formData: FormData) => {
-                      "use server";
-                      const rejectionReason = String(formData.get("rejectionReason") ?? "").trim();
-                      const allowResubmission = formData.get("allowResubmission") === "true";
-                      await rejectFinanceAction({
-                        claimId: claim.id,
-                        rejectionReason,
-                        allowResubmission,
-                      });
-                    };
-
-                    const markPaidFromList = async () => {
-                      "use server";
-                      await markPaymentDoneAction({ claimId: claim.id });
-                    };
-
-                    const renderActions = (compact: boolean) => {
-                      if (actionMode === "l1-decision") {
-                        return (
-                          <>
-                            <ClaimDecisionActionForm
-                              action={approveFromList}
-                              decision="approve"
-                              compact={compact}
-                              loadingMessage="Approving claim..."
-                              successMessage="Claim approved."
-                              errorMessage="Unable to approve claim."
-                            />
-                            <ClaimRejectWithReasonForm action={rejectFromList} compact={compact} />
-                          </>
-                        );
-                      }
-
-                      if (actionMode === "finance-authorization") {
-                        return (
-                          <>
-                            <ClaimDecisionActionForm
-                              action={approveFinanceFromList}
-                              decision="approve"
-                              compact={compact}
-                              loadingMessage="Approving finance step..."
-                              successMessage="Finance decision approved."
-                              errorMessage="Unable to approve finance step."
-                            />
-                            <ClaimRejectWithReasonForm
-                              action={rejectFinanceFromList}
-                              compact={compact}
-                            />
-                          </>
-                        );
-                      }
-
-                      if (actionMode === "finance-mark-paid") {
-                        return (
-                          <ClaimDecisionActionForm
-                            action={markPaidFromList}
-                            decision="mark-paid"
-                            compact={compact}
-                            loadingMessage="Marking payment as done..."
-                            successMessage="Claim marked as paid."
-                            errorMessage="Unable to mark payment as done."
-                          />
-                        );
-                      }
-
-                      return (
-                        <span className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
-                          No actions
-                        </span>
-                      );
-                    };
+                    const detailHref = appendReturnToParam(
+                      ROUTES.claims.detail(claim.id),
+                      listReturnToPath,
+                    );
 
                     return (
                       <tr
@@ -791,13 +551,7 @@ async function ClaimsCommandCenterTable({
                         className="group transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
                       >
                         <td className="whitespace-nowrap px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
-                          <RouterLink
-                            href={appendReturnToParam(
-                              ROUTES.claims.detail(claim.id),
-                              listReturnToPath,
-                            )}
-                            className="text-indigo-500 hover:text-indigo-400 hover:underline"
-                          >
+                          <RouterLink href={detailHref} className={CLAIM_ID_LINK_CLASSES}>
                             {claim.id}
                           </RouterLink>
                         </td>
@@ -838,33 +592,13 @@ async function ClaimsCommandCenterTable({
                         </td>
                         <td className="whitespace-nowrap px-3 py-2">N/A</td>
                         <td className="whitespace-nowrap px-3 py-2">N/A</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-right">
+                        <td
+                          className={`${STICKY_ACTION_COLUMN_CLASSES} whitespace-nowrap px-3 py-2 text-right`}
+                        >
                           <div className="flex min-w-28 justify-end">
-                            <ApprovalsAuditModeDialog
-                              claimId={claim.id}
-                              detailType={claim.detailType}
-                              submitter={claim.submitter}
-                              amountLabel={claim.formattedTotalAmount}
-                              submissionType={claim.submissionType}
-                              onBehalfEmail={claim.onBehalfEmail}
-                              expenseReceiptFilePath={claim.expenseReceiptFilePath}
-                              expenseReceiptSignedUrl={evidenceSignedUrls.expenseReceiptSignedUrl}
-                              expenseBankStatementFilePath={claim.expenseBankStatementFilePath}
-                              expenseBankStatementSignedUrl={
-                                evidenceSignedUrls.expenseBankStatementSignedUrl
-                              }
-                              advanceSupportingDocumentPath={claim.advanceSupportingDocumentPath}
-                              advanceSupportingDocumentSignedUrl={
-                                evidenceSignedUrls.advanceSupportingDocumentSignedUrl
-                              }
-                              auditLogs={auditLogsByClaimId[claim.id] ?? []}
-                              canInlineEdit={
-                                actionMode === "l1-decision" ||
-                                actionMode === "finance-authorization"
-                              }
-                            >
-                              {actionMode !== "none" ? renderActions(false) : undefined}
-                            </ApprovalsAuditModeDialog>
+                            <Link href={detailHref} className={VIEW_LINK_CLASSES}>
+                              View
+                            </Link>
                           </div>
                         </td>
                       </tr>
@@ -888,22 +622,6 @@ async function ClaimsCommandCenterTable({
 
   const rows = claimsResult.data;
   const submissionsSummaryText = `Showing ${rows.length} of ${claimsResult.totalCount} claims`;
-  const claimIds = rows.map((claim) => claim.id);
-  // All claim detail fields (submitter, category, purpose, file paths) are now
-  // returned directly by getMyClaimsPaginated via the enriched view —
-  // no secondary getClaimListDetails fetch needed.
-  const [submissionAuditLogsByClaimId, submissionEvidenceSignedUrlByClaimId] = await Promise.all([
-    resolveAuditLogsByClaimId(claimRepository, claimIds),
-    resolveApprovalEvidenceUrls(
-      claimRepository,
-      rows.map((claim) => ({
-        id: claim.id,
-        expenseReceiptFilePath: claim.expenseReceiptFilePath,
-        expenseBankStatementFilePath: claim.expenseBankStatementFilePath,
-        advanceSupportingDocumentPath: claim.advanceSupportingDocumentPath,
-      })),
-    ),
-  ]);
 
   return (
     <section className="overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/92 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
@@ -943,26 +661,19 @@ async function ClaimsCommandCenterTable({
               <TableHeader showActions />
               <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
                 {rows.map((claim) => {
-                  const evidenceSignedUrls = submissionEvidenceSignedUrlByClaimId[claim.id] ?? {
-                    expenseReceiptSignedUrl: null,
-                    expenseBankStatementSignedUrl: null,
-                    advanceSupportingDocumentSignedUrl: null,
-                  };
                   const canDeleteClaim = isSubmitterDeletableClaimStatus(claim.status);
+                  const detailHref = appendReturnToParam(
+                    ROUTES.claims.detail(claim.id),
+                    listReturnToPath,
+                  );
 
                   return (
                     <tr
                       key={claim.id}
-                      className="transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
+                      className="group transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
                     >
                       <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
-                        <RouterLink
-                          href={appendReturnToParam(
-                            ROUTES.claims.detail(claim.id),
-                            listReturnToPath,
-                          )}
-                          className="whitespace-nowrap text-indigo-500 hover:text-indigo-400 hover:underline"
-                        >
+                        <RouterLink href={detailHref} className={CLAIM_ID_LINK_CLASSES}>
                           {claim.id}
                         </RouterLink>
                       </td>
@@ -1023,28 +734,14 @@ async function ClaimsCommandCenterTable({
                           />
                         )}
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-right">
+                      <td
+                        className={`${STICKY_ACTION_COLUMN_CLASSES} whitespace-nowrap px-3 py-2 text-right`}
+                      >
                         <div className="flex items-center justify-end gap-2">
                           {canDeleteClaim ? <DeleteClaimButton claimId={claim.id} compact /> : null}
-                          <ApprovalsAuditModeDialog
-                            claimId={claim.id}
-                            detailType={claim.detailType}
-                            submitter={claim.submitterLabel ?? claim.employeeName}
-                            amountLabel={claim.formattedTotalAmount}
-                            submissionType={claim.submissionType}
-                            onBehalfEmail={claim.onBehalfEmail}
-                            expenseReceiptFilePath={claim.expenseReceiptFilePath}
-                            expenseReceiptSignedUrl={evidenceSignedUrls.expenseReceiptSignedUrl}
-                            expenseBankStatementFilePath={claim.expenseBankStatementFilePath}
-                            expenseBankStatementSignedUrl={
-                              evidenceSignedUrls.expenseBankStatementSignedUrl
-                            }
-                            advanceSupportingDocumentPath={claim.advanceSupportingDocumentPath}
-                            advanceSupportingDocumentSignedUrl={
-                              evidenceSignedUrls.advanceSupportingDocumentSignedUrl
-                            }
-                            auditLogs={submissionAuditLogsByClaimId[claim.id] ?? []}
-                          />
+                          <Link href={detailHref} className={VIEW_LINK_CLASSES}>
+                            View
+                          </Link>
                         </div>
                       </td>
                     </tr>

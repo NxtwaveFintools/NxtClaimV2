@@ -407,9 +407,10 @@ async function clickBulkMarkPaid(page: Page, claimId: string): Promise<void> {
   const row = page.locator("tbody tr", { has: page.getByRole("link", { name: claimId }) }).first();
   await expect(row).toBeVisible({ timeout: 30000 });
 
-  const viewClaimButton = row.getByRole("button", { name: /^View Claim$/i }).first();
-  await expect(viewClaimButton).toBeVisible({ timeout: 10000 });
-  await viewClaimButton.click();
+  const viewClaimLink = row.getByRole("link", { name: /^View$/i }).first();
+  await expect(viewClaimLink).toBeVisible({ timeout: 10000 });
+  await viewClaimLink.click();
+  await expect(page).toHaveURL(new RegExp(`/dashboard/claims/${claimId}`));
 
   const markPaidButton = page.getByRole("button", { name: /^Mark as Paid$|^Paid$/i }).first();
   await expect(markPaidButton).toBeVisible({ timeout: 15000 });
