@@ -48,7 +48,7 @@
 
 ## Shared Primitive API Blueprint
 
-### Button
+#### Button
 
 ```tsx
 <Button
