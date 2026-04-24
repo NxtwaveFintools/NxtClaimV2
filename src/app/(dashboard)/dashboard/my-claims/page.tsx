@@ -48,7 +48,7 @@ import { DeleteClaimButton } from "@/modules/claims/ui/delete-claim-button";
 
 const PAGE_SIZE = 10;
 const STICKY_ACTION_COLUMN_CLASSES =
-  "sticky right-0 bg-background z-10 shadow-[-10px_0_15px_-5px_rgba(0,0,0,0.05)]";
+  "sticky right-0 bg-background/60 backdrop-blur-md border-l border-border/50 z-10";
 const CLAIM_ID_LINK_CLASSES =
   "whitespace-nowrap text-primary hover:underline font-medium cursor-pointer";
 const VIEW_LINK_CLASSES =
