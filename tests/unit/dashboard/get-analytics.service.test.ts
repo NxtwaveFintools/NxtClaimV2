@@ -1,12 +1,36 @@
 import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
 import { GetAnalyticsService } from "@/core/domain/dashboard/GetAnalyticsService";
-import type { DashboardAnalyticsRepository } from "@/core/domain/dashboard/contracts";
+import type {
+  DashboardAnalyticsPayload,
+  DashboardAnalyticsRepository,
+} from "@/core/domain/dashboard/contracts";
 
 function createLogger() {
   return {
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
+  };
+}
+
+function buildPayload(overrides?: Partial<DashboardAnalyticsPayload>): DashboardAnalyticsPayload {
+  return {
+    claimCount: 0,
+    amounts: {
+      totalAmount: 0,
+      approvedAmount: 0,
+      pendingAmount: 0,
+      hodPendingAmount: 0,
+      hodPendingCount: 0,
+      rejectedAmount: 0,
+    },
+    statusBreakdown: [],
+    paymentModeBreakdown: [],
+    efficiencyByDepartment: [],
+    overallFinanceTatAverage: 0,
+    overallFinanceTatSampleCount: 0,
+    financeApproverTatBreakdown: [],
+    ...overrides,
   };
 }
 
@@ -23,6 +47,10 @@ function createRepository(
         founderDepartmentIds: [],
         financeApproverIds: [],
       },
+      errorMessage: null,
+    })),
+    getAnalyticsPayload: jest.fn(async () => ({
+      data: buildPayload(),
       errorMessage: null,
     })),
     getAnalyticsAggregates: jest.fn(async () => ({
@@ -45,89 +73,73 @@ function createRepository(
 }
 
 describe("GetAnalyticsService", () => {
-  test("aggregates totals, trends, and efficiency for explicit ranges", async () => {
+  test("uses DB payload and builds trends for explicit ranges", async () => {
     const repository = createRepository({
-      getAnalyticsAggregates: jest.fn(async (input) => {
-        if (input.dateFrom === "2026-03-01" && input.dateTo === "2026-03-07") {
-          return {
-            data: [
+      getAnalyticsPayload: jest
+        .fn()
+        .mockResolvedValueOnce({
+          data: buildPayload({
+            claimCount: 3,
+            amounts: {
+              totalAmount: 3500,
+              approvedAmount: 2000,
+              pendingAmount: 1000,
+              hodPendingAmount: 1000,
+              hodPendingCount: 1,
+              rejectedAmount: 500,
+            },
+            efficiencyByDepartment: [
               {
-                status: DB_CLAIM_STATUSES[0],
-                claimCount: 1,
-                totalAmount: 1000,
-                paymentModeId: "pm-1",
-                paymentModeName: "Reimbursement",
                 departmentId: "dept-1",
                 departmentName: "Engineering",
-                hodApprovalHoursSum: 24,
-                hodApprovalSampleCount: 1,
-              },
-              {
-                status: DB_CLAIM_STATUSES[2],
-                claimCount: 1,
-                totalAmount: 2000,
-                paymentModeId: "pm-2",
-                paymentModeName: "Petty Cash",
-                departmentId: "dept-1",
-                departmentName: "Engineering",
-                hodApprovalHoursSum: 48,
-                hodApprovalSampleCount: 1,
-              },
-              {
-                status: DB_CLAIM_STATUSES[4],
-                claimCount: 1,
-                totalAmount: 500,
-                paymentModeId: "pm-1",
-                paymentModeName: "Reimbursement",
-                departmentId: "dept-2",
-                departmentName: "Operations",
-                hodApprovalHoursSum: 0,
-                hodApprovalSampleCount: 0,
+                sampleCount: 2,
+                averageHoursToApproval: 36,
+                averageDaysToApproval: 1.5,
               },
             ],
-            errorMessage: null,
-          };
-        }
-
-        return {
-          data: [
-            {
-              status: DB_CLAIM_STATUSES[0],
-              claimCount: 1,
-              totalAmount: 500,
-              paymentModeId: "pm-1",
-              paymentModeName: "Reimbursement",
-              departmentId: "dept-1",
-              departmentName: "Engineering",
-              hodApprovalHoursSum: 24,
-              hodApprovalSampleCount: 1,
-            },
-            {
-              status: DB_CLAIM_STATUSES[2],
-              claimCount: 1,
-              totalAmount: 1000,
-              paymentModeId: "pm-2",
-              paymentModeName: "Petty Cash",
-              departmentId: "dept-1",
-              departmentName: "Engineering",
-              hodApprovalHoursSum: 24,
-              hodApprovalSampleCount: 1,
-            },
-            {
-              status: DB_CLAIM_STATUSES[5],
-              claimCount: 1,
-              totalAmount: 500,
-              paymentModeId: "pm-1",
-              paymentModeName: "Reimbursement",
-              departmentId: "dept-2",
-              departmentName: "Operations",
-              hodApprovalHoursSum: 0,
-              hodApprovalSampleCount: 0,
-            },
-          ],
+            overallFinanceTatAverage: 0.75,
+            overallFinanceTatSampleCount: 2,
+            financeApproverTatBreakdown: [
+              {
+                financeApproverId: "fa-1",
+                financeApproverName: "Finance One",
+                sampleCount: 2,
+                averageHoursToApproval: 18,
+                averageDaysToApproval: 0.75,
+              },
+            ],
+            statusBreakdown: [
+              {
+                status: DB_CLAIM_STATUSES[0],
+                count: 1,
+                amount: 1000,
+              },
+            ],
+            paymentModeBreakdown: [
+              {
+                paymentModeId: "pm-1",
+                paymentModeName: "Reimbursement",
+                count: 2,
+                amount: 2500,
+              },
+            ],
+          }),
           errorMessage: null,
-        };
-      }),
+        })
+        .mockResolvedValueOnce({
+          data: buildPayload({
+            claimCount: 3,
+            amounts: {
+              totalAmount: 2000,
+              approvedAmount: 1000,
+              pendingAmount: 500,
+              hodPendingAmount: 500,
+              hodPendingCount: 1,
+              rejectedAmount: 500,
+            },
+          }),
+          errorMessage: null,
+        }),
     });
 
     const logger = createLogger();
@@ -154,6 +166,17 @@ describe("GetAnalyticsService", () => {
       hodPendingCount: 1,
       rejectedAmount: 500,
     });
+    expect(result.data?.overallFinanceTatAverage).toBe(0.75);
+    expect(result.data?.overallFinanceTatSampleCount).toBe(2);
+    expect(result.data?.financeApproverTatBreakdown).toEqual([
+      {
+        financeApproverId: "fa-1",
+        financeApproverName: "Finance One",
+        sampleCount: 2,
+        averageHoursToApproval: 18,
+        averageDaysToApproval: 0.75,
+      },
+    ]);
     expect(result.data?.trends).toEqual({
       total: {
         currentAmount: 3500,
@@ -181,17 +204,8 @@ describe("GetAnalyticsService", () => {
         percentageChange: 0,
       },
     });
-    expect(result.data?.efficiencyByDepartment).toEqual([
-      {
-        departmentId: "dept-1",
-        departmentName: "Engineering",
-        sampleCount: 2,
-        averageHoursToApproval: 36,
-        averageDaysToApproval: 1.5,
-      },
-    ]);
 
-    expect(repository.getAnalyticsAggregates).toHaveBeenCalledWith(
+    expect(repository.getAnalyticsPayload).toHaveBeenCalledWith(
       expect.objectContaining({
         dateFrom: "2026-03-01",
         dateTo: "2026-03-07",
@@ -201,7 +215,7 @@ describe("GetAnalyticsService", () => {
         financeApproverId: "fa-1",
       }),
     );
-    expect(repository.getAnalyticsAggregates).toHaveBeenCalledWith(
+    expect(repository.getAnalyticsPayload).toHaveBeenCalledWith(
       expect.objectContaining({
         dateFrom: "2026-02-22",
         dateTo: "2026-02-28",
@@ -213,26 +227,32 @@ describe("GetAnalyticsService", () => {
 
   test("returns null trend percentage when previous amount is zero", async () => {
     const repository = createRepository({
-      getAnalyticsAggregates: jest
+      getAnalyticsPayload: jest
         .fn()
         .mockResolvedValueOnce({
-          data: [
-            {
-              status: DB_CLAIM_STATUSES[2],
-              claimCount: 1,
+          data: buildPayload({
+            amounts: {
               totalAmount: 750,
-              paymentModeId: "pm-1",
-              paymentModeName: "Reimbursement",
-              departmentId: "dept-1",
-              departmentName: "Engineering",
-              hodApprovalHoursSum: 12,
-              hodApprovalSampleCount: 1,
+              approvedAmount: 750,
+              pendingAmount: 0,
+              hodPendingAmount: 0,
+              hodPendingCount: 0,
+              rejectedAmount: 0,
             },
-          ],
+          }),
           errorMessage: null,
         })
         .mockResolvedValueOnce({
-          data: [],
+          data: buildPayload({
+            amounts: {
+              totalAmount: 0,
+              approvedAmount: 0,
+              pendingAmount: 0,
+              hodPendingAmount: 0,
+              hodPendingCount: 0,
+              rejectedAmount: 0,
+            },
+          }),
           errorMessage: null,
         }),
     });
@@ -251,7 +271,7 @@ describe("GetAnalyticsService", () => {
     expect(result.data?.trends?.total.percentageChange).toBeNull();
   });
 
-  test("allows finance viewers to use department, category, and product filters while restricting finance approver filter", async () => {
+  test("allows finance viewers to use scope filters while restricting finance approver filter", async () => {
     const repository = createRepository({
       getAnalyticsViewerContext: jest.fn(async () => ({
         data: {
@@ -264,12 +284,12 @@ describe("GetAnalyticsService", () => {
         },
         errorMessage: null,
       })),
-      getAnalyticsAggregates: jest.fn(async () => ({ data: [], errorMessage: null })),
+      getAnalyticsPayload: jest.fn(async () => ({ data: buildPayload(), errorMessage: null })),
     });
 
     const service = new GetAnalyticsService({ repository, logger: createLogger() });
 
-    await service.execute({
+    const result = await service.execute({
       userId: "user-2",
       filter: {
         startDate: "2026-03-01",
@@ -286,7 +306,7 @@ describe("GetAnalyticsService", () => {
         isFinance: true,
       }),
     );
-    expect(repository.getAnalyticsAggregates).toHaveBeenCalledWith(
+    expect(repository.getAnalyticsPayload).toHaveBeenCalledWith(
       expect.objectContaining({
         scope: "finance",
         departmentId: "dept-1",
@@ -295,6 +315,9 @@ describe("GetAnalyticsService", () => {
         financeApproverId: undefined,
       }),
     );
+
+    expect(result.data?.overallFinanceTatAverage).toBeNull();
+    expect(result.data?.financeApproverTatBreakdown).toEqual([]);
   });
 
   test("returns unauthorized for viewers with no analytics scope", async () => {
