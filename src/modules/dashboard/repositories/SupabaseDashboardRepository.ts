@@ -113,6 +113,10 @@ type AnalyticsStatusBreakdownJsonRow = {
   amount: number | string | null;
 };
 
+type AnalyticsStatusBreakdownTypedRow = Omit<AnalyticsStatusBreakdownJsonRow, "status"> & {
+  status: DbClaimStatus;
+};
+
 type AnalyticsPaymentBreakdownJsonRow = {
   paymentModeId: string | null;
   paymentModeName: string | null;
@@ -216,7 +220,7 @@ function normalizeAnalyticsPayload(payload: AnalyticsRpcPayload | null): Dashboa
 
   const statusBreakdown = (safePayload.statusBreakdown ?? [])
     .filter(
-      (row): row is AnalyticsStatusBreakdownJsonRow =>
+      (row): row is AnalyticsStatusBreakdownTypedRow =>
         typeof row?.status === "string" && isDbClaimStatus(row.status),
     )
     .map((row) => ({
