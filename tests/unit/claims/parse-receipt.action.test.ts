@@ -343,4 +343,39 @@ describe("parseReceiptAction", () => {
     expect(result.ok).toBe(true);
     expect(result.data?.category_name).toBe("Travel Domestic");
   });
+
+  test("includes Rapido Ride ID guidance in the Gemini system instruction", async () => {
+    mockGenerateContent.mockResolvedValue({
+      response: {
+        text: () =>
+          JSON.stringify({
+            billNo: "#RD17766973787873583",
+            transactionDate: null,
+            vendorName: "Rapido",
+            basicAmount: 248,
+            cgstAmount: 0,
+            sgstAmount: 0,
+            igstAmount: 0,
+            totalAmount: 248,
+            category_name: "Travel Domestic",
+            confidenceScore: 90,
+          }),
+      },
+    });
+
+    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
+    const result = await parseReceiptAction(createReceiptFormData());
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.billNo).toBe("#RD17766973787873583");
+
+    const modelConfig = (mockGetGenerativeModel as jest.Mock).mock.calls[0]?.[0] as
+      | { systemInstruction?: string }
+      | undefined;
+    const systemInstruction = modelConfig?.systemInstruction ?? "";
+
+    expect(systemInstruction).toContain("Rapido");
+    expect(systemInstruction).toContain("Ride ID");
+    expect(systemInstruction).toContain("#RD17766973787873583");
+  });
 });

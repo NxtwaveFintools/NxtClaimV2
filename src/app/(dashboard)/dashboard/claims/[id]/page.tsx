@@ -644,6 +644,7 @@ async function ClaimDetailCore({
     effectiveRole === "Finance" && availableActions.canMarkPaid;
   const canTakeDecision =
     canTakeL1Decision || canTakeFinanceAuthorizationDecision || canTakeFinanceExecutionDecision;
+  const showBottomActionBar = canTakeDecision || canEditClaim;
   const canDeleteClaim =
     currentUserId === claim.submittedBy && isSubmitterDeletableClaimStatus(claim.status);
 
@@ -746,12 +747,6 @@ async function ClaimDetailCore({
     : claim.advance
       ? formatOptionalText(claim.advance.purpose)
       : "N/A";
-  const submitterInitials = submitterDisplayName
-    .split(/\s+/)
-    .filter((part) => part.length > 0)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
 
   return (
     <>
@@ -763,15 +758,6 @@ async function ClaimDetailCore({
             Audit &amp; Review · {claim.id}
           </p>
           <ClaimStatusBadge status={claim.status} />
-
-          {canEditClaim ? (
-            <Suspense fallback={<FinanceEditClaimSkeleton />}>
-              <FinanceEditClaimSection
-                claim={claim}
-                editFlow={canEditFinanceClaim ? "finance" : "own"}
-              />
-            </Suspense>
-          ) : null}
 
           {canDeleteClaim ? (
             <DeleteClaimButton claimId={claim.id} redirectToHref={ROUTES.claims.myClaims} />
@@ -788,8 +774,8 @@ async function ClaimDetailCore({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 pt-4">
-        <section className="lg:col-span-5 flex flex-col gap-12 pb-32">
+      <div className="grid grid-cols-1 gap-8 pt-4 lg:grid-cols-12 lg:gap-12">
+        <section className="relative z-10 flex flex-col gap-12 pb-32 lg:col-span-5">
           {DB_REJECTED_STATUSES.some((status) => status === claim.status) &&
           claim.rejectionReason ? (
             <section className="border-l-2 border-rose-500/70 bg-rose-50/55 px-4 py-3 dark:border-rose-500/60 dark:bg-rose-900/10">
@@ -811,17 +797,10 @@ async function ClaimDetailCore({
                 </p>
               </div>
 
-              <div className="flex min-w-0 items-center gap-3 md:max-w-[18rem] md:flex-none">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
-                  {submitterInitials || "NA"}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] uppercase text-muted-foreground">Submitter</p>
-                  <p className="break-words font-medium text-foreground">{submitterDisplayName}</p>
-                  <p className="break-words text-sm text-muted-foreground">
-                    {submitterDisplayEmail}
-                  </p>
-                </div>
+              <div className="min-w-0 md:max-w-[18rem] md:flex-none">
+                <p className="text-[10px] uppercase text-muted-foreground">Claim For</p>
+                <p className="break-words font-medium text-foreground">{claimForDisplayName}</p>
+                <p className="break-words text-sm text-muted-foreground">{claimForDisplayEmail}</p>
               </div>
             </div>
 
@@ -844,65 +823,9 @@ async function ClaimDetailCore({
           <section className="bg-card border border-border/50 shadow-sm rounded-xl p-6 md:p-8 flex flex-col gap-6">
             <Accordion
               type="multiple"
-              defaultValue={["general-info", "routing-context", "expense-details", "financials"]}
+              defaultValue={["expense-details", "general-info", "routing-context", "financials"]}
               className="w-full space-y-4"
             >
-              <AccordionItem
-                value="general-info"
-                className="border-none bg-muted/10 rounded-xl px-4 py-2"
-              >
-                <AccordionTrigger className="hover:no-underline text-xs uppercase tracking-widest text-muted-foreground font-bold">
-                  General Info
-                </AccordionTrigger>
-                <AccordionContent className="pt-4 pb-2">
-                  <div className={microGridClassName}>
-                    <DataCard
-                      label="Claim ID"
-                      value={claim.id}
-                      className="col-span-2 2xl:col-span-3"
-                    />
-                    <DataCard label="Submitted On" value={formatDate(claim.submittedAt)} />
-                    <DataCard label="Employee" value={submitterDisplayName} />
-                    <DataCard label="Submission Type" value={claim.submissionType} />
-                    <DataCard label={employeeIdLabel} value={employeeIdValue} />
-                    <DataCard
-                      label="Email"
-                      value={submitterDisplayEmail}
-                      className="col-span-2 2xl:col-span-2"
-                    />
-                    <DataCard
-                      label="Claim For"
-                      value={`${claimForDisplayName} (${claimForDisplayEmail})`}
-                      className="col-span-2 2xl:col-span-2"
-                    />
-                    {claim.submissionType === "On Behalf" ? (
-                      <DataCard
-                        label="On Behalf Email"
-                        value={formatOptionalText(claim.onBehalfEmail)}
-                        className="col-span-2 2xl:col-span-2"
-                      />
-                    ) : null}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem
-                value="routing-context"
-                className="border-none bg-muted/10 rounded-xl px-4 py-2"
-              >
-                <AccordionTrigger className="hover:no-underline text-xs uppercase tracking-widest text-muted-foreground font-bold">
-                  Routing Context
-                </AccordionTrigger>
-                <AccordionContent className="pt-4 pb-2">
-                  <div className={microGridClassName}>
-                    <DataCard label="Payment Mode" value={claim.paymentModeName ?? "Unknown"} />
-                    {isPendingFinanceApproval ? (
-                      <DataCard label="Assigned To" value="Finance Team" />
-                    ) : null}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-
               <AccordionItem
                 value="expense-details"
                 className="border-none bg-muted/10 rounded-xl px-4 py-2"
@@ -980,6 +903,62 @@ async function ClaimDetailCore({
               </AccordionItem>
 
               <AccordionItem
+                value="general-info"
+                className="border-none bg-muted/10 rounded-xl px-4 py-2"
+              >
+                <AccordionTrigger className="hover:no-underline text-xs uppercase tracking-widest text-muted-foreground font-bold">
+                  General Info
+                </AccordionTrigger>
+                <AccordionContent className="pt-4 pb-2">
+                  <div className={microGridClassName}>
+                    <DataCard
+                      label="Claim ID"
+                      value={claim.id}
+                      className="col-span-2 2xl:col-span-3"
+                    />
+                    <DataCard label="Submitted On" value={formatDate(claim.submittedAt)} />
+                    <DataCard label="Employee" value={submitterDisplayName} />
+                    <DataCard label="Submission Type" value={claim.submissionType} />
+                    <DataCard label={employeeIdLabel} value={employeeIdValue} />
+                    <DataCard
+                      label="Email"
+                      value={submitterDisplayEmail}
+                      className="col-span-2 2xl:col-span-2"
+                    />
+                    <DataCard
+                      label="Claim For"
+                      value={`${claimForDisplayName} (${claimForDisplayEmail})`}
+                      className="col-span-2 2xl:col-span-2"
+                    />
+                    {claim.submissionType === "On Behalf" ? (
+                      <DataCard
+                        label="On Behalf Email"
+                        value={formatOptionalText(claim.onBehalfEmail)}
+                        className="col-span-2 2xl:col-span-2"
+                      />
+                    ) : null}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem
+                value="routing-context"
+                className="border-none bg-muted/10 rounded-xl px-4 py-2"
+              >
+                <AccordionTrigger className="hover:no-underline text-xs uppercase tracking-widest text-muted-foreground font-bold">
+                  Routing Context
+                </AccordionTrigger>
+                <AccordionContent className="pt-4 pb-2">
+                  <div className={microGridClassName}>
+                    <DataCard label="Payment Mode" value={claim.paymentModeName ?? "Unknown"} />
+                    {isPendingFinanceApproval ? (
+                      <DataCard label="Assigned To" value="Finance Team" />
+                    ) : null}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem
                 value="financials"
                 className="border-none bg-muted/10 rounded-xl px-4 py-2"
               >
@@ -1047,22 +1026,41 @@ async function ClaimDetailCore({
             </div>
           </section>
 
-          {canTakeDecision ? (
+          {showBottomActionBar ? (
             <section className="fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur-sm z-40 px-8 py-4 flex justify-between items-center">
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
-                  {canTakeL1Decision ? "L1 Decision" : "Finance Decision"}
+                  {canTakeL1Decision
+                    ? "L1 Decision"
+                    : canTakeFinanceAuthorizationDecision || canTakeFinanceExecutionDecision
+                      ? "Finance Decision"
+                      : "Claim Actions"}
                 </p>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   {canTakeL1Decision
-                    ? "Approve to route this claim to Finance."
+                    ? canEditClaim
+                      ? "Edit details if needed, then approve to route this claim to Finance."
+                      : "Approve to route this claim to Finance."
                     : canTakeFinanceExecutionDecision
                       ? "Mark this claim as paid to complete execution."
-                      : "Approve or reject after evidence verification."}
+                      : canTakeFinanceAuthorizationDecision && canEditClaim
+                        ? "Edit details if needed, then approve or reject after evidence verification."
+                        : canTakeFinanceAuthorizationDecision
+                          ? "Approve or reject after evidence verification."
+                          : "Edit this claim before it moves through the workflow."}
                 </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
+                {canEditClaim ? (
+                  <Suspense fallback={<FinanceEditClaimSkeleton />}>
+                    <FinanceEditClaimSection
+                      claim={claim}
+                      editFlow={canEditFinanceClaim ? "finance" : "own"}
+                    />
+                  </Suspense>
+                ) : null}
+
                 {canTakeFinanceExecutionDecision ? (
                   <ClaimDecisionActionForm
                     action={markPaidFromDetail}

@@ -190,6 +190,9 @@ If this does not hold → deduct 30 from confidenceScore.
 RULE 5 — IDENTIFIERS:
 
 - billNo          → Invoice No / Bill No / Receipt No / Txn No
+- For Rapido ride receipts or screenshots, billNo MUST use the Ride ID when you see the label "Ride ID" or any token that starts with "#RD".
+- Capture the FULL Ride ID token exactly as shown, including the leading # when present.
+- Example Rapido Ride ID: #RD17766973787873583
 - transactionDate → YYYY-MM-DD ONLY.
   Convert ALL regional formats: MM/DD/YYYY, DD-MM-YY, DD/MM/YYYY → YYYY-MM-DD
 - vendorName      → brand / company name
@@ -280,6 +283,23 @@ Example 2 — Receipt WITH GST, no fees:
     "totalAmount": 1180,
     "category_name": null,
     "confidenceScore": 100
+  }
+
+Example 3 — Rapido screenshot:
+  Input:  Rapido | Ride ID #RD17766973787873583 | Total Fare ₹248
+  Output:
+  {
+    "billNo": "#RD17766973787873583",
+    "transactionDate": null,
+    "vendorName": "Rapido",
+    "basicAmount": 248,
+    "gst_number": null,
+    "cgst_amount": 0,
+    "sgst_amount": 0,
+    "igst_amount": 0,
+    "totalAmount": 248,
+    "category_name": null,
+    "confidenceScore": 90
   }
 `;
 }

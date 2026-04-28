@@ -1,5 +1,13 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { FinanceEditClaimForm } from "@/modules/claims/ui/finance-edit-claim-form";
+
+jest.mock("sonner", () => ({
+  toast: {
+    success: jest.fn(),
+    error: jest.fn(),
+  },
+}));
 
 const departments = [{ id: "dep-1", name: "Operations" }];
 const paymentModes = [{ id: "mode-1", name: "Corporate Card" }];
@@ -60,6 +68,26 @@ function renderForm(input?: { claim?: ReturnType<typeof createExpenseClaim> }) {
       presentation="embedded"
       action={async () => ({ ok: true })}
     />,
+  );
+}
+
+function renderEmbeddedSheetForm(action: () => Promise<{ ok: boolean; error?: string }>) {
+  return render(
+    <Sheet defaultOpen>
+      <SheetContent side="right" hideDefaultCloseButton>
+        <FinanceEditClaimForm
+          claim={createExpenseClaim()}
+          departments={departments}
+          paymentModes={paymentModes}
+          expenseCategories={expenseCategories}
+          products={products}
+          locations={locations}
+          isEditMode
+          presentation="embedded"
+          action={action}
+        />
+      </SheetContent>
+    </Sheet>,
   );
 }
 
@@ -132,5 +160,21 @@ describe("FinanceEditClaimForm amount balancing", () => {
 
     expect(totalAmountInput).toHaveValue(20.1);
     expect(basicAmountInput).toHaveValue(2.1);
+  });
+
+  test("closes the embedded sheet after a successful save", async () => {
+    const action = jest.fn(async () => ({ ok: true }));
+    renderEmbeddedSheetForm(action);
+
+    fireEvent.change(screen.getByLabelText(/reason for edit/i), {
+      target: { value: "Correcting receipt metadata for audit." },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /save claim edits/i }));
+
+    await waitFor(() => {
+      expect(action).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole("button", { name: /save claim edits/i })).not.toBeInTheDocument();
+    });
   });
 });
