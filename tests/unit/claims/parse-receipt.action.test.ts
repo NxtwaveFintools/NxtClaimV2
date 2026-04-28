@@ -344,19 +344,19 @@ describe("parseReceiptAction", () => {
     expect(result.data?.category_name).toBe("Travel Domestic");
   });
 
-  test("includes Rapido Ride ID guidance in the Gemini system instruction", async () => {
+  test("includes generic ride-platform bill-id-first guidance in the Gemini system instruction", async () => {
     mockGenerateContent.mockResolvedValue({
       response: {
         text: () =>
           JSON.stringify({
-            billNo: "#RD17766973787873583",
+            billNo: "UBER-7788",
             transactionDate: null,
-            vendorName: "Rapido",
-            basicAmount: 248,
+            vendorName: "Uber",
+            basicAmount: 512,
             cgstAmount: 0,
             sgstAmount: 0,
             igstAmount: 0,
-            totalAmount: 248,
+            totalAmount: 512,
             category_name: "Travel Domestic",
             confidenceScore: 90,
           }),
@@ -367,15 +367,22 @@ describe("parseReceiptAction", () => {
     const result = await parseReceiptAction(createReceiptFormData());
 
     expect(result.ok).toBe(true);
-    expect(result.data?.billNo).toBe("#RD17766973787873583");
+    expect(result.data?.billNo).toBe("UBER-7788");
 
     const modelConfig = (mockGetGenerativeModel as jest.Mock).mock.calls[0]?.[0] as
       | { systemInstruction?: string }
       | undefined;
     const systemInstruction = modelConfig?.systemInstruction ?? "";
 
+    expect(systemInstruction).toContain("Ola");
+    expect(systemInstruction).toContain("Uber");
     expect(systemInstruction).toContain("Rapido");
+    expect(systemInstruction).toContain("Porter");
+    expect(systemInstruction).toContain("Bill ID");
     expect(systemInstruction).toContain("Ride ID");
-    expect(systemInstruction).toContain("#RD17766973787873583");
+    expect(systemInstruction).toContain(
+      "Only fall back to Ride ID when no bill-style identifier is present",
+    );
+    expect(systemInstruction).toContain("UBER-7788");
   });
 });

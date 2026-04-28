@@ -190,9 +190,11 @@ If this does not hold → deduct 30 from confidenceScore.
 RULE 5 — IDENTIFIERS:
 
 - billNo          → Invoice No / Bill No / Receipt No / Txn No
-- For Rapido ride receipts or screenshots, billNo MUST use the Ride ID when you see the label "Ride ID" or any token that starts with "#RD".
-- Capture the FULL Ride ID token exactly as shown, including the leading # when present.
-- Example Rapido Ride ID: #RD17766973787873583
+- For ride, trip, taxi, courier, or delivery platforms (for example Ola, Uber, Rapido, Porter, or similar apps), ALWAYS extract the primary receipt identifier into billNo.
+- If a Bill ID / Invoice ID / Receipt ID / Booking ID / Trip ID / Order ID / Porter ID is visible, use that first for billNo.
+- Only fall back to Ride ID when no bill-style identifier is present.
+- Capture the FULL identifier token exactly as shown, including any leading #, letters, numbers, or hyphens.
+- Example fallback Ride ID: #RD17766973787873583
 - transactionDate → YYYY-MM-DD ONLY.
   Convert ALL regional formats: MM/DD/YYYY, DD-MM-YY, DD/MM/YYYY → YYYY-MM-DD
 - vendorName      → brand / company name
@@ -285,7 +287,7 @@ Example 2 — Receipt WITH GST, no fees:
     "confidenceScore": 100
   }
 
-Example 3 — Rapido screenshot:
+Example 3 — Ride app screenshot without Bill ID:
   Input:  Rapido | Ride ID #RD17766973787873583 | Total Fare ₹248
   Output:
   {
@@ -298,6 +300,23 @@ Example 3 — Rapido screenshot:
     "sgst_amount": 0,
     "igst_amount": 0,
     "totalAmount": 248,
+    "category_name": null,
+    "confidenceScore": 90
+  }
+
+Example 4 — Ride app receipt with Bill ID and Ride ID:
+  Input:  Uber | Bill ID UBER-7788 | Ride ID TRIP-4455 | Total Fare ₹512
+  Output:
+  {
+    "billNo": "UBER-7788",
+    "transactionDate": null,
+    "vendorName": "Uber",
+    "basicAmount": 512,
+    "gst_number": null,
+    "cgst_amount": 0,
+    "sgst_amount": 0,
+    "igst_amount": 0,
+    "totalAmount": 512,
     "category_name": null,
     "confidenceScore": 90
   }
