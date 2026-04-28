@@ -62,3 +62,4 @@ build/
 *.keystore
 *.p12
 *.pfx
+playwright.analytics.config.ts

@@ -15,6 +15,8 @@ type AnalyticsKpiCardsProps = {
   scope: DashboardAnalyticsScope;
   amounts: DashboardAnalyticsAmountSummary;
   trends: DashboardAnalyticsTrendSummary | null;
+  overallFinanceTatAverage: number | null;
+  overallFinanceTatSampleCount: number;
 };
 
 type DashboardAnalyticsAmountMetricKey = Exclude<
@@ -113,16 +115,22 @@ function TrendBadge({ trend }: { trend: DashboardAnalyticsAmountTrendItem | null
   );
 }
 
-export function AnalyticsKpiCards({ scope, amounts, trends }: AnalyticsKpiCardsProps) {
+export function AnalyticsKpiCards({
+  scope,
+  amounts,
+  trends,
+  overallFinanceTatAverage,
+  overallFinanceTatSampleCount,
+}: AnalyticsKpiCardsProps) {
   const visibleKpiConfig =
     scope === "finance" || scope === "admin"
       ? KPI_CONFIG
       : KPI_CONFIG.filter((item) => item.key !== "hodPendingAmount");
 
-  const gridColumnsClass = visibleKpiConfig.length > 4 ? "xl:grid-cols-5" : "xl:grid-cols-4";
+  const showFinanceTatCard = scope === "admin" && overallFinanceTatAverage !== null;
 
   return (
-    <div className={`grid gap-4 md:grid-cols-2 ${gridColumnsClass}`}>
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {visibleKpiConfig.map((item) => {
         const Icon = item.icon;
         const trendItem = trends ? trends[item.trendKey] : null;
@@ -163,6 +171,35 @@ export function AnalyticsKpiCards({ scope, amounts, trends }: AnalyticsKpiCardsP
           </Card>
         );
       })}
+
+      {showFinanceTatCard ? (
+        <Card className="border-white/30 bg-white/60 dark:bg-zinc-900/55">
+          <CardHeader className="space-y-3 pb-3">
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-xs uppercase tracking-[0.14em] text-zinc-600 dark:text-zinc-300">
+                Overall Finance Team TAT
+              </CardTitle>
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/30 bg-white/80 dark:bg-zinc-900/70">
+                <Clock3 className="h-4.5 w-4.5 text-cyan-600 dark:text-cyan-400" />
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="dashboard-font-display text-3xl font-semibold tracking-[-0.03em] text-cyan-700 dark:text-cyan-300">
+              <CountUp
+                end={overallFinanceTatAverage}
+                decimals={2}
+                duration={2}
+                suffix=" days"
+                preserveValue
+              />
+            </p>
+            <p className="mt-1 text-xs font-medium uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">
+              {overallFinanceTatSampleCount} claim{overallFinanceTatSampleCount === 1 ? "" : "s"}
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

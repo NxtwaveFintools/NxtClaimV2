@@ -1,12 +1,20 @@
 import {
+  DB_CLAIM_STATUSES,
+  DB_FINANCE_APPROVED_PAYMENT_UNDER_PROCESS_STATUS,
   DB_FINANCE_ANALYTICS_PIPELINE_STATUSES,
+  DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
+  DB_PAYMENT_DONE_CLOSED_STATUS,
+  DB_REJECTED_STATUSES,
+  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
   type DbClaimStatus,
 } from "@/core/constants/statuses";
 import { getServiceRoleSupabaseClient } from "@/core/infra/supabase/server-client";
 import type {
   DashboardAnalyticsAdvancedFilters,
   DashboardAnalyticsAggregateRow,
+  DashboardAnalyticsFinanceApproverTatItem,
   DashboardAnalyticsOption,
+  DashboardAnalyticsPayload,
   DashboardAnalyticsRepository,
   DashboardAnalyticsScope,
   DashboardAnalyticsViewerContext,
@@ -99,6 +107,57 @@ type LegacyAnalyticsClaimQueryRow = {
   hod_action_date: string | null;
 };
 
+type AnalyticsStatusBreakdownJsonRow = {
+  status: string;
+  count: number | string | null;
+  amount: number | string | null;
+};
+
+type AnalyticsStatusBreakdownTypedRow = Omit<AnalyticsStatusBreakdownJsonRow, "status"> & {
+  status: DbClaimStatus;
+};
+
+type AnalyticsPaymentBreakdownJsonRow = {
+  paymentModeId: string | null;
+  paymentModeName: string | null;
+  count: number | string | null;
+  amount: number | string | null;
+};
+
+type AnalyticsEfficiencyJsonRow = {
+  departmentId: string;
+  departmentName: string | null;
+  sampleCount: number | string | null;
+  averageHoursToApproval: number | string | null;
+  averageDaysToApproval: number | string | null;
+};
+
+type AnalyticsFinanceTatJsonRow = {
+  financeApproverId: string;
+  financeApproverName: string | null;
+  sampleCount: number | string | null;
+  averageHoursToApproval: number | string | null;
+  averageDaysToApproval: number | string | null;
+};
+
+type AnalyticsRpcPayload = {
+  claimCount: number | string | null;
+  amounts: {
+    totalAmount: number | string | null;
+    approvedAmount: number | string | null;
+    pendingAmount: number | string | null;
+    hodPendingAmount: number | string | null;
+    hodPendingCount: number | string | null;
+    rejectedAmount: number | string | null;
+  } | null;
+  statusBreakdown: AnalyticsStatusBreakdownJsonRow[] | null;
+  paymentModeBreakdown: AnalyticsPaymentBreakdownJsonRow[] | null;
+  efficiencyByDepartment: AnalyticsEfficiencyJsonRow[] | null;
+  overallFinanceTatAverage: number | string | null;
+  overallFinanceTatSampleCount: number | string | null;
+  financeApproverTatBreakdown: AnalyticsFinanceTatJsonRow[] | null;
+};
+
 const EMPTY_WALLET_TOTALS = {
   totalPettyCashReceived: 0,
   totalPettyCashSpent: 0,
@@ -110,6 +169,14 @@ const TRANSIENT_FETCH_ERROR_FRAGMENT = "fetch failed";
 const MISSING_ANALYTICS_CACHE_TABLE_FRAGMENT = "claims_analytics_daily_stats";
 
 const FINANCE_PIPELINE_STATUSES: DbClaimStatus[] = [...DB_FINANCE_ANALYTICS_PIPELINE_STATUSES];
+const APPROVED_STATUSES: DbClaimStatus[] = [
+  DB_FINANCE_APPROVED_PAYMENT_UNDER_PROCESS_STATUS,
+  DB_PAYMENT_DONE_CLOSED_STATUS,
+];
+const PENDING_STATUSES: DbClaimStatus[] = [
+  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
+  DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
+];
 
 function toNumber(value: number | string | null | undefined): number {
   if (typeof value === "number") {
@@ -122,6 +189,95 @@ function toNumber(value: number | string | null | undefined): number {
   }
 
   return 0;
+}
+
+function toInteger(value: number | string | null | undefined): number {
+  return Math.max(0, Math.trunc(toNumber(value)));
+}
+
+function isDbClaimStatus(value: string): value is DbClaimStatus {
+  return DB_CLAIM_STATUSES.some((status) => status === value);
+}
+
+function normalizeAnalyticsPayload(payload: AnalyticsRpcPayload | null): DashboardAnalyticsPayload {
+  const safePayload = payload ?? {
+    claimCount: 0,
+    amounts: {
+      totalAmount: 0,
+      approvedAmount: 0,
+      pendingAmount: 0,
+      hodPendingAmount: 0,
+      hodPendingCount: 0,
+      rejectedAmount: 0,
+    },
+    statusBreakdown: [],
+    paymentModeBreakdown: [],
+    efficiencyByDepartment: [],
+    overallFinanceTatAverage: 0,
+    overallFinanceTatSampleCount: 0,
+    financeApproverTatBreakdown: [],
+  };
+
+  const statusBreakdown = (safePayload.statusBreakdown ?? [])
+    .filter(
+      (row): row is AnalyticsStatusBreakdownTypedRow =>
+        typeof row?.status === "string" && isDbClaimStatus(row.status),
+    )
+    .map((row) => ({
+      status: row.status,
+      count: toInteger(row.count),
+      amount: toNumber(row.amount),
+    }));
+
+  const paymentModeBreakdown = (safePayload.paymentModeBreakdown ?? []).map((row) => ({
+    paymentModeId: row.paymentModeId,
+    paymentModeName: row.paymentModeName?.trim() || "Unknown",
+    count: toInteger(row.count),
+    amount: toNumber(row.amount),
+  }));
+
+  const efficiencyByDepartment = (safePayload.efficiencyByDepartment ?? [])
+    .filter((row): row is AnalyticsEfficiencyJsonRow => typeof row?.departmentId === "string")
+    .map((row) => ({
+      departmentId: row.departmentId,
+      departmentName: row.departmentName?.trim() || "Unknown Department",
+      sampleCount: toInteger(row.sampleCount),
+      averageHoursToApproval: toNumber(row.averageHoursToApproval),
+      averageDaysToApproval: toNumber(row.averageDaysToApproval),
+    }));
+
+  const financeApproverTatBreakdown: DashboardAnalyticsFinanceApproverTatItem[] = (
+    safePayload.financeApproverTatBreakdown ?? []
+  )
+    .filter(
+      (row): row is AnalyticsFinanceTatJsonRow =>
+        typeof row?.financeApproverId === "string" && row.financeApproverId.length > 0,
+    )
+    .map((row) => ({
+      financeApproverId: row.financeApproverId,
+      financeApproverName: row.financeApproverName?.trim() || row.financeApproverId,
+      sampleCount: toInteger(row.sampleCount),
+      averageHoursToApproval: toNumber(row.averageHoursToApproval),
+      averageDaysToApproval: toNumber(row.averageDaysToApproval),
+    }));
+
+  return {
+    claimCount: toInteger(safePayload.claimCount),
+    amounts: {
+      totalAmount: toNumber(safePayload.amounts?.totalAmount),
+      approvedAmount: toNumber(safePayload.amounts?.approvedAmount),
+      pendingAmount: toNumber(safePayload.amounts?.pendingAmount),
+      hodPendingAmount: toNumber(safePayload.amounts?.hodPendingAmount),
+      hodPendingCount: toInteger(safePayload.amounts?.hodPendingCount),
+      rejectedAmount: toNumber(safePayload.amounts?.rejectedAmount),
+    },
+    statusBreakdown,
+    paymentModeBreakdown,
+    efficiencyByDepartment,
+    overallFinanceTatAverage: toNumber(safePayload.overallFinanceTatAverage),
+    overallFinanceTatSampleCount: toInteger(safePayload.overallFinanceTatSampleCount),
+    financeApproverTatBreakdown,
+  };
 }
 
 function isTransientFetchError(error: { message: string } | null): boolean {
@@ -408,6 +564,61 @@ export class SupabaseDashboardRepository
         founderDepartmentIds,
         financeApproverIds: financeRows.map((row) => row.id),
       },
+      errorMessage: null,
+    };
+  }
+
+  async getAnalyticsPayload(input: {
+    scope: DashboardAnalyticsScope;
+    hodDepartmentIds: string[];
+    financeApproverIds: string[];
+    dateFrom: string;
+    dateTo: string;
+    departmentId?: string;
+    expenseCategoryId?: string;
+    productId?: string;
+    financeApproverId?: string;
+  }): Promise<{
+    data: DashboardAnalyticsPayload | null;
+    errorMessage: string | null;
+  }> {
+    if (input.scope === "hod" && input.hodDepartmentIds.length === 0) {
+      return {
+        data: normalizeAnalyticsPayload(null),
+        errorMessage: null,
+      };
+    }
+
+    const client = getServiceRoleSupabaseClient();
+
+    const { data, error } = await runWithSingleRetry<AnalyticsRpcPayload | null>(async () =>
+      client.rpc("get_dashboard_analytics_payload", {
+        p_scope: input.scope,
+        p_hod_department_ids: input.hodDepartmentIds,
+        p_finance_approver_ids: input.financeApproverIds,
+        p_date_from: input.dateFrom,
+        p_date_to: input.dateTo,
+        p_department_id: input.departmentId ?? null,
+        p_expense_category_id: input.expenseCategoryId ?? null,
+        p_product_id: input.productId ?? null,
+        p_finance_approver_id: input.financeApproverId ?? null,
+        p_finance_pipeline_statuses: FINANCE_PIPELINE_STATUSES,
+        p_approved_statuses: APPROVED_STATUSES,
+        p_pending_statuses: PENDING_STATUSES,
+        p_rejected_statuses: DB_REJECTED_STATUSES,
+        p_hod_pending_status: DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
+      }),
+    );
+
+    if (error) {
+      return {
+        data: null,
+        errorMessage: error.message,
+      };
+    }
+
+    return {
+      data: normalizeAnalyticsPayload(data),
       errorMessage: null,
     };
   }

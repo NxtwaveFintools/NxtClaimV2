@@ -233,6 +233,8 @@ async function AnalyticsKpiFetcher({
       scope={analytics.scope}
       amounts={analytics.amounts}
       trends={analytics.trends}
+      overallFinanceTatAverage={analytics.overallFinanceTatAverage}
+      overallFinanceTatSampleCount={analytics.overallFinanceTatSampleCount}
     />
   );
 }
@@ -267,10 +269,11 @@ async function AnalyticsChartsFetcher({
         statusBreakdown={analytics.statusBreakdown}
         paymentModeBreakdown={analytics.paymentModeBreakdown}
         efficiencyByDepartment={analytics.efficiencyByDepartment}
+        financeApproverTatBreakdown={analytics.financeApproverTatBreakdown}
         isAdmin={isAdmin}
       />
 
-      <div className={`grid gap-4 ${isAdmin ? "xl:grid-cols-2" : "xl:grid-cols-1"}`}>
+      <div className={`grid gap-4 ${isAdmin ? "xl:grid-cols-3" : "xl:grid-cols-1"}`}>
         <Card className="xl:col-span-1">
           <CardHeader>
             <CardTitle>Status Summary (Raw)</CardTitle>
@@ -314,6 +317,42 @@ async function AnalyticsChartsFetcher({
             </CardContent>
           </Card>
         ) : null}
+
+        {isAdmin ? (
+          <Card className="xl:col-span-1">
+            <CardHeader>
+              <CardTitle>Finance Efficiency Summary (Raw)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4 text-sm">
+                <p className="font-medium text-foreground">
+                  Overall Team: {(analytics.overallFinanceTatAverage ?? 0).toFixed(2)} days |{" "}
+                  {analytics.overallFinanceTatSampleCount} claims
+                </p>
+
+                {analytics.financeApproverTatBreakdown.length === 0 ? (
+                  <p className="text-muted-foreground">
+                    No finance approval efficiency records in this period.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {analytics.financeApproverTatBreakdown.map((item) => (
+                      <li
+                        key={item.financeApproverId}
+                        className="flex items-center justify-between gap-4"
+                      >
+                        <span className="text-muted-foreground">{item.financeApproverName}</span>
+                        <span className="text-right font-medium text-foreground">
+                          {item.averageDaysToApproval.toFixed(2)} days | {item.sampleCount} claims
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
     </>
   );
@@ -340,7 +379,7 @@ function AnalyticsFiltersSkeleton() {
 
 function AnalyticsKpiSkeleton() {
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {Array.from({ length: 5 }).map((_, index) => (
         <Card
           key={`analytics-kpi-skeleton-${index}`}

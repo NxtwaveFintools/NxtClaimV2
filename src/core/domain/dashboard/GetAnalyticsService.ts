@@ -1,21 +1,11 @@
-import {
-  DB_FINANCE_APPROVED_PAYMENT_UNDER_PROCESS_STATUS,
-  DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
-  DB_PAYMENT_DONE_CLOSED_STATUS,
-  DB_REJECTED_STATUSES,
-  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
-  DB_CLAIM_STATUSES,
-  type DbClaimStatus,
-} from "@/core/constants/statuses";
+import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
 import { resolveDashboardAnalyticsScope } from "@/core/domain/dashboard/resolve-analytics-scope";
 import type {
   DashboardAnalyticsAdvancedFilters,
   DashboardAnalyticsAmountSummary,
   DashboardAnalyticsAmountTrendItem,
   DashboardAnalyticsData,
-  DashboardAnalyticsEfficiencyItem,
   DashboardAnalyticsFilter,
-  DashboardAnalyticsPaymentModeBreakdownItem,
   DashboardAnalyticsRepository,
   DashboardAnalyticsStatusBreakdownItem,
   DashboardAnalyticsTrendSummary,
@@ -38,27 +28,9 @@ type ResolvedPeriod = {
   } | null;
 };
 
-type AggregatedAnalytics = {
-  claimCount: number;
-  amounts: DashboardAnalyticsAmountSummary;
-  statusBreakdown: DashboardAnalyticsStatusBreakdownItem[];
-  paymentModeBreakdown: DashboardAnalyticsPaymentModeBreakdownItem[];
-  efficiencyByDepartment: DashboardAnalyticsEfficiencyItem[];
-};
-
 const DATE_FORMAT_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MONTH_FORMAT_PATTERN = /^\d{4}-\d{2}$/;
 const DAY_IN_MILLISECONDS = 86_400_000;
-
-const PENDING_STATUSES = new Set<DbClaimStatus>([
-  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
-  DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
-]);
-const APPROVED_STATUSES = new Set<DbClaimStatus>([
-  DB_FINANCE_APPROVED_PAYMENT_UNDER_PROCESS_STATUS,
-  DB_PAYMENT_DONE_CLOSED_STATUS,
-]);
-const REJECTED_STATUSES = new Set<DbClaimStatus>(DB_REJECTED_STATUSES);
 
 const EMPTY_AMOUNTS: DashboardAnalyticsAmountSummary = {
   totalAmount: 0,
@@ -79,14 +51,6 @@ function toIsoDate(value: Date): string {
 
 function roundCurrency(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
-function normalizeAmount(value: number): number {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-
-  return roundCurrency(value);
 }
 
 function resolvePeriod(filter?: DashboardAnalyticsFilter): ResolvedPeriod {
@@ -197,140 +161,6 @@ function buildTrendItem(
     currentAmount,
     previousAmount,
     percentageChange,
-  };
-}
-
-function aggregateClaims(
-  rows: Array<{
-    status: DbClaimStatus;
-    claimCount: number;
-    totalAmount: number;
-    paymentModeId: string | null;
-    paymentModeName: string | null;
-    departmentId: string | null;
-    departmentName: string | null;
-    hodApprovalHoursSum: number;
-    hodApprovalSampleCount: number;
-  }>,
-): AggregatedAnalytics {
-  const statusBreakdown = initializeStatusBreakdown();
-  const statusIndex = new Map<DbClaimStatus, number>(
-    statusBreakdown.map((item, index) => [item.status, index]),
-  );
-
-  const paymentModeMap = new Map<string, DashboardAnalyticsPaymentModeBreakdownItem>();
-  const efficiencyMap = new Map<
-    string,
-    {
-      departmentName: string;
-      totalHours: number;
-      sampleCount: number;
-    }
-  >();
-
-  let totalAmount = 0;
-  let approvedAmount = 0;
-  let pendingAmount = 0;
-  let hodPendingAmount = 0;
-  let hodPendingCount = 0;
-  let rejectedAmount = 0;
-  let claimCount = 0;
-
-  for (const claim of rows) {
-    const rowClaimCount = Number.isFinite(claim.claimCount)
-      ? Math.max(0, Math.trunc(claim.claimCount))
-      : 0;
-    const normalizedAmount = normalizeAmount(claim.totalAmount);
-    claimCount += rowClaimCount;
-    totalAmount = roundCurrency(totalAmount + normalizedAmount);
-
-    if (APPROVED_STATUSES.has(claim.status)) {
-      approvedAmount = roundCurrency(approvedAmount + normalizedAmount);
-    } else if (PENDING_STATUSES.has(claim.status)) {
-      pendingAmount = roundCurrency(pendingAmount + normalizedAmount);
-    } else if (REJECTED_STATUSES.has(claim.status)) {
-      rejectedAmount = roundCurrency(rejectedAmount + normalizedAmount);
-    }
-
-    if (claim.status === DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS) {
-      hodPendingAmount = roundCurrency(hodPendingAmount + normalizedAmount);
-      hodPendingCount += rowClaimCount;
-    }
-
-    const statusItemIndex = statusIndex.get(claim.status);
-    if (statusItemIndex !== undefined) {
-      const current = statusBreakdown[statusItemIndex];
-      statusBreakdown[statusItemIndex] = {
-        ...current,
-        count: current.count + rowClaimCount,
-        amount: roundCurrency(current.amount + normalizedAmount),
-      };
-    }
-
-    const paymentKey = claim.paymentModeId ?? "__unknown__";
-    const currentPayment = paymentModeMap.get(paymentKey);
-
-    if (currentPayment) {
-      paymentModeMap.set(paymentKey, {
-        ...currentPayment,
-        count: currentPayment.count + rowClaimCount,
-        amount: roundCurrency(currentPayment.amount + normalizedAmount),
-      });
-    } else {
-      paymentModeMap.set(paymentKey, {
-        paymentModeId: claim.paymentModeId,
-        paymentModeName: claim.paymentModeName ?? "Unknown",
-        count: rowClaimCount,
-        amount: normalizedAmount,
-      });
-    }
-
-    if (claim.departmentId && claim.hodApprovalSampleCount > 0) {
-      const currentEfficiency = efficiencyMap.get(claim.departmentId);
-
-      if (currentEfficiency) {
-        currentEfficiency.totalHours += claim.hodApprovalHoursSum;
-        currentEfficiency.sampleCount += claim.hodApprovalSampleCount;
-      } else {
-        efficiencyMap.set(claim.departmentId, {
-          departmentName: claim.departmentName ?? "Unknown Department",
-          totalHours: claim.hodApprovalHoursSum,
-          sampleCount: claim.hodApprovalSampleCount,
-        });
-      }
-    }
-  }
-
-  const paymentModeBreakdown = Array.from(paymentModeMap.values()).sort((a, b) =>
-    a.paymentModeName.localeCompare(b.paymentModeName),
-  );
-
-  const efficiencyByDepartment = Array.from(efficiencyMap.entries())
-    .map(([departmentId, value]) => {
-      const averageHoursToApproval = roundCurrency(value.totalHours / value.sampleCount);
-      return {
-        departmentId,
-        departmentName: value.departmentName,
-        sampleCount: value.sampleCount,
-        averageHoursToApproval,
-        averageDaysToApproval: roundCurrency(averageHoursToApproval / 24),
-      };
-    })
-    .sort((a, b) => b.averageDaysToApproval - a.averageDaysToApproval);
-
-  return {
-    claimCount,
-    amounts: {
-      totalAmount,
-      approvedAmount,
-      pendingAmount,
-      hodPendingAmount,
-      hodPendingCount,
-      rejectedAmount,
-    },
-    statusBreakdown,
-    paymentModeBreakdown,
-    efficiencyByDepartment,
   };
 }
 
@@ -513,7 +343,7 @@ export class GetAnalyticsService {
       });
     }
 
-    const aggregatesResult = await this.repository.getAnalyticsAggregates({
+    const currentPayloadResult = await this.repository.getAnalyticsPayload({
       scope,
       hodDepartmentIds: viewerContextResult.data.hodDepartmentIds,
       financeApproverIds: viewerContextResult.data.financeApproverIds,
@@ -525,24 +355,24 @@ export class GetAnalyticsService {
       financeApproverId,
     });
 
-    if (aggregatesResult.errorMessage) {
-      this.logger.error("dashboard.analytics.claims.failed", {
+    if (currentPayloadResult.errorMessage || !currentPayloadResult.data) {
+      this.logger.error("dashboard.analytics.payload.failed", {
         userId: input.userId,
         scope,
-        errorMessage: aggregatesResult.errorMessage,
+        errorMessage: currentPayloadResult.errorMessage,
       });
 
       return {
         data: null,
-        errorMessage: aggregatesResult.errorMessage,
+        errorMessage: currentPayloadResult.errorMessage ?? "Unable to load analytics payload.",
       };
     }
 
-    const currentPeriodAggregate = aggregateClaims(aggregatesResult.data);
+    const currentPayload = currentPayloadResult.data;
     let trends: DashboardAnalyticsTrendSummary | null = null;
 
     if (period.hasExplicitRange && period.previousPeriod) {
-      const previousPeriodAggregateResult = await this.repository.getAnalyticsAggregates({
+      const previousPayloadResult = await this.repository.getAnalyticsPayload({
         scope,
         hodDepartmentIds: viewerContextResult.data.hodDepartmentIds,
         financeApproverIds: viewerContextResult.data.financeApproverIds,
@@ -554,48 +384,51 @@ export class GetAnalyticsService {
         financeApproverId,
       });
 
-      if (previousPeriodAggregateResult.errorMessage) {
-        this.logger.error("dashboard.analytics.claims.previous_period.failed", {
+      if (previousPayloadResult.errorMessage || !previousPayloadResult.data) {
+        this.logger.error("dashboard.analytics.payload.previous_period.failed", {
           userId: input.userId,
           scope,
-          errorMessage: previousPeriodAggregateResult.errorMessage,
+          errorMessage: previousPayloadResult.errorMessage,
         });
 
         return {
           data: null,
-          errorMessage: previousPeriodAggregateResult.errorMessage,
+          errorMessage:
+            previousPayloadResult.errorMessage ?? "Unable to load previous analytics payload.",
         };
       }
 
-      const previousPeriodAggregate = aggregateClaims(previousPeriodAggregateResult.data);
+      const previousPayload = previousPayloadResult.data;
       trends = {
         total: buildTrendItem(
-          currentPeriodAggregate.amounts.totalAmount,
-          previousPeriodAggregate.amounts.totalAmount,
+          currentPayload.amounts.totalAmount,
+          previousPayload.amounts.totalAmount,
         ),
         approved: buildTrendItem(
-          currentPeriodAggregate.amounts.approvedAmount,
-          previousPeriodAggregate.amounts.approvedAmount,
+          currentPayload.amounts.approvedAmount,
+          previousPayload.amounts.approvedAmount,
         ),
         pending: buildTrendItem(
-          currentPeriodAggregate.amounts.pendingAmount,
-          previousPeriodAggregate.amounts.pendingAmount,
+          currentPayload.amounts.pendingAmount,
+          previousPayload.amounts.pendingAmount,
         ),
         hodPending: buildTrendItem(
-          currentPeriodAggregate.amounts.hodPendingAmount,
-          previousPeriodAggregate.amounts.hodPendingAmount,
+          currentPayload.amounts.hodPendingAmount,
+          previousPayload.amounts.hodPendingAmount,
         ),
         rejected: buildTrendItem(
-          currentPeriodAggregate.amounts.rejectedAmount,
-          previousPeriodAggregate.amounts.rejectedAmount,
+          currentPayload.amounts.rejectedAmount,
+          previousPayload.amounts.rejectedAmount,
         ),
       };
     }
 
+    const isAdminScope = scope === "admin";
+
     this.logger.info("dashboard.analytics.success", {
       userId: input.userId,
       scope,
-      claimCount: currentPeriodAggregate.claimCount,
+      claimCount: currentPayload.claimCount,
       period,
     });
 
@@ -607,12 +440,17 @@ export class GetAnalyticsService {
           dateFrom: period.dateFrom,
           dateTo: period.dateTo,
         },
-        claimCount: currentPeriodAggregate.claimCount,
-        amounts: currentPeriodAggregate.amounts,
+        claimCount: currentPayload.claimCount,
+        amounts: currentPayload.amounts,
         trends,
-        efficiencyByDepartment: currentPeriodAggregate.efficiencyByDepartment,
-        statusBreakdown: currentPeriodAggregate.statusBreakdown,
-        paymentModeBreakdown: currentPeriodAggregate.paymentModeBreakdown,
+        efficiencyByDepartment: currentPayload.efficiencyByDepartment,
+        overallFinanceTatAverage: isAdminScope ? currentPayload.overallFinanceTatAverage : null,
+        overallFinanceTatSampleCount: isAdminScope
+          ? currentPayload.overallFinanceTatSampleCount
+          : 0,
+        financeApproverTatBreakdown: isAdminScope ? currentPayload.financeApproverTatBreakdown : [],
+        statusBreakdown: currentPayload.statusBreakdown,
+        paymentModeBreakdown: currentPayload.paymentModeBreakdown,
         advancedFilters,
       },
       errorMessage: null,
@@ -635,6 +473,9 @@ export class GetAnalyticsService {
       amounts: EMPTY_AMOUNTS,
       trends: null,
       efficiencyByDepartment: [],
+      overallFinanceTatAverage: null,
+      overallFinanceTatSampleCount: 0,
+      financeApproverTatBreakdown: [],
       statusBreakdown: initializeStatusBreakdown(),
       paymentModeBreakdown: [],
       advancedFilters: emptyAdvancedFilters(),
