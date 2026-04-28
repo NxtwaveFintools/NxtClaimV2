@@ -971,9 +971,10 @@ async function approveAndMarkPaidAtFinance(page: Page, claimId: string): Promise
   const row = await getClaimRow(page, claimId);
   await expect(row).toBeVisible({ timeout: 30000 });
 
-  const viewClaimButton = row.getByRole("button", { name: /^View Claim$/i }).first();
-  await expect(viewClaimButton).toBeVisible({ timeout: 10000 });
-  await viewClaimButton.click();
+  const viewClaimLink = row.getByRole("link", { name: /^View$/i }).first();
+  await expect(viewClaimLink).toBeVisible({ timeout: 10000 });
+  await viewClaimLink.click();
+  await expect(page).toHaveURL(new RegExp(`/dashboard/claims/${claimId}`));
 
   const markPaidButton = page.getByRole("button", { name: /^Mark as Paid$|^Paid$/i }).first();
   await expect(markPaidButton).toBeVisible({ timeout: 15000 });

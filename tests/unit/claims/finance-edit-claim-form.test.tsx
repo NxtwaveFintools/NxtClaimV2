@@ -47,10 +47,7 @@ function createExpenseClaim(input?: {
   };
 }
 
-function renderForm(input?: {
-  claim?: ReturnType<typeof createExpenseClaim>;
-  fieldScope?: "full" | "quick-view-core";
-}) {
+function renderForm(input?: { claim?: ReturnType<typeof createExpenseClaim> }) {
   return render(
     <FinanceEditClaimForm
       claim={input?.claim ?? createExpenseClaim()}
@@ -60,7 +57,6 @@ function renderForm(input?: {
       products={products}
       locations={locations}
       isEditMode
-      fieldScope={input?.fieldScope}
       presentation="embedded"
       action={async () => ({ ok: true })}
     />,
@@ -126,42 +122,15 @@ describe("FinanceEditClaimForm amount balancing", () => {
     expect(sgstAmountInput).toHaveValue(0);
   });
 
-  test("quick view reverse-calculates hidden basic when total amount changes", () => {
-    const { container } = renderForm({ fieldScope: "quick-view-core" });
+  test("allows decimal typing in total amount without clamping", () => {
+    renderForm();
 
+    const basicAmountInput = screen.getByRole("spinbutton", { name: /basic amount/i });
     const totalAmountInput = screen.getByRole("spinbutton", { name: /total amount/i });
-    fireEvent.change(totalAmountInput, { target: { value: "200" } });
 
-    const basicHiddenInput = container.querySelector(
-      'input[type="hidden"][name="basicAmount"]',
-    ) as HTMLInputElement;
-    const totalHiddenInput = container.querySelector(
-      'input[type="number"][name="totalAmount"]',
-    ) as HTMLInputElement;
-    const cgstHiddenInput = container.querySelector(
-      'input[type="hidden"][name="cgstAmount"]',
-    ) as HTMLInputElement;
-    const sgstHiddenInput = container.querySelector(
-      'input[type="hidden"][name="sgstAmount"]',
-    ) as HTMLInputElement;
-
-    expect(totalHiddenInput.value).toBe("200");
-    expect(basicHiddenInput.value).toBe("182");
-    expect(cgstHiddenInput.value).toBe("9");
-    expect(sgstHiddenInput.value).toBe("9");
-  });
-
-  test("allows decimal typing in quick view total amount without clamping", () => {
-    const { container } = renderForm({ fieldScope: "quick-view-core" });
-
-    const totalAmountInput = screen.getByRole("spinbutton", { name: /total amount/i });
     fireEvent.change(totalAmountInput, { target: { value: "20.1" } });
 
-    const basicHiddenInput = container.querySelector(
-      'input[type="hidden"][name="basicAmount"]',
-    ) as HTMLInputElement;
-
     expect(totalAmountInput).toHaveValue(20.1);
-    expect(basicHiddenInput.value).toBe("2.1");
+    expect(basicAmountInput).toHaveValue(2.1);
   });
 });

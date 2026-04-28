@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import type {
   DashboardAnalyticsEfficiencyItem,
+  DashboardAnalyticsFinanceApproverTatItem,
   DashboardAnalyticsPaymentModeBreakdownItem,
   DashboardAnalyticsStatusBreakdownItem,
 } from "@/core/domain/dashboard/contracts";
@@ -23,6 +24,7 @@ type AnalyticsChartsProps = {
   statusBreakdown: DashboardAnalyticsStatusBreakdownItem[];
   paymentModeBreakdown: DashboardAnalyticsPaymentModeBreakdownItem[];
   efficiencyByDepartment: DashboardAnalyticsEfficiencyItem[];
+  financeApproverTatBreakdown: DashboardAnalyticsFinanceApproverTatItem[];
   isAdmin: boolean;
 };
 
@@ -75,6 +77,7 @@ export function AnalyticsCharts({
   statusBreakdown,
   paymentModeBreakdown,
   efficiencyByDepartment,
+  financeApproverTatBreakdown,
   isAdmin,
 }: AnalyticsChartsProps) {
   const statusChartData = statusBreakdown.map((item) => ({
@@ -89,6 +92,12 @@ export function AnalyticsCharts({
 
   const efficiencyChartData = efficiencyByDepartment.map((item) => ({
     name: item.departmentName,
+    avgDays: item.averageDaysToApproval,
+    sampleCount: item.sampleCount,
+  }));
+
+  const financeTatChartData = financeApproverTatBreakdown.map((item) => ({
+    name: item.financeApproverName,
     avgDays: item.averageDaysToApproval,
     sampleCount: item.sampleCount,
   }));
@@ -166,6 +175,51 @@ export function AnalyticsCharts({
           </Card>
         ) : null}
       </div>
+
+      {isAdmin ? (
+        <Card className="border-white/30 bg-white/60 dark:bg-zinc-900/55">
+          <CardHeader>
+            <CardTitle>Efficiency: Days to Approve by Finance Approver</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {financeTatChartData.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No finance approval records in this period.
+              </p>
+            ) : (
+              <div className="h-[320px] min-h-[320px] w-full text-muted-foreground">
+                <ResponsiveContainer width="100%" height="100%" minHeight={320}>
+                  <BarChart
+                    data={financeTatChartData}
+                    margin={{ top: 8, right: 12, left: -8, bottom: 22 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.28)" />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fill: MUTED_FOREGROUND_COLOR, fontSize: 12 }}
+                      interval={0}
+                      angle={-18}
+                      textAnchor="end"
+                      height={72}
+                    />
+                    <YAxis tick={{ fill: MUTED_FOREGROUND_COLOR, fontSize: 12 }} />
+                    <Tooltip
+                      formatter={(value, _key, payload) => {
+                        const sampleCount = Number(payload?.payload?.sampleCount ?? 0);
+                        return [
+                          `${formatNumber(Number(value))} days`,
+                          `${sampleCount} claims sampled`,
+                        ];
+                      }}
+                    />
+                    <Bar dataKey="avgDays" fill="#06B6D4" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card className="border-white/30 bg-white/60 dark:bg-zinc-900/55">
         <CardHeader>

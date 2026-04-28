@@ -120,6 +120,25 @@ export type DashboardAnalyticsEfficiencyItem = {
   averageDaysToApproval: number;
 };
 
+export type DashboardAnalyticsFinanceApproverTatItem = {
+  financeApproverId: string;
+  financeApproverName: string;
+  sampleCount: number;
+  averageHoursToApproval: number;
+  averageDaysToApproval: number;
+};
+
+export type DashboardAnalyticsPayload = {
+  claimCount: number;
+  amounts: DashboardAnalyticsAmountSummary;
+  statusBreakdown: DashboardAnalyticsStatusBreakdownItem[];
+  paymentModeBreakdown: DashboardAnalyticsPaymentModeBreakdownItem[];
+  efficiencyByDepartment: DashboardAnalyticsEfficiencyItem[];
+  overallFinanceTatAverage: number;
+  overallFinanceTatSampleCount: number;
+  financeApproverTatBreakdown: DashboardAnalyticsFinanceApproverTatItem[];
+};
+
 export type DashboardAnalyticsData = {
   scope: DashboardAnalyticsScope;
   period: {
@@ -131,6 +150,9 @@ export type DashboardAnalyticsData = {
   amounts: DashboardAnalyticsAmountSummary;
   trends: DashboardAnalyticsTrendSummary | null;
   efficiencyByDepartment: DashboardAnalyticsEfficiencyItem[];
+  overallFinanceTatAverage: number | null;
+  overallFinanceTatSampleCount: number;
+  financeApproverTatBreakdown: DashboardAnalyticsFinanceApproverTatItem[];
   statusBreakdown: DashboardAnalyticsStatusBreakdownItem[];
   paymentModeBreakdown: DashboardAnalyticsPaymentModeBreakdownItem[];
   advancedFilters: DashboardAnalyticsAdvancedFilters;
@@ -139,6 +161,20 @@ export type DashboardAnalyticsData = {
 export type DashboardAnalyticsRepository = {
   getAnalyticsViewerContext(userId: string): Promise<{
     data: DashboardAnalyticsViewerContext | null;
+    errorMessage: string | null;
+  }>;
+  getAnalyticsPayload(input: {
+    scope: DashboardAnalyticsScope;
+    hodDepartmentIds: string[];
+    financeApproverIds: string[];
+    dateFrom: string;
+    dateTo: string;
+    departmentId?: string;
+    expenseCategoryId?: string;
+    productId?: string;
+    financeApproverId?: string;
+  }): Promise<{
+    data: DashboardAnalyticsPayload | null;
     errorMessage: string | null;
   }>;
   getAnalyticsAggregates(input: {

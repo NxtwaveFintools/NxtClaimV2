@@ -3,7 +3,6 @@
 import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { useApprovalsQuickViewControls } from "@/modules/claims/ui/approvals-quick-view-context";
 import { ClaimDecisionSubmitButton } from "@/modules/claims/ui/claim-decision-submit-button";
 
 type ClaimDecisionActionFormProps = {
@@ -26,7 +25,6 @@ export function ClaimDecisionActionForm({
   redirectToHref,
 }: ClaimDecisionActionFormProps) {
   const router = useRouter();
-  const quickViewControls = useApprovalsQuickViewControls();
   const [isNavigating, startTransition] = useTransition();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isPending = isSubmitting || isNavigating;
@@ -47,8 +45,6 @@ export function ClaimDecisionActionForm({
         success: successMessage,
         error: (error) => (error instanceof Error ? error.message : errorMessage),
       });
-
-      quickViewControls?.closePanel();
 
       if (redirectToHref) {
         startTransition(() => {

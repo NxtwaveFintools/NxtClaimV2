@@ -803,22 +803,24 @@ async function ClaimDetailCore({
           ) : null}
 
           <section className="bg-primary/5 border border-primary/20 rounded-xl p-6 mb-8 flex flex-col gap-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <div>
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="min-w-0 md:flex-1">
                 <p className="text-[10px] uppercase text-muted-foreground">Total Amount</p>
-                <p className="text-4xl lg:text-5xl font-black tracking-tight text-foreground">
+                <p className="max-w-full break-words text-3xl font-black leading-none tracking-tight text-foreground sm:text-4xl lg:text-5xl">
                   {formatAmountValue(heroTotalAmountValue)}
                 </p>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 items-center gap-3 md:max-w-[18rem] md:flex-none">
                 <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
                   {submitterInitials || "NA"}
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-[10px] uppercase text-muted-foreground">Submitter</p>
-                  <p className="font-medium text-foreground">{submitterDisplayName}</p>
-                  <p className="text-sm text-muted-foreground">{submitterDisplayEmail}</p>
+                  <p className="break-words font-medium text-foreground">{submitterDisplayName}</p>
+                  <p className="break-words text-sm text-muted-foreground">
+                    {submitterDisplayEmail}
+                  </p>
                 </div>
               </div>
             </div>

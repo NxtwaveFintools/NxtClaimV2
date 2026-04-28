@@ -141,6 +141,17 @@ Every implementation must handle empty states, large 25MB receipt uploads, expir
 If something is unclear, inspect using MCP - never assume.
 This repository values correctness over speed, structure over shortcuts, and long-term maintainability over hacks. If the code disagrees with this file, the code is wrong.
 
+# SUPABASE MIGRATION PROTOCOL
+
+Whenever you are asked to create, modify, or apply a database migration, you MUST strictly adhere to the following workflow:
+
+1. **Pre-flight Audit (Use MCP):** Always use the **Supabase MCP tools** to execute read-only queries and verify the current schema/data state before writing any migration SQL. Do all your database research, checks, and verifications using the MCP.
+2. **Rollback Requirement:** For EVERY migration file you generate (e.g., `20260427_update.sql`), you MUST immediately create a corresponding rollback file in the same directory, ending with `_rollback` (e.g., `20260427_update_rollback.sql`).
+3. **Gitignore Policy:** You must ensure that `*_rollback.sql` is added to the `.gitignore` file. Rollbacks must remain local and NEVER be committed during a `git push`.
+4. **Execution (Use CLI ONLY):** When it is time to apply the migration to the database, **DO NOT use the MCP to execute the SQL**. You must apply the migration strictly by using the **Supabase CLI** (`supabase db push`) in the terminal. This ensures that the migration is executed in a controlled manner, with proper logging and error handling.
+5. **Explicit Approval:** Before applying any migration, you MUST pause and ask for explicit approval from the user. Do not proceed with `supabase db push` until you receive a clear "Approved" response.
+6. **Testing:** After applying the migration, you must run your Jest tests to ensure that no existing functionality is broken and that the new schema changes are compatible with the current codebase.
+
 ## Enforcement Checklist
 
 Before opening or approving any PR, verify all items below:
