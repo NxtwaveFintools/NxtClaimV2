@@ -30,6 +30,13 @@ const QUICK_PRESET_OPTIONS: Array<{ value: QuickPresetValue; label: string; mont
   { value: "6m", label: "Last 6 Months", months: 6 },
 ];
 
+const ANALYTICS_FIELD_CLASS_NAME =
+  "h-10 rounded-xl border border-zinc-300/80 bg-white/80 px-3 text-sm text-zinc-800 outline-hidden ring-0 transition focus:border-sky-500 focus:bg-white focus:shadow-[0_0_0_3px_rgba(14,165,233,0.16)] dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-200";
+
+const ANALYTICS_COLOR_SCHEME_CLASS_NAME = "[color-scheme:light] dark:[color-scheme:dark]";
+
+const ANALYTICS_NATIVE_SELECT_CLASS_NAME = `${ANALYTICS_COLOR_SCHEME_CLASS_NAME} dark:[&_option]:bg-zinc-950 dark:[&_option]:text-zinc-100`;
+
 function formatDateForInput(date: Date): string {
   const year = date.getUTCFullYear();
   const month = String(date.getUTCMonth() + 1).padStart(2, "0");
@@ -230,7 +237,7 @@ export function AnalyticsFilters({
               setDraftToDate(range.to);
               pushDateRange(range.from, range.to);
             }}
-            className="h-10 rounded-xl border border-zinc-300/80 bg-white/80 px-3 text-sm text-zinc-800 outline-hidden ring-0 transition focus:border-sky-500 focus:bg-white focus:shadow-[0_0_0_3px_rgba(14,165,233,0.16)] dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-200"
+            className={`${ANALYTICS_FIELD_CLASS_NAME} ${ANALYTICS_NATIVE_SELECT_CLASS_NAME}`}
           >
             {QUICK_PRESET_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -251,7 +258,7 @@ export function AnalyticsFilters({
               setSelectedPreset("custom");
               pushDateRange(nextFromDate, draftToDate);
             }}
-            className="h-10 rounded-xl border border-zinc-300/80 bg-white/80 px-3 text-sm text-zinc-800 outline-hidden ring-0 transition focus:border-sky-500 focus:bg-white focus:shadow-[0_0_0_3px_rgba(14,165,233,0.16)] dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-200"
+            className={`${ANALYTICS_FIELD_CLASS_NAME} ${ANALYTICS_COLOR_SCHEME_CLASS_NAME}`}
           />
         </label>
 
@@ -266,7 +273,7 @@ export function AnalyticsFilters({
               setSelectedPreset("custom");
               pushDateRange(draftFromDate, nextToDate);
             }}
-            className="h-10 rounded-xl border border-zinc-300/80 bg-white/80 px-3 text-sm text-zinc-800 outline-hidden ring-0 transition focus:border-sky-500 focus:bg-white focus:shadow-[0_0_0_3px_rgba(14,165,233,0.16)] dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-200"
+            className={`${ANALYTICS_FIELD_CLASS_NAME} ${ANALYTICS_COLOR_SCHEME_CLASS_NAME}`}
           />
         </label>
 
@@ -277,7 +284,7 @@ export function AnalyticsFilters({
               <select
                 value={draftDepartmentId}
                 onChange={(event) => setDraftDepartmentId(event.target.value)}
-                className="h-10 rounded-xl border border-zinc-300/80 bg-white/80 px-3 text-sm text-zinc-800 outline-hidden ring-0 transition focus:border-sky-500 focus:bg-white focus:shadow-[0_0_0_3px_rgba(14,165,233,0.16)] dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-200"
+                className={`${ANALYTICS_FIELD_CLASS_NAME} ${ANALYTICS_NATIVE_SELECT_CLASS_NAME}`}
               >
                 <option value="">All Departments</option>
                 {departmentOptions.map((option) => (
@@ -293,7 +300,7 @@ export function AnalyticsFilters({
               <select
                 value={draftExpenseCategoryId}
                 onChange={(event) => setDraftExpenseCategoryId(event.target.value)}
-                className="h-10 rounded-xl border border-zinc-300/80 bg-white/80 px-3 text-sm text-zinc-800 outline-hidden ring-0 transition focus:border-sky-500 focus:bg-white focus:shadow-[0_0_0_3px_rgba(14,165,233,0.16)] dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-200"
+                className={`${ANALYTICS_FIELD_CLASS_NAME} ${ANALYTICS_NATIVE_SELECT_CLASS_NAME}`}
               >
                 <option value="">All Expense Categories</option>
                 {expenseCategoryOptions.map((option) => (
@@ -309,7 +316,7 @@ export function AnalyticsFilters({
               <select
                 value={draftProductId}
                 onChange={(event) => setDraftProductId(event.target.value)}
-                className="h-10 rounded-xl border border-zinc-300/80 bg-white/80 px-3 text-sm text-zinc-800 outline-hidden ring-0 transition focus:border-sky-500 focus:bg-white focus:shadow-[0_0_0_3px_rgba(14,165,233,0.16)] dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-200"
+                className={`${ANALYTICS_FIELD_CLASS_NAME} ${ANALYTICS_NATIVE_SELECT_CLASS_NAME}`}
               >
                 <option value="">All Products</option>
                 {productOptions.map((option) => (
@@ -329,7 +336,7 @@ export function AnalyticsFilters({
               <select
                 value={draftFinanceApproverId}
                 onChange={(event) => setDraftFinanceApproverId(event.target.value)}
-                className="h-10 rounded-xl border border-zinc-300/80 bg-white/80 px-3 text-sm text-zinc-800 outline-hidden ring-0 transition focus:border-sky-500 focus:bg-white focus:shadow-[0_0_0_3px_rgba(14,165,233,0.16)] dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-200"
+                className={`${ANALYTICS_FIELD_CLASS_NAME} ${ANALYTICS_NATIVE_SELECT_CLASS_NAME}`}
               >
                 <option value="">All Finance Approvers</option>
                 {financeApproverOptions.map((option) => (
