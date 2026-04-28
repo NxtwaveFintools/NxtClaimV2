@@ -8,7 +8,7 @@ import { DateInput } from "@/components/ui/date-input";
 import { FormInput } from "@/components/ui/form-input";
 import { FormSelect } from "@/components/ui/form-select";
 import { FormTextarea } from "@/components/ui/form-textarea";
-import { SheetClose } from "@/components/ui/sheet";
+import { SheetClose, useOptionalSheetContext } from "@/components/ui/sheet";
 
 type DropdownOption = {
   id: string;
@@ -163,6 +163,7 @@ export function FinanceEditClaimForm({
   onCancel,
   action,
 }: FinanceEditClaimFormProps) {
+  const sheetContext = useOptionalSheetContext();
   const initialExpenseAmounts = buildExpenseAmountState(claim.expense);
   const [isInlineOpen, setIsInlineOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -288,7 +289,9 @@ export function FinanceEditClaimForm({
 
       toast.success("Claim edits saved.");
 
-      if (!isEmbeddedPresentation) {
+      if (isEmbeddedPresentation) {
+        sheetContext?.setOpen(false);
+      } else {
         setIsInlineOpen(false);
       }
 
