@@ -30,6 +30,10 @@ type SheetContextValue = {
 
 const SheetContext = createContext<SheetContextValue | null>(null);
 
+export function useOptionalSheetContext(): SheetContextValue | null {
+  return useContext(SheetContext);
+}
+
 function useSheetContext(componentName: string): SheetContextValue {
   const context = useContext(SheetContext);
   if (!context) {
