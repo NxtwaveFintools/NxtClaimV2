@@ -44,6 +44,40 @@ function getAdminClient() {
   });
 }
 
+async function findExistingAuthEmails(emails: string[]): Promise<Set<string>> {
+  const client = getAdminClient();
+  const expected = new Set(emails.map((email) => email.toLowerCase()));
+  const found = new Set<string>();
+
+  let page = 1;
+  while (found.size < expected.size) {
+    const { data, error } = await client.auth.admin.listUsers({
+      page,
+      perPage: 200,
+    });
+
+    if (error) {
+      throw new Error(`Failed to query auth.users: ${error.message}`);
+    }
+
+    const users = data?.users ?? [];
+    if (users.length === 0) {
+      break;
+    }
+
+    for (const user of users) {
+      const email = user.email?.toLowerCase();
+      if (email && expected.has(email)) {
+        found.add(email);
+      }
+    }
+
+    page += 1;
+  }
+
+  return found;
+}
+
 async function resolveRoleEmails(): Promise<ResolvedRoleEmails> {
   const client = getAdminClient();
   const defaults = getDefaultSeedEmails();
@@ -62,8 +96,7 @@ async function resolveRoleEmails(): Promise<ResolvedRoleEmails> {
       .select("user_id, is_primary, created_at")
       .eq("is_active", true)
       .order("is_primary", { ascending: false })
-      .order("created_at", { ascending: true })
-      .limit(2),
+      .order("created_at", { ascending: true }),
   ]);
 
   if (baseUsersError) {
@@ -108,11 +141,22 @@ async function resolveRoleEmails(): Promise<ResolvedRoleEmails> {
     ((financeUsers ?? []) as UserRow[]).map((row) => [row.id, row.email]),
   );
 
-  const finance1 = financeById.get(financeRows[0].user_id);
-  const finance2 = financeById.get(financeRows[1].user_id);
+  const financeCandidates = financeRows
+    .map((row) => financeById.get(row.user_id))
+    .filter((email): email is string => Boolean(email));
+
+  const authBackedFinanceEmails = await findExistingAuthEmails(financeCandidates);
+  const runnableFinanceEmails = financeCandidates.filter((email) =>
+    authBackedFinanceEmails.has(email.toLowerCase()),
+  );
+
+  const finance1 = runnableFinanceEmails[0];
+  const finance2 = runnableFinanceEmails[1];
 
   if (!finance1 || !finance2) {
-    throw new Error("Unable to resolve finance approver emails for global auth setup.");
+    throw new Error(
+      "At least two active finance approvers with auth.users accounts are required for global auth setup.",
+    );
   }
 
   return {
@@ -125,35 +169,8 @@ async function resolveRoleEmails(): Promise<ResolvedRoleEmails> {
 }
 
 async function verifyAuthUsersExist(emails: string[]): Promise<void> {
-  const client = getAdminClient();
   const expected = new Set(emails.map((email) => email.toLowerCase()));
-  const found = new Set<string>();
-
-  let page = 1;
-  while (found.size < expected.size) {
-    const { data, error } = await client.auth.admin.listUsers({
-      page,
-      perPage: 200,
-    });
-
-    if (error) {
-      throw new Error(`Failed to query auth.users: ${error.message}`);
-    }
-
-    const users = data?.users ?? [];
-    if (users.length === 0) {
-      break;
-    }
-
-    for (const user of users) {
-      const email = user.email?.toLowerCase();
-      if (email && expected.has(email)) {
-        found.add(email);
-      }
-    }
-
-    page += 1;
-  }
+  const found = await findExistingAuthEmails(emails);
 
   const missing = [...expected].filter((email) => !found.has(email));
   if (missing.length > 0) {
