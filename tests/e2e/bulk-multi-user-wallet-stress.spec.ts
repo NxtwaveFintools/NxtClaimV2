@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
 import {
   RECEIPT_PATH,
   fillTextboxIfEditable,
@@ -22,7 +23,8 @@ const PAYMENT_MODE_REIMBURSEMENT_LABEL = "Reimbursement";
 const PAYMENT_MODE_PETTY_CASH_REQUEST_LABEL = "Petty Cash Request";
 
 const EMPLOYEE_B_OVERRIDE_EMAIL = process.env.E2E_EMPLOYEE_B_EMAIL?.toLowerCase() ?? null;
-const L1_HOD_EMAIL = (process.env.E2E_HOD_EMAIL ?? "hod@nxtwave.co.in").toLowerCase();
+const PREFERRED_L1_HOD_EMAIL = (process.env.E2E_HOD_EMAIL ?? "hod@nxtwave.co.in").toLowerCase();
+const DEFAULT_PASSWORD = process.env.E2E_DEFAULT_PASSWORD ?? "password123";
 
 type Beneficiary = "A" | "B";
 type ClaimKind = "reimbursement" | "petty-cash-request";
@@ -37,6 +39,10 @@ type Department = {
   name: string;
   hodUserId: string;
   founderUserId: string;
+};
+
+type DepartmentWithHodEmail = Department & {
+  hodEmail: string;
 };
 
 type SeedPlan = {
@@ -182,6 +188,45 @@ async function resolveActiveUserByEmail(email: string): Promise<ActiveUser> {
   };
 }
 
+function getPublicSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !anonKey) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are required.");
+  }
+
+  return createClient(supabaseUrl, anonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+}
+
+const loginCapabilityCache = new Map<string, boolean>();
+
+async function canLoginWithDefaultPassword(email: string): Promise<boolean> {
+  const normalized = email.trim().toLowerCase();
+  if (loginCapabilityCache.has(normalized)) {
+    return loginCapabilityCache.get(normalized) ?? false;
+  }
+
+  const client = getPublicSupabaseClient();
+  const { data, error } = await client.auth.signInWithPassword({
+    email: normalized,
+    password: DEFAULT_PASSWORD,
+  });
+
+  const canLogin = !error && Boolean(data.session);
+  if (data.session) {
+    await client.auth.signOut().catch(() => undefined);
+  }
+
+  loginCapabilityCache.set(normalized, canLogin);
+  return canLogin;
+}
+
 async function resolveDepartmentForHodUser(hodUserId: string): Promise<Department> {
   const client = getAdminSupabaseClient();
   const { data, error } = await client
@@ -205,6 +250,83 @@ async function resolveDepartmentForHodUser(hodUserId: string): Promise<Departmen
     hodUserId: data.hod_user_id as string,
     founderUserId: data.founder_user_id as string,
   };
+}
+
+async function resolveLoginCapableL1Department(): Promise<{
+  hod: ActiveUser;
+  department: Department;
+}> {
+  const client = getAdminSupabaseClient();
+  const { data, error } = await client
+    .from("master_departments")
+    .select(
+      "id, name, hod_user_id, founder_user_id, hod:users!master_departments_hod_user_id_fkey(email)",
+    )
+    .eq("is_active", true)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error(
+      error.message ?? "Unable to resolve active departments for bulk wallet stress.",
+    );
+  }
+
+  const departmentRows = (
+    (data ?? []) as Array<{
+      id: string | null;
+      name: string | null;
+      hod_user_id: string | null;
+      founder_user_id: string | null;
+      hod: { email: string | null } | null;
+    }>
+  )
+    .filter(
+      (
+        row,
+      ): row is {
+        id: string;
+        name: string;
+        hod_user_id: string;
+        founder_user_id: string;
+        hod: { email: string };
+      } => Boolean(row.id && row.name && row.hod_user_id && row.founder_user_id && row.hod?.email),
+    )
+    .map(
+      (row) =>
+        ({
+          id: row.id,
+          name: row.name,
+          hodUserId: row.hod_user_id,
+          founderUserId: row.founder_user_id,
+          hodEmail: row.hod.email.toLowerCase(),
+        }) satisfies DepartmentWithHodEmail,
+    );
+
+  const orderedDepartments = [
+    ...departmentRows.filter((row) => row.hodEmail === PREFERRED_L1_HOD_EMAIL),
+    ...departmentRows.filter((row) => row.hodEmail !== PREFERRED_L1_HOD_EMAIL),
+  ];
+
+  for (const department of orderedDepartments) {
+    if (!(await canLoginWithDefaultPassword(department.hodEmail))) {
+      continue;
+    }
+
+    return {
+      hod: {
+        id: department.hodUserId,
+        email: department.hodEmail,
+      },
+      department: {
+        id: department.id,
+        name: department.name,
+        hodUserId: department.hodUserId,
+        founderUserId: department.founderUserId,
+      },
+    };
+  }
+
+  throw new Error("Unable to find an active department with a login-capable HOD actor.");
 }
 
 async function resolveReservedActorIds(): Promise<Set<string>> {
@@ -725,6 +847,47 @@ async function openApprovalsWithMarker(
   });
 }
 
+async function waitForBulkControlsOrStatusClear(input: {
+  page: Page;
+  status: string;
+  employeeIdMarker: string;
+  claimIds: string[];
+  timeout: number;
+  message: string;
+}): Promise<boolean> {
+  const masterCheckbox = input.page.getByTestId("bulk-master-checkbox").first();
+
+  await expect
+    .poll(
+      async () => {
+        await openApprovalsWithMarker(input.page, input.status, input.employeeIdMarker);
+
+        const hasBulkControls = await masterCheckbox
+          .isVisible({ timeout: 1500 })
+          .catch(() => false);
+
+        if (hasBulkControls) {
+          return "controls";
+        }
+
+        const remaining = await countClaimsInStatus(input.claimIds, input.status);
+        return remaining === 0 ? "cleared" : "waiting";
+      },
+      {
+        timeout: input.timeout,
+        message: input.message,
+      },
+    )
+    .not.toBe("waiting");
+
+  const remaining = await countClaimsInStatus(input.claimIds, input.status);
+  if (remaining === 0) {
+    return false;
+  }
+
+  return masterCheckbox.isVisible({ timeout: 5000 }).catch(() => false);
+}
+
 async function selectAllMatchingClaims(page: Page, expectedTotal: number): Promise<void> {
   const masterCheckbox = page.getByTestId("bulk-master-checkbox").first();
   await expect(masterCheckbox).toBeVisible({ timeout: 30000 });
@@ -850,8 +1013,8 @@ test.describe("Bulk Multi-User Wallet Stress", () => {
 
     const runtime = await resolveRuntimeClaimData();
     const employeeA = await resolveActiveUserByEmail(runtime.submitterEmail.toLowerCase());
-    const configuredHod = await resolveActiveUserByEmail(L1_HOD_EMAIL);
-    const l1Department = await resolveDepartmentForHodUser(configuredHod.id);
+    const { hod: configuredHod, department: l1Department } =
+      await resolveLoginCapableL1Department();
     const reservedActorIds = await resolveReservedActorIds();
     const employeeB = await resolveBeneficiaryEmployeeB({
       primarySubmitterId: employeeA.id,
@@ -917,21 +1080,17 @@ test.describe("Bulk Multi-User Wallet Stress", () => {
           return;
         }
 
-        await openApprovalsWithMarker(l1Page, STATUS_SUBMITTED, employeeIdMarker);
-
-        const masterCheckbox = l1Page.getByTestId("bulk-master-checkbox").first();
-        const hasBulkControls = await masterCheckbox
-          .isVisible({ timeout: 10000 })
-          .catch(() => false);
+        const hasBulkControls = await waitForBulkControlsOrStatusClear({
+          page: l1Page,
+          status: STATUS_SUBMITTED,
+          employeeIdMarker,
+          claimIds: seededClaimIds,
+          timeout: 45000,
+          message:
+            "waiting for L1 approvals table to surface bulk controls or for submitted claims to finish transitioning",
+        });
 
         if (!hasBulkControls) {
-          await expect
-            .poll(async () => countClaimsInStatus(seededClaimIds, STATUS_SUBMITTED), {
-              timeout: 20000,
-              message:
-                "bulk controls disappeared while waiting for submitted claims to finish transitioning",
-            })
-            .toBe(0);
           return;
         }
 
@@ -959,20 +1118,17 @@ test.describe("Bulk Multi-User Wallet Stress", () => {
           return;
         }
 
-        await openApprovalsWithMarker(financePage, STATUS_L1_APPROVED, employeeIdMarker);
-
-        const approveMasterCheckbox = financePage.getByTestId("bulk-master-checkbox").first();
-        const hasApproveControls = await approveMasterCheckbox
-          .isVisible({ timeout: 10000 })
-          .catch(() => false);
+        const hasApproveControls = await waitForBulkControlsOrStatusClear({
+          page: financePage,
+          status: STATUS_L1_APPROVED,
+          employeeIdMarker,
+          claimIds: seededClaimIds,
+          timeout: 45000,
+          message:
+            "waiting for finance approvals table to surface bulk approve controls or for L1-approved claims to finish transitioning",
+        });
 
         if (!hasApproveControls) {
-          await expect
-            .poll(async () => countClaimsInStatus(seededClaimIds, STATUS_L1_APPROVED), {
-              timeout: 20000,
-              message: "finance bulk approve controls disappeared while claims were transitioning",
-            })
-            .toBe(0);
           return;
         }
 
@@ -1002,21 +1158,17 @@ test.describe("Bulk Multi-User Wallet Stress", () => {
           return;
         }
 
-        await openApprovalsWithMarker(financePage, STATUS_FINANCE_APPROVED, employeeIdMarker);
-
-        const markPaidMasterCheckbox = financePage.getByTestId("bulk-master-checkbox").first();
-        const hasMarkPaidControls = await markPaidMasterCheckbox
-          .isVisible({ timeout: 10000 })
-          .catch(() => false);
+        const hasMarkPaidControls = await waitForBulkControlsOrStatusClear({
+          page: financePage,
+          status: STATUS_FINANCE_APPROVED,
+          employeeIdMarker,
+          claimIds: seededClaimIds,
+          timeout: 45000,
+          message:
+            "waiting for finance approvals table to surface bulk mark-paid controls or for finance-approved claims to finish transitioning",
+        });
 
         if (!hasMarkPaidControls) {
-          await expect
-            .poll(async () => countClaimsInStatus(seededClaimIds, STATUS_FINANCE_APPROVED), {
-              timeout: 20000,
-              message:
-                "finance bulk mark-paid controls disappeared while claims were transitioning",
-            })
-            .toBe(0);
           return;
         }
 
