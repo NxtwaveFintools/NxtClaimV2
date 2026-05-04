@@ -983,7 +983,7 @@ async function openMyClaims(page: Page, claimId?: string): Promise<void> {
     params.size > 0 ? `/dashboard/my-claims?${params.toString()}` : "/dashboard/my-claims";
   await page.goto(url, { waitUntil: "domcontentloaded" });
   await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
-  await expect(page.getByRole("heading", { name: /my claims/i })).toBeVisible({ timeout: 20000 });
+  await expect(page.getByRole("heading", { name: /^claims$/i })).toBeVisible({ timeout: 20000 });
   if (claimId) {
     await page.waitForTimeout(2000);
   }
