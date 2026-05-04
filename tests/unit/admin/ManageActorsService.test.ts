@@ -70,8 +70,6 @@ function createRepository(overrides?: Partial<AdminRepository>): AdminRepository
       data: { ...SAMPLE_FINANCE_APPROVER },
       errorMessage: null,
     })),
-    getAllUsers: jest.fn(),
-    updateUserRole: jest.fn(),
     getAdmins: jest.fn(),
     addAdminByEmail: jest.fn(),
     removeAdmin: jest.fn(),

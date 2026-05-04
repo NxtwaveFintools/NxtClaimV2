@@ -30,7 +30,6 @@ type ClaimKind = "reimbursement" | "petty-cash-request";
 type ActiveUser = {
   id: string;
   email: string;
-  role: string;
 };
 
 type Department = {
@@ -167,20 +166,19 @@ async function resolveActiveUserByEmail(email: string): Promise<ActiveUser> {
   const client = getAdminSupabaseClient();
   const { data, error } = await client
     .from("users")
-    .select("id, email, role")
+    .select("id, email")
     .eq("email", email)
     .eq("is_active", true)
     .limit(1)
     .maybeSingle();
 
-  if (error || !data?.id || !data?.email || !data?.role) {
+  if (error || !data?.id || !data?.email) {
     throw new Error(error?.message ?? `Unable to resolve active user for ${email}.`);
   }
 
   return {
     id: data.id as string,
     email: data.email as string,
-    role: data.role as string,
   };
 }
 
@@ -209,13 +207,63 @@ async function resolveDepartmentForHodUser(hodUserId: string): Promise<Departmen
   };
 }
 
-async function resolveSecondaryEmployee(input: { excludedUserIds: string[] }): Promise<ActiveUser> {
+async function resolveReservedActorIds(): Promise<Set<string>> {
+  const client = getAdminSupabaseClient();
+  const [adminsResult, financeResult, departmentsResult] = await Promise.all([
+    client.from("admins").select("user_id").not("user_id", "is", null),
+    client
+      .from("master_finance_approvers")
+      .select("user_id")
+      .eq("is_active", true)
+      .not("user_id", "is", null),
+    client.from("master_departments").select("hod_user_id, founder_user_id").eq("is_active", true),
+  ]);
+
+  if (adminsResult.error || financeResult.error || departmentsResult.error) {
+    throw new Error(
+      adminsResult.error?.message ??
+        financeResult.error?.message ??
+        departmentsResult.error?.message ??
+        "Unable to resolve reserved routing actors for bulk wallet stress coverage.",
+    );
+  }
+
+  const reservedActorIds = new Set<string>();
+
+  for (const row of adminsResult.data ?? []) {
+    if (row.user_id) {
+      reservedActorIds.add(String(row.user_id));
+    }
+  }
+
+  for (const row of financeResult.data ?? []) {
+    if (row.user_id) {
+      reservedActorIds.add(String(row.user_id));
+    }
+  }
+
+  for (const row of departmentsResult.data ?? []) {
+    if (row.hod_user_id) {
+      reservedActorIds.add(String(row.hod_user_id));
+    }
+
+    if (row.founder_user_id) {
+      reservedActorIds.add(String(row.founder_user_id));
+    }
+  }
+
+  return reservedActorIds;
+}
+
+async function resolveSecondaryEmployee(input: {
+  excludedUserIds: string[];
+  reservedActorIds: Set<string>;
+}): Promise<ActiveUser> {
   const client = getAdminSupabaseClient();
   const { data, error } = await client
     .from("users")
-    .select("id, email, role")
+    .select("id, email")
     .eq("is_active", true)
-    .eq("role", "employee")
     .order("created_at", { ascending: true })
     .limit(100);
 
@@ -226,16 +274,12 @@ async function resolveSecondaryEmployee(input: { excludedUserIds: string[] }): P
     );
   }
 
-  const excludedIds = new Set(input.excludedUserIds);
+  const excludedIds = new Set([...input.excludedUserIds, ...input.reservedActorIds]);
   const candidate = (data ?? []).find(
-    (row) =>
-      Boolean(row.id) &&
-      Boolean(row.email) &&
-      String(row.role).toLowerCase() === "employee" &&
-      !excludedIds.has(String(row.id)),
+    (row) => Boolean(row.id) && Boolean(row.email) && !excludedIds.has(String(row.id)),
   );
 
-  if (!candidate?.id || !candidate.email || !candidate.role) {
+  if (!candidate?.id || !candidate.email) {
     throw new Error(
       "Unable to resolve a secondary active employee that is isolated from configured routing actors.",
     );
@@ -244,38 +288,38 @@ async function resolveSecondaryEmployee(input: { excludedUserIds: string[] }): P
   return {
     id: candidate.id as string,
     email: candidate.email as string,
-    role: candidate.role as string,
   };
 }
 
-function isSingleHodSafeBeneficiary(input: {
+function isSafeBeneficiaryCandidate(input: {
   candidate: ActiveUser;
-  configuredHodId: string;
-  departmentFounderId: string;
-  primarySubmitterId: string;
+  excludedUserIds: string[];
+  reservedActorIds: Set<string>;
 }): boolean {
-  return (
-    input.candidate.role.toLowerCase() === "employee" &&
-    input.candidate.id !== input.primarySubmitterId &&
-    input.candidate.id !== input.configuredHodId &&
-    input.candidate.id !== input.departmentFounderId
-  );
+  const excludedIds = new Set(input.excludedUserIds);
+  return !excludedIds.has(input.candidate.id) && !input.reservedActorIds.has(input.candidate.id);
 }
 
 async function resolveBeneficiaryEmployeeB(input: {
   primarySubmitterId: string;
   configuredHodId: string;
   departmentFounderId: string;
+  reservedActorIds: Set<string>;
 }): Promise<ActiveUser> {
+  const excludedUserIds = [
+    input.primarySubmitterId,
+    input.configuredHodId,
+    input.departmentFounderId,
+  ];
+
   if (EMPLOYEE_B_OVERRIDE_EMAIL) {
     const overrideCandidate = await resolveActiveUserByEmail(EMPLOYEE_B_OVERRIDE_EMAIL);
 
     if (
-      isSingleHodSafeBeneficiary({
+      isSafeBeneficiaryCandidate({
         candidate: overrideCandidate,
-        configuredHodId: input.configuredHodId,
-        departmentFounderId: input.departmentFounderId,
-        primarySubmitterId: input.primarySubmitterId,
+        excludedUserIds,
+        reservedActorIds: input.reservedActorIds,
       })
     ) {
       return overrideCandidate;
@@ -283,7 +327,8 @@ async function resolveBeneficiaryEmployeeB(input: {
   }
 
   return resolveSecondaryEmployee({
-    excludedUserIds: [input.primarySubmitterId, input.configuredHodId, input.departmentFounderId],
+    excludedUserIds,
+    reservedActorIds: input.reservedActorIds,
   });
 }
 
@@ -807,14 +852,16 @@ test.describe("Bulk Multi-User Wallet Stress", () => {
     const employeeA = await resolveActiveUserByEmail(runtime.submitterEmail.toLowerCase());
     const configuredHod = await resolveActiveUserByEmail(L1_HOD_EMAIL);
     const l1Department = await resolveDepartmentForHodUser(configuredHod.id);
+    const reservedActorIds = await resolveReservedActorIds();
     const employeeB = await resolveBeneficiaryEmployeeB({
       primarySubmitterId: employeeA.id,
       configuredHodId: configuredHod.id,
       departmentFounderId: l1Department.founderUserId,
+      reservedActorIds,
     });
 
     expect(employeeA.id).not.toBe(employeeB.id);
-    expect(employeeB.role.toLowerCase()).toBe("employee");
+    expect(reservedActorIds.has(employeeB.id)).toBe(false);
     expect(employeeB.id).not.toBe(configuredHod.id);
     expect(employeeB.id).not.toBe(l1Department.founderUserId);
 

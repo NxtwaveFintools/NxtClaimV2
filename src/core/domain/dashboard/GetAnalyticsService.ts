@@ -226,11 +226,8 @@ export class GetAnalyticsService {
       };
     }
 
-    const normalizedRole = (viewerContextResult.data.userRole ?? "").trim().toLowerCase();
-    const isFounder =
-      normalizedRole === "founder" || viewerContextResult.data.founderDepartmentIds.length > 0;
-    const isFinance =
-      normalizedRole === "finance" || viewerContextResult.data.financeApproverIds.length > 0;
+    const isFounder = viewerContextResult.data.founderDepartmentIds.length > 0;
+    const isFinance = viewerContextResult.data.financeApproverIds.length > 0;
     const canUseScopeFilters = viewerContextResult.data.isAdmin || isFounder || isFinance;
     const canUseFinanceApproverFilter = viewerContextResult.data.isAdmin || isFounder;
 

@@ -28,10 +28,6 @@ type WalletTotalsRow = {
   petty_cash_balance: number | string | null;
 };
 
-type UserRoleRow = {
-  role: string | null;
-};
-
 type AdminMembershipRow = {
   id: string;
 };
@@ -516,8 +512,7 @@ export class SupabaseDashboardRepository
   }> {
     const client = getServiceRoleSupabaseClient();
 
-    const [userResult, adminResult, departmentsResult, financeResult] = await Promise.all([
-      client.from("users").select("role").eq("id", userId).eq("is_active", true).maybeSingle(),
+    const [adminResult, departmentsResult, financeResult] = await Promise.all([
       client.from("admins").select("id").eq("user_id", userId),
       client
         .from("master_departments")
@@ -531,10 +526,6 @@ export class SupabaseDashboardRepository
         .eq("user_id", userId),
     ]);
 
-    if (userResult.error) {
-      return { data: null, errorMessage: userResult.error.message };
-    }
-
     if (adminResult.error) {
       return { data: null, errorMessage: adminResult.error.message };
     }
@@ -547,7 +538,6 @@ export class SupabaseDashboardRepository
       return { data: null, errorMessage: financeResult.error.message };
     }
 
-    const userRoleRow = userResult.data as UserRoleRow | null;
     const adminRows = (adminResult.data ?? []) as AdminMembershipRow[];
     const departmentRows = (departmentsResult.data ?? []) as DepartmentAssignmentRow[];
     const financeRows = (financeResult.data ?? []) as FinanceApproverAssignmentRow[];
@@ -558,7 +548,6 @@ export class SupabaseDashboardRepository
     return {
       data: {
         userId,
-        userRole: userRoleRow?.role ?? null,
         isAdmin: adminRows.length > 0,
         hodDepartmentIds: departmentRows.map((row) => row.id),
         founderDepartmentIds,

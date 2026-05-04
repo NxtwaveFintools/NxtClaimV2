@@ -783,40 +783,6 @@ describe("SupabaseAdminRepository", () => {
     });
   });
 
-  test("getAllUsers maps rows and paginates", async () => {
-    const usersChain = createQueryChain({
-      data: [
-        {
-          id: "u2",
-          email: "u2@nxtwave.co.in",
-          full_name: "User Two",
-          role: "employee",
-          is_active: true,
-          created_at: "2026-03-20T10:00:00.000Z",
-        },
-        {
-          id: "u1",
-          email: "u1@nxtwave.co.in",
-          full_name: "User One",
-          role: "hod",
-          is_active: true,
-          created_at: "2026-03-19T10:00:00.000Z",
-        },
-      ],
-      error: null,
-    });
-
-    mockFrom.mockReturnValue(usersChain);
-
-    const repository = new SupabaseAdminRepository();
-    const result = await repository.getAllUsers({ cursor: null, limit: 1 });
-
-    expect(result.errorMessage).toBeNull();
-    expect(result.data?.hasNextPage).toBe(true);
-    expect(result.data?.nextCursor).toBe("2026-03-20T10:00:00.000Z");
-    expect(result.data?.data[0].email).toBe("u2@nxtwave.co.in");
-  });
-
   test("addAdminByEmail prevents duplicates", async () => {
     const usersChain = createQueryChain({ data: { id: "user-1" }, error: null });
     const adminsChain = createQueryChain({ data: { id: "admin-1" }, error: null });
@@ -1317,19 +1283,14 @@ describe("SupabaseAdminRepository", () => {
     expect(result.data?.email).toBe("finance@nxtwave.co.in");
   });
 
-  test("updateUserRole and removeAdmin return error and success states", async () => {
-    const updateErrorChain = createQueryChain({ data: null, error: { message: "role failed" } });
+  test("removeAdmin returns success state", async () => {
     const removeSuccessChain = createQueryChain({ data: null, error: null });
 
-    mockFrom
-      .mockImplementationOnce(() => updateErrorChain)
-      .mockImplementationOnce(() => removeSuccessChain);
+    mockFrom.mockImplementationOnce(() => removeSuccessChain);
 
     const repository = new SupabaseAdminRepository();
-    const updated = await repository.updateUserRole("user-1", "finance");
     const removed = await repository.removeAdmin("admin-1");
 
-    expect(updated).toEqual({ success: false, errorMessage: "role failed" });
     expect(removed).toEqual({ success: true, errorMessage: null });
   });
 

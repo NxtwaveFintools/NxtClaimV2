@@ -32,8 +32,6 @@ function createRepository(overrides?: Partial<AdminRepository>): AdminRepository
     getFinanceApprovers: jest.fn(),
     createFinanceApprover: jest.fn(),
     updateFinanceApprover: jest.fn(),
-    getAllUsers: jest.fn(),
-    updateUserRole: jest.fn(),
     getAdmins: jest.fn(),
     addAdminByEmail: jest.fn(),
     removeAdmin: jest.fn(),

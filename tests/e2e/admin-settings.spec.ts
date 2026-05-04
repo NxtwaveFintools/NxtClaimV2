@@ -141,12 +141,11 @@ test.describe("admin settings", () => {
     await expect(settingsNavItem(page, /expense categories/i)).toBeVisible();
     await expect(settingsNavItem(page, /finance approvers/i)).toBeVisible();
     await expect(settingsNavItem(page, /department viewers/i)).toBeVisible();
-    await expect(settingsNavItem(page, /users/i)).toBeVisible();
     await expect(settingsNavItem(page, /administrators|admins/i)).toBeVisible();
     await expect(settingsNavItem(page, /claim override/i)).toBeVisible();
   });
 
-  test("switches between finance, viewers, users, and admins sections", async ({ page }) => {
+  test("switches between finance, viewers, and admins sections", async ({ page }) => {
     await ensureAuthenticated(page, seedEmails.founder);
     await page.goto("/dashboard/admin/settings", { waitUntil: "domcontentloaded" });
 
@@ -157,9 +156,6 @@ test.describe("admin settings", () => {
     await expect(
       page.getByRole("heading", { level: 2, name: /department viewers/i }),
     ).toBeVisible();
-
-    await settingsNavItem(page, /users/i).click();
-    await expect(page.getByRole("heading", { level: 2, name: /^users$/i })).toBeVisible();
 
     await settingsNavItem(page, /administrators|admins/i).click();
     await expect(

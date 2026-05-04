@@ -52,13 +52,6 @@ describe("SupabaseDashboardRepository analytics methods", () => {
   });
 
   test("getAnalyticsViewerContext resolves admin and founder-assigned departments", async () => {
-    const usersQuery = {} as AnyQuery;
-    usersQuery.eq = jest.fn(() => usersQuery);
-    usersQuery.maybeSingle = jest.fn(async () => ({
-      data: { role: "founder" },
-      error: null,
-    }));
-
     const adminsQuery = {} as AnyQuery;
     adminsQuery.eq = jest.fn(async () => ({
       data: [{ id: "admin-1" }],
@@ -86,10 +79,6 @@ describe("SupabaseDashboardRepository analytics methods", () => {
 
     mockGetServiceRoleSupabaseClient.mockReturnValue({
       from: jest.fn((table: string) => {
-        if (table === "users") {
-          return { select: jest.fn(() => usersQuery) };
-        }
-
         if (table === "admins") {
           return { select: jest.fn(() => adminsQuery) };
         }
@@ -112,7 +101,6 @@ describe("SupabaseDashboardRepository analytics methods", () => {
     expect(result.errorMessage).toBeNull();
     expect(result.data).toEqual({
       userId: "user-1",
-      userRole: "founder",
       isAdmin: true,
       hodDepartmentIds: ["dept-1", "dept-2"],
       founderDepartmentIds: ["dept-1"],
