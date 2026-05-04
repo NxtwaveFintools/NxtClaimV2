@@ -2,7 +2,9 @@ import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { User } from "@supabase/supabase-js";
+import { AUTH_ERROR_MESSAGES } from "@/core/constants/auth";
 import { serverEnv } from "@/core/config/server-env";
+import { isAllowedEmailDomainInDb } from "@/core/infra/auth/allowed-auth-domains";
 import {
   applySupabaseAuthCookies,
   clearSupabaseAuthTokenCookies,
@@ -94,6 +96,30 @@ export const getCachedRequestAuthUser = cache(async (): Promise<RequestAuthUserS
           : error instanceof Error
             ? error.message
             : "Unable to authenticate current request.",
+    };
+  }
+
+  if (!user?.email) {
+    clearAuthCookies(cookieStore);
+    return {
+      user: null,
+      errorMessage: null,
+    };
+  }
+
+  const domainResult = await isAllowedEmailDomainInDb(user.email);
+  if (domainResult.errorMessage) {
+    return {
+      user: null,
+      errorMessage: AUTH_ERROR_MESSAGES.domainValidationFailed,
+    };
+  }
+
+  if (!domainResult.isAllowed) {
+    clearAuthCookies(cookieStore);
+    return {
+      user: null,
+      errorMessage: null,
     };
   }
 

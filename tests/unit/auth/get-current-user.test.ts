@@ -1,15 +1,9 @@
 export {};
 
-const mockGetCurrentUser = jest.fn();
-const mockRepositoryConstructor = jest.fn();
+const mockGetCachedRequestAuthUser = jest.fn();
 
-jest.mock("@/modules/auth/repositories/supabase-server-auth.repository", () => ({
-  SupabaseServerAuthRepository: jest.fn().mockImplementation(() => {
-    mockRepositoryConstructor();
-    return {
-      getCurrentUser: (...args: unknown[]) => mockGetCurrentUser(...args),
-    };
-  }),
+jest.mock("@/modules/auth/server/get-request-auth-user", () => ({
+  getCachedRequestAuthUser: (...args: unknown[]) => mockGetCachedRequestAuthUser(...args),
 }));
 
 describe("getCachedCurrentUser", () => {
@@ -19,7 +13,7 @@ describe("getCachedCurrentUser", () => {
   });
 
   test("delegates to repository and returns current user payload", async () => {
-    mockGetCurrentUser.mockResolvedValue({
+    mockGetCachedRequestAuthUser.mockResolvedValue({
       user: { id: "user-1", email: "user@nxtwave.co.in" },
       errorMessage: null,
     });
@@ -32,7 +26,6 @@ describe("getCachedCurrentUser", () => {
       user: { id: "user-1", email: "user@nxtwave.co.in" },
       errorMessage: null,
     });
-    expect(mockRepositoryConstructor).toHaveBeenCalled();
-    expect(mockGetCurrentUser).toHaveBeenCalled();
+    expect(mockGetCachedRequestAuthUser).toHaveBeenCalled();
   });
 });

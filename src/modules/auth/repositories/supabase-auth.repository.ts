@@ -1,7 +1,9 @@
 "use client";
 
+import { AUTH_ERROR_CODES } from "@/core/constants/auth";
 import type {
   AuthRepository,
+  AuthSignInResult,
   AuthSessionTokens,
   OAuthProvider,
 } from "@/core/domain/auth/contracts";
@@ -35,19 +37,17 @@ export class SupabaseAuthRepository implements AuthRepository {
     return this.sessionCleanupInFlight;
   }
 
-  async signInWithEmail(
-    email: string,
-    password: string,
-  ): Promise<{
-    user: { id: string; email: string | null } | null;
-    session: AuthSessionTokens | null;
-    errorMessage: string | null;
-  }> {
+  async signInWithEmail(email: string, password: string): Promise<AuthSignInResult> {
     const supabase = getBrowserSupabaseClient();
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      return { user: null, session: null, errorMessage: error.message };
+      return {
+        user: null,
+        session: null,
+        errorCode: AUTH_ERROR_CODES.authFailed,
+        errorMessage: error.message,
+      };
     }
 
     if (data.session) {
@@ -64,12 +64,15 @@ export class SupabaseAuthRepository implements AuthRepository {
 
       if (!sessionResponse.ok) {
         const payload = (await sessionResponse.json().catch(() => null)) as {
-          error?: { message?: string };
+          error?: { code?: string; message?: string };
         } | null;
+
+        await this.cleanupBrokenSession();
 
         return {
           user: null,
           session: null,
+          errorCode: payload?.error?.code ?? AUTH_ERROR_CODES.authFailed,
           errorMessage: payload?.error?.message ?? "Unable to establish authenticated session.",
         };
       }
@@ -83,7 +86,7 @@ export class SupabaseAuthRepository implements AuthRepository {
         }
       : null;
 
-    return { user, session, errorMessage: null };
+    return { user, session, errorCode: null, errorMessage: null };
   }
 
   async signInWithOAuth(
@@ -130,27 +133,49 @@ export class SupabaseAuthRepository implements AuthRepository {
     user: { id: string; email: string | null } | null;
     errorMessage: string | null;
   }> {
-    const supabase = getBrowserSupabaseClient();
-    const { data, error } = await supabase.auth.getUser();
-
-    if (error) {
-      if (isSupabaseAuthSessionMissingError(error) || isSupabaseTerminalSessionError(error)) {
-        await this.cleanupBrokenSession();
-        return { user: null, errorMessage: null };
-      }
-
-      return { user: null, errorMessage: error.message };
+    const accessToken = await this.getAccessToken();
+    if (!accessToken) {
+      return { user: null, errorMessage: null };
     }
 
-    if (!data.user) {
+    const response = await fetch(ROUTES.authApi.session, {
+      method: "GET",
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+      },
+    }).catch(() => null);
+
+    if (!response) {
+      return {
+        user: null,
+        errorMessage: "Unable to load current user.",
+      };
+    }
+
+    if (response.status === 401 || response.status === 403) {
+      await this.cleanupBrokenSession();
+      return { user: null, errorMessage: null };
+    }
+
+    const payload = (await response.json().catch(() => null)) as {
+      data?: { user?: { id: string; email: string | null } };
+      error?: { message?: string };
+    } | null;
+
+    if (!response.ok) {
+      return {
+        user: null,
+        errorMessage: payload?.error?.message ?? "Unable to load current user.",
+      };
+    }
+
+    const user = payload?.data?.user;
+    if (!user) {
       return { user: null, errorMessage: null };
     }
 
     return {
-      user: {
-        id: data.user.id,
-        email: data.user.email ?? null,
-      },
+      user,
       errorMessage: null,
     };
   }

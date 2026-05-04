@@ -10,15 +10,15 @@ export type AuthSessionTokens = {
   refreshToken: string;
 };
 
+export type AuthSignInResult = {
+  user: AuthenticatedUser | null;
+  session: AuthSessionTokens | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+};
+
 export type AuthRepository = {
-  signInWithEmail(
-    email: string,
-    password: string,
-  ): Promise<{
-    user: AuthenticatedUser | null;
-    session: AuthSessionTokens | null;
-    errorMessage: string | null;
-  }>;
+  signInWithEmail(email: string, password: string): Promise<AuthSignInResult>;
   signInWithOAuth(
     provider: OAuthProvider,
     redirectTo: string,

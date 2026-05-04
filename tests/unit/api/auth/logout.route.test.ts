@@ -1,4 +1,5 @@
 /** @jest-environment node */
+export {};
 
 const mockCreateServerClient = jest.fn();
 const mockCookies = jest.fn();

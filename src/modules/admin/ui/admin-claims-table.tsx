@@ -19,6 +19,7 @@ type Props = {
 };
 
 const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
   employee: "Employee",
   hod: "HOD",
   founder: "Founder",
