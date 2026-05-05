@@ -569,8 +569,15 @@ test.describe("Delete Claim", () => {
       timeout: 30000,
     });
 
+    const detailEditButton = page.getByRole("button", { name: /^Edit Claim$/i }).first();
     const detailDeleteButton = page.getByRole("button", { name: /^Delete Claim$/i }).first();
+    const detailApproveButton = page.getByRole("button", { name: /^Approve$/i });
+    const detailRejectButton = page.getByRole("button", { name: /^Reject$/i });
+
+    await expect(detailEditButton).toBeVisible({ timeout: 10000 });
     await expect(detailDeleteButton).toBeVisible({ timeout: 10000 });
+    await expect(detailApproveButton).toHaveCount(0);
+    await expect(detailRejectButton).toHaveCount(0);
 
     await detailDeleteButton.click();
     const detailDeleteDialog = page.getByRole("dialog", { name: /^Delete Claim$/i }).first();
