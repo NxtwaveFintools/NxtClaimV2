@@ -656,6 +656,11 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
       // Verify we're on the claim detail page
       await expect(page.getByText(claimId, { exact: true })).toBeVisible({ timeout: 15000 });
 
+      const approveButton = page.getByRole("button", { name: /^Approve$/i }).first();
+      const rejectButton = page.getByRole("button", { name: /^Reject$/i }).first();
+      await expect(approveButton).toBeVisible({ timeout: 10000 });
+      await expect(rejectButton).toBeVisible({ timeout: 10000 });
+
       // Click "Edit Claim" to open the edit form
       const editButton = page.getByRole("button", { name: /edit claim/i });
       await expect(editButton).toBeVisible({ timeout: 10000 });
