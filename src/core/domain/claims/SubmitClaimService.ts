@@ -4,6 +4,7 @@ import type {
   ClaimDetailType,
   ClaimDomainLogger,
   ClaimRepository,
+  PreparedClaimSubmission,
   ClaimSubmissionInput,
 } from "@/core/domain/claims/contracts";
 import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
@@ -116,8 +117,8 @@ export class SubmitClaimService {
     this.logger = deps.logger;
   }
 
-  async execute(input: ClaimSubmissionInput): Promise<{
-    claimId: string | null;
+  async prepareSubmission(input: ClaimSubmissionInput): Promise<{
+    preparedSubmission: PreparedClaimSubmission | null;
     errorCode: string | null;
     errorMessage: string | null;
   }> {
@@ -127,7 +128,7 @@ export class SubmitClaimService {
         (!input.onBehalfEmail || !input.onBehalfEmployeeCode)
       ) {
         return {
-          claimId: null,
+          preparedSubmission: null,
           errorCode: "ON_BEHALF_DETAILS_REQUIRED",
           errorMessage: "On Behalf submissions require both email and employee ID.",
         };
@@ -148,7 +149,7 @@ export class SubmitClaimService {
         !paymentModeResult.data.isActive
       ) {
         return {
-          claimId: null,
+          preparedSubmission: null,
           errorCode: "INVALID_PAYMENT_MODE",
           errorMessage: paymentModeResult.errorMessage ?? "Payment mode not found or inactive.",
         };
@@ -157,7 +158,7 @@ export class SubmitClaimService {
       const expectedDetailType = resolveExpectedDetailType(paymentModeResult.data.name);
       if (!expectedDetailType) {
         return {
-          claimId: null,
+          preparedSubmission: null,
           errorCode: "PAYMENT_MODE_NOT_SUPPORTED",
           errorMessage: `Payment mode ${paymentModeResult.data.name} is not supported in claim submission.`,
         };
@@ -173,7 +174,7 @@ export class SubmitClaimService {
       const beneficiaryResolutionResult = await this.resolveEffectiveUserId(input);
       if (beneficiaryResolutionResult.errorCode || !beneficiaryResolutionResult.effectiveUserId) {
         return {
-          claimId: null,
+          preparedSubmission: null,
           errorCode: beneficiaryResolutionResult.errorCode ?? "BENEFICIARY_RESOLUTION_FAILED",
           errorMessage:
             beneficiaryResolutionResult.errorMessage ?? "Failed to resolve the beneficiary user.",
@@ -188,7 +189,7 @@ export class SubmitClaimService {
       );
       if (departmentApproversResult.errorMessage) {
         return {
-          claimId: null,
+          preparedSubmission: null,
           errorCode: "DEPARTMENT_ROUTING_RESOLUTION_FAILED",
           errorMessage: departmentApproversResult.errorMessage,
         };
@@ -196,7 +197,7 @@ export class SubmitClaimService {
 
       if (!departmentApproversResult.data) {
         return {
-          claimId: null,
+          preparedSubmission: null,
           errorCode: "DEPARTMENT_ROUTING_MISSING",
           errorMessage: "Department approver routing is not configured.",
         };
@@ -206,7 +207,7 @@ export class SubmitClaimService {
         await this.repository.isUserApprover1InAnyDepartment(actualBeneficiaryId);
       if (beneficiaryRoleResult.errorMessage) {
         return {
-          claimId: null,
+          preparedSubmission: null,
           errorCode: "DEPARTMENT_ROUTING_RESOLUTION_FAILED",
           errorMessage: beneficiaryRoleResult.errorMessage,
         };
@@ -218,11 +219,6 @@ export class SubmitClaimService {
       const isBeneficiaryDepartmentApprover1 = actualBeneficiaryId === departmentApprover1Id;
       const isBeneficiaryDepartmentApprover2 = actualBeneficiaryId === departmentApprover2Id;
 
-      // Beneficiary-centric routing:
-      // - Proxy for department approver_1 routes to approver_2 to prevent self-approval.
-      // - Proxy for department approver_2 routes to approver_2 (senior approver path).
-      // - Any submission whose beneficiary is a global HOD leapfrogs to approver_2.
-      // - All other submissions route to approver_1.
       const isGlobalHodBeneficiary = isBeneficiaryAnHod;
       const isGlobalHodSelfSubmission = isGlobalHodBeneficiary && !isProxySubmission;
       const requiresFounderEscalation = isProxySubmission
@@ -237,7 +233,7 @@ export class SubmitClaimService {
 
       if (!assignedL1ApproverId) {
         return {
-          claimId: null,
+          preparedSubmission: null,
           errorCode: "DEPARTMENT_ROUTING_MISSING",
           errorMessage: requiresFounderEscalation
             ? "Escalation approver is not configured for this department."
@@ -250,88 +246,68 @@ export class SubmitClaimService {
         paymentModeResult.data.name,
       );
 
-      const payload: Record<string, unknown> = {
-        claim_id: claimId,
-        // Status integrity: leapfrog changes assignee, never status. Finance visibility remains gated.
-        initial_status: DB_CLAIM_STATUSES[0],
-        submission_type: input.submissionType,
-        detail_type: input.detailType,
-        submitted_by: input.submittedBy,
-        on_behalf_of_id: actualBeneficiaryId,
-        employee_id: input.employeeId,
-        cc_emails: input.ccEmails,
-        on_behalf_email: input.onBehalfEmail,
-        on_behalf_employee_code: input.onBehalfEmployeeCode,
-        department_id: input.departmentId,
-        payment_mode_id: input.paymentModeId,
-        assigned_l1_approver_id: assignedL1ApproverId,
-        assigned_l2_approver_id: input.assignedL2ApproverId,
-      };
-
-      if (input.detailType === "expense" && input.expense) {
-        payload.expense = {
-          bill_no: input.expense.billNo,
-          transaction_id: input.expense.transactionId,
-          purpose: input.expense.purpose,
-          expense_category_id: input.expense.expenseCategoryId,
-          product_id: input.expense.productId,
-          location_id: input.expense.locationId,
-          location_type: input.expense.locationType,
-          location_details: input.expense.locationDetails,
-          is_gst_applicable: input.expense.isGstApplicable,
-          gst_number: input.expense.gstNumber,
-          cgst_amount: input.expense.cgstAmount,
-          sgst_amount: input.expense.sgstAmount,
-          igst_amount: input.expense.igstAmount,
-          transaction_date: input.expense.transactionDate,
-          basic_amount: input.expense.basicAmount,
-          currency_code: input.expense.currencyCode,
-          vendor_name: input.expense.vendorName,
-          receipt_file_path: input.expense.receiptFilePath,
-          bank_statement_file_path: input.expense.bankStatementFilePath,
-          people_involved: input.expense.peopleInvolved,
-          remarks: input.expense.remarks,
-          ai_metadata: input.expense.aiMetadata,
-        };
-      }
-
-      if (input.detailType === "advance" && input.advance) {
-        payload.advance = {
-          requested_amount: input.advance.requestedAmount,
-          budget_month: input.advance.budgetMonth,
-          budget_year: input.advance.budgetYear,
-          expected_usage_date: input.advance.expectedUsageDate,
-          purpose: input.advance.purpose,
-          supporting_document_path: input.advance.supportingDocumentPath,
-          product_id: input.advance.productId,
-          location_id: input.advance.locationId,
-          remarks: input.advance.remarks,
-        };
-      }
-
-      const createResult = await this.repository.createClaimWithDetail(payload);
-      if (createResult.errorMessage || !createResult.claimId) {
-        this.logger.error("claims.submit.failed", {
-          paymentModeId: input.paymentModeId,
-          detailType: input.detailType,
-          errorMessage: createResult.errorMessage,
-        });
-
-        return {
-          claimId: null,
-          errorCode: "CLAIM_SUBMISSION_FAILED",
-          errorMessage: createResult.errorMessage ?? "Failed to submit claim.",
-        };
-      }
-
-      this.logger.info("claims.submit.success", {
-        claimId: createResult.claimId,
-        submittedBy: input.submittedBy,
-        detailType: input.detailType,
-      });
-
       return {
-        claimId: createResult.claimId,
+        preparedSubmission: {
+          claim: {
+            id: claimId,
+            status: DB_CLAIM_STATUSES[0],
+            submissionType: input.submissionType,
+            detailType: input.detailType,
+            submittedBy: input.submittedBy,
+            onBehalfOfId: actualBeneficiaryId,
+            employeeId: input.employeeId,
+            ccEmails: input.ccEmails,
+            onBehalfEmail: input.onBehalfEmail,
+            onBehalfEmployeeCode: input.onBehalfEmployeeCode,
+            departmentId: input.departmentId,
+            paymentModeId: input.paymentModeId,
+            assignedL1ApproverId,
+            assignedL2ApproverId: input.assignedL2ApproverId,
+          },
+          expense:
+            input.detailType === "expense" && input.expense
+              ? {
+                  claimId,
+                  billNo: input.expense.billNo,
+                  transactionId: input.expense.transactionId,
+                  purpose: input.expense.purpose,
+                  expenseCategoryId: input.expense.expenseCategoryId,
+                  productId: input.expense.productId,
+                  locationId: input.expense.locationId,
+                  locationType: input.expense.locationType,
+                  locationDetails: input.expense.locationDetails,
+                  isGstApplicable: input.expense.isGstApplicable,
+                  gstNumber: input.expense.gstNumber,
+                  cgstAmount: input.expense.cgstAmount,
+                  sgstAmount: input.expense.sgstAmount,
+                  igstAmount: input.expense.igstAmount,
+                  transactionDate: input.expense.transactionDate,
+                  basicAmount: input.expense.basicAmount,
+                  currencyCode: input.expense.currencyCode,
+                  vendorName: input.expense.vendorName,
+                  receiptFilePath: input.expense.receiptFilePath,
+                  bankStatementFilePath: input.expense.bankStatementFilePath,
+                  peopleInvolved: input.expense.peopleInvolved,
+                  remarks: input.expense.remarks,
+                  aiMetadata: input.expense.aiMetadata,
+                }
+              : undefined,
+          advance:
+            input.detailType === "advance" && input.advance
+              ? {
+                  claimId,
+                  requestedAmount: input.advance.requestedAmount,
+                  budgetMonth: input.advance.budgetMonth,
+                  budgetYear: input.advance.budgetYear,
+                  expectedUsageDate: input.advance.expectedUsageDate,
+                  purpose: input.advance.purpose,
+                  supportingDocumentPath: input.advance.supportingDocumentPath,
+                  productId: input.advance.productId,
+                  locationId: input.advance.locationId,
+                  remarks: input.advance.remarks,
+                }
+              : undefined,
+        },
         errorCode: null,
         errorMessage: null,
       };
@@ -345,7 +321,7 @@ export class SubmitClaimService {
         });
 
         return {
-          claimId: null,
+          preparedSubmission: null,
           errorCode: error.code,
           errorMessage: error.message,
         };
@@ -353,6 +329,114 @@ export class SubmitClaimService {
 
       throw error;
     }
+  }
+
+  async execute(input: ClaimSubmissionInput): Promise<{
+    claimId: string | null;
+    errorCode: string | null;
+    errorMessage: string | null;
+  }> {
+    const preparedResult = await this.prepareSubmission(input);
+    if (preparedResult.errorCode || !preparedResult.preparedSubmission) {
+      return {
+        claimId: null,
+        errorCode: preparedResult.errorCode,
+        errorMessage: preparedResult.errorMessage,
+      };
+    }
+
+    const createResult = await this.repository.createClaimWithDetail(
+      this.buildCreateClaimPayload(preparedResult.preparedSubmission),
+    );
+    if (createResult.errorMessage || !createResult.claimId) {
+      this.logger.error("claims.submit.failed", {
+        paymentModeId: input.paymentModeId,
+        detailType: input.detailType,
+        errorMessage: createResult.errorMessage,
+      });
+
+      return {
+        claimId: null,
+        errorCode: "CLAIM_SUBMISSION_FAILED",
+        errorMessage: createResult.errorMessage ?? "Failed to submit claim.",
+      };
+    }
+
+    this.logger.info("claims.submit.success", {
+      claimId: createResult.claimId,
+      submittedBy: input.submittedBy,
+      detailType: input.detailType,
+    });
+
+    return {
+      claimId: createResult.claimId,
+      errorCode: null,
+      errorMessage: null,
+    };
+  }
+
+  private buildCreateClaimPayload(
+    preparedSubmission: PreparedClaimSubmission,
+  ): Record<string, unknown> {
+    const payload: Record<string, unknown> = {
+      claim_id: preparedSubmission.claim.id,
+      initial_status: preparedSubmission.claim.status,
+      submission_type: preparedSubmission.claim.submissionType,
+      detail_type: preparedSubmission.claim.detailType,
+      submitted_by: preparedSubmission.claim.submittedBy,
+      on_behalf_of_id: preparedSubmission.claim.onBehalfOfId,
+      employee_id: preparedSubmission.claim.employeeId,
+      cc_emails: preparedSubmission.claim.ccEmails,
+      on_behalf_email: preparedSubmission.claim.onBehalfEmail,
+      on_behalf_employee_code: preparedSubmission.claim.onBehalfEmployeeCode,
+      department_id: preparedSubmission.claim.departmentId,
+      payment_mode_id: preparedSubmission.claim.paymentModeId,
+      assigned_l1_approver_id: preparedSubmission.claim.assignedL1ApproverId,
+      assigned_l2_approver_id: preparedSubmission.claim.assignedL2ApproverId,
+    };
+
+    if (preparedSubmission.expense) {
+      payload.expense = {
+        bill_no: preparedSubmission.expense.billNo,
+        transaction_id: preparedSubmission.expense.transactionId,
+        purpose: preparedSubmission.expense.purpose,
+        expense_category_id: preparedSubmission.expense.expenseCategoryId,
+        product_id: preparedSubmission.expense.productId,
+        location_id: preparedSubmission.expense.locationId,
+        location_type: preparedSubmission.expense.locationType,
+        location_details: preparedSubmission.expense.locationDetails,
+        is_gst_applicable: preparedSubmission.expense.isGstApplicable,
+        gst_number: preparedSubmission.expense.gstNumber,
+        cgst_amount: preparedSubmission.expense.cgstAmount,
+        sgst_amount: preparedSubmission.expense.sgstAmount,
+        igst_amount: preparedSubmission.expense.igstAmount,
+        transaction_date: preparedSubmission.expense.transactionDate,
+        basic_amount: preparedSubmission.expense.basicAmount,
+        currency_code: preparedSubmission.expense.currencyCode,
+        vendor_name: preparedSubmission.expense.vendorName,
+        receipt_file_path: preparedSubmission.expense.receiptFilePath,
+        bank_statement_file_path: preparedSubmission.expense.bankStatementFilePath,
+        people_involved: preparedSubmission.expense.peopleInvolved,
+        remarks: preparedSubmission.expense.remarks,
+        ai_metadata: preparedSubmission.expense.aiMetadata,
+      };
+    }
+
+    if (preparedSubmission.advance) {
+      payload.advance = {
+        requested_amount: preparedSubmission.advance.requestedAmount,
+        budget_month: preparedSubmission.advance.budgetMonth,
+        budget_year: preparedSubmission.advance.budgetYear,
+        expected_usage_date: preparedSubmission.advance.expectedUsageDate,
+        purpose: preparedSubmission.advance.purpose,
+        supporting_document_path: preparedSubmission.advance.supportingDocumentPath,
+        product_id: preparedSubmission.advance.productId,
+        location_id: preparedSubmission.advance.locationId,
+        remarks: preparedSubmission.advance.remarks,
+      };
+    }
+
+    return payload;
   }
 
   private async resolveEffectiveUserId(input: ClaimSubmissionInput): Promise<{

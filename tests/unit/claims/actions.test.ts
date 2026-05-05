@@ -14,7 +14,15 @@ const mockFindActiveExpenseDuplicateClaimIdByCompositeKey = jest.fn();
 const mockGetActiveUserIdByEmail = jest.fn();
 const mockIsUserApprover1InAnyDepartment = jest.fn();
 const mockActiveDepartmentsExecute = jest.fn();
+const mockPrepareSubmission = jest.fn();
 const mockSubmitExecute = jest.fn();
+const mockCreateClaimDraft = jest.fn();
+const mockCreateExpenseDetailDraft = jest.fn();
+const mockCreateAdvanceDetailDraft = jest.fn();
+const mockUpdateExpenseDetailEvidencePaths = jest.fn();
+const mockUpdateAdvanceDetailEvidencePath = jest.fn();
+const mockRollbackClaimSubmissionDraft = jest.fn();
+const mockCreateClaimAuditLog = jest.fn();
 const mockProcessL1DecisionExecute = jest.fn();
 const mockProcessL2DecisionExecute = jest.fn();
 const mockUpdateByFinanceExecute = jest.fn();
@@ -70,6 +78,13 @@ jest.mock("@/modules/claims/repositories/SupabaseClaimRepository", () => ({
       mockFindActiveExpenseDuplicateClaimIdByCompositeKey,
     getActiveUserIdByEmail: mockGetActiveUserIdByEmail,
     isUserApprover1InAnyDepartment: mockIsUserApprover1InAnyDepartment,
+    createClaimDraft: mockCreateClaimDraft,
+    createExpenseDetailDraft: mockCreateExpenseDetailDraft,
+    createAdvanceDetailDraft: mockCreateAdvanceDetailDraft,
+    updateExpenseDetailEvidencePaths: mockUpdateExpenseDetailEvidencePaths,
+    updateAdvanceDetailEvidencePath: mockUpdateAdvanceDetailEvidencePath,
+    rollbackClaimSubmissionDraft: mockRollbackClaimSubmissionDraft,
+    createClaimAuditLog: mockCreateClaimAuditLog,
     getApprovalViewerContext: mockGetApprovalViewerContext,
     getClaimForFinanceEdit: mockGetClaimForFinanceEdit,
     getPendingApprovalsForL1: mockGetPendingApprovalsForL1,
@@ -110,6 +125,7 @@ jest.mock("@/core/domain/departments/GetActiveDepartmentsService", () => ({
 
 jest.mock("@/core/domain/claims/SubmitClaimService", () => ({
   SubmitClaimService: jest.fn().mockImplementation(() => ({
+    prepareSubmission: mockPrepareSubmission,
     execute: mockSubmitExecute,
   })),
 }));
@@ -362,10 +378,78 @@ describe("claims actions", () => {
       ],
     });
 
+    mockPrepareSubmission.mockImplementation(async (input) => ({
+      preparedSubmission: {
+        claim: {
+          id: "claim-1",
+          status: "Submitted - Awaiting HOD approval",
+          submissionType: input.submissionType,
+          detailType: input.detailType,
+          submittedBy: input.submittedBy,
+          onBehalfOfId: input.onBehalfOfId ?? input.submittedBy,
+          employeeId: input.employeeId,
+          ccEmails: input.ccEmails,
+          onBehalfEmail: input.onBehalfEmail,
+          onBehalfEmployeeCode: input.onBehalfEmployeeCode,
+          departmentId: input.departmentId,
+          paymentModeId: input.paymentModeId,
+          assignedL1ApproverId: hodId,
+          assignedL2ApproverId: input.assignedL2ApproverId,
+        },
+        expense:
+          input.detailType === "expense" && input.expense
+            ? {
+                claimId: "claim-1",
+                ...input.expense,
+              }
+            : undefined,
+        advance:
+          input.detailType === "advance" && input.advance
+            ? {
+                claimId: "claim-1",
+                ...input.advance,
+              }
+            : undefined,
+      },
+      errorCode: null,
+      errorMessage: null,
+    }));
+
     mockSubmitExecute.mockResolvedValue({
       errorCode: null,
       errorMessage: null,
       claimId: "claim-1",
+    });
+
+    mockCreateClaimDraft.mockResolvedValue({
+      claimId: "claim-1",
+      errorMessage: null,
+    });
+
+    mockCreateExpenseDetailDraft.mockResolvedValue({
+      detailId: "expense-detail-1",
+      errorMessage: null,
+    });
+
+    mockCreateAdvanceDetailDraft.mockResolvedValue({
+      detailId: "advance-detail-1",
+      errorMessage: null,
+    });
+
+    mockUpdateExpenseDetailEvidencePaths.mockResolvedValue({
+      errorMessage: null,
+    });
+
+    mockUpdateAdvanceDetailEvidencePath.mockResolvedValue({
+      errorMessage: null,
+    });
+
+    mockRollbackClaimSubmissionDraft.mockResolvedValue({
+      errorMessage: null,
+    });
+
+    mockCreateClaimAuditLog.mockResolvedValue({
+      errorMessage: null,
     });
 
     mockExistsExpenseByCompositeKey.mockResolvedValue({
@@ -548,7 +632,7 @@ describe("claims actions", () => {
     const result = await submitClaimAction(validExpensePayload);
 
     expect(result).toEqual({ ok: true, claimId: "claim-1" });
-    expect(mockSubmitExecute).toHaveBeenCalledWith(
+    expect(mockPrepareSubmission).toHaveBeenCalledWith(
       expect.objectContaining({
         submittedBy: hodId,
         onBehalfOfId: null,
@@ -575,7 +659,7 @@ describe("claims actions", () => {
     });
 
     expect(result).toEqual({ ok: true, claimId: "claim-1" });
-    expect(mockSubmitExecute).toHaveBeenCalledWith(
+    expect(mockPrepareSubmission).toHaveBeenCalledWith(
       expect.objectContaining({
         expense: expect.objectContaining({
           aiMetadata: {
@@ -591,10 +675,9 @@ describe("claims actions", () => {
   });
 
   test("submitClaimAction surfaces service errors", async () => {
-    mockSubmitExecute.mockResolvedValueOnce({
-      errorCode: "CREATE_FAILED",
-      errorMessage: "Database error",
+    mockCreateClaimDraft.mockResolvedValueOnce({
       claimId: null,
+      errorMessage: "Database error",
     });
 
     const { submitClaimAction } = await import("@/modules/claims/actions");
@@ -647,7 +730,9 @@ describe("claims actions", () => {
     expect(result).toEqual({ ok: true, claimId: "claim-1" });
     expect(mockStorageUpload).toHaveBeenCalled();
     const firstUploadPath = mockStorageUpload.mock.calls[0]?.[0] as string;
-    expect(firstUploadPath).toMatch(/^petty_cash_requests\/11111111-1111-4111-8111-111111111111\//);
+    expect(firstUploadPath).toMatch(
+      /^petty_cash_requests\/11111111-1111-4111-8111-111111111111\/claim-1_supporting_v[a-z0-9]+\.pdf$/,
+    );
   });
 
   test("approveClaimAction routes claim for finance and revalidates list", async () => {
@@ -870,6 +955,121 @@ describe("claims actions", () => {
       message: "Routing context fields cannot be edited for an existing claim.",
     });
     expect(mockUpdateOwnClaimExecute).not.toHaveBeenCalled();
+  });
+
+  test("updateOwnClaimAction deletes superseded receipt only after DB update succeeds", async () => {
+    mockGetClaimForFinanceEdit.mockResolvedValueOnce({
+      data: {
+        id: "claim-1",
+        detailType: "expense",
+        status: "Submitted - Awaiting HOD approval",
+        submittedBy: "11111111-1111-4111-8111-111111111111",
+        assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
+        expenseReceiptFilePath: "expenses/old_receipt.pdf",
+        expenseBankStatementFilePath: "expenses/old_bank.pdf",
+        advanceSupportingDocumentPath: null,
+      },
+      errorMessage: null,
+    });
+
+    const { updateOwnClaimAction } = await import("@/modules/claims/actions");
+    const formData = createValidOwnExpenseEditFormData();
+    formData.append(
+      "receiptFile",
+      new File(["updated"], "replacement.pdf", { type: "application/pdf" }),
+    );
+
+    const result = await updateOwnClaimAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData,
+    });
+
+    expect(result).toEqual({ ok: true, message: "Claim details updated." });
+    const forwardedPayload = mockUpdateOwnClaimExecute.mock.calls[0]?.[0]?.payload;
+    expect(forwardedPayload.receiptFilePath).toMatch(
+      /^expenses\/11111111-1111-4111-8111-111111111111\/11111111-1111-4111-8111-111111111111_receipt_v[a-z0-9]+\.pdf$/,
+    );
+    expect(mockStorageRemove).toHaveBeenCalledWith(["expenses/old_receipt.pdf"]);
+    expect(mockUpdateOwnClaimExecute.mock.invocationCallOrder[0]).toBeLessThan(
+      mockStorageRemove.mock.invocationCallOrder[0],
+    );
+  });
+
+  test("updateOwnClaimAction does not update DB or delete old receipt when upload fails", async () => {
+    mockGetClaimForFinanceEdit.mockResolvedValueOnce({
+      data: {
+        id: "claim-1",
+        detailType: "expense",
+        status: "Submitted - Awaiting HOD approval",
+        submittedBy: "11111111-1111-4111-8111-111111111111",
+        assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
+        expenseReceiptFilePath: "expenses/old_receipt.pdf",
+        expenseBankStatementFilePath: "expenses/old_bank.pdf",
+        advanceSupportingDocumentPath: null,
+      },
+      errorMessage: null,
+    });
+    mockStorageUpload.mockResolvedValueOnce({
+      data: null,
+      error: { message: "upload failed" },
+    });
+
+    const { updateOwnClaimAction } = await import("@/modules/claims/actions");
+    const formData = createValidOwnExpenseEditFormData();
+    formData.append(
+      "receiptFile",
+      new File(["updated"], "replacement.pdf", { type: "application/pdf" }),
+    );
+
+    const result = await updateOwnClaimAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData,
+    });
+
+    expect(result).toEqual({ ok: false, message: "upload failed" });
+    expect(mockUpdateOwnClaimExecute).not.toHaveBeenCalled();
+    expect(mockStorageRemove).not.toHaveBeenCalledWith(["expenses/old_receipt.pdf"]);
+  });
+
+  test("updateOwnClaimAction cleans up new upload when DB update fails and keeps old receipt", async () => {
+    mockGetClaimForFinanceEdit.mockResolvedValueOnce({
+      data: {
+        id: "claim-1",
+        detailType: "expense",
+        status: "Submitted - Awaiting HOD approval",
+        submittedBy: "11111111-1111-4111-8111-111111111111",
+        assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
+        expenseReceiptFilePath: "expenses/old_receipt.pdf",
+        expenseBankStatementFilePath: "expenses/old_bank.pdf",
+        advanceSupportingDocumentPath: null,
+      },
+      errorMessage: null,
+    });
+    mockUpdateOwnClaimExecute.mockResolvedValueOnce({
+      ok: false,
+      errorMessage: "DB failed",
+    });
+
+    const { updateOwnClaimAction } = await import("@/modules/claims/actions");
+    const formData = createValidOwnExpenseEditFormData();
+    formData.append(
+      "receiptFile",
+      new File(["updated"], "replacement.pdf", { type: "application/pdf" }),
+    );
+
+    const result = await updateOwnClaimAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData,
+    });
+
+    expect(result).toEqual({ ok: false, message: "DB failed" });
+    const removeCalls = mockStorageRemove.mock.calls.map((call) => call[0]);
+    expect(removeCalls).toContainEqual([
+      expect.stringMatching(
+        /^expenses\/11111111-1111-4111-8111-111111111111\/11111111-1111-4111-8111-111111111111_receipt_v[a-z0-9]+\.pdf$/,
+      ),
+    ]);
+    expect(removeCalls).not.toContainEqual(["expenses/old_receipt.pdf"]);
   });
 
   test("updateClaimByFinanceAction forwards validated expense payload including GST and bank statement fields", async () => {

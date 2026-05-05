@@ -24,6 +24,7 @@ import type {
   ClaimAuditLogRecord,
   ClaimDateTarget,
   ClaimDepartmentApprovers,
+  PreparedClaimSubmission,
   ClaimExportRecord,
   ClaimFullExportRecord,
   ClaimDropdownOption,
@@ -2570,6 +2571,235 @@ export class SupabaseClaimRepository implements ClaimRepository {
     }
 
     return { isApprover1: (data ?? []).length > 0, errorMessage: null };
+  }
+
+  async createClaimDraft(
+    prepared: PreparedClaimSubmission,
+  ): Promise<{ claimId: string | null; errorMessage: string | null }> {
+    const client = getServiceRoleSupabaseClient();
+    const { data, error } = await client
+      .from("claims")
+      .insert({
+        id: prepared.claim.id,
+        status: prepared.claim.status,
+        submission_type: prepared.claim.submissionType,
+        detail_type: prepared.claim.detailType,
+        submitted_by: prepared.claim.submittedBy,
+        on_behalf_of_id: prepared.claim.onBehalfOfId,
+        on_behalf_email: prepared.claim.onBehalfEmail,
+        on_behalf_employee_code: prepared.claim.onBehalfEmployeeCode,
+        department_id: prepared.claim.departmentId,
+        payment_mode_id: prepared.claim.paymentModeId,
+        assigned_l1_approver_id: prepared.claim.assignedL1ApproverId,
+        assigned_l2_approver_id: prepared.claim.assignedL2ApproverId,
+        employee_id: prepared.claim.employeeId,
+        cc_emails: prepared.claim.ccEmails,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      return { claimId: null, errorMessage: error.message };
+    }
+
+    return { claimId: data.id, errorMessage: null };
+  }
+
+  async createExpenseDetailDraft(
+    prepared: PreparedClaimSubmission,
+  ): Promise<{ detailId: string | null; errorMessage: string | null }> {
+    if (!prepared.expense) {
+      return { detailId: null, errorMessage: "Missing expense draft payload." };
+    }
+
+    const client = getServiceRoleSupabaseClient();
+    const { data, error } = await client
+      .from("expense_details")
+      .insert({
+        claim_id: prepared.claim.id,
+        bill_no: prepared.expense.billNo,
+        transaction_id: prepared.expense.transactionId,
+        expense_category_id: prepared.expense.expenseCategoryId,
+        product_id: prepared.expense.productId,
+        location_id: prepared.expense.locationId,
+        location_type: prepared.expense.locationType,
+        location_details: prepared.expense.locationDetails,
+        purpose: prepared.expense.purpose,
+        is_gst_applicable: prepared.expense.isGstApplicable,
+        gst_number: prepared.expense.gstNumber,
+        cgst_amount: prepared.expense.cgstAmount,
+        sgst_amount: prepared.expense.sgstAmount,
+        igst_amount: prepared.expense.igstAmount,
+        transaction_date: prepared.expense.transactionDate,
+        basic_amount: prepared.expense.basicAmount,
+        currency_code: prepared.expense.currencyCode,
+        vendor_name: prepared.expense.vendorName,
+        receipt_file_path: null,
+        bank_statement_file_path: null,
+        people_involved: prepared.expense.peopleInvolved,
+        remarks: prepared.expense.remarks,
+        ai_metadata: prepared.expense.aiMetadata ?? {},
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      if (isDuplicateExpenseBillConstraintError(error)) {
+        throw error;
+      }
+
+      return { detailId: null, errorMessage: error.message };
+    }
+
+    return { detailId: data.id, errorMessage: null };
+  }
+
+  async createAdvanceDetailDraft(
+    prepared: PreparedClaimSubmission,
+  ): Promise<{ detailId: string | null; errorMessage: string | null }> {
+    if (!prepared.advance) {
+      return { detailId: null, errorMessage: "Missing advance draft payload." };
+    }
+
+    const client = getServiceRoleSupabaseClient();
+    const { data, error } = await client
+      .from("advance_details")
+      .insert({
+        claim_id: prepared.claim.id,
+        requested_amount: prepared.advance.requestedAmount,
+        budget_month: prepared.advance.budgetMonth,
+        budget_year: prepared.advance.budgetYear,
+        expected_usage_date: prepared.advance.expectedUsageDate,
+        purpose: prepared.advance.purpose,
+        product_id: prepared.advance.productId,
+        location_id: prepared.advance.locationId,
+        supporting_document_path: null,
+        remarks: prepared.advance.remarks,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      return { detailId: null, errorMessage: error.message };
+    }
+
+    return { detailId: data.id, errorMessage: null };
+  }
+
+  async updateExpenseDetailEvidencePaths(input: {
+    claimId: string;
+    receiptFilePath: string | null;
+    bankStatementFilePath: string | null;
+  }): Promise<{ errorMessage: string | null }> {
+    const client = getServiceRoleSupabaseClient();
+    const timestamp = new Date().toISOString();
+    const { data, error } = await client
+      .from("expense_details")
+      .update({
+        receipt_file_path: input.receiptFilePath,
+        bank_statement_file_path: input.bankStatementFilePath,
+        updated_at: timestamp,
+      })
+      .eq("claim_id", input.claimId)
+      .eq("is_active", true)
+      .select("id")
+      .maybeSingle();
+
+    if (error) {
+      return { errorMessage: error.message };
+    }
+
+    if (!data) {
+      return { errorMessage: "Expense detail draft not found or inactive." };
+    }
+
+    await client
+      .from("claims")
+      .update({ updated_at: timestamp })
+      .eq("id", input.claimId)
+      .eq("is_active", true);
+
+    return { errorMessage: null };
+  }
+
+  async updateAdvanceDetailEvidencePath(input: {
+    claimId: string;
+    supportingDocumentPath: string | null;
+  }): Promise<{ errorMessage: string | null }> {
+    const client = getServiceRoleSupabaseClient();
+    const timestamp = new Date().toISOString();
+    const { data, error } = await client
+      .from("advance_details")
+      .update({
+        supporting_document_path: input.supportingDocumentPath,
+        updated_at: timestamp,
+      })
+      .eq("claim_id", input.claimId)
+      .eq("is_active", true)
+      .select("id")
+      .maybeSingle();
+
+    if (error) {
+      return { errorMessage: error.message };
+    }
+
+    if (!data) {
+      return { errorMessage: "Advance detail draft not found or inactive." };
+    }
+
+    await client
+      .from("claims")
+      .update({ updated_at: timestamp })
+      .eq("id", input.claimId)
+      .eq("is_active", true);
+
+    return { errorMessage: null };
+  }
+
+  async rollbackClaimSubmissionDraft(input: {
+    claimId: string;
+    actorUserId: string;
+  }): Promise<{ errorMessage: string | null }> {
+    const client = getServiceRoleSupabaseClient();
+    const timestamp = new Date().toISOString();
+
+    const [{ error: expenseError }, { error: advanceError }, { error: claimError }] =
+      await Promise.all([
+        client
+          .from("expense_details")
+          .update({ is_active: false, updated_at: timestamp })
+          .eq("claim_id", input.claimId)
+          .eq("is_active", true),
+        client
+          .from("advance_details")
+          .update({ is_active: false, updated_at: timestamp })
+          .eq("claim_id", input.claimId)
+          .eq("is_active", true),
+        client
+          .from("claims")
+          .update({
+            is_active: false,
+            deleted_by: input.actorUserId,
+            deleted_at: timestamp,
+            updated_at: timestamp,
+          })
+          .eq("id", input.claimId)
+          .eq("is_active", true),
+      ]);
+
+    if (expenseError) {
+      return { errorMessage: expenseError.message };
+    }
+
+    if (advanceError) {
+      return { errorMessage: advanceError.message };
+    }
+
+    if (claimError) {
+      return { errorMessage: claimError.message };
+    }
+
+    return { errorMessage: null };
   }
 
   async createClaimWithDetail(
