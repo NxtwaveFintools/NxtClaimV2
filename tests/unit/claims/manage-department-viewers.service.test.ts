@@ -60,8 +60,6 @@ function createRepository(
     createFinanceApprover: jest.fn(),
     addFinanceApproverByEmail: jest.fn(),
     updateFinanceApprover: jest.fn(),
-    getAllUsers: jest.fn(),
-    updateUserRole: jest.fn(),
     getAdmins: jest.fn(),
     addAdminByEmail: jest.fn(),
     removeAdmin: jest.fn(),

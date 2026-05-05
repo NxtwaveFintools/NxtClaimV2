@@ -62,9 +62,8 @@ function getAdminClient() {
   });
 }
 
-async function seedFinanceClaims(seedTag: string): Promise<void> {
+async function seedFinanceClaims(seedTag: string, financeEmail: string): Promise<void> {
   const client = getAdminClient();
-  const financeEmail = (process.env.E2E_FINANCE_EMAIL ?? "finance@nxtwave.co.in").toLowerCase();
   const transactionDate = new Date().toISOString().slice(0, 10);
 
   const [{ data: financeUser, error: financeUserError }, { data: department, error: deptError }] =
@@ -202,7 +201,6 @@ test("Finance user can download full Excel containing all form fields", async ({
 }, testInfo) => {
   test.setTimeout(180_000);
   const seedTag = `${Date.now()}`;
-  await seedFinanceClaims(seedTag);
 
   try {
     const consoleErrors: string[] = [];
@@ -217,6 +215,20 @@ test("Finance user can download full Excel containing all form fields", async ({
     startDate.setUTCDate(startDate.getUTCDate() - 30);
     const from = startDate.toISOString().slice(0, 10);
     const to = endDate.toISOString().slice(0, 10);
+
+    await page.goto("/dashboard", {
+      waitUntil: "networkidle",
+    });
+
+    const financeEmailLabel = page.getByText(/@nxtwave\.co\.in/i).first();
+    await expect(financeEmailLabel).toBeVisible();
+
+    const runtimeFinanceEmail = (await financeEmailLabel.textContent())?.trim().toLowerCase();
+    if (!runtimeFinanceEmail) {
+      throw new Error("Unable to resolve the authenticated finance email for export seeding.");
+    }
+
+    await seedFinanceClaims(seedTag, runtimeFinanceEmail);
 
     await page.goto(`/dashboard/my-claims?view=submissions&from=${from}&to=${to}`, {
       waitUntil: "networkidle",

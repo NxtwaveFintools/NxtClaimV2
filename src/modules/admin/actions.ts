@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { logger } from "@/core/infra/logging/logger";
 import { ROUTES } from "@/core/config/route-registry";
-import { USER_ROLES } from "@/core/constants/auth";
 import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
 import { AdminSoftDeleteClaimService } from "@/core/domain/admin/AdminSoftDeleteClaimService";
 import { ManageMasterDataService } from "@/core/domain/admin/ManageMasterDataService";
@@ -49,13 +48,6 @@ const masterDataTableSchema = z.enum([
   "master_products",
   "master_locations",
   "master_payment_modes",
-]);
-
-const userRoleSchema = z.enum([
-  USER_ROLES.employee,
-  USER_ROLES.hod,
-  USER_ROLES.founder,
-  USER_ROLES.finance,
 ]);
 
 const claimStatusSchema = z.enum(DB_CLAIM_STATUSES);
@@ -472,37 +464,6 @@ export async function updateFinanceApproverAction(
     return { ok: false, message: result.errorMessage };
   }
 
-  revalidatePath(ROUTES.admin.settings);
-
-  return { ok: true };
-}
-
-export async function updateUserRoleAction(
-  userId: string,
-  role: string,
-): Promise<{ ok: boolean; message?: string }> {
-  const guard = await requireAdmin();
-  if ("forbidden" in guard) {
-    return { ok: false, message: "Forbidden: admin access required." };
-  }
-
-  const idResult = idSchema.safeParse(userId);
-  if (!idResult.success) {
-    return { ok: false, message: "Invalid user ID." };
-  }
-
-  const roleResult = userRoleSchema.safeParse(role);
-  if (!roleResult.success) {
-    return { ok: false, message: "Invalid role value." };
-  }
-
-  const result = await adminRepository.updateUserRole(idResult.data, roleResult.data);
-
-  if (!result.success) {
-    return { ok: false, message: result.errorMessage ?? "Failed to update user role." };
-  }
-
-  revalidateRoleChecksForUser(idResult.data);
   revalidatePath(ROUTES.admin.settings);
 
   return { ok: true };

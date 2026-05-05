@@ -11,9 +11,7 @@ export const AUTH_ERROR_CODES = {
   sessionExpired: "SESSION_EXPIRED",
 } as const;
 
-export const USER_ROLES = {
-  employee: "employee",
-  hod: "hod",
-  founder: "founder",
-  finance: "finance",
+export const AUTH_ERROR_MESSAGES = {
+  domainNotAllowed: "Your email domain is not authorized for this workspace.",
+  domainValidationFailed: "Unable to validate your email domain.",
 } as const;

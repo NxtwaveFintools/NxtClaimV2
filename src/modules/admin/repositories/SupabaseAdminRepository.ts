@@ -26,7 +26,6 @@ import type {
   AdminCursorPaginationInput,
   AdminRecord,
   AdminRepository,
-  AdminUserRecord,
   CreatedDepartmentRecord,
   DepartmentViewerAdminRecord,
   DepartmentWithActors,
@@ -301,15 +300,6 @@ type FinanceApproverRow = {
   is_primary: boolean;
   provisional_email: string | null;
   user: UserNameRow | UserNameRow[] | null;
-};
-
-type UserRow = {
-  id: string;
-  email: string;
-  full_name: string | null;
-  role: string;
-  is_active: boolean;
-  created_at: string;
 };
 
 type AdminRow = {
@@ -1428,66 +1418,6 @@ export class SupabaseAdminRepository implements AdminRepository {
       },
       errorMessage: null,
     };
-  }
-
-  // ─── Users ────────────────────────────────────────────────────
-
-  async getAllUsers(pagination: AdminCursorPaginationInput): Promise<{
-    data: AdminCursorPaginatedResult<AdminUserRecord> | null;
-    errorMessage: string | null;
-  }> {
-    const limit = pagination.limit + 1;
-
-    let query = this.client
-      .from("users")
-      .select("id, email, full_name, role, is_active, created_at")
-      .order("created_at", { ascending: false })
-      .order("id", { ascending: false })
-      .limit(limit);
-
-    if (pagination.cursor) {
-      query = query.lt("created_at", pagination.cursor);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      return { data: null, errorMessage: error.message };
-    }
-
-    const rows = (data ?? []) as UserRow[];
-    const hasNextPage = rows.length > pagination.limit;
-    const pageRows = hasNextPage ? rows.slice(0, pagination.limit) : rows;
-    const nextCursor = hasNextPage ? (pageRows[pageRows.length - 1]?.created_at ?? null) : null;
-
-    return {
-      data: {
-        data: pageRows.map((row) => ({
-          id: row.id,
-          email: row.email,
-          fullName: row.full_name,
-          role: row.role,
-          isActive: row.is_active,
-          createdAt: row.created_at,
-        })),
-        nextCursor,
-        hasNextPage,
-      },
-      errorMessage: null,
-    };
-  }
-
-  async updateUserRole(
-    userId: string,
-    role: string,
-  ): Promise<{ success: boolean; errorMessage: string | null }> {
-    const { error } = await this.client.from("users").update({ role }).eq("id", userId);
-
-    if (error) {
-      return { success: false, errorMessage: error.message };
-    }
-
-    return { success: true, errorMessage: null };
   }
 
   // ─── Admins ───────────────────────────────────────────────────

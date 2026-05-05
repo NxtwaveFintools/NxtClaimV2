@@ -5,7 +5,7 @@ import type {
 
 type AnalyticsScopeInput = Pick<
   DashboardAnalyticsViewerContext,
-  "isAdmin" | "userRole" | "hodDepartmentIds" | "financeApproverIds"
+  "isAdmin" | "hodDepartmentIds" | "financeApproverIds"
 >;
 
 export function resolveDashboardAnalyticsScope(
@@ -15,10 +15,7 @@ export function resolveDashboardAnalyticsScope(
     return "admin";
   }
 
-  const normalizedRole = (input.userRole ?? "").trim().toLowerCase();
-  const canAccessFinance = normalizedRole === "finance" || input.financeApproverIds.length > 0;
-
-  if (canAccessFinance) {
+  if (input.financeApproverIds.length > 0) {
     return "finance";
   }
 

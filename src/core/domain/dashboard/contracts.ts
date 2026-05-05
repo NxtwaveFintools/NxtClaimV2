@@ -43,7 +43,6 @@ export type DashboardAnalyticsScope = "admin" | "hod" | "finance";
 
 export type DashboardAnalyticsViewerContext = {
   userId: string;
-  userRole: string | null;
   isAdmin: boolean;
   hodDepartmentIds: string[];
   founderDepartmentIds: string[];

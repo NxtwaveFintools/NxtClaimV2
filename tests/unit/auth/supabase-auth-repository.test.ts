@@ -1,4 +1,5 @@
 import { SupabaseAuthRepository } from "@/modules/auth/repositories/supabase-auth.repository";
+import { AUTH_ERROR_CODES } from "@/core/constants/auth";
 
 const mockGetBrowserSupabaseClient = jest.fn();
 
@@ -23,9 +24,9 @@ function createAuthClient(): AuthClient {
       signInWithPassword: jest.fn(),
       signInWithOAuth: jest.fn(),
       setSession: jest.fn(),
-      signOut: jest.fn(),
+      signOut: jest.fn().mockResolvedValue({ error: null }),
       getUser: jest.fn(),
-      getSession: jest.fn(),
+      getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
     },
   };
 }
@@ -52,6 +53,7 @@ describe("SupabaseAuthRepository", () => {
     expect(result).toEqual({
       user: null,
       session: null,
+      errorCode: AUTH_ERROR_CODES.authFailed,
       errorMessage: "Invalid credentials",
     });
     expect(mockFetch).not.toHaveBeenCalled();
@@ -81,6 +83,7 @@ describe("SupabaseAuthRepository", () => {
     expect(result).toEqual({
       user: { id: "user-1", email: "user@nxtwave.co.in" },
       session: { accessToken: "access-1", refreshToken: "refresh-1" },
+      errorCode: null,
       errorMessage: null,
     });
   });
@@ -109,6 +112,7 @@ describe("SupabaseAuthRepository", () => {
     expect(result).toEqual({
       user: null,
       session: null,
+      errorCode: AUTH_ERROR_CODES.authFailed,
       errorMessage: "Unable to persist browser session",
     });
   });
@@ -133,6 +137,7 @@ describe("SupabaseAuthRepository", () => {
     const result = await repository.signInWithEmail("user@nxtwave.co.in", "password123");
 
     expect(result.errorMessage).toBe("Unable to establish authenticated session.");
+    expect(result.errorCode).toBe(AUTH_ERROR_CODES.authFailed);
   });
 
   test("signInWithEmail returns user without API bootstrap when session is missing", async () => {
@@ -152,6 +157,7 @@ describe("SupabaseAuthRepository", () => {
     expect(result).toEqual({
       user: { id: "user-2", email: null },
       session: null,
+      errorCode: null,
       errorMessage: null,
     });
     expect(mockFetch).not.toHaveBeenCalled();
@@ -209,15 +215,31 @@ describe("SupabaseAuthRepository", () => {
     expect(client.auth.signOut).toHaveBeenCalledWith({ scope: "local" });
   });
 
-  test("getCurrentUser treats missing-session errors as anonymous", async () => {
+  test("getCurrentUser treats missing access token as anonymous", async () => {
     const client = createAuthClient();
-    client.auth.getUser.mockResolvedValue({
-      data: { user: null },
-      error: { message: "Auth Session Missing" },
-    });
-    client.auth.signOut.mockResolvedValue({ error: null });
     mockGetBrowserSupabaseClient.mockReturnValue(client);
-    mockFetch.mockResolvedValue({ ok: true });
+
+    const repository = new SupabaseAuthRepository();
+    const result = await repository.getCurrentUser();
+
+    expect(result).toEqual({ user: null, errorMessage: null });
+  });
+
+  test("getCurrentUser treats blocked session route responses as anonymous and cleans up", async () => {
+    const client = createAuthClient();
+    client.auth.getSession.mockResolvedValue({
+      data: { session: { access_token: "token-123" } },
+      error: null,
+    });
+    mockGetBrowserSupabaseClient.mockReturnValue(client);
+    mockFetch.mockResolvedValueOnce({
+      status: 403,
+      ok: false,
+      json: jest.fn().mockResolvedValue({
+        error: { message: "Your email domain is not authorized for this workspace." },
+      }),
+    });
+    mockFetch.mockResolvedValueOnce({ ok: true });
 
     const repository = new SupabaseAuthRepository();
     const result = await repository.getCurrentUser();
@@ -229,41 +251,31 @@ describe("SupabaseAuthRepository", () => {
     expect(client.auth.signOut).toHaveBeenCalledWith({ scope: "local" });
   });
 
-  test("getCurrentUser treats refresh_token_not_found as anonymous and cleans up", async () => {
+  test("getCurrentUser returns non-session route errors and maps successful user", async () => {
     const client = createAuthClient();
-    client.auth.getUser.mockResolvedValue({
-      data: { user: null },
-      error: {
-        message: "Invalid Refresh Token: Refresh Token Not Found",
-        code: "refresh_token_not_found",
-      },
-    });
-    client.auth.signOut.mockResolvedValue({ error: null });
-    mockGetBrowserSupabaseClient.mockReturnValue(client);
-    mockFetch.mockResolvedValue({ ok: true });
-
-    const repository = new SupabaseAuthRepository();
-    const result = await repository.getCurrentUser();
-
-    expect(result).toEqual({ user: null, errorMessage: null });
-    expect(mockFetch).toHaveBeenCalledWith("/api/auth/logout", {
-      method: "POST",
-    });
-    expect(client.auth.signOut).toHaveBeenCalledWith({ scope: "local" });
-  });
-
-  test("getCurrentUser returns non-session errors and maps successful user", async () => {
-    const client = createAuthClient();
-    client.auth.getUser
+    client.auth.getSession
       .mockResolvedValueOnce({
-        data: { user: null },
-        error: { message: "network failed" },
+        data: { session: { access_token: "token-123" } },
+        error: null,
       })
       .mockResolvedValueOnce({
-        data: { user: { id: "user-3", email: "member@nxtwave.co.in" } },
+        data: { session: { access_token: "token-456" } },
         error: null,
       });
     mockGetBrowserSupabaseClient.mockReturnValue(client);
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: jest.fn().mockResolvedValue({ error: { message: "network failed" } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: jest.fn().mockResolvedValue({
+          data: { user: { id: "user-3", email: "member@nxtwave.co.in" } },
+        }),
+      });
 
     const repository = new SupabaseAuthRepository();
 

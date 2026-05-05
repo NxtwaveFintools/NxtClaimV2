@@ -1,7 +1,9 @@
 /** @jest-environment node */
+export {};
 
 const mockRequestAuthCreateServerClient = jest.fn();
 const mockRequestAuthCookies = jest.fn();
+const mockIsAllowedEmailDomainInDb = jest.fn();
 
 jest.mock("@supabase/ssr", () => ({
   createServerClient: (...args: unknown[]) => mockRequestAuthCreateServerClient(...args),
@@ -9,6 +11,10 @@ jest.mock("@supabase/ssr", () => ({
 
 jest.mock("next/headers", () => ({
   cookies: (...args: unknown[]) => mockRequestAuthCookies(...args),
+}));
+
+jest.mock("@/core/infra/auth/allowed-auth-domains", () => ({
+  isAllowedEmailDomainInDb: (...args: unknown[]) => mockIsAllowedEmailDomainInDb(...args),
 }));
 
 jest.mock("@/core/config/server-env", () => ({
@@ -29,6 +35,10 @@ describe("getCachedRequestAuthUser", () => {
     jest.clearAllMocks();
     cookieStore.getAll.mockReturnValue([]);
     mockRequestAuthCookies.mockResolvedValue(cookieStore);
+    mockIsAllowedEmailDomainInDb.mockResolvedValue({
+      isAllowed: true,
+      errorMessage: null,
+    });
   });
 
   test("swallows thrown refresh_token_not_found errors and clears auth cookies", async () => {
@@ -95,5 +105,36 @@ describe("getCachedRequestAuthUser", () => {
     expect(result.errorMessage).toBeNull();
     expect(result.user?.id).toBe("user-1");
     expect(result.user?.email).toBe("user@nxtwave.co.in");
+  });
+
+  test("returns anonymous state when domain was disabled after login", async () => {
+    const getUser = jest.fn().mockResolvedValue({
+      data: {
+        user: {
+          id: "user-1",
+          email: "user@blocked.com",
+          app_metadata: {},
+          user_metadata: {},
+          aud: "authenticated",
+          created_at: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      error: null,
+    });
+    mockIsAllowedEmailDomainInDb.mockResolvedValue({
+      isAllowed: false,
+      errorMessage: null,
+    });
+
+    mockRequestAuthCreateServerClient.mockReturnValue({ auth: { getUser } });
+
+    const { getCachedRequestAuthUser } =
+      await import("@/modules/auth/server/get-request-auth-user");
+    const result = await getCachedRequestAuthUser();
+
+    expect(result).toEqual({
+      user: null,
+      errorMessage: null,
+    });
   });
 });
