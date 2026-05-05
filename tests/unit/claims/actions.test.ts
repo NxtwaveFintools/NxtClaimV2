@@ -1072,6 +1072,81 @@ describe("claims actions", () => {
     expect(removeCalls).not.toContainEqual(["expenses/old_receipt.pdf"]);
   });
 
+  test("updateClaimByFinanceAction deletes superseded receipt only after DB update succeeds", async () => {
+    const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
+    const formData = createValidExpenseEditFormData();
+    formData.append(
+      "receiptFile",
+      new File(["updated"], "replacement.pdf", { type: "application/pdf" }),
+    );
+
+    const result = await updateClaimByFinanceAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData,
+    });
+
+    expect(result).toEqual({ ok: true, message: "Claim details updated." });
+    const forwardedPayload = mockUpdateByFinanceExecute.mock.calls[0]?.[0]?.payload;
+    expect(forwardedPayload.receiptFilePath).toMatch(
+      /^expenses\/11111111-1111-4111-8111-111111111111\/11111111-1111-4111-8111-111111111111_receipt_v[a-z0-9]+\.pdf$/,
+    );
+    expect(mockStorageRemove).toHaveBeenCalledWith(["expenses/old_receipt.pdf"]);
+    expect(mockUpdateByFinanceExecute.mock.invocationCallOrder[0]).toBeLessThan(
+      mockStorageRemove.mock.invocationCallOrder[0],
+    );
+  });
+
+  test("updateClaimByFinanceAction does not update DB or delete old receipt when upload fails", async () => {
+    mockStorageUpload.mockResolvedValueOnce({
+      data: null,
+      error: { message: "upload failed" },
+    });
+
+    const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
+    const formData = createValidExpenseEditFormData();
+    formData.append(
+      "receiptFile",
+      new File(["updated"], "replacement.pdf", { type: "application/pdf" }),
+    );
+
+    const result = await updateClaimByFinanceAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData,
+    });
+
+    expect(result).toEqual({ ok: false, message: "upload failed" });
+    expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
+    expect(mockStorageRemove).not.toHaveBeenCalledWith(["expenses/old_receipt.pdf"]);
+  });
+
+  test("updateClaimByFinanceAction cleans up new upload when DB update fails and keeps old receipt", async () => {
+    mockUpdateByFinanceExecute.mockResolvedValueOnce({
+      ok: false,
+      errorMessage: "DB failed",
+    });
+
+    const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
+    const formData = createValidExpenseEditFormData();
+    formData.append(
+      "receiptFile",
+      new File(["updated"], "replacement.pdf", { type: "application/pdf" }),
+    );
+
+    const result = await updateClaimByFinanceAction({
+      claimId: "11111111-1111-4111-8111-111111111111",
+      formData,
+    });
+
+    expect(result).toEqual({ ok: false, message: "DB failed" });
+    const removeCalls = mockStorageRemove.mock.calls.map((call) => call[0]);
+    expect(removeCalls).toContainEqual([
+      expect.stringMatching(
+        /^expenses\/11111111-1111-4111-8111-111111111111\/11111111-1111-4111-8111-111111111111_receipt_v[a-z0-9]+\.pdf$/,
+      ),
+    ]);
+    expect(removeCalls).not.toContainEqual(["expenses/old_receipt.pdf"]);
+  });
+
   test("updateClaimByFinanceAction forwards validated expense payload including GST and bank statement fields", async () => {
     const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
 
