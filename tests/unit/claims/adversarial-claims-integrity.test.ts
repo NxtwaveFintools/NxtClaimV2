@@ -85,6 +85,21 @@ function createClaimRepository(overrides?: Partial<ClaimRepository>): ClaimRepos
       isApprover1: false,
       errorMessage: null,
     })),
+    createClaimDraft: jest.fn(async () => ({
+      claimId: "CLAIM-ADV-TEST-20260317-0001",
+      errorMessage: null,
+    })),
+    createExpenseDetailDraft: jest.fn(async () => ({
+      detailId: "expense-detail-1",
+      errorMessage: null,
+    })),
+    createAdvanceDetailDraft: jest.fn(async () => ({
+      detailId: "advance-detail-1",
+      errorMessage: null,
+    })),
+    updateExpenseDetailEvidencePaths: jest.fn(async () => ({ errorMessage: null })),
+    updateAdvanceDetailEvidencePath: jest.fn(async () => ({ errorMessage: null })),
+    rollbackClaimSubmissionDraft: jest.fn(async () => ({ errorMessage: null })),
     createClaimWithDetail: jest.fn(async () => ({
       claimId: "CLAIM-ADV-TEST-20260317-0001",
       errorMessage: null,

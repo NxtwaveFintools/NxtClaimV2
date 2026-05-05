@@ -84,6 +84,21 @@ function createRepository(overrides?: Partial<ClaimRepository>): ClaimRepository
       isApprover1: userId === departmentApprover1Id,
       errorMessage: null,
     })),
+    createClaimDraft: jest.fn(async () => ({
+      claimId: "77777777-7777-7777-7777-777777777777",
+      errorMessage: null,
+    })),
+    createExpenseDetailDraft: jest.fn(async () => ({
+      detailId: "expense-detail-1",
+      errorMessage: null,
+    })),
+    createAdvanceDetailDraft: jest.fn(async () => ({
+      detailId: "advance-detail-1",
+      errorMessage: null,
+    })),
+    updateExpenseDetailEvidencePaths: jest.fn(async () => ({ errorMessage: null })),
+    updateAdvanceDetailEvidencePath: jest.fn(async () => ({ errorMessage: null })),
+    rollbackClaimSubmissionDraft: jest.fn(async () => ({ errorMessage: null })),
     createClaimWithDetail: jest.fn(async () => ({
       claimId: "77777777-7777-7777-7777-777777777777",
       errorMessage: null,
