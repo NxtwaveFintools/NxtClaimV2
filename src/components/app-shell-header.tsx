@@ -75,9 +75,6 @@ export async function AppShellHeader({ currentEmail, actions }: AppShellHeaderPr
             <NxtClaimLogo className="h-7 w-7" />
           </div>
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">
-              Internal Finance
-            </p>
             <p className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">NxtClaim V2</p>
           </div>
         </Link>

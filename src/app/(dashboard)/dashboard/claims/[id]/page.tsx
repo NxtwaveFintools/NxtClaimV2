@@ -45,10 +45,7 @@ import { DeleteClaimButton } from "@/modules/claims/ui/delete-claim-button";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
 import { sanitizeDashboardReturnToPath } from "@/lib/pagination-helpers";
-import {
-  getAvailableClaimActions,
-  type ClaimActionRole,
-} from "@/modules/claims/utils/get-available-claim-actions";
+import { getClaimDetailActionPermissions } from "@/modules/claims/utils/get-available-claim-actions";
 import { isAdmin } from "@/modules/admin/server/is-admin";
 import { getViewerDepartmentIds } from "@/modules/claims/server/is-department-viewer";
 import { AdminSoftDeletePanel } from "@/modules/admin/ui/admin-soft-delete-panel";
@@ -628,25 +625,38 @@ async function ClaimDetailCore({
     notFound();
   }
 
-  const effectiveRole: ClaimActionRole | null = isAssignedL1Approver
-    ? "HOD"
-    : isFinanceActor
-      ? "Finance"
-      : null;
-  const availableActions = effectiveRole
-    ? getAvailableClaimActions(claim.status, effectiveRole)
-    : { canApprove: false, canReject: false, canMarkPaid: false };
-  const canTakeL1Decision =
-    effectiveRole === "HOD" && availableActions.canApprove && availableActions.canReject;
-  const canTakeFinanceAuthorizationDecision =
-    effectiveRole === "Finance" && availableActions.canApprove && availableActions.canReject;
-  const canTakeFinanceExecutionDecision =
-    effectiveRole === "Finance" && availableActions.canMarkPaid;
+  const {
+    canTakeL1Decision,
+    canTakeFinanceAuthorizationDecision,
+    canTakeFinanceExecutionDecision,
+  } = getClaimDetailActionPermissions({
+    status: claim.status,
+    currentUserId,
+    submittedBy: claim.submittedBy,
+    assignedL1ApproverId: claim.assignedL1ApproverId,
+    isFinanceActor,
+  });
+  const isSubmitter = currentUserId === claim.submittedBy;
+  const shouldRenderL1DecisionActions = !isSubmitter && canTakeL1Decision;
+  const shouldRenderFinanceAuthorizationActions =
+    !isSubmitter && canTakeFinanceAuthorizationDecision;
+  const shouldRenderFinanceExecutionAction = !isSubmitter && canTakeFinanceExecutionDecision;
   const canTakeDecision =
-    canTakeL1Decision || canTakeFinanceAuthorizationDecision || canTakeFinanceExecutionDecision;
+    shouldRenderL1DecisionActions ||
+    shouldRenderFinanceAuthorizationActions ||
+    shouldRenderFinanceExecutionAction;
   const showBottomActionBar = canTakeDecision || canEditClaim;
   const canDeleteClaim =
     currentUserId === claim.submittedBy && isSubmitterDeletableClaimStatus(claim.status);
+
+  console.log(
+    "UI Auth Check -> Current User:",
+    currentUserId,
+    " | Submitter:",
+    claim.submittedBy,
+    " | Is Submitter:",
+    isSubmitter,
+  );
 
   const approveFromDetail = async () => {
     "use server";
@@ -1061,20 +1071,24 @@ async function ClaimDetailCore({
                   </Suspense>
                 ) : null}
 
-                {canTakeFinanceExecutionDecision ? (
+                {shouldRenderFinanceExecutionAction ? (
                   <ClaimDecisionActionForm
                     action={markPaidFromDetail}
                     decision="mark-paid"
+                    isSubmitter={isSubmitter}
                     loadingMessage="Marking payment as done..."
                     successMessage="Claim marked as paid."
                     errorMessage="Unable to mark payment as done."
                     redirectToHref={returnToPath}
                   />
-                ) : canTakeFinanceAuthorizationDecision ? (
+                ) : null}
+
+                {shouldRenderFinanceAuthorizationActions ? (
                   <>
                     <ClaimDecisionActionForm
                       action={approveFinanceFromDetail}
                       decision="approve"
+                      isSubmitter={isSubmitter}
                       loadingMessage="Approving finance step..."
                       successMessage="Finance decision approved."
                       errorMessage="Unable to approve finance step."
@@ -1082,14 +1096,18 @@ async function ClaimDetailCore({
                     />
                     <ClaimRejectWithReasonForm
                       action={rejectFinanceFromDetail}
+                      isSubmitter={isSubmitter}
                       redirectToHref={returnToPath}
                     />
                   </>
-                ) : (
+                ) : null}
+
+                {shouldRenderL1DecisionActions ? (
                   <>
                     <ClaimDecisionActionForm
                       action={approveFromDetail}
                       decision="approve"
+                      isSubmitter={isSubmitter}
                       loadingMessage="Approving claim..."
                       successMessage="Claim approved."
                       errorMessage="Unable to approve claim."
@@ -1097,10 +1115,11 @@ async function ClaimDetailCore({
                     />
                     <ClaimRejectWithReasonForm
                       action={rejectFromDetail}
+                      isSubmitter={isSubmitter}
                       redirectToHref={returnToPath}
                     />
                   </>
-                )}
+                ) : null}
               </div>
             </section>
           ) : null}

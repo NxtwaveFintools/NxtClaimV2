@@ -7,12 +7,14 @@ import { createPortal } from "react-dom";
 
 type ClaimRejectWithReasonFormProps = {
   action: (formData: FormData) => Promise<void>;
+  isSubmitter?: boolean;
   compact?: boolean;
   redirectToHref?: string;
 };
 
 export function ClaimRejectWithReasonForm({
   action,
+  isSubmitter = false,
   compact = false,
   redirectToHref,
 }: ClaimRejectWithReasonFormProps) {
@@ -22,6 +24,10 @@ export function ClaimRejectWithReasonForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isPending = isSubmitting || isNavigating;
   const canUseDOM = typeof window !== "undefined" && typeof document !== "undefined";
+
+  if (isSubmitter) {
+    return null;
+  }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

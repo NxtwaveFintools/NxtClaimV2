@@ -8,6 +8,7 @@ import { ClaimDecisionSubmitButton } from "@/modules/claims/ui/claim-decision-su
 type ClaimDecisionActionFormProps = {
   action: (formData: FormData) => Promise<void>;
   decision: "approve" | "mark-paid";
+  isSubmitter?: boolean;
   compact?: boolean;
   loadingMessage: string;
   successMessage: string;
@@ -18,6 +19,7 @@ type ClaimDecisionActionFormProps = {
 export function ClaimDecisionActionForm({
   action,
   decision,
+  isSubmitter = false,
   compact = false,
   loadingMessage,
   successMessage,
@@ -28,6 +30,10 @@ export function ClaimDecisionActionForm({
   const [isNavigating, startTransition] = useTransition();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isPending = isSubmitting || isNavigating;
+
+  if (isSubmitter) {
+    return null;
+  }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
