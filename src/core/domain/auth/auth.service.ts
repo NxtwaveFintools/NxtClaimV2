@@ -1,5 +1,4 @@
-import { AUTH_ERROR_CODES } from "@/core/constants/auth";
-import { isAllowedEmailDomain } from "@/core/config/allowed-domains";
+import { AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES } from "@/core/constants/auth";
 import type { AuthRepository, DomainLogger, OAuthProvider } from "@/core/domain/auth/contracts";
 
 type AuthServiceDependencies = {
@@ -23,23 +22,22 @@ export class AuthService {
     const result = await this.repository.signInWithEmail(email, password);
 
     if (result.errorMessage || !result.user || !result.session) {
+      if (result.errorCode === AUTH_ERROR_CODES.domainNotAllowed) {
+        this.logger.warn("auth.email_login.domain_blocked", {
+          maskedEmail: this.logger.maskEmail(email),
+        });
+        return {
+          errorCode: AUTH_ERROR_CODES.domainNotAllowed,
+          errorMessage: result.errorMessage ?? AUTH_ERROR_MESSAGES.domainNotAllowed,
+        };
+      }
+
       this.logger.warn("auth.email_login.failed", {
         maskedEmail: this.logger.maskEmail(email),
       });
       return {
-        errorCode: AUTH_ERROR_CODES.authFailed,
+        errorCode: result.errorCode ?? AUTH_ERROR_CODES.authFailed,
         errorMessage: result.errorMessage ?? "Unable to sign in",
-      };
-    }
-
-    if (!result.user.email || !isAllowedEmailDomain(result.user.email)) {
-      await this.repository.signOut();
-      this.logger.warn("auth.email_login.domain_blocked", {
-        maskedEmail: this.logger.maskEmail(result.user.email),
-      });
-      return {
-        errorCode: AUTH_ERROR_CODES.domainNotAllowed,
-        errorMessage: "Your email domain is not authorized for this workspace.",
       };
     }
 
@@ -56,7 +54,7 @@ export class AuthService {
 
     this.logger.info("auth.email_login.success", {
       userId: result.user.id,
-      domain: result.user.email.split("@")[1],
+      domain: result.user.email?.split("@")[1] ?? null,
     });
 
     return { errorCode: null, errorMessage: null };
@@ -114,19 +112,6 @@ export class AuthService {
 
     if (!result.user || !result.user.email) {
       return { valid: true, hasUser: false, errorCode: null, errorMessage: null };
-    }
-
-    if (!isAllowedEmailDomain(result.user.email)) {
-      await this.repository.signOut();
-      this.logger.warn("auth.session.domain_blocked", {
-        maskedEmail: this.logger.maskEmail(result.user.email),
-      });
-      return {
-        valid: false,
-        hasUser: true,
-        errorCode: AUTH_ERROR_CODES.domainNotAllowed,
-        errorMessage: "Your email domain is not authorized for this workspace.",
-      };
     }
 
     return { valid: true, hasUser: true, errorCode: null, errorMessage: null };

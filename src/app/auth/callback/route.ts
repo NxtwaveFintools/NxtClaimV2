@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { serverEnv } from "@/core/config/server-env";
-import { isAllowedEmailDomain } from "@/core/config/allowed-domains";
+import { isAllowedEmailDomainInDb } from "@/core/infra/auth/allowed-auth-domains";
 import { ROUTES } from "@/core/config/route-registry";
 import { logger } from "@/core/infra/logging/logger";
 import {
@@ -110,7 +110,39 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return failedResponse;
   }
 
-  if (!user?.email || !isAllowedEmailDomain(user.email)) {
+  if (!user?.email) {
+    await supabase.auth.signOut();
+
+    logger.warn("auth.oauth.callback.domain_blocked", {
+      correlationId,
+      userId: user?.id,
+      maskedEmail: logger.maskEmail(user?.email ?? null),
+    });
+
+    const failedRedirectUrl = new URL(ROUTES.login, request.url);
+    failedRedirectUrl.searchParams.set("error", "unauthorized_domain");
+    const failedResponse = NextResponse.redirect(failedRedirectUrl);
+    clearAuthCookiesOnResponse(failedResponse, cookieStore.getAll());
+    return failedResponse;
+  }
+
+  const domainResult = await isAllowedEmailDomainInDb(user.email);
+
+  if (domainResult.errorMessage) {
+    await supabase.auth.signOut();
+
+    logger.error("auth.oauth.callback.domain_lookup_failed", {
+      correlationId,
+      userId: user.id,
+      maskedEmail: logger.maskEmail(user.email),
+    });
+
+    const failedResponse = NextResponse.redirect(failureRedirectUrl);
+    clearAuthCookiesOnResponse(failedResponse, cookieStore.getAll());
+    return failedResponse;
+  }
+
+  if (!domainResult.isAllowed) {
     await supabase.auth.signOut();
 
     logger.warn("auth.oauth.callback.domain_blocked", {

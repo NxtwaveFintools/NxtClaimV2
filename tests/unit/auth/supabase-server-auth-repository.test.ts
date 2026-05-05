@@ -1,9 +1,11 @@
 /** @jest-environment node */
 
 import { SupabaseServerAuthRepository } from "@/modules/auth/repositories/supabase-server-auth.repository";
+import { AUTH_ERROR_CODES } from "@/core/constants/auth";
 
 const mockCreateServerClient = jest.fn();
 const mockCookies = jest.fn();
+const mockIsAllowedEmailDomainInDb = jest.fn();
 
 jest.mock("@supabase/ssr", () => ({
   createServerClient: (...args: unknown[]) => mockCreateServerClient(...args),
@@ -11,6 +13,10 @@ jest.mock("@supabase/ssr", () => ({
 
 jest.mock("next/headers", () => ({
   cookies: (...args: unknown[]) => mockCookies(...args),
+}));
+
+jest.mock("@/core/infra/auth/allowed-auth-domains", () => ({
+  isAllowedEmailDomainInDb: (...args: unknown[]) => mockIsAllowedEmailDomainInDb(...args),
 }));
 
 jest.mock("@/core/config/server-env", () => ({
@@ -29,6 +35,10 @@ describe("SupabaseServerAuthRepository", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCookies.mockResolvedValue(cookieStore);
+    mockIsAllowedEmailDomainInDb.mockResolvedValue({
+      isAllowed: true,
+      errorMessage: null,
+    });
   });
 
   test("returns unsupported messages for signInWithEmail/signInWithOAuth/setSession", async () => {
@@ -37,6 +47,7 @@ describe("SupabaseServerAuthRepository", () => {
     await expect(repository.signInWithEmail("user@nxtwave.co.in", "password123")).resolves.toEqual({
       user: null,
       session: null,
+      errorCode: AUTH_ERROR_CODES.authFailed,
       errorMessage: "signInWithEmail is not available in server route guards",
     });
 
@@ -183,6 +194,26 @@ describe("SupabaseServerAuthRepository", () => {
       user: { id: "user-1", email: "user@nxtwave.co.in" },
       errorMessage: null,
     });
+  });
+
+  test("getCurrentUser treats blocked domains as anonymous", async () => {
+    const getUser = jest.fn().mockResolvedValue({
+      data: { user: { id: "user-1", email: "user@blocked.com" } },
+      error: null,
+    });
+    const signOut = jest.fn().mockResolvedValue({ error: null });
+    mockIsAllowedEmailDomainInDb.mockResolvedValue({
+      isAllowed: false,
+      errorMessage: null,
+    });
+
+    mockCreateServerClient.mockReturnValue({ auth: { getUser, signOut } });
+
+    const repository = new SupabaseServerAuthRepository();
+    const result = await repository.getCurrentUser();
+
+    expect(result).toEqual({ user: null, errorMessage: null });
+    expect(signOut).toHaveBeenCalledTimes(1);
   });
 
   test("getAccessToken returns current access token or null", async () => {

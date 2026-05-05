@@ -63,7 +63,6 @@ export type Database = {
           id: string;
           is_active: boolean;
           l1_approver_id: string | null;
-          role: string;
           updated_at: string;
         };
         Insert: {
@@ -74,7 +73,6 @@ export type Database = {
           id: string;
           is_active?: boolean;
           l1_approver_id?: string | null;
-          role: string;
           updated_at?: string;
         };
         Update: {
@@ -85,7 +83,6 @@ export type Database = {
           id?: string;
           is_active?: boolean;
           l1_approver_id?: string | null;
-          role?: string;
           updated_at?: string;
         };
         Relationships: [

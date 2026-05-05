@@ -9,13 +9,11 @@ import {
 } from "@playwright/test";
 import { loadEnvConfig } from "@next/env";
 import { createClient } from "@supabase/supabase-js";
-import { getAuthStatePathForEmail, registerAuthStateEmail } from "./support/auth-state";
 
 loadEnvConfig(process.cwd());
 
 const DEFAULT_PASSWORD = process.env.E2E_DEFAULT_PASSWORD ?? "password123";
 const STARTING_USER_EMAIL = "user@nxtwave.co.in";
-const STARTING_HOD_EMAIL = "hod@nxtwave.co.in";
 const RECEIPT_PATH = path.resolve(process.cwd(), "tests/fixtures/dummy-receipt.pdf");
 const RUN_TAG = process.env.E2E_RUN_TAG ?? `WF-${Date.now()}`;
 
@@ -25,6 +23,10 @@ type UserRecord = {
   id: string;
   email: string;
   full_name: string | null;
+};
+
+type AuthenticatedUserRecord = UserRecord & {
+  loginPassword: string;
 };
 
 type DepartmentRecord = {
@@ -42,11 +44,11 @@ type FinanceApproverRecord = {
 };
 
 type RuntimeActors = {
-  submitter: UserRecord;
-  hod: UserRecord;
-  founder: UserRecord;
-  finance1: UserRecord;
-  finance2: UserRecord;
+  submitter: AuthenticatedUserRecord;
+  hod: AuthenticatedUserRecord;
+  founder: AuthenticatedUserRecord;
+  finance1: AuthenticatedUserRecord;
+  finance2: AuthenticatedUserRecord;
   submitterDepartment: DepartmentRecord;
   hodDepartment: DepartmentRecord;
   expenseCategoryName: string;
@@ -95,6 +97,82 @@ function getAdminSupabaseClient() {
       autoRefreshToken: false,
     },
   });
+}
+
+function getPublicSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !anonKey) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are required for Playwright workflow tests.",
+    );
+  }
+
+  return createClient(supabaseUrl, anonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+}
+
+const loginPasswordCache = new Map<string, string | null>();
+
+function getPasswordCandidates(email: string): string[] {
+  const normalized = email.trim().toLowerCase();
+  const submitterEmail = (process.env.E2E_SUBMITTER_EMAIL ?? STARTING_USER_EMAIL).toLowerCase();
+  const hodEmail = (process.env.E2E_HOD_EMAIL ?? "hod@nxtwave.co.in").toLowerCase();
+  const founderEmail = (process.env.E2E_FOUNDER_EMAIL ?? "founder@nxtwave.co.in").toLowerCase();
+  const financeEmail = (process.env.E2E_FINANCE_EMAIL ?? "finance@nxtwave.co.in").toLowerCase();
+  const finance2Email = (process.env.E2E_FINANCE2_EMAIL ?? "finance2@nxtwave.co.in").toLowerCase();
+  const candidates = new Set<string>();
+
+  if (normalized === submitterEmail && process.env.E2E_SUBMITTER_PASSWORD) {
+    candidates.add(process.env.E2E_SUBMITTER_PASSWORD);
+  }
+
+  if (normalized === hodEmail && process.env.E2E_HOD_PASSWORD) {
+    candidates.add(process.env.E2E_HOD_PASSWORD);
+  }
+
+  if (normalized === founderEmail) {
+    candidates.add(process.env.E2E_FOUNDER_PASSWORD ?? "Nxtwave@2026");
+  }
+
+  if (normalized === financeEmail && process.env.E2E_FINANCE_PASSWORD) {
+    candidates.add(process.env.E2E_FINANCE_PASSWORD);
+  }
+
+  if (normalized === finance2Email && process.env.E2E_FINANCE2_PASSWORD) {
+    candidates.add(process.env.E2E_FINANCE2_PASSWORD);
+  }
+
+  candidates.add(DEFAULT_PASSWORD);
+  return [...candidates];
+}
+
+async function resolveLoginPassword(email: string): Promise<string | null> {
+  const normalized = email.trim().toLowerCase();
+  if (loginPasswordCache.has(normalized)) {
+    return loginPasswordCache.get(normalized) ?? null;
+  }
+
+  const client = getPublicSupabaseClient();
+
+  for (const password of getPasswordCandidates(email)) {
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (error || !data.session) {
+      continue;
+    }
+
+    await client.auth.signOut().catch(() => undefined);
+    loginPasswordCache.set(normalized, password);
+    return password;
+  }
+
+  loginPasswordCache.set(normalized, null);
+  return null;
 }
 
 async function getUsersByEmails(emails: string[]): Promise<Map<string, UserRecord>> {
@@ -192,28 +270,103 @@ function resolveRoleByUserId(userId: string): KnownRole | null {
 }
 
 async function resolveRuntimeActors(): Promise<RuntimeActors> {
-  const startingUsers = await getUsersByEmails([STARTING_USER_EMAIL, STARTING_HOD_EMAIL]);
+  const startingUsers = await getUsersByEmails([STARTING_USER_EMAIL]);
   const submitter = startingUsers.get(STARTING_USER_EMAIL);
-  const knownHod = startingUsers.get(STARTING_HOD_EMAIL);
 
   if (!submitter) {
     throw new Error(`Starting submitter account ${STARTING_USER_EMAIL} was not found.`);
   }
 
-  const submitterDepartment = await resolveSubmitterDepartment(submitter);
-  const lookupUserIds = new Set<string>([
-    submitterDepartment.hod_user_id,
-    submitterDepartment.founder_user_id,
-  ]);
+  const submitterPassword = await resolveLoginPassword(submitter.email);
+  if (!submitterPassword) {
+    throw new Error(`Unable to sign in with submitter actor ${submitter.email}.`);
+  }
 
   const client = getAdminSupabaseClient();
+  const preferredDepartment = await resolveSubmitterDepartment(submitter);
+
+  const activeDepartmentsResult = await client
+    .from("master_departments")
+    .select("id, name, hod_user_id, founder_user_id")
+    .eq("is_active", true);
+
+  if (activeDepartmentsResult.error) {
+    throw new Error(
+      `Failed to resolve active departments: ${activeDepartmentsResult.error.message}`,
+    );
+  }
+
+  const activeDepartments = (activeDepartmentsResult.data ?? []) as DepartmentRecord[];
+  if (activeDepartments.length === 0) {
+    throw new Error("No active departments found for workflow tests.");
+  }
+
+  const orderedDepartments = [
+    preferredDepartment,
+    ...activeDepartments.filter((department) => department.id !== preferredDepartment.id),
+  ];
+
+  const departmentActorIds = [
+    ...new Set(
+      activeDepartments.flatMap((department) => [
+        department.hod_user_id,
+        department.founder_user_id,
+      ]),
+    ),
+  ];
+  const { data: departmentUsers, error: departmentUsersError } = await client
+    .from("users")
+    .select("id, email, full_name")
+    .eq("is_active", true)
+    .in("id", departmentActorIds);
+
+  if (departmentUsersError) {
+    throw new Error(`Failed to resolve department actors: ${departmentUsersError.message}`);
+  }
+
+  const usersById = new Map(((departmentUsers ?? []) as UserRecord[]).map((row) => [row.id, row]));
+
+  let submitterDepartment: DepartmentRecord | null = null;
+  let hodDepartment: DepartmentRecord | null = null;
+  let hod: AuthenticatedUserRecord | null = null;
+  let founder: AuthenticatedUserRecord | null = null;
+
+  for (const department of orderedDepartments) {
+    const hodCandidate = usersById.get(department.hod_user_id);
+    const founderCandidate = usersById.get(department.founder_user_id);
+
+    if (!hodCandidate || !founderCandidate) {
+      continue;
+    }
+
+    const [hodPassword, founderPassword] = await Promise.all([
+      resolveLoginPassword(hodCandidate.email),
+      resolveLoginPassword(founderCandidate.email),
+    ]);
+
+    if (!hodPassword || !founderPassword) {
+      continue;
+    }
+
+    submitterDepartment = department;
+    hodDepartment = department;
+    hod = { ...hodCandidate, loginPassword: hodPassword };
+    founder = { ...founderCandidate, loginPassword: founderPassword };
+    break;
+  }
+
+  if (!submitterDepartment || !hodDepartment || !hod || !founder) {
+    throw new Error(
+      "Unable to find an active department with login-capable HOD and founder actors.",
+    );
+  }
+
   const financeResult = await client
     .from("master_finance_approvers")
     .select("id, user_id, is_primary, created_at")
     .eq("is_active", true)
     .order("is_primary", { ascending: false })
-    .order("created_at", { ascending: true })
-    .limit(2);
+    .order("created_at", { ascending: true });
 
   if (financeResult.error) {
     throw new Error(`Failed to load finance approvers: ${financeResult.error.message}`);
@@ -224,63 +377,44 @@ async function resolveRuntimeActors(): Promise<RuntimeActors> {
     throw new Error("At least two active finance approvers are required for workflow tests.");
   }
 
-  for (const approver of financeApprovers) {
-    lookupUserIds.add(approver.user_id);
-  }
-
-  if (knownHod?.id) {
-    lookupUserIds.add(knownHod.id);
-  }
-
-  const departmentsResult = await client
-    .from("master_departments")
-    .select("id, name, hod_user_id, founder_user_id")
-    .eq("is_active", true)
-    .eq("hod_user_id", knownHod?.id ?? submitterDepartment.hod_user_id)
-    .limit(1)
-    .maybeSingle();
-
-  if (departmentsResult.error) {
-    throw new Error(`Failed to resolve HOD department: ${departmentsResult.error.message}`);
-  }
-
-  const fallbackHodId = knownHod?.id ?? submitterDepartment.hod_user_id;
-  const hodDepartment = (departmentsResult.data as DepartmentRecord | null) ?? {
-    ...submitterDepartment,
-    hod_user_id: fallbackHodId,
-  };
-
-  lookupUserIds.add(hodDepartment.hod_user_id);
-  lookupUserIds.add(hodDepartment.founder_user_id);
-
+  const financeUserIds = [...new Set(financeApprovers.map((approver) => approver.user_id))];
   const usersByIdResult = await client
     .from("users")
     .select("id, email, full_name")
-    .in("id", [...lookupUserIds])
+    .in("id", financeUserIds)
     .eq("is_active", true);
 
   if (usersByIdResult.error) {
-    throw new Error(`Failed to resolve role users: ${usersByIdResult.error.message}`);
+    throw new Error(`Failed to resolve finance users: ${usersByIdResult.error.message}`);
   }
 
-  const usersById = new Map(
+  const financeUsersById = new Map(
     ((usersByIdResult.data ?? []) as UserRecord[]).map((row) => [row.id, row]),
   );
+  const financeActors: AuthenticatedUserRecord[] = [];
+  const seenFinanceActorIds = new Set<string>();
 
-  const effectiveSubmitterDepartment = hodDepartment;
+  for (const approver of financeApprovers) {
+    const financeCandidate = financeUsersById.get(approver.user_id);
+    if (!financeCandidate || seenFinanceActorIds.has(financeCandidate.id)) {
+      continue;
+    }
 
-  const submitterHod = usersById.get(effectiveSubmitterDepartment.hod_user_id);
-  const hodFounder = usersById.get(hodDepartment.founder_user_id);
+    const financePassword = await resolveLoginPassword(financeCandidate.email);
+    if (!financePassword) {
+      continue;
+    }
 
-  if (!submitterHod || !hodFounder) {
-    throw new Error("Unable to resolve HOD/Founder users as active accounts.");
+    financeActors.push({ ...financeCandidate, loginPassword: financePassword });
+    seenFinanceActorIds.add(financeCandidate.id);
+
+    if (financeActors.length >= 2) {
+      break;
+    }
   }
 
-  const finance1 = usersById.get(financeApprovers[0].user_id);
-  const finance2 = usersById.get(financeApprovers[1].user_id);
-
-  if (!finance1 || !finance2) {
-    throw new Error("Unable to resolve finance approver users.");
+  if (financeActors.length < 2) {
+    throw new Error("Unable to resolve two login-capable finance approver actors.");
   }
 
   const categoryResult = await client
@@ -297,26 +431,16 @@ async function resolveRuntimeActors(): Promise<RuntimeActors> {
     );
   }
 
-  const activeDepartmentsResult = await client
-    .from("master_departments")
-    .select("id, name, hod_user_id, founder_user_id")
-    .eq("is_active", true);
-
-  if (activeDepartmentsResult.error) {
-    throw new Error(
-      `Failed to resolve active departments for edge workflows: ${activeDepartmentsResult.error.message}`,
-    );
-  }
-
-  const activeDepartments = (activeDepartmentsResult.data ?? []) as DepartmentRecord[];
   const founderDepartment =
-    activeDepartments.find((department) => department.founder_user_id === hodFounder.id) ?? null;
+    activeDepartments.find((department) => department.founder_user_id === founder.id) ?? null;
 
-  const knownApproverIds = new Set([submitterHod.id, hodFounder.id, finance1.id, finance2.id]);
+  const finance1 = financeActors[0];
+  const finance2 = financeActors[1];
+  const knownApproverIds = new Set([hod.id, founder.id, finance1.id, finance2.id]);
   const crossCandidate =
     activeDepartments
-      .filter((department) => department.id !== effectiveSubmitterDepartment.id)
-      .filter((department) => department.hod_user_id !== effectiveSubmitterDepartment.hod_user_id)
+      .filter((department) => department.id !== submitterDepartment.id)
+      .filter((department) => department.hod_user_id !== submitterDepartment.hod_user_id)
       .find((department) => knownApproverIds.has(department.hod_user_id)) ?? null;
 
   const crossDepartmentCandidate =
@@ -326,20 +450,20 @@ async function resolveRuntimeActors(): Promise<RuntimeActors> {
           department: crossCandidate,
           approverRole: (resolveRoleByUserIdFromKnownUsers(
             crossCandidate.hod_user_id,
-            submitterHod,
-            hodFounder,
+            hod,
+            founder,
             finance1,
             finance2,
           ) ?? "hod") as KnownRole,
         };
 
   return {
-    submitter,
-    hod: submitterHod,
-    founder: hodFounder,
+    submitter: { ...submitter, loginPassword: submitterPassword },
+    hod,
+    founder,
     finance1,
     finance2,
-    submitterDepartment: effectiveSubmitterDepartment,
+    submitterDepartment,
     hodDepartment,
     expenseCategoryName: categoryResult.data.name as string,
     founderDepartment,
@@ -410,7 +534,7 @@ async function loginToContext(
 }
 
 async function setupActorSessions(browser: Browser, actors: RuntimeActors): Promise<void> {
-  const roleToUser: Record<KnownRole, UserRecord> = {
+  const roleToUser: Record<KnownRole, AuthenticatedUserRecord> = {
     submitter: actors.submitter,
     hod: actors.hod,
     founder: actors.founder,
@@ -419,52 +543,23 @@ async function setupActorSessions(browser: Browser, actors: RuntimeActors): Prom
   };
 
   for (const role of Object.keys(roleToUser) as KnownRole[]) {
-    const email = roleToUser[role].email;
-    const storageStatePath = getAuthStatePathForEmail(email);
-    const context = await browser.newContext(
-      storageStatePath ? { storageState: storageStatePath } : undefined,
-    );
-    let page: Page;
+    const actor = roleToUser[role];
+    const context = await browser.newContext();
 
     try {
-      if (storageStatePath) {
-        page = await context.newPage();
-        await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+      const page = await loginToContext(context, actor.email, actor.loginPassword);
 
-        const normalizedEmail = email.trim().toLowerCase();
-        const authenticatedAsText = page
-          .locator("body")
-          .getByText(
-            new RegExp(
-              `Authenticated as\\s+${normalizedEmail.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
-              "i",
-            ),
-          )
-          .first();
-        const hasExpectedIdentity = (await authenticatedAsText.count()) > 0;
-
-        if (/\/auth\/login/i.test(page.url()) || !hasExpectedIdentity) {
-          await page.close().catch(() => undefined);
-          page = await loginToContext(context, email, DEFAULT_PASSWORD);
-        }
-      } else {
-        page = await loginToContext(context, email, DEFAULT_PASSWORD);
-        registerAuthStateEmail(email, role);
-      }
+      actorSessions.set(role, {
+        role,
+        user: actor,
+        context,
+        page,
+      });
     } catch (error) {
       await context.close().catch(() => undefined);
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(
-        `Actor login failed for role ${role} (${roleToUser[role].email}): ${message}`,
-      );
+      throw new Error(`Actor login failed for role ${role} (${actor.email}): ${message}`);
     }
-
-    actorSessions.set(role, {
-      role,
-      user: roleToUser[role],
-      context,
-      page,
-    });
   }
 }
 
@@ -888,7 +983,7 @@ async function openMyClaims(page: Page, claimId?: string): Promise<void> {
     params.size > 0 ? `/dashboard/my-claims?${params.toString()}` : "/dashboard/my-claims";
   await page.goto(url, { waitUntil: "domcontentloaded" });
   await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
-  await expect(page.getByRole("heading", { name: /my claims/i })).toBeVisible({ timeout: 20000 });
+  await expect(page.getByRole("heading", { name: /^claims$/i })).toBeVisible({ timeout: 20000 });
   if (claimId) {
     await page.waitForTimeout(2000);
   }

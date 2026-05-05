@@ -18,6 +18,10 @@ type UserRecord = {
   full_name: string | null;
 };
 
+type AuthenticatedUserRecord = UserRecord & {
+  loginPassword: string;
+};
+
 type DepartmentRecord = {
   id: string;
   name: string;
@@ -26,10 +30,10 @@ type DepartmentRecord = {
 };
 
 type RuntimeActors = {
-  employee: UserRecord;
-  hod: UserRecord;
-  founder: UserRecord;
-  finance: UserRecord;
+  employee: AuthenticatedUserRecord;
+  hod: AuthenticatedUserRecord;
+  founder: AuthenticatedUserRecord;
+  finance: AuthenticatedUserRecord;
   submitterDepartment: DepartmentRecord;
   expenseCategoryName: string;
 };
@@ -75,32 +79,99 @@ function getAdminSupabaseClient() {
   });
 }
 
+function getPublicSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !anonKey) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are required.");
+  }
+
+  return createClient(supabaseUrl, anonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+}
+
+const loginPasswordCache = new Map<string, string | null>();
+
+function getPasswordCandidates(email: string): string[] {
+  const normalized = email.trim().toLowerCase();
+  const submitterEmail = (process.env.E2E_SUBMITTER_EMAIL ?? "user@nxtwave.co.in").toLowerCase();
+  const hodEmail = (process.env.E2E_HOD_EMAIL ?? "hod@nxtwave.co.in").toLowerCase();
+  const founderEmail = (process.env.E2E_FOUNDER_EMAIL ?? "founder@nxtwave.co.in").toLowerCase();
+  const financeEmail = (process.env.E2E_FINANCE_EMAIL ?? "finance@nxtwave.co.in").toLowerCase();
+  const finance2Email = (process.env.E2E_FINANCE2_EMAIL ?? "finance2@nxtwave.co.in").toLowerCase();
+  const candidates = new Set<string>();
+
+  if (normalized === submitterEmail && process.env.E2E_SUBMITTER_PASSWORD) {
+    candidates.add(process.env.E2E_SUBMITTER_PASSWORD);
+  }
+
+  if (normalized === hodEmail && process.env.E2E_HOD_PASSWORD) {
+    candidates.add(process.env.E2E_HOD_PASSWORD);
+  }
+
+  if (normalized === founderEmail) {
+    candidates.add(process.env.E2E_FOUNDER_PASSWORD ?? "Nxtwave@2026");
+  }
+
+  if (normalized === financeEmail && process.env.E2E_FINANCE_PASSWORD) {
+    candidates.add(process.env.E2E_FINANCE_PASSWORD);
+  }
+
+  if (normalized === finance2Email && process.env.E2E_FINANCE2_PASSWORD) {
+    candidates.add(process.env.E2E_FINANCE2_PASSWORD);
+  }
+
+  candidates.add(DEFAULT_PASSWORD);
+  return [...candidates];
+}
+
+async function resolveLoginPassword(email: string): Promise<string | null> {
+  const normalized = email.trim().toLowerCase();
+  if (loginPasswordCache.has(normalized)) {
+    return loginPasswordCache.get(normalized) ?? null;
+  }
+
+  const client = getPublicSupabaseClient();
+
+  for (const password of getPasswordCandidates(email)) {
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (error || !data.session) {
+      continue;
+    }
+
+    await client.auth.signOut().catch(() => undefined);
+    loginPasswordCache.set(normalized, password);
+    return password;
+  }
+
+  loginPasswordCache.set(normalized, null);
+  return null;
+}
+
 async function resolveRuntimeActors(): Promise<RuntimeActors> {
   const client = getAdminSupabaseClient();
 
   const employeeEmail = process.env.E2E_SUBMITTER_EMAIL ?? "user@nxtwave.co.in";
-  const hodEmail = process.env.E2E_HOD_EMAIL ?? "hod@nxtwave.co.in";
-  const founderEmail = process.env.E2E_FOUNDER_EMAIL ?? "founder@nxtwave.co.in";
-  const financeEmail = process.env.E2E_FINANCE_EMAIL ?? "finance@nxtwave.co.in";
-
-  const { data: baseUsers, error: baseUsersError } = await client
+  const { data: employeeRow, error: employeeError } = await client
     .from("users")
     .select("id, email, full_name")
     .eq("is_active", true)
-    .in("email", [employeeEmail, hodEmail, founderEmail, financeEmail]);
+    .eq("email", employeeEmail)
+    .limit(1)
+    .maybeSingle();
 
-  if (baseUsersError) {
-    throw new Error(`Failed to resolve core users: ${baseUsersError.message}`);
+  if (employeeError || !employeeRow) {
+    throw new Error(`Failed to resolve employee user: ${employeeError?.message ?? "missing"}`);
   }
 
-  const byEmail = new Map(((baseUsers ?? []) as UserRecord[]).map((user) => [user.email, user]));
-  const employee = byEmail.get(employeeEmail);
-  const hod = byEmail.get(hodEmail);
-  const founder = byEmail.get(founderEmail);
-  const finance = byEmail.get(financeEmail);
-
-  if (!employee || !hod || !founder || !finance) {
-    throw new Error("Required employee/hod/founder/finance users are missing.");
+  const employeePassword = await resolveLoginPassword(employeeRow.email);
+  if (!employeePassword) {
+    throw new Error(`Unable to sign in with employee actor ${employeeRow.email}.`);
   }
 
   const { data: activeDepartments, error: departmentsError } = await client
@@ -113,13 +184,108 @@ async function resolveRuntimeActors(): Promise<RuntimeActors> {
   }
 
   const departments = (activeDepartments ?? []) as DepartmentRecord[];
-  const submitterDepartment =
-    departments.find((department) => department.hod_user_id === hod.id) ??
-    departments.find((department) => department.hod_user_id === founder.id) ??
-    departments[0];
-
-  if (!submitterDepartment) {
+  if (departments.length === 0) {
     throw new Error("No active department available for submitter.");
+  }
+
+  const departmentActorIds = [
+    ...new Set(
+      departments.flatMap((department) => [department.hod_user_id, department.founder_user_id]),
+    ),
+  ];
+  const { data: departmentUsers, error: departmentUsersError } = await client
+    .from("users")
+    .select("id, email, full_name")
+    .eq("is_active", true)
+    .in("id", departmentActorIds);
+
+  if (departmentUsersError) {
+    throw new Error(`Failed to resolve department actors: ${departmentUsersError.message}`);
+  }
+
+  const usersById = new Map(
+    ((departmentUsers ?? []) as UserRecord[]).map((user) => [user.id, user]),
+  );
+
+  let submitterDepartment: DepartmentRecord | null = null;
+  let hod: AuthenticatedUserRecord | null = null;
+  let founder: AuthenticatedUserRecord | null = null;
+
+  for (const department of departments) {
+    const hodCandidate = usersById.get(department.hod_user_id);
+    const founderCandidate = usersById.get(department.founder_user_id);
+
+    if (!hodCandidate || !founderCandidate) {
+      continue;
+    }
+
+    const [hodPassword, founderPassword] = await Promise.all([
+      resolveLoginPassword(hodCandidate.email),
+      resolveLoginPassword(founderCandidate.email),
+    ]);
+
+    if (!hodPassword || !founderPassword) {
+      continue;
+    }
+
+    submitterDepartment = department;
+    hod = { ...hodCandidate, loginPassword: hodPassword };
+    founder = { ...founderCandidate, loginPassword: founderPassword };
+    break;
+  }
+
+  if (!submitterDepartment || !hod || !founder) {
+    throw new Error(
+      "Unable to find an active department with login-capable HOD and founder actors.",
+    );
+  }
+
+  const { data: financeApprovers, error: financeApproversError } = await client
+    .from("master_finance_approvers")
+    .select("user_id, is_primary, created_at")
+    .eq("is_active", true)
+    .order("is_primary", { ascending: false })
+    .order("created_at", { ascending: true });
+
+  if (financeApproversError) {
+    throw new Error(`Failed to resolve finance approvers: ${financeApproversError.message}`);
+  }
+
+  const financeUserIds = [
+    ...new Set(((financeApprovers ?? []) as Array<{ user_id: string }>).map((row) => row.user_id)),
+  ];
+  const { data: financeUsers, error: financeUsersError } = await client
+    .from("users")
+    .select("id, email, full_name")
+    .eq("is_active", true)
+    .in("id", financeUserIds);
+
+  if (financeUsersError) {
+    throw new Error(`Failed to resolve finance users: ${financeUsersError.message}`);
+  }
+
+  const financeById = new Map(
+    ((financeUsers ?? []) as UserRecord[]).map((user) => [user.id, user]),
+  );
+  let finance: AuthenticatedUserRecord | null = null;
+
+  for (const approver of (financeApprovers ?? []) as Array<{ user_id: string }>) {
+    const financeCandidate = financeById.get(approver.user_id);
+    if (!financeCandidate) {
+      continue;
+    }
+
+    const financePassword = await resolveLoginPassword(financeCandidate.email);
+    if (!financePassword) {
+      continue;
+    }
+
+    finance = { ...financeCandidate, loginPassword: financePassword };
+    break;
+  }
+
+  if (!finance) {
+    throw new Error("Unable to find a login-capable finance approver actor.");
   }
 
   const { data: categoryRow, error: categoryError } = await client
@@ -137,7 +303,7 @@ async function resolveRuntimeActors(): Promise<RuntimeActors> {
   }
 
   return {
-    employee,
+    employee: { ...(employeeRow as UserRecord), loginPassword: employeePassword },
     hod,
     founder,
     finance,
@@ -146,9 +312,9 @@ async function resolveRuntimeActors(): Promise<RuntimeActors> {
   };
 }
 
-async function loginAs(context: BrowserContext, email: string): Promise<Page> {
+async function loginAs(context: BrowserContext, email: string, password: string): Promise<Page> {
   const loginResponse = await context.request.post(`${APP_BASE_URL}/api/auth/email-login`, {
-    data: { email, password: DEFAULT_PASSWORD },
+    data: { email, password },
   });
   expect(loginResponse.ok()).toBeTruthy();
 
@@ -173,7 +339,7 @@ async function loginAs(context: BrowserContext, email: string): Promise<Page> {
 }
 
 async function setupSessions(browser: Browser): Promise<void> {
-  const roleToUser: Record<KnownRole, UserRecord> = {
+  const roleToUser: Record<KnownRole, AuthenticatedUserRecord> = {
     employee: actors.employee,
     hod: actors.hod,
     founder: actors.founder,
@@ -182,7 +348,7 @@ async function setupSessions(browser: Browser): Promise<void> {
 
   for (const role of Object.keys(roleToUser) as KnownRole[]) {
     const context = await browser.newContext({ baseURL: APP_BASE_URL });
-    const page = await loginAs(context, roleToUser[role].email);
+    const page = await loginAs(context, roleToUser[role].email, roleToUser[role].loginPassword);
     sessions.set(role, { context, page, user: roleToUser[role] });
   }
 }

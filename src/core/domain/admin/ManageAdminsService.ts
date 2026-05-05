@@ -1,21 +1,12 @@
 import type {
-  AdminCursorPaginatedResult,
-  AdminCursorPaginationInput,
   AdminDomainLogger,
   AdminRecord,
   AdminRepository,
-  AdminUserRecord,
 } from "@/core/domain/admin/contracts";
 
 type Dependencies = {
   repository: AdminRepository;
   logger: AdminDomainLogger;
-};
-
-type GetUsersResult = {
-  data: AdminCursorPaginatedResult<AdminUserRecord> | null;
-  errorCode: string | null;
-  errorMessage: string | null;
 };
 
 type GetAdminsResult = {
@@ -43,20 +34,6 @@ export class ManageAdminsService {
   constructor({ repository, logger }: Dependencies) {
     this.repository = repository;
     this.logger = logger;
-  }
-
-  async getAllUsers(pagination: AdminCursorPaginationInput): Promise<GetUsersResult> {
-    const result = await this.repository.getAllUsers(pagination);
-
-    if (result.errorMessage) {
-      this.logger.error("ManageAdminsService.getAllUsers.failed", {
-        errorMessage: result.errorMessage,
-      });
-
-      return { data: null, errorCode: "FETCH_FAILED", errorMessage: result.errorMessage };
-    }
-
-    return { data: result.data, errorCode: null, errorMessage: null };
   }
 
   async getAdmins(): Promise<GetAdminsResult> {

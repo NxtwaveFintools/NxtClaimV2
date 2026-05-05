@@ -1,9 +1,10 @@
 /** @jest-environment node */
+export {};
 
 const mockExchangeCodeForSession = jest.fn();
 const mockGetUser = jest.fn();
 const mockSignOut = jest.fn();
-const mockIsAllowedEmailDomain = jest.fn();
+const mockIsAllowedEmailDomainInDb = jest.fn();
 
 const mockCookieStore = {
   getAll: jest.fn(() => []),
@@ -23,8 +24,8 @@ jest.mock("next/headers", () => ({
   cookies: jest.fn(async () => mockCookieStore),
 }));
 
-jest.mock("@/core/config/allowed-domains", () => ({
-  isAllowedEmailDomain: (...args: unknown[]) => mockIsAllowedEmailDomain(...args),
+jest.mock("@/core/infra/auth/allowed-auth-domains", () => ({
+  isAllowedEmailDomainInDb: (...args: unknown[]) => mockIsAllowedEmailDomainInDb(...args),
 }));
 
 jest.mock("@/core/infra/logging/logger", () => ({
@@ -42,7 +43,10 @@ describe("GET /api/auth/callback", () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
     process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key";
-    mockIsAllowedEmailDomain.mockReturnValue(true);
+    mockIsAllowedEmailDomainInDb.mockResolvedValue({
+      isAllowed: true,
+      errorMessage: null,
+    });
     mockExchangeCodeForSession.mockResolvedValue({ error: null });
     mockGetUser.mockResolvedValue({
       data: {
@@ -57,7 +61,7 @@ describe("GET /api/auth/callback", () => {
 
   test("redirects to login when code exchange fails", async () => {
     mockExchangeCodeForSession.mockResolvedValueOnce({ error: { message: "exchange failed" } });
-    const { GET } = await import("@/app/api/auth/callback/route");
+    const { GET } = await import("@/app/auth/callback/route");
 
     const response = await GET(
       new Request("http://localhost/api/auth/callback?code=abc", {
@@ -66,12 +70,15 @@ describe("GET /api/auth/callback", () => {
     );
 
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toContain("/auth/login?error=unauthorized_domain");
+    expect(response.headers.get("location")).toContain("/auth/login?error=sso_failed");
   });
 
   test("redirects to login and signs out when domain is blocked", async () => {
-    mockIsAllowedEmailDomain.mockReturnValue(false);
-    const { GET } = await import("@/app/api/auth/callback/route");
+    mockIsAllowedEmailDomainInDb.mockResolvedValue({
+      isAllowed: false,
+      errorMessage: null,
+    });
+    const { GET } = await import("@/app/auth/callback/route");
 
     const response = await GET(new Request("http://localhost/api/auth/callback?code=abc") as never);
 
@@ -80,7 +87,7 @@ describe("GET /api/auth/callback", () => {
   });
 
   test("redirects to dashboard on successful callback", async () => {
-    const { GET } = await import("@/app/api/auth/callback/route");
+    const { GET } = await import("@/app/auth/callback/route");
 
     const response = await GET(new Request("http://localhost/api/auth/callback?code=abc") as never);
 

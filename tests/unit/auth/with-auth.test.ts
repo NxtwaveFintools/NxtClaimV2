@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { AUTH_ERROR_CODES } from "@/core/constants/auth";
 
 const mockGetUser = jest.fn();
-const mockIsAllowedEmailDomain = jest.fn();
+const mockIsAllowedEmailDomainInDb = jest.fn();
 
 jest.mock("@/core/infra/supabase/server-client", () => ({
   getPublicServerSupabaseClient: () => ({
@@ -14,8 +14,8 @@ jest.mock("@/core/infra/supabase/server-client", () => ({
   }),
 }));
 
-jest.mock("@/core/config/allowed-domains", () => ({
-  isAllowedEmailDomain: (...args: unknown[]) => mockIsAllowedEmailDomain(...args),
+jest.mock("@/core/infra/auth/allowed-auth-domains", () => ({
+  isAllowedEmailDomainInDb: (...args: unknown[]) => mockIsAllowedEmailDomainInDb(...args),
 }));
 
 jest.mock("@/core/infra/logging/logger", () => ({
@@ -30,7 +30,10 @@ jest.mock("@/core/infra/logging/logger", () => ({
 describe("withAuth", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockIsAllowedEmailDomain.mockReturnValue(true);
+    mockIsAllowedEmailDomainInDb.mockResolvedValue({
+      isAllowed: true,
+      errorMessage: null,
+    });
   });
 
   test("returns 401 when authorization header is missing", async () => {
@@ -65,7 +68,10 @@ describe("withAuth", () => {
       data: { user: { id: "user-1", email: "user@blocked.com" } },
       error: null,
     });
-    mockIsAllowedEmailDomain.mockReturnValue(false);
+    mockIsAllowedEmailDomainInDb.mockResolvedValue({
+      isAllowed: false,
+      errorMessage: null,
+    });
 
     const { withAuth } = await import("@/core/http/with-auth");
     const wrapped = withAuth(async () => NextResponse.json({ ok: true }, { status: 200 }));

@@ -49,15 +49,6 @@ export type AdminClaimOverrideSummary = {
   isActive: boolean;
 };
 
-export type AdminUserRecord = {
-  id: string;
-  email: string;
-  fullName: string | null;
-  role: string;
-  isActive: boolean;
-  createdAt: string;
-};
-
 export type AdminRecord = {
   id: string;
   /** Null for provisional entries where the user has not yet signed in. */
@@ -260,17 +251,6 @@ export interface AdminRepository {
     id: string,
     payload: { isActive?: boolean; isPrimary?: boolean },
   ): Promise<{ data: FinanceApproverRecord | null; errorMessage: string | null }>;
-
-  // Users
-  getAllUsers(pagination: AdminCursorPaginationInput): Promise<{
-    data: AdminCursorPaginatedResult<AdminUserRecord> | null;
-    errorMessage: string | null;
-  }>;
-
-  updateUserRole(
-    userId: string,
-    role: string,
-  ): Promise<{ success: boolean; errorMessage: string | null }>;
 
   // Admins
   getAdmins(): Promise<{ data: AdminRecord[]; errorMessage: string | null }>;

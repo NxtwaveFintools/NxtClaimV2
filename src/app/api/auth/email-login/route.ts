@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { isAllowedEmailDomain } from "@/core/config/allowed-domains";
-import { AUTH_ERROR_CODES } from "@/core/constants/auth";
+import { isAllowedEmailDomainInDb } from "@/core/infra/auth/allowed-auth-domains";
+import { AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES } from "@/core/constants/auth";
 import { logger } from "@/core/infra/logging/logger";
 import { getPublicServerSupabaseClient } from "@/core/infra/supabase/server-client";
 import { createErrorResponse, createSuccessResponse } from "@/types/api";
@@ -27,7 +27,24 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  if (!isAllowedEmailDomain(parsed.data.email)) {
+  const domainResult = await isAllowedEmailDomainInDb(parsed.data.email);
+
+  if (domainResult.errorMessage) {
+    logger.error("auth.email_login.domain_lookup_failed", {
+      correlationId,
+      maskedEmail: logger.maskEmail(parsed.data.email),
+    });
+    return NextResponse.json(
+      createErrorResponse(
+        AUTH_ERROR_CODES.authFailed,
+        AUTH_ERROR_MESSAGES.domainValidationFailed,
+        correlationId,
+      ),
+      { status: 500 },
+    );
+  }
+
+  if (!domainResult.isAllowed) {
     logger.warn("auth.email_login.blocked_domain", {
       correlationId,
       maskedEmail: logger.maskEmail(parsed.data.email),
@@ -35,7 +52,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json(
       createErrorResponse(
         AUTH_ERROR_CODES.domainNotAllowed,
-        "Your email domain is not authorized for this workspace.",
+        AUTH_ERROR_MESSAGES.domainNotAllowed,
         correlationId,
       ),
       { status: 403 },

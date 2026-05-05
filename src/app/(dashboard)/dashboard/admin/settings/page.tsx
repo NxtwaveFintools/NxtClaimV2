@@ -22,7 +22,6 @@ import { SupabaseAdminRepository } from "@/modules/admin/repositories/SupabaseAd
 import { MasterDataTable } from "@/modules/admin/ui/settings/master-data-table";
 import { DepartmentsManagement } from "@/modules/admin/ui/settings/departments-management";
 import { FinanceApproversManagement } from "@/modules/admin/ui/settings/finance-approvers-management";
-import { UsersManagement } from "@/modules/admin/ui/settings/users-management";
 import { AdminsManagement } from "@/modules/admin/ui/settings/admins-management";
 import { DepartmentViewersManagement } from "@/modules/admin/ui/settings/department-viewers-management";
 import { PolicyManagement } from "@/modules/admin/ui/settings/policy-management";
@@ -71,10 +70,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
   },
   {
     groupLabel: "Access",
-    items: [
-      { key: "users", label: "Users" },
-      { key: "admins", label: "Administrators" },
-    ],
+    items: [{ key: "admins", label: "Administrators" }],
   },
   {
     groupLabel: "Governance",
@@ -153,13 +149,6 @@ const TAB_META: Record<
     spotlight: "Useful for departmental POCs and operational visibility.",
     icon: Users,
   },
-  users: {
-    eyebrow: "Access",
-    description:
-      "Review users and align each account with the right organizational role for claim permissions.",
-    spotlight: "Role updates here shape access across approvals, dashboards, and admin controls.",
-    icon: Users,
-  },
   admins: {
     eyebrow: "Access",
     description:
@@ -182,8 +171,6 @@ const TAB_META: Record<
     icon: ShieldCheck,
   },
 };
-
-const PAGE_SIZE = 20;
 
 function getActiveGroup(tabKey: TabKey): SidebarGroup {
   return (
@@ -223,9 +210,6 @@ export default async function AdminSettingsPage({
     logger,
   });
 
-  const cursor = firstParam(resolvedParams?.cursor) ?? null;
-  const previousCursor = firstParam(resolvedParams?.prevCursor) ?? null;
-
   const isMasterDataTab = activeTab in MASTER_DATA_MAP;
   const masterMeta = MASTER_DATA_MAP[activeTab];
 
@@ -235,7 +219,6 @@ export default async function AdminSettingsPage({
     masterDataResult,
     departmentsResult,
     financeResult,
-    usersResult,
     policyGateStateResult,
     paymentModeOverrideResult,
   ] = await Promise.all([
@@ -248,9 +231,6 @@ export default async function AdminSettingsPage({
       ? actorsService.getDepartmentsWithActors()
       : Promise.resolve(null),
     activeTab === "finance" ? actorsService.getFinanceApprovers() : Promise.resolve(null),
-    activeTab === "users"
-      ? adminsService.getAllUsers({ cursor, limit: PAGE_SIZE })
-      : Promise.resolve(null),
     activeTab === "policy" ? getPolicyGateState() : Promise.resolve(null),
     activeTab === "claim-override"
       ? masterDataService.getItems({ tableName: "master_payment_modes" })
@@ -420,20 +400,6 @@ export default async function AdminSettingsPage({
                   <ErrorBox message={financeResult.errorMessage} />
                 ) : (
                   <FinanceApproversManagement approvers={financeResult.data} />
-                )
-              ) : null}
-
-              {activeTab === "users" && usersResult ? (
-                usersResult.errorMessage || !usersResult.data ? (
-                  <ErrorBox message={usersResult.errorMessage ?? "Failed to load users."} />
-                ) : (
-                  <UsersManagement
-                    users={usersResult.data.data}
-                    hasNextPage={usersResult.data.hasNextPage}
-                    nextCursor={usersResult.data.nextCursor}
-                    hasPreviousPage={Boolean(previousCursor ?? cursor)}
-                    previousCursor={previousCursor ?? (cursor ? "__first__" : null)}
-                  />
                 )
               ) : null}
 

@@ -2,12 +2,6 @@ import { AUTH_ERROR_CODES } from "@/core/constants/auth";
 import { AuthService } from "@/core/domain/auth/auth.service";
 import type { AuthRepository, DomainLogger } from "@/core/domain/auth/contracts";
 
-const mockIsAllowedEmailDomain = jest.fn();
-
-jest.mock("@/core/config/allowed-domains", () => ({
-  isAllowedEmailDomain: (...args: unknown[]) => mockIsAllowedEmailDomain(...args),
-}));
-
 function createRepository(): jest.Mocked<AuthRepository> {
   return {
     signInWithEmail: jest.fn(),
@@ -31,7 +25,6 @@ function createLogger(): jest.Mocked<DomainLogger> {
 describe("AuthService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockIsAllowedEmailDomain.mockReturnValue(true);
   });
 
   test("loginWithEmail returns auth failure when sign in fails", async () => {
@@ -40,6 +33,7 @@ describe("AuthService", () => {
     repository.signInWithEmail.mockResolvedValue({
       user: null,
       session: null,
+      errorCode: AUTH_ERROR_CODES.authFailed,
       errorMessage: "bad credentials",
     });
 
@@ -58,13 +52,12 @@ describe("AuthService", () => {
   test("loginWithEmail blocks unauthorized domain", async () => {
     const repository = createRepository();
     const logger = createLogger();
-    mockIsAllowedEmailDomain.mockReturnValue(false);
     repository.signInWithEmail.mockResolvedValue({
-      user: { id: "u1", email: "user@blocked.com" },
-      session: { accessToken: "a", refreshToken: "r" },
-      errorMessage: null,
+      user: null,
+      session: null,
+      errorCode: AUTH_ERROR_CODES.domainNotAllowed,
+      errorMessage: "Your email domain is not authorized for this workspace.",
     });
-    repository.signOut.mockResolvedValue({ errorMessage: null });
 
     const service = new AuthService({ repository, logger });
     const result = await service.loginWithEmail("user@blocked.com", "password123");
@@ -73,7 +66,6 @@ describe("AuthService", () => {
       errorCode: AUTH_ERROR_CODES.domainNotAllowed,
       errorMessage: "Your email domain is not authorized for this workspace.",
     });
-    expect(repository.signOut).toHaveBeenCalledTimes(1);
     expect(logger.warn).toHaveBeenCalledWith("auth.email_login.domain_blocked", {
       maskedEmail: "user@blocked.com",
     });
@@ -85,6 +77,7 @@ describe("AuthService", () => {
     repository.signInWithEmail.mockResolvedValue({
       user: { id: "u1", email: "user@nxtwave.co.in" },
       session: { accessToken: "a", refreshToken: "r" },
+      errorCode: null,
       errorMessage: null,
     });
     repository.setSession.mockResolvedValue({ errorMessage: "persist failed" });
@@ -107,6 +100,7 @@ describe("AuthService", () => {
     repository.signInWithEmail.mockResolvedValue({
       user: { id: "u1", email: "user@nxtwave.co.in" },
       session: { accessToken: "a", refreshToken: "r" },
+      errorCode: null,
       errorMessage: null,
     });
     repository.setSession.mockResolvedValue({ errorMessage: null });
@@ -191,26 +185,23 @@ describe("AuthService", () => {
     });
   });
 
-  test("enforceDomainOnCurrentSession blocks disallowed domain", async () => {
+  test("enforceDomainOnCurrentSession treats repository-blocked session as anonymous", async () => {
     const repository = createRepository();
     const logger = createLogger();
-    mockIsAllowedEmailDomain.mockReturnValue(false);
     repository.getCurrentUser.mockResolvedValue({
-      user: { id: "u1", email: "user@blocked.com" },
+      user: null,
       errorMessage: null,
     });
-    repository.signOut.mockResolvedValue({ errorMessage: null });
 
     const service = new AuthService({ repository, logger });
     const result = await service.enforceDomainOnCurrentSession();
 
     expect(result).toEqual({
-      valid: false,
-      hasUser: true,
-      errorCode: AUTH_ERROR_CODES.domainNotAllowed,
-      errorMessage: "Your email domain is not authorized for this workspace.",
+      valid: true,
+      hasUser: false,
+      errorCode: null,
+      errorMessage: null,
     });
-    expect(repository.signOut).toHaveBeenCalledTimes(1);
   });
 
   test("enforceDomainOnCurrentSession allows approved domain", async () => {

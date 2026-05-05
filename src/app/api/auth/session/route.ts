@@ -4,7 +4,8 @@ import { cookies } from "next/headers";
 import { z } from "zod";
 import { withAuth } from "@/core/http/with-auth";
 import { serverEnv } from "@/core/config/server-env";
-import { AUTH_ERROR_CODES } from "@/core/constants/auth";
+import { AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES } from "@/core/constants/auth";
+import { isAllowedEmailDomainInDb } from "@/core/infra/auth/allowed-auth-domains";
 import {
   applySupabaseAuthCookies,
   clearSupabaseAuthTokenCookies,
@@ -106,6 +107,68 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       createErrorResponse(AUTH_ERROR_CODES.authFailed, error.message, correlationId),
       { status: 401 },
+    );
+  }
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser(parsed.data.accessToken);
+
+  if (userError || !user?.email) {
+    clearSupabaseAuthTokenCookies({
+      existingCookies: cookieStore.getAll(),
+      setCookie: (name, value, options) => {
+        response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2]);
+      },
+    });
+
+    return NextResponse.json(
+      createErrorResponse(
+        AUTH_ERROR_CODES.authFailed,
+        userError?.message ?? AUTH_ERROR_MESSAGES.domainValidationFailed,
+        correlationId,
+      ),
+      { status: 401 },
+    );
+  }
+
+  const domainResult = await isAllowedEmailDomainInDb(user.email);
+
+  if (domainResult.errorMessage) {
+    clearSupabaseAuthTokenCookies({
+      existingCookies: cookieStore.getAll(),
+      setCookie: (name, value, options) => {
+        response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2]);
+      },
+    });
+
+    return NextResponse.json(
+      createErrorResponse(
+        AUTH_ERROR_CODES.authFailed,
+        AUTH_ERROR_MESSAGES.domainValidationFailed,
+        correlationId,
+      ),
+      { status: 500 },
+    );
+  }
+
+  if (!domainResult.isAllowed) {
+    await supabase.auth.signOut();
+    clearSupabaseAuthTokenCookies({
+      existingCookies: cookieStore.getAll(),
+      setCookie: (name, value, options) => {
+        response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2]);
+      },
+    });
+
+    return NextResponse.json(
+      createErrorResponse(
+        AUTH_ERROR_CODES.domainNotAllowed,
+        AUTH_ERROR_MESSAGES.domainNotAllowed,
+        correlationId,
+      ),
+      { status: 403 },
     );
   }
 

@@ -4,7 +4,6 @@ const mockRevalidatePath = jest.fn();
 const mockRevalidateTag = jest.fn();
 const mockIsAdmin = jest.fn();
 const mockGetCurrentUser = jest.fn();
-const mockUpdateUserRole = jest.fn();
 const mockGetClaimOverrideSummary = jest.fn();
 const mockForceUpdateClaimStatus = jest.fn();
 const mockForceUpdatePaymentMode = jest.fn();
@@ -39,7 +38,6 @@ jest.mock("@/modules/auth/repositories/supabase-server-auth.repository", () => (
 
 jest.mock("@/modules/admin/repositories/SupabaseAdminRepository", () => ({
   SupabaseAdminRepository: jest.fn().mockImplementation(() => ({
-    updateUserRole: (...args: unknown[]) => mockUpdateUserRole(...args),
     getClaimOverrideSummary: (...args: unknown[]) => mockGetClaimOverrideSummary(...args),
     forceUpdateClaimStatus: (...args: unknown[]) => mockForceUpdateClaimStatus(...args),
     forceUpdatePaymentMode: (...args: unknown[]) => mockForceUpdatePaymentMode(...args),
@@ -110,7 +108,6 @@ import {
   updateDepartmentActorsByEmailAction,
   updateFinanceApproverAction,
   updateMasterDataItemAction,
-  updateUserRoleAction,
 } from "@/modules/admin/actions";
 
 describe("admin actions", () => {
@@ -131,7 +128,6 @@ describe("admin actions", () => {
     mockCreateFinanceApprover.mockResolvedValue({ data: { id: "x" }, errorMessage: null });
     mockAddFinanceApproverByEmail.mockResolvedValue({ data: { id: "x" }, errorMessage: null });
     mockUpdateFinanceApprover.mockResolvedValue({ data: { id: "x" }, errorMessage: null });
-    mockUpdateUserRole.mockResolvedValue({ success: true, errorMessage: null });
     mockGetClaimOverrideSummary.mockResolvedValue({
       data: {
         claimId: "CLAIM-EMP1-20260408-0001",
@@ -383,22 +379,6 @@ describe("admin actions", () => {
       id: "approver-1",
       payload: { isActive: true, isPrimary: true },
     });
-  });
-
-  test("updateUserRoleAction validates role and handles repository failure", async () => {
-    const invalidRole = await updateUserRoleAction("user-1", "random");
-    expect(invalidRole).toEqual({ ok: false, message: "Invalid role value." });
-
-    mockUpdateUserRole.mockResolvedValueOnce({
-      success: false,
-      errorMessage: "failed role update",
-    });
-    const failed = await updateUserRoleAction("user-1", "finance");
-    expect(failed).toEqual({ ok: false, message: "failed role update" });
-
-    const success = await updateUserRoleAction("user-1", "finance");
-    expect(success).toEqual({ ok: true });
-    expect(mockUpdateUserRole).toHaveBeenCalledWith("user-1", "finance");
   });
 
   test("addAdminAction validates email and adds admin", async () => {

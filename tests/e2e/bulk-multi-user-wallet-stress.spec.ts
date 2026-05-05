@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
 import {
   RECEIPT_PATH,
   fillTextboxIfEditable,
@@ -22,7 +23,8 @@ const PAYMENT_MODE_REIMBURSEMENT_LABEL = "Reimbursement";
 const PAYMENT_MODE_PETTY_CASH_REQUEST_LABEL = "Petty Cash Request";
 
 const EMPLOYEE_B_OVERRIDE_EMAIL = process.env.E2E_EMPLOYEE_B_EMAIL?.toLowerCase() ?? null;
-const L1_HOD_EMAIL = (process.env.E2E_HOD_EMAIL ?? "hod@nxtwave.co.in").toLowerCase();
+const PREFERRED_L1_HOD_EMAIL = (process.env.E2E_HOD_EMAIL ?? "hod@nxtwave.co.in").toLowerCase();
+const DEFAULT_PASSWORD = process.env.E2E_DEFAULT_PASSWORD ?? "password123";
 
 type Beneficiary = "A" | "B";
 type ClaimKind = "reimbursement" | "petty-cash-request";
@@ -30,7 +32,6 @@ type ClaimKind = "reimbursement" | "petty-cash-request";
 type ActiveUser = {
   id: string;
   email: string;
-  role: string;
 };
 
 type Department = {
@@ -39,6 +40,12 @@ type Department = {
   hodUserId: string;
   founderUserId: string;
 };
+
+type DepartmentWithHodEmail = Department & {
+  hodEmail: string;
+};
+
+type UserEmailRelation = { email: string | null } | Array<{ email: string | null }> | null;
 
 type SeedPlan = {
   key: string;
@@ -66,6 +73,14 @@ type ExpectedWalletDelta = {
   pettyCashReceived: number;
   amountReceived: number;
 };
+
+function getRelatedUserEmail(relation: UserEmailRelation): string | null {
+  if (Array.isArray(relation)) {
+    return relation[0]?.email ?? null;
+  }
+
+  return relation?.email ?? null;
+}
 
 function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -167,21 +182,59 @@ async function resolveActiveUserByEmail(email: string): Promise<ActiveUser> {
   const client = getAdminSupabaseClient();
   const { data, error } = await client
     .from("users")
-    .select("id, email, role")
+    .select("id, email")
     .eq("email", email)
     .eq("is_active", true)
     .limit(1)
     .maybeSingle();
 
-  if (error || !data?.id || !data?.email || !data?.role) {
+  if (error || !data?.id || !data?.email) {
     throw new Error(error?.message ?? `Unable to resolve active user for ${email}.`);
   }
 
   return {
     id: data.id as string,
     email: data.email as string,
-    role: data.role as string,
   };
+}
+
+function getPublicSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !anonKey) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are required.");
+  }
+
+  return createClient(supabaseUrl, anonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+}
+
+const loginCapabilityCache = new Map<string, boolean>();
+
+async function canLoginWithDefaultPassword(email: string): Promise<boolean> {
+  const normalized = email.trim().toLowerCase();
+  if (loginCapabilityCache.has(normalized)) {
+    return loginCapabilityCache.get(normalized) ?? false;
+  }
+
+  const client = getPublicSupabaseClient();
+  const { data, error } = await client.auth.signInWithPassword({
+    email: normalized,
+    password: DEFAULT_PASSWORD,
+  });
+
+  const canLogin = !error && Boolean(data.session);
+  if (data.session) {
+    await client.auth.signOut().catch(() => undefined);
+  }
+
+  loginCapabilityCache.set(normalized, canLogin);
+  return canLogin;
 }
 
 async function resolveDepartmentForHodUser(hodUserId: string): Promise<Department> {
@@ -209,13 +262,147 @@ async function resolveDepartmentForHodUser(hodUserId: string): Promise<Departmen
   };
 }
 
-async function resolveSecondaryEmployee(input: { excludedUserIds: string[] }): Promise<ActiveUser> {
+async function resolveLoginCapableL1Department(): Promise<{
+  hod: ActiveUser;
+  department: Department;
+}> {
+  const client = getAdminSupabaseClient();
+  const { data, error } = await client
+    .from("master_departments")
+    .select(
+      "id, name, hod_user_id, founder_user_id, hod:users!master_departments_hod_user_id_fkey(email)",
+    )
+    .eq("is_active", true)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error(
+      error.message ?? "Unable to resolve active departments for bulk wallet stress.",
+    );
+  }
+
+  const departmentRows = (
+    (data ?? []) as Array<{
+      id: string | null;
+      name: string | null;
+      hod_user_id: string | null;
+      founder_user_id: string | null;
+      hod: UserEmailRelation;
+    }>
+  )
+    .filter(
+      (
+        row,
+      ): row is {
+        id: string;
+        name: string;
+        hod_user_id: string;
+        founder_user_id: string;
+        hod: UserEmailRelation;
+      } =>
+        Boolean(
+          row.id &&
+          row.name &&
+          row.hod_user_id &&
+          row.founder_user_id &&
+          getRelatedUserEmail(row.hod),
+        ),
+    )
+    .map(
+      (row) =>
+        ({
+          id: row.id,
+          name: row.name,
+          hodUserId: row.hod_user_id,
+          founderUserId: row.founder_user_id,
+          hodEmail: getRelatedUserEmail(row.hod)!.toLowerCase(),
+        }) satisfies DepartmentWithHodEmail,
+    );
+
+  const orderedDepartments = [
+    ...departmentRows.filter((row) => row.hodEmail === PREFERRED_L1_HOD_EMAIL),
+    ...departmentRows.filter((row) => row.hodEmail !== PREFERRED_L1_HOD_EMAIL),
+  ];
+
+  for (const department of orderedDepartments) {
+    if (!(await canLoginWithDefaultPassword(department.hodEmail))) {
+      continue;
+    }
+
+    return {
+      hod: {
+        id: department.hodUserId,
+        email: department.hodEmail,
+      },
+      department: {
+        id: department.id,
+        name: department.name,
+        hodUserId: department.hodUserId,
+        founderUserId: department.founderUserId,
+      },
+    };
+  }
+
+  throw new Error("Unable to find an active department with a login-capable HOD actor.");
+}
+
+async function resolveReservedActorIds(): Promise<Set<string>> {
+  const client = getAdminSupabaseClient();
+  const [adminsResult, financeResult, departmentsResult] = await Promise.all([
+    client.from("admins").select("user_id").not("user_id", "is", null),
+    client
+      .from("master_finance_approvers")
+      .select("user_id")
+      .eq("is_active", true)
+      .not("user_id", "is", null),
+    client.from("master_departments").select("hod_user_id, founder_user_id").eq("is_active", true),
+  ]);
+
+  if (adminsResult.error || financeResult.error || departmentsResult.error) {
+    throw new Error(
+      adminsResult.error?.message ??
+        financeResult.error?.message ??
+        departmentsResult.error?.message ??
+        "Unable to resolve reserved routing actors for bulk wallet stress coverage.",
+    );
+  }
+
+  const reservedActorIds = new Set<string>();
+
+  for (const row of adminsResult.data ?? []) {
+    if (row.user_id) {
+      reservedActorIds.add(String(row.user_id));
+    }
+  }
+
+  for (const row of financeResult.data ?? []) {
+    if (row.user_id) {
+      reservedActorIds.add(String(row.user_id));
+    }
+  }
+
+  for (const row of departmentsResult.data ?? []) {
+    if (row.hod_user_id) {
+      reservedActorIds.add(String(row.hod_user_id));
+    }
+
+    if (row.founder_user_id) {
+      reservedActorIds.add(String(row.founder_user_id));
+    }
+  }
+
+  return reservedActorIds;
+}
+
+async function resolveSecondaryEmployee(input: {
+  excludedUserIds: string[];
+  reservedActorIds: Set<string>;
+}): Promise<ActiveUser> {
   const client = getAdminSupabaseClient();
   const { data, error } = await client
     .from("users")
-    .select("id, email, role")
+    .select("id, email")
     .eq("is_active", true)
-    .eq("role", "employee")
     .order("created_at", { ascending: true })
     .limit(100);
 
@@ -226,16 +413,12 @@ async function resolveSecondaryEmployee(input: { excludedUserIds: string[] }): P
     );
   }
 
-  const excludedIds = new Set(input.excludedUserIds);
+  const excludedIds = new Set([...input.excludedUserIds, ...input.reservedActorIds]);
   const candidate = (data ?? []).find(
-    (row) =>
-      Boolean(row.id) &&
-      Boolean(row.email) &&
-      String(row.role).toLowerCase() === "employee" &&
-      !excludedIds.has(String(row.id)),
+    (row) => Boolean(row.id) && Boolean(row.email) && !excludedIds.has(String(row.id)),
   );
 
-  if (!candidate?.id || !candidate.email || !candidate.role) {
+  if (!candidate?.id || !candidate.email) {
     throw new Error(
       "Unable to resolve a secondary active employee that is isolated from configured routing actors.",
     );
@@ -244,38 +427,38 @@ async function resolveSecondaryEmployee(input: { excludedUserIds: string[] }): P
   return {
     id: candidate.id as string,
     email: candidate.email as string,
-    role: candidate.role as string,
   };
 }
 
-function isSingleHodSafeBeneficiary(input: {
+function isSafeBeneficiaryCandidate(input: {
   candidate: ActiveUser;
-  configuredHodId: string;
-  departmentFounderId: string;
-  primarySubmitterId: string;
+  excludedUserIds: string[];
+  reservedActorIds: Set<string>;
 }): boolean {
-  return (
-    input.candidate.role.toLowerCase() === "employee" &&
-    input.candidate.id !== input.primarySubmitterId &&
-    input.candidate.id !== input.configuredHodId &&
-    input.candidate.id !== input.departmentFounderId
-  );
+  const excludedIds = new Set(input.excludedUserIds);
+  return !excludedIds.has(input.candidate.id) && !input.reservedActorIds.has(input.candidate.id);
 }
 
 async function resolveBeneficiaryEmployeeB(input: {
   primarySubmitterId: string;
   configuredHodId: string;
   departmentFounderId: string;
+  reservedActorIds: Set<string>;
 }): Promise<ActiveUser> {
+  const excludedUserIds = [
+    input.primarySubmitterId,
+    input.configuredHodId,
+    input.departmentFounderId,
+  ];
+
   if (EMPLOYEE_B_OVERRIDE_EMAIL) {
     const overrideCandidate = await resolveActiveUserByEmail(EMPLOYEE_B_OVERRIDE_EMAIL);
 
     if (
-      isSingleHodSafeBeneficiary({
+      isSafeBeneficiaryCandidate({
         candidate: overrideCandidate,
-        configuredHodId: input.configuredHodId,
-        departmentFounderId: input.departmentFounderId,
-        primarySubmitterId: input.primarySubmitterId,
+        excludedUserIds,
+        reservedActorIds: input.reservedActorIds,
       })
     ) {
       return overrideCandidate;
@@ -283,7 +466,8 @@ async function resolveBeneficiaryEmployeeB(input: {
   }
 
   return resolveSecondaryEmployee({
-    excludedUserIds: [input.primarySubmitterId, input.configuredHodId, input.departmentFounderId],
+    excludedUserIds,
+    reservedActorIds: input.reservedActorIds,
   });
 }
 
@@ -680,6 +864,47 @@ async function openApprovalsWithMarker(
   });
 }
 
+async function waitForBulkControlsOrStatusClear(input: {
+  page: Page;
+  status: string;
+  employeeIdMarker: string;
+  claimIds: string[];
+  timeout: number;
+  message: string;
+}): Promise<boolean> {
+  const masterCheckbox = input.page.getByTestId("bulk-master-checkbox").first();
+
+  await expect
+    .poll(
+      async () => {
+        await openApprovalsWithMarker(input.page, input.status, input.employeeIdMarker);
+
+        const hasBulkControls = await masterCheckbox
+          .isVisible({ timeout: 1500 })
+          .catch(() => false);
+
+        if (hasBulkControls) {
+          return "controls";
+        }
+
+        const remaining = await countClaimsInStatus(input.claimIds, input.status);
+        return remaining === 0 ? "cleared" : "waiting";
+      },
+      {
+        timeout: input.timeout,
+        message: input.message,
+      },
+    )
+    .not.toBe("waiting");
+
+  const remaining = await countClaimsInStatus(input.claimIds, input.status);
+  if (remaining === 0) {
+    return false;
+  }
+
+  return masterCheckbox.isVisible({ timeout: 5000 }).catch(() => false);
+}
+
 async function selectAllMatchingClaims(page: Page, expectedTotal: number): Promise<void> {
   const masterCheckbox = page.getByTestId("bulk-master-checkbox").first();
   await expect(masterCheckbox).toBeVisible({ timeout: 30000 });
@@ -805,16 +1030,18 @@ test.describe("Bulk Multi-User Wallet Stress", () => {
 
     const runtime = await resolveRuntimeClaimData();
     const employeeA = await resolveActiveUserByEmail(runtime.submitterEmail.toLowerCase());
-    const configuredHod = await resolveActiveUserByEmail(L1_HOD_EMAIL);
-    const l1Department = await resolveDepartmentForHodUser(configuredHod.id);
+    const { hod: configuredHod, department: l1Department } =
+      await resolveLoginCapableL1Department();
+    const reservedActorIds = await resolveReservedActorIds();
     const employeeB = await resolveBeneficiaryEmployeeB({
       primarySubmitterId: employeeA.id,
       configuredHodId: configuredHod.id,
       departmentFounderId: l1Department.founderUserId,
+      reservedActorIds,
     });
 
     expect(employeeA.id).not.toBe(employeeB.id);
-    expect(employeeB.role.toLowerCase()).toBe("employee");
+    expect(reservedActorIds.has(employeeB.id)).toBe(false);
     expect(employeeB.id).not.toBe(configuredHod.id);
     expect(employeeB.id).not.toBe(l1Department.founderUserId);
 
@@ -870,21 +1097,17 @@ test.describe("Bulk Multi-User Wallet Stress", () => {
           return;
         }
 
-        await openApprovalsWithMarker(l1Page, STATUS_SUBMITTED, employeeIdMarker);
-
-        const masterCheckbox = l1Page.getByTestId("bulk-master-checkbox").first();
-        const hasBulkControls = await masterCheckbox
-          .isVisible({ timeout: 10000 })
-          .catch(() => false);
+        const hasBulkControls = await waitForBulkControlsOrStatusClear({
+          page: l1Page,
+          status: STATUS_SUBMITTED,
+          employeeIdMarker,
+          claimIds: seededClaimIds,
+          timeout: 45000,
+          message:
+            "waiting for L1 approvals table to surface bulk controls or for submitted claims to finish transitioning",
+        });
 
         if (!hasBulkControls) {
-          await expect
-            .poll(async () => countClaimsInStatus(seededClaimIds, STATUS_SUBMITTED), {
-              timeout: 20000,
-              message:
-                "bulk controls disappeared while waiting for submitted claims to finish transitioning",
-            })
-            .toBe(0);
           return;
         }
 
@@ -912,20 +1135,17 @@ test.describe("Bulk Multi-User Wallet Stress", () => {
           return;
         }
 
-        await openApprovalsWithMarker(financePage, STATUS_L1_APPROVED, employeeIdMarker);
-
-        const approveMasterCheckbox = financePage.getByTestId("bulk-master-checkbox").first();
-        const hasApproveControls = await approveMasterCheckbox
-          .isVisible({ timeout: 10000 })
-          .catch(() => false);
+        const hasApproveControls = await waitForBulkControlsOrStatusClear({
+          page: financePage,
+          status: STATUS_L1_APPROVED,
+          employeeIdMarker,
+          claimIds: seededClaimIds,
+          timeout: 45000,
+          message:
+            "waiting for finance approvals table to surface bulk approve controls or for L1-approved claims to finish transitioning",
+        });
 
         if (!hasApproveControls) {
-          await expect
-            .poll(async () => countClaimsInStatus(seededClaimIds, STATUS_L1_APPROVED), {
-              timeout: 20000,
-              message: "finance bulk approve controls disappeared while claims were transitioning",
-            })
-            .toBe(0);
           return;
         }
 
@@ -955,21 +1175,17 @@ test.describe("Bulk Multi-User Wallet Stress", () => {
           return;
         }
 
-        await openApprovalsWithMarker(financePage, STATUS_FINANCE_APPROVED, employeeIdMarker);
-
-        const markPaidMasterCheckbox = financePage.getByTestId("bulk-master-checkbox").first();
-        const hasMarkPaidControls = await markPaidMasterCheckbox
-          .isVisible({ timeout: 10000 })
-          .catch(() => false);
+        const hasMarkPaidControls = await waitForBulkControlsOrStatusClear({
+          page: financePage,
+          status: STATUS_FINANCE_APPROVED,
+          employeeIdMarker,
+          claimIds: seededClaimIds,
+          timeout: 45000,
+          message:
+            "waiting for finance approvals table to surface bulk mark-paid controls or for finance-approved claims to finish transitioning",
+        });
 
         if (!hasMarkPaidControls) {
-          await expect
-            .poll(async () => countClaimsInStatus(seededClaimIds, STATUS_FINANCE_APPROVED), {
-              timeout: 20000,
-              message:
-                "finance bulk mark-paid controls disappeared while claims were transitioning",
-            })
-            .toBe(0);
           return;
         }
 

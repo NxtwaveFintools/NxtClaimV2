@@ -2,11 +2,11 @@
 
 import { AUTH_ERROR_CODES } from "@/core/constants/auth";
 
-const mockIsAllowedEmailDomain = jest.fn();
+const mockIsAllowedEmailDomainInDb = jest.fn();
 const mockSignInWithPassword = jest.fn();
 
-jest.mock("@/core/config/allowed-domains", () => ({
-  isAllowedEmailDomain: (...args: unknown[]) => mockIsAllowedEmailDomain(...args),
+jest.mock("@/core/infra/auth/allowed-auth-domains", () => ({
+  isAllowedEmailDomainInDb: (...args: unknown[]) => mockIsAllowedEmailDomainInDb(...args),
 }));
 
 jest.mock("@/core/infra/supabase/server-client", () => ({
@@ -37,7 +37,10 @@ function buildRequest(body: unknown): Request {
 describe("POST /api/auth/email-login", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockIsAllowedEmailDomain.mockReturnValue(true);
+    mockIsAllowedEmailDomainInDb.mockResolvedValue({
+      isAllowed: true,
+      errorMessage: null,
+    });
   });
 
   test("returns 400 for invalid payload", async () => {
@@ -51,7 +54,10 @@ describe("POST /api/auth/email-login", () => {
   });
 
   test("returns 403 for blocked email domain", async () => {
-    mockIsAllowedEmailDomain.mockReturnValue(false);
+    mockIsAllowedEmailDomainInDb.mockResolvedValue({
+      isAllowed: false,
+      errorMessage: null,
+    });
     const { POST } = await import("@/app/api/auth/email-login/route");
 
     const response = await POST(

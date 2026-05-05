@@ -2,9 +2,13 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type {
   AuthRepository,
+  AuthSignInResult,
   AuthSessionTokens,
   OAuthProvider,
 } from "@/core/domain/auth/contracts";
+import { AUTH_ERROR_CODES } from "@/core/constants/auth";
+import { AUTH_ERROR_MESSAGES } from "@/core/constants/auth";
+import { isAllowedEmailDomainInDb } from "@/core/infra/auth/allowed-auth-domains";
 import { serverEnv } from "@/core/config/server-env";
 import {
   applySupabaseAuthCookies,
@@ -18,19 +22,13 @@ import {
 type CookieStore = Awaited<ReturnType<typeof cookies>>;
 
 export class SupabaseServerAuthRepository implements AuthRepository {
-  async signInWithEmail(
-    _email: string,
-    _password: string,
-  ): Promise<{
-    user: { id: string; email: string | null } | null;
-    session: AuthSessionTokens | null;
-    errorMessage: string | null;
-  }> {
+  async signInWithEmail(_email: string, _password: string): Promise<AuthSignInResult> {
     void _email;
     void _password;
     return {
       user: null,
       session: null,
+      errorCode: AUTH_ERROR_CODES.authFailed,
       errorMessage: "signInWithEmail is not available in server route guards",
     };
   }
@@ -78,6 +76,26 @@ export class SupabaseServerAuthRepository implements AuthRepository {
       }
 
       if (!data.user) {
+        return { user: null, errorMessage: null };
+      }
+
+      if (!data.user.email) {
+        await client.auth.signOut();
+        this.clearAuthCookies(cookieStore);
+        return { user: null, errorMessage: null };
+      }
+
+      const domainResult = await isAllowedEmailDomainInDb(data.user.email);
+      if (domainResult.errorMessage) {
+        return {
+          user: null,
+          errorMessage: AUTH_ERROR_MESSAGES.domainValidationFailed,
+        };
+      }
+
+      if (!domainResult.isAllowed) {
+        await client.auth.signOut();
+        this.clearAuthCookies(cookieStore);
         return { user: null, errorMessage: null };
       }
 

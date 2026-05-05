@@ -26,11 +26,11 @@ with seeded_users as (
 	select *
 	from (
 		values
-			('11111111-1111-1111-1111-111111111111'::uuid, 'user@nxtwave.co.in', 'Standard Employee', 'employee', 'Tech', '22222222-2222-2222-2222-222222222222'::uuid),
-			('22222222-2222-2222-2222-222222222222'::uuid, 'hod@nxtwave.co.in', 'Department Head', 'hod', 'Tech', '33333333-3333-3333-3333-333333333333'::uuid),
-			('33333333-3333-3333-3333-333333333333'::uuid, 'founder@nxtwave.co.in', 'Founder', 'founder', 'Leadership', null::uuid),
-			('44444444-4444-4444-4444-444444444444'::uuid, 'finance@nxtwave.co.in', 'Finance Team', 'finance', 'Finance', null::uuid)
-	) as t(id, email, full_name, role, department_name, l1_approver_id)
+			('11111111-1111-1111-1111-111111111111'::uuid, 'user@nxtwave.co.in', 'Standard Employee', 'Tech', '22222222-2222-2222-2222-222222222222'::uuid),
+			('22222222-2222-2222-2222-222222222222'::uuid, 'hod@nxtwave.co.in', 'Department Head', 'Tech', '33333333-3333-3333-3333-333333333333'::uuid),
+			('33333333-3333-3333-3333-333333333333'::uuid, 'founder@nxtwave.co.in', 'Founder', 'Leadership', null::uuid),
+			('44444444-4444-4444-4444-444444444444'::uuid, 'finance@nxtwave.co.in', 'Finance Team', 'Finance', null::uuid)
+	) as t(id, email, full_name, department_name, l1_approver_id)
 ),
 upsert_auth_users as (
 	insert into auth.users (
@@ -92,12 +92,11 @@ upsert_identities as (
 		identity_data = excluded.identity_data,
 		updated_at = now()
 )
-insert into public.users (id, email, full_name, role, department_id, l1_approver_id, is_active)
+insert into public.users (id, email, full_name, department_id, l1_approver_id, is_active)
 select
 	su.id,
 	su.email,
 	su.full_name,
-	su.role,
 	d.id,
 	su.l1_approver_id,
 	true
@@ -107,11 +106,32 @@ on conflict (id) do update
 set
 	email = excluded.email,
 	full_name = excluded.full_name,
-	role = excluded.role,
 	department_id = excluded.department_id,
 	l1_approver_id = excluded.l1_approver_id,
 	is_active = true,
 	updated_at = now();
+
+insert into public.master_departments (name, hod_user_id, founder_user_id, is_active)
+values ('Tech', '22222222-2222-2222-2222-222222222222'::uuid, '33333333-3333-3333-3333-333333333333'::uuid, true)
+on conflict (name) do update
+set
+	hod_user_id = excluded.hod_user_id,
+	founder_user_id = excluded.founder_user_id,
+	is_active = excluded.is_active,
+	updated_at = now();
+
+insert into public.master_finance_approvers (user_id, is_active, is_primary)
+values ('44444444-4444-4444-4444-444444444444'::uuid, true, true)
+on conflict (user_id) do update
+set
+	is_active = excluded.is_active,
+	is_primary = excluded.is_primary,
+	provisional_email = null,
+	updated_at = now();
+
+insert into public.admins (user_id)
+values ('33333333-3333-3333-3333-333333333333'::uuid)
+on conflict (user_id) do nothing;
 
 insert into public.master_expense_categories (name, is_active)
 values
@@ -373,12 +393,11 @@ insert_hod_identity as (
 	returning user_id
 ),
 insert_founder_public_user as (
-	insert into public.users (id, email, full_name, role, is_active)
+	insert into public.users (id, email, full_name, is_active)
 	select
 		fa.id,
 		fa.email,
 		fa.full_name,
-		'founder',
 		true
 	from founder_auth fa
 	where not exists (
@@ -391,18 +410,16 @@ insert_founder_public_user as (
 	set
 		email = excluded.email,
 		full_name = excluded.full_name,
-		role = excluded.role,
 		is_active = excluded.is_active,
 		updated_at = now()
 	returning id
 ),
 insert_hod_public_user as (
-	insert into public.users (id, email, full_name, role, is_active)
+	insert into public.users (id, email, full_name, is_active)
 	select
 		ha.id,
 		ha.email,
 		ha.full_name,
-		'hod',
 		true
 	from hod_auth ha
 	where not exists (
@@ -415,7 +432,6 @@ insert_hod_public_user as (
 	set
 		email = excluded.email,
 		full_name = excluded.full_name,
-		role = excluded.role,
 		is_active = excluded.is_active,
 		updated_at = now()
 	returning id

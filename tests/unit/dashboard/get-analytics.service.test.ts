@@ -41,7 +41,6 @@ function createRepository(
     getAnalyticsViewerContext: jest.fn(async () => ({
       data: {
         userId: "user-1",
-        userRole: "employee",
         isAdmin: true,
         hodDepartmentIds: [],
         founderDepartmentIds: [],
@@ -276,7 +275,6 @@ describe("GetAnalyticsService", () => {
       getAnalyticsViewerContext: jest.fn(async () => ({
         data: {
           userId: "user-2",
-          userRole: "finance",
           isAdmin: false,
           hodDepartmentIds: [],
           founderDepartmentIds: [],
@@ -325,7 +323,6 @@ describe("GetAnalyticsService", () => {
       getAnalyticsViewerContext: jest.fn(async () => ({
         data: {
           userId: "user-3",
-          userRole: "employee",
           isAdmin: false,
           hodDepartmentIds: [],
           founderDepartmentIds: [],
