@@ -36,7 +36,8 @@ export function ClaimRejectWithReasonForm({
       return;
     }
 
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     setIsSubmitting(true);
 
     try {
@@ -45,8 +46,8 @@ export function ClaimRejectWithReasonForm({
         success: "Claim rejected.",
         error: (error) => (error instanceof Error ? error.message : "Unable to reject claim."),
       });
+      form.reset();
       setIsModalOpen(false);
-      event.currentTarget.reset();
 
       if (redirectToHref) {
         startTransition(() => {

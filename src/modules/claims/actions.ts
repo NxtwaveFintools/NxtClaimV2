@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { SupabaseServerAuthRepository } from "@/modules/auth/repositories/supabase-server-auth.repository";
@@ -59,6 +60,7 @@ const deleteOwnClaimService = new DeleteOwnClaimService({ repository, logger });
 
 const claimsStorageBucket = "claims";
 type ClaimStorageFolder = "expenses" | "petty_cash_requests";
+type ClaimStorageFileKind = "receipt" | "bankstatement" | "supporting";
 const claimIdSchema = z.string().trim().min(1, "Claim ID is required");
 const claimDecisionSchema = z.object({
   claimId: claimIdSchema,
@@ -191,6 +193,21 @@ function sanitizeFilename(filename: string): string {
   return filename.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
+function sanitizeFileExtension(filename: string): string {
+  const sanitized = filename
+    .split(".")
+    .pop()
+    ?.trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+  return sanitized && sanitized.length > 0 ? sanitized : "bin";
+}
+
+function generateStorageVersion(): string {
+  return randomUUID().replace(/-/g, "").slice(0, 12).toLowerCase();
+}
+
 function validateUploadFileSize(file: File, fieldLabel: string): string | null {
   if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
     return `${fieldLabel} exceeds 25MB.`;
@@ -199,19 +216,37 @@ function validateUploadFileSize(file: File, fieldLabel: string): string | null {
   return null;
 }
 
-function buildStoragePath(folder: ClaimStorageFolder, userId: string, fileName: string): string {
-  return `${folder}/${userId}/${Date.now()}_${sanitizeFilename(fileName)}`;
+function buildStoragePath(input: {
+  folder: ClaimStorageFolder;
+  userId: string;
+  claimId: string;
+  fileKind: ClaimStorageFileKind;
+  fileName: string;
+  version?: string;
+}): string {
+  const extension = sanitizeFileExtension(input.fileName);
+  const version = input.version ?? generateStorageVersion();
+
+  return `${input.folder}/${input.userId}/${sanitizeFilename(input.claimId)}_${input.fileKind}_v${version}.${extension}`;
 }
 
 async function uploadClaimFile(input: {
   folder: ClaimStorageFolder;
   userId: string;
+  claimId: string;
+  fileKind: ClaimStorageFileKind;
   fileName: string;
   fileType: string;
   fileBuffer: Buffer;
 }): Promise<{ path: string | null; errorMessage: string | null }> {
   const client = getServiceRoleSupabaseClient();
-  const path = buildStoragePath(input.folder, input.userId, input.fileName);
+  const path = buildStoragePath({
+    folder: input.folder,
+    userId: input.userId,
+    claimId: input.claimId,
+    fileKind: input.fileKind,
+    fileName: input.fileName,
+  });
 
   const uploadResult = await client.storage
     .from(claimsStorageBucket)
@@ -233,6 +268,16 @@ async function uploadClaimFile(input: {
 async function removeClaimFile(path: string): Promise<void> {
   const client = getServiceRoleSupabaseClient();
   await client.storage.from(claimsStorageBucket).remove([path]);
+}
+
+async function removeClaimFiles(paths: Array<string | null | undefined>): Promise<void> {
+  const uniquePaths = [...new Set(paths.filter((path): path is string => Boolean(path)))];
+
+  if (uniquePaths.length === 0) {
+    return;
+  }
+
+  await Promise.allSettled(uniquePaths.map((path) => removeClaimFile(path)));
 }
 
 function getFormDataString(input: FormData, key: string): string {
@@ -693,148 +738,92 @@ export async function submitClaimAction(input: unknown): Promise<{
   let uploadedReceiptFilePath: string | null = null;
   let uploadedBankStatementFilePath: string | null = null;
   let uploadedAdvanceSupportingFilePath: string | null = null;
+  let draftClaimId: string | null = null;
 
-  try {
-    if (parseResult.data.detailType === "expense") {
-      let receiptFileName = nullIfNASentinel(parseResult.data.expense.receiptFileName);
-      let receiptFileType = nullIfNASentinel(parseResult.data.expense.receiptFileType);
-      const receiptFileBase64 = nullIfNASentinel(parseResult.data.expense.receiptFileBase64);
-      let receiptFileBuffer: Buffer | null = null;
+  let receiptFileName: string | null = null;
+  let receiptFileType: string | null = null;
+  let receiptFileBuffer: Buffer | null = null;
 
-      if (receiptFile) {
-        receiptFileName = receiptFile.name;
-        receiptFileType = receiptFile.type;
-        receiptFileBuffer = Buffer.from(await receiptFile.arrayBuffer());
-      } else if (receiptFileBase64) {
-        receiptFileBuffer = Buffer.from(receiptFileBase64, "base64");
-      }
+  let bankStatementFileName: string | null = null;
+  let bankStatementFileType: string | null = null;
+  let bankStatementFileBuffer: Buffer | null = null;
 
-      if (!receiptFileName || !receiptFileType || !receiptFileBuffer) {
-        return {
-          ok: false,
-          message: "Invoice/Bill upload is required.",
-        };
-      }
+  let advanceReceiptFileName: string | null = null;
+  let advanceReceiptFileType: string | null = null;
+  let advanceReceiptFileBuffer: Buffer | null = null;
 
-      const duplicateTransactionResult = await repository.existsExpenseByCompositeKey({
-        billNo: parseResult.data.expense.billNo,
-        transactionDate: parseResult.data.expense.transactionDate,
-        basicAmount: parseResult.data.expense.basicAmount,
-        totalAmount: computeExpenseTotalAmount({
-          basicAmount: parseResult.data.expense.basicAmount,
-          cgstAmount: parseResult.data.expense.cgstAmount,
-          sgstAmount: parseResult.data.expense.sgstAmount,
-          igstAmount: parseResult.data.expense.igstAmount,
-        }),
-      });
+  if (parseResult.data.detailType === "expense") {
+    receiptFileName = nullIfNASentinel(parseResult.data.expense.receiptFileName);
+    receiptFileType = nullIfNASentinel(parseResult.data.expense.receiptFileType);
+    const receiptFileBase64 = nullIfNASentinel(parseResult.data.expense.receiptFileBase64);
 
-      if (duplicateTransactionResult.errorMessage) {
-        return {
-          ok: false,
-          message: duplicateTransactionResult.errorMessage,
-        };
-      }
-
-      if (duplicateTransactionResult.exists) {
-        throw new DuplicateTransactionError(
-          "A claim with this exact Bill No, Date, and Amount already exists.",
-        );
-      }
-
-      const receiptUploadResult = await uploadClaimFile({
-        folder: "expenses",
-        userId: currentUserResult.user.id,
-        fileName: receiptFileName,
-        fileType: receiptFileType,
-        fileBuffer: receiptFileBuffer,
-      });
-
-      if (receiptUploadResult.errorMessage || !receiptUploadResult.path) {
-        return {
-          ok: false,
-          message: receiptUploadResult.errorMessage ?? "Receipt upload failed.",
-        };
-      }
-
-      uploadedReceiptFilePath = receiptUploadResult.path;
-
-      let bankStatementFileName = nullIfNASentinel(parseResult.data.expense.bankStatementFileName);
-      let bankStatementFileType = nullIfNASentinel(parseResult.data.expense.bankStatementFileType);
-      const bankStatementFileBase64 = nullIfNASentinel(
-        parseResult.data.expense.bankStatementFileBase64,
-      );
-      let bankStatementFileBuffer: Buffer | null = null;
-
-      if (bankStatementFile) {
-        bankStatementFileName = bankStatementFile.name;
-        bankStatementFileType = bankStatementFile.type;
-        bankStatementFileBuffer = Buffer.from(await bankStatementFile.arrayBuffer());
-      } else if (bankStatementFileBase64) {
-        bankStatementFileBuffer = Buffer.from(bankStatementFileBase64, "base64");
-      }
-
-      if (bankStatementFileBuffer && bankStatementFileName && bankStatementFileType) {
-        const bankUploadResult = await uploadClaimFile({
-          folder: "expenses",
-          userId: currentUserResult.user.id,
-          fileName: bankStatementFileName,
-          fileType: bankStatementFileType,
-          fileBuffer: bankStatementFileBuffer,
-        });
-
-        if (bankUploadResult.errorMessage || !bankUploadResult.path) {
-          return {
-            ok: false,
-            message: bankUploadResult.errorMessage ?? "Bank statement upload failed.",
-          };
-        }
-
-        uploadedBankStatementFilePath = bankUploadResult.path;
-      }
-    } else {
-      let advanceReceiptFileName = nullIfNASentinel(parseResult.data.advance.receiptFileName);
-      const advanceReceiptFileBase64 = nullIfNASentinel(parseResult.data.advance.receiptFileBase64);
-      let advanceReceiptFileBuffer: Buffer | null = null;
-
-      if (advanceReceiptFile) {
-        advanceReceiptFileName = advanceReceiptFile.name;
-        advanceReceiptFileBuffer = Buffer.from(await advanceReceiptFile.arrayBuffer());
-      } else if (advanceReceiptFileBase64) {
-        advanceReceiptFileBuffer = Buffer.from(advanceReceiptFileBase64, "base64");
-      }
-
-      if (advanceReceiptFileBuffer && advanceReceiptFileName) {
-        const advanceUploadResult = await uploadClaimFile({
-          folder: "petty_cash_requests",
-          userId: currentUserResult.user.id,
-          fileName: advanceReceiptFileName,
-          fileType: advanceReceiptFile?.type || "application/octet-stream",
-          fileBuffer: advanceReceiptFileBuffer,
-        });
-
-        if (advanceUploadResult.errorMessage || !advanceUploadResult.path) {
-          return {
-            ok: false,
-            message: advanceUploadResult.errorMessage ?? "Supporting document upload failed.",
-          };
-        }
-
-        uploadedAdvanceSupportingFilePath = advanceUploadResult.path;
-      }
+    if (receiptFile) {
+      receiptFileName = receiptFile.name;
+      receiptFileType = receiptFile.type;
+      receiptFileBuffer = Buffer.from(await receiptFile.arrayBuffer());
+    } else if (receiptFileBase64) {
+      receiptFileBuffer = Buffer.from(receiptFileBase64, "base64");
     }
-  } catch (error) {
-    if (error instanceof DuplicateTransactionError) {
+
+    if (!receiptFileName || !receiptFileType || !receiptFileBuffer) {
       return {
         ok: false,
-        errorCode: "DUPLICATE_TRANSACTION",
-        message: error.message,
+        message: "Invoice/Bill upload is required.",
       };
     }
 
-    return {
-      ok: false,
-      message: error instanceof Error ? error.message : "Failed to process claim submission files.",
-    };
+    const duplicateTransactionResult = await repository.existsExpenseByCompositeKey({
+      billNo: parseResult.data.expense.billNo,
+      transactionDate: parseResult.data.expense.transactionDate,
+      basicAmount: parseResult.data.expense.basicAmount,
+      totalAmount: computeExpenseTotalAmount({
+        basicAmount: parseResult.data.expense.basicAmount,
+        cgstAmount: parseResult.data.expense.cgstAmount,
+        sgstAmount: parseResult.data.expense.sgstAmount,
+        igstAmount: parseResult.data.expense.igstAmount,
+      }),
+    });
+
+    if (duplicateTransactionResult.errorMessage) {
+      return {
+        ok: false,
+        message: duplicateTransactionResult.errorMessage,
+      };
+    }
+
+    if (duplicateTransactionResult.exists) {
+      return {
+        ok: false,
+        errorCode: "DUPLICATE_TRANSACTION",
+        message: "A claim with this exact Bill No, Date, and Amount already exists.",
+      };
+    }
+
+    bankStatementFileName = nullIfNASentinel(parseResult.data.expense.bankStatementFileName);
+    bankStatementFileType = nullIfNASentinel(parseResult.data.expense.bankStatementFileType);
+    const bankStatementFileBase64 = nullIfNASentinel(
+      parseResult.data.expense.bankStatementFileBase64,
+    );
+
+    if (bankStatementFile) {
+      bankStatementFileName = bankStatementFile.name;
+      bankStatementFileType = bankStatementFile.type;
+      bankStatementFileBuffer = Buffer.from(await bankStatementFile.arrayBuffer());
+    } else if (bankStatementFileBase64) {
+      bankStatementFileBuffer = Buffer.from(bankStatementFileBase64, "base64");
+    }
+  } else {
+    advanceReceiptFileName = nullIfNASentinel(parseResult.data.advance.receiptFileName);
+    advanceReceiptFileType = advanceReceiptFile?.type || "application/octet-stream";
+    const advanceReceiptFileBase64 = nullIfNASentinel(parseResult.data.advance.receiptFileBase64);
+
+    if (advanceReceiptFile) {
+      advanceReceiptFileName = advanceReceiptFile.name;
+      advanceReceiptFileType = advanceReceiptFile.type || "application/octet-stream";
+      advanceReceiptFileBuffer = Buffer.from(await advanceReceiptFile.arrayBuffer());
+    } else if (advanceReceiptFileBase64) {
+      advanceReceiptFileBuffer = Buffer.from(advanceReceiptFileBase64, "base64");
+    }
   }
 
   const submissionInput = {
@@ -873,8 +862,8 @@ export async function submitClaimAction(input: unknown): Promise<{
             basicAmount: parseResult.data.expense.basicAmount,
             currencyCode: parseResult.data.expense.currencyCode,
             vendorName: parseResult.data.expense.vendorName,
-            receiptFilePath: uploadedReceiptFilePath,
-            bankStatementFilePath: uploadedBankStatementFilePath,
+            receiptFilePath: null,
+            bankStatementFilePath: null,
             peopleInvolved: parseResult.data.expense.peopleInvolved,
             remarks: parseResult.data.expense.remarks,
             aiMetadata: parseResult.data.expense.aiMetadata as ClaimExpenseAiMetadata | null,
@@ -888,7 +877,7 @@ export async function submitClaimAction(input: unknown): Promise<{
             budgetYear: parseResult.data.advance.budgetYear,
             expectedUsageDate: parseResult.data.advance.expectedUsageDate ?? null,
             purpose: parseResult.data.advance.purpose,
-            supportingDocumentPath: uploadedAdvanceSupportingFilePath,
+            supportingDocumentPath: null,
             productId: parseResult.data.advance.productId,
             locationId: parseResult.data.advance.locationId,
             remarks: parseResult.data.advance.remarks,
@@ -896,15 +885,173 @@ export async function submitClaimAction(input: unknown): Promise<{
         : undefined,
   };
 
-  const result = await submitClaimService.execute(submissionInput);
+  const prepareResult = await submitClaimService.prepareSubmission(submissionInput);
+  if (prepareResult.errorCode || !prepareResult.preparedSubmission) {
+    return {
+      ok: false,
+      message: prepareResult.errorMessage ?? "Failed to submit claim.",
+    };
+  }
 
-  if (result.errorCode || !result.claimId) {
-    const errorMessage = result.errorMessage ?? "Failed to submit claim.";
+  const preparedSubmission = prepareResult.preparedSubmission;
+  const preparedClaim = preparedSubmission.claim;
+
+  try {
+    if (parseResult.data.detailType === "expense") {
+      const claimDraftResult = await repository.createClaimDraft(preparedSubmission);
+      if (claimDraftResult.errorMessage || !claimDraftResult.claimId) {
+        return {
+          ok: false,
+          message: claimDraftResult.errorMessage ?? "Failed to create claim draft.",
+        };
+      }
+
+      draftClaimId = claimDraftResult.claimId;
+
+      const detailDraftResult = await repository.createExpenseDetailDraft(preparedSubmission);
+      if (detailDraftResult.errorMessage || !detailDraftResult.detailId) {
+        throw new Error(detailDraftResult.errorMessage ?? "Failed to create expense draft.");
+      }
+
+      const receiptUploadResult = await uploadClaimFile({
+        folder: "expenses",
+        userId: currentUserResult.user.id,
+        claimId: preparedClaim.id,
+        fileKind: "receipt",
+        fileName: receiptFileName!,
+        fileType: receiptFileType!,
+        fileBuffer: receiptFileBuffer!,
+      });
+
+      if (receiptUploadResult.errorMessage || !receiptUploadResult.path) {
+        throw new Error(receiptUploadResult.errorMessage ?? "Receipt upload failed.");
+      }
+
+      uploadedReceiptFilePath = receiptUploadResult.path;
+
+      if (bankStatementFileBuffer && bankStatementFileName && bankStatementFileType) {
+        const bankUploadResult = await uploadClaimFile({
+          folder: "expenses",
+          userId: currentUserResult.user.id,
+          claimId: preparedClaim.id,
+          fileKind: "bankstatement",
+          fileName: bankStatementFileName,
+          fileType: bankStatementFileType,
+          fileBuffer: bankStatementFileBuffer,
+        });
+
+        if (bankUploadResult.errorMessage || !bankUploadResult.path) {
+          throw new Error(bankUploadResult.errorMessage ?? "Bank statement upload failed.");
+        }
+
+        uploadedBankStatementFilePath = bankUploadResult.path;
+      }
+
+      const evidenceUpdateResult = await repository.updateExpenseDetailEvidencePaths({
+        claimId: preparedClaim.id,
+        receiptFilePath: uploadedReceiptFilePath,
+        bankStatementFilePath: uploadedBankStatementFilePath,
+      });
+
+      if (evidenceUpdateResult.errorMessage) {
+        throw new Error(evidenceUpdateResult.errorMessage);
+      }
+    } else {
+      const claimDraftResult = await repository.createClaimDraft(preparedSubmission);
+      if (claimDraftResult.errorMessage || !claimDraftResult.claimId) {
+        return {
+          ok: false,
+          message: claimDraftResult.errorMessage ?? "Failed to create claim draft.",
+        };
+      }
+
+      draftClaimId = claimDraftResult.claimId;
+
+      const detailDraftResult = await repository.createAdvanceDetailDraft(preparedSubmission);
+      if (detailDraftResult.errorMessage || !detailDraftResult.detailId) {
+        throw new Error(detailDraftResult.errorMessage ?? "Failed to create advance draft.");
+      }
+
+      if (advanceReceiptFileBuffer && advanceReceiptFileName && advanceReceiptFileType) {
+        const advanceUploadResult = await uploadClaimFile({
+          folder: "petty_cash_requests",
+          userId: currentUserResult.user.id,
+          claimId: preparedClaim.id,
+          fileKind: "supporting",
+          fileName: advanceReceiptFileName,
+          fileType: advanceReceiptFileType,
+          fileBuffer: advanceReceiptFileBuffer,
+        });
+
+        if (advanceUploadResult.errorMessage || !advanceUploadResult.path) {
+          throw new Error(advanceUploadResult.errorMessage ?? "Supporting document upload failed.");
+        }
+
+        uploadedAdvanceSupportingFilePath = advanceUploadResult.path;
+      }
+
+      const evidenceUpdateResult = await repository.updateAdvanceDetailEvidencePath({
+        claimId: preparedClaim.id,
+        supportingDocumentPath: uploadedAdvanceSupportingFilePath,
+      });
+
+      if (evidenceUpdateResult.errorMessage) {
+        throw new Error(evidenceUpdateResult.errorMessage);
+      }
+    }
+
+    const auditResult = await repository.createClaimAuditLog({
+      claimId: preparedClaim.id,
+      actorId: preparedClaim.submittedBy,
+      actionType: "SUBMITTED",
+      assignedToId: preparedClaim.assignedL1ApproverId,
+      remarks: null,
+    });
+
+    if (auditResult.errorMessage) {
+      throw new Error(auditResult.errorMessage);
+    }
+  } catch (error) {
+    await removeClaimFiles([
+      uploadedReceiptFilePath,
+      uploadedBankStatementFilePath,
+      uploadedAdvanceSupportingFilePath,
+    ]);
+
+    if (draftClaimId) {
+      const rollbackResult = await repository.rollbackClaimSubmissionDraft({
+        claimId: draftClaimId,
+        actorUserId: currentUserResult.user.id,
+      });
+
+      if (rollbackResult.errorMessage) {
+        logger.error("claims.submit.rollback_failed", {
+          claimId: draftClaimId,
+          actorUserId: currentUserResult.user.id,
+          errorMessage: rollbackResult.errorMessage,
+        });
+      }
+    }
+
+    if (
+      error instanceof DuplicateTransactionError ||
+      isDuplicateExpenseBillUniqueViolation(error)
+    ) {
+      return {
+        ok: false,
+        errorCode: "DUPLICATE_TRANSACTION",
+        message:
+          error instanceof DuplicateTransactionError
+            ? error.message
+            : "A claim with this exact Bill Number, Date, and Amount already exists in the system. Please change the Bill Number slightly (e.g., add '-FIX') to make it unique before saving.",
+      };
+    }
 
     if (
       parseResult.data.detailType === "advance" &&
-      /expected_usage_date/i.test(errorMessage) &&
-      /not-null|null value/i.test(errorMessage)
+      error instanceof Error &&
+      /expected_usage_date/i.test(error.message) &&
+      /not-null|null value/i.test(error.message)
     ) {
       return {
         ok: false,
@@ -915,13 +1062,13 @@ export async function submitClaimAction(input: unknown): Promise<{
 
     return {
       ok: false,
-      message: errorMessage,
+      message: error instanceof Error ? error.message : "Failed to process claim submission files.",
     };
   }
 
   return {
     ok: true,
-    claimId: result.claimId,
+    claimId: preparedClaim.id,
   };
 }
 
@@ -1157,6 +1304,8 @@ export async function updateClaimByFinanceAction(input: {
   let nextExpenseReceiptPath = claimSnapshotResult.data.expenseReceiptFilePath;
   let nextExpenseBankStatementPath = claimSnapshotResult.data.expenseBankStatementFilePath;
   let nextAdvanceDocumentPath = claimSnapshotResult.data.advanceSupportingDocumentPath;
+  const uploadedReplacementPaths: string[] = [];
+  const supersededPaths: string[] = [];
 
   if (parseResult.data.receiptFile && parseResult.data.receiptFile.size > 0) {
     const receiptSizeError = validateUploadFileSize(parseResult.data.receiptFile, "Receipt file");
@@ -1171,8 +1320,10 @@ export async function updateClaimByFinanceAction(input: {
     const fileBuffer = Buffer.from(await parseResult.data.receiptFile.arrayBuffer());
 
     const uploadResult = await uploadClaimFile({
-      folder: "expenses",
+      folder: parseResult.data.detailType === "expense" ? "expenses" : "petty_cash_requests",
       userId: claimSnapshotResult.data.submittedBy,
+      claimId: claimIdParse.data.claimId,
+      fileKind: parseResult.data.detailType === "expense" ? "receipt" : "supporting",
       fileName: parseResult.data.receiptFile.name,
       fileType: parseResult.data.receiptFile.type || "application/octet-stream",
       fileBuffer,
@@ -1185,13 +1336,15 @@ export async function updateClaimByFinanceAction(input: {
       };
     }
 
+    uploadedReplacementPaths.push(uploadResult.path);
+
     const previousPath =
       parseResult.data.detailType === "expense"
         ? claimSnapshotResult.data.expenseReceiptFilePath
         : claimSnapshotResult.data.advanceSupportingDocumentPath;
 
     if (previousPath && previousPath !== uploadResult.path) {
-      await removeClaimFile(previousPath);
+      supersededPaths.push(previousPath);
     }
 
     if (parseResult.data.detailType === "expense") {
@@ -1223,6 +1376,8 @@ export async function updateClaimByFinanceAction(input: {
     const uploadResult = await uploadClaimFile({
       folder: "expenses",
       userId: claimSnapshotResult.data.submittedBy,
+      claimId: claimIdParse.data.claimId,
+      fileKind: "bankstatement",
       fileName: parseResult.data.bankStatementFile.name,
       fileType: parseResult.data.bankStatementFile.type || "application/octet-stream",
       fileBuffer,
@@ -1235,10 +1390,12 @@ export async function updateClaimByFinanceAction(input: {
       };
     }
 
+    uploadedReplacementPaths.push(uploadResult.path);
+
     const previousBankStatementPath = claimSnapshotResult.data.expenseBankStatementFilePath;
 
     if (previousBankStatementPath && previousBankStatementPath !== uploadResult.path) {
-      await removeClaimFile(previousBankStatementPath);
+      supersededPaths.push(previousBankStatementPath);
     }
 
     nextExpenseBankStatementPath = uploadResult.path;
@@ -1295,12 +1452,17 @@ export async function updateClaimByFinanceAction(input: {
     });
 
     if (!result.ok) {
+      await removeClaimFiles(uploadedReplacementPaths);
       return {
         ok: false,
         message: result.errorMessage ?? "Failed to update claim details.",
       };
     }
+
+    await removeClaimFiles(supersededPaths);
   } catch (error) {
+    await removeClaimFiles(uploadedReplacementPaths);
+
     if (isDuplicateExpenseBillUniqueViolation(error)) {
       let duplicateClaimId: string | null = null;
 
@@ -1420,6 +1582,8 @@ export async function updateOwnClaimAction(input: {
   let nextExpenseReceiptPath = claimSnapshotResult.data.expenseReceiptFilePath;
   let nextExpenseBankStatementPath = claimSnapshotResult.data.expenseBankStatementFilePath;
   let nextAdvanceDocumentPath = claimSnapshotResult.data.advanceSupportingDocumentPath;
+  const uploadedReplacementPaths: string[] = [];
+  const supersededPaths: string[] = [];
 
   if (parseResult.data.receiptFile && parseResult.data.receiptFile.size > 0) {
     const receiptSizeError = validateUploadFileSize(parseResult.data.receiptFile, "Receipt file");
@@ -1434,8 +1598,10 @@ export async function updateOwnClaimAction(input: {
     const fileBuffer = Buffer.from(await parseResult.data.receiptFile.arrayBuffer());
 
     const uploadResult = await uploadClaimFile({
-      folder: "expenses",
+      folder: parseResult.data.detailType === "expense" ? "expenses" : "petty_cash_requests",
       userId: claimSnapshotResult.data.submittedBy,
+      claimId: claimIdParse.data.claimId,
+      fileKind: parseResult.data.detailType === "expense" ? "receipt" : "supporting",
       fileName: parseResult.data.receiptFile.name,
       fileType: parseResult.data.receiptFile.type || "application/octet-stream",
       fileBuffer,
@@ -1448,13 +1614,15 @@ export async function updateOwnClaimAction(input: {
       };
     }
 
+    uploadedReplacementPaths.push(uploadResult.path);
+
     const previousPath =
       parseResult.data.detailType === "expense"
         ? claimSnapshotResult.data.expenseReceiptFilePath
         : claimSnapshotResult.data.advanceSupportingDocumentPath;
 
     if (previousPath && previousPath !== uploadResult.path) {
-      await removeClaimFile(previousPath);
+      supersededPaths.push(previousPath);
     }
 
     if (parseResult.data.detailType === "expense") {
@@ -1486,6 +1654,8 @@ export async function updateOwnClaimAction(input: {
     const uploadResult = await uploadClaimFile({
       folder: "expenses",
       userId: claimSnapshotResult.data.submittedBy,
+      claimId: claimIdParse.data.claimId,
+      fileKind: "bankstatement",
       fileName: parseResult.data.bankStatementFile.name,
       fileType: parseResult.data.bankStatementFile.type || "application/octet-stream",
       fileBuffer,
@@ -1498,10 +1668,12 @@ export async function updateOwnClaimAction(input: {
       };
     }
 
+    uploadedReplacementPaths.push(uploadResult.path);
+
     const previousBankStatementPath = claimSnapshotResult.data.expenseBankStatementFilePath;
 
     if (previousBankStatementPath && previousBankStatementPath !== uploadResult.path) {
-      await removeClaimFile(previousBankStatementPath);
+      supersededPaths.push(previousBankStatementPath);
     }
 
     nextExpenseBankStatementPath = uploadResult.path;
@@ -1554,12 +1726,17 @@ export async function updateOwnClaimAction(input: {
     });
 
     if (!result.ok) {
+      await removeClaimFiles(uploadedReplacementPaths);
       return {
         ok: false,
         message: result.errorMessage ?? "Failed to update claim details.",
       };
     }
+
+    await removeClaimFiles(supersededPaths);
   } catch (error) {
+    await removeClaimFiles(uploadedReplacementPaths);
+
     if (isDuplicateExpenseBillUniqueViolation(error)) {
       return {
         ok: false,

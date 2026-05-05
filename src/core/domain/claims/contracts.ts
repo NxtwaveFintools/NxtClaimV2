@@ -81,6 +81,62 @@ export type ClaimSubmissionInput = {
   };
 };
 
+export type PreparedClaimSubmission = {
+  claim: {
+    id: string;
+    status: DbClaimStatus;
+    submissionType: ClaimSubmissionType;
+    detailType: ClaimDetailType;
+    submittedBy: string;
+    onBehalfOfId: string;
+    employeeId: string;
+    ccEmails: string | null;
+    onBehalfEmail: string | null;
+    onBehalfEmployeeCode: string | null;
+    departmentId: string;
+    paymentModeId: string;
+    assignedL1ApproverId: string;
+    assignedL2ApproverId: string | null;
+  };
+  expense?: {
+    claimId: string;
+    billNo: string;
+    transactionId: string;
+    purpose: string;
+    expenseCategoryId: string;
+    productId: string | null;
+    locationId: string;
+    locationType: string | null;
+    locationDetails: string | null;
+    isGstApplicable: boolean;
+    gstNumber: string | null;
+    cgstAmount: number;
+    sgstAmount: number;
+    igstAmount: number;
+    transactionDate: string;
+    basicAmount: number;
+    currencyCode: string;
+    vendorName: string | null;
+    receiptFilePath: string | null;
+    bankStatementFilePath: string | null;
+    peopleInvolved: string | null;
+    remarks: string | null;
+    aiMetadata?: ClaimExpenseAiMetadata | null;
+  };
+  advance?: {
+    claimId: string;
+    requestedAmount: number;
+    budgetMonth: number;
+    budgetYear: number;
+    expectedUsageDate: string | null;
+    purpose: string;
+    supportingDocumentPath: string | null;
+    productId: string | null;
+    locationId: string | null;
+    remarks: string | null;
+  };
+};
+
 export type FinanceExpenseEditPayload = {
   detailType: "expense";
   detailId: string;
@@ -416,6 +472,28 @@ export type ClaimRepository = {
     isApprover1: boolean;
     errorMessage: string | null;
   }>;
+  createClaimDraft(
+    prepared: PreparedClaimSubmission,
+  ): Promise<{ claimId: string | null; errorMessage: string | null }>;
+  createExpenseDetailDraft(
+    prepared: PreparedClaimSubmission,
+  ): Promise<{ detailId: string | null; errorMessage: string | null }>;
+  createAdvanceDetailDraft(
+    prepared: PreparedClaimSubmission,
+  ): Promise<{ detailId: string | null; errorMessage: string | null }>;
+  updateExpenseDetailEvidencePaths(input: {
+    claimId: string;
+    receiptFilePath: string | null;
+    bankStatementFilePath: string | null;
+  }): Promise<{ errorMessage: string | null }>;
+  updateAdvanceDetailEvidencePath(input: {
+    claimId: string;
+    supportingDocumentPath: string | null;
+  }): Promise<{ errorMessage: string | null }>;
+  rollbackClaimSubmissionDraft(input: {
+    claimId: string;
+    actorUserId: string;
+  }): Promise<{ errorMessage: string | null }>;
   createClaimWithDetail(
     payload: Record<string, unknown>,
   ): Promise<{ claimId: string | null; errorMessage: string | null }>;
