@@ -45,6 +45,8 @@ type DepartmentWithHodEmail = Department & {
   hodEmail: string;
 };
 
+type UserEmailRelation = { email: string | null } | Array<{ email: string | null }> | null;
+
 type SeedPlan = {
   key: string;
   beneficiary: Beneficiary;
@@ -71,6 +73,14 @@ type ExpectedWalletDelta = {
   pettyCashReceived: number;
   amountReceived: number;
 };
+
+function getRelatedUserEmail(relation: UserEmailRelation): string | null {
+  if (Array.isArray(relation)) {
+    return relation[0]?.email ?? null;
+  }
+
+  return relation?.email ?? null;
+}
 
 function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -277,7 +287,7 @@ async function resolveLoginCapableL1Department(): Promise<{
       name: string | null;
       hod_user_id: string | null;
       founder_user_id: string | null;
-      hod: { email: string | null } | null;
+      hod: UserEmailRelation;
     }>
   )
     .filter(
@@ -288,8 +298,15 @@ async function resolveLoginCapableL1Department(): Promise<{
         name: string;
         hod_user_id: string;
         founder_user_id: string;
-        hod: { email: string };
-      } => Boolean(row.id && row.name && row.hod_user_id && row.founder_user_id && row.hod?.email),
+        hod: UserEmailRelation;
+      } =>
+        Boolean(
+          row.id &&
+          row.name &&
+          row.hod_user_id &&
+          row.founder_user_id &&
+          getRelatedUserEmail(row.hod),
+        ),
     )
     .map(
       (row) =>
@@ -298,7 +315,7 @@ async function resolveLoginCapableL1Department(): Promise<{
           name: row.name,
           hodUserId: row.hod_user_id,
           founderUserId: row.founder_user_id,
-          hodEmail: row.hod.email.toLowerCase(),
+          hodEmail: getRelatedUserEmail(row.hod)!.toLowerCase(),
         }) satisfies DepartmentWithHodEmail,
     );
 

@@ -24,9 +24,11 @@ type FinanceApproverRow = {
   created_at: string;
 };
 
+type UserEmailRelation = { email: string | null } | Array<{ email: string | null }> | null;
+
 type DepartmentActorRow = {
-  hod: { email: string | null } | null;
-  founder: { email: string | null } | null;
+  hod: UserEmailRelation;
+  founder: UserEmailRelation;
 };
 
 type RoleCredential = {
@@ -35,6 +37,14 @@ type RoleCredential = {
 };
 
 type ResolvedRoleCredentials = Record<AuthStateRole, RoleCredential>;
+
+function getRelatedUserEmail(relation: UserEmailRelation): string | null {
+  if (Array.isArray(relation)) {
+    return relation[0]?.email ?? null;
+  }
+
+  return relation?.email ?? null;
+}
 
 function getAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -272,11 +282,11 @@ async function resolveRoleCredentials(): Promise<ResolvedRoleCredentials> {
   const departmentRows = (departmentActors ?? []) as DepartmentActorRow[];
   const orderedHodCandidates = prioritizeCandidates(
     [defaults.hod],
-    departmentRows.map((row) => row.hod?.email ?? ""),
+    departmentRows.map((row) => getRelatedUserEmail(row.hod) ?? ""),
   );
   const orderedFounderCandidates = prioritizeCandidates(
     [defaults.founder],
-    departmentRows.map((row) => row.founder?.email ?? ""),
+    departmentRows.map((row) => getRelatedUserEmail(row.founder) ?? ""),
   );
   const orderedFinanceCandidates = prioritizeCandidates(
     [defaults.finance, defaults.finance2],
