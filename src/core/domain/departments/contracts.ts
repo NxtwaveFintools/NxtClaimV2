@@ -9,8 +9,8 @@ export type ActiveDepartmentRouting = {
   id: string;
   name: string;
   isActive: boolean;
-  hod: DepartmentUserSummary;
-  founder: DepartmentUserSummary;
+  approver1: DepartmentUserSummary;
+  approver2: DepartmentUserSummary;
 };
 
 export type DepartmentRepository = {

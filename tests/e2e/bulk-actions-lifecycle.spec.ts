@@ -25,8 +25,8 @@ type AuthenticatedUserRecord = UserRecord & {
 type DepartmentRecord = {
   id: string;
   name: string;
-  hod_user_id: string;
-  founder_user_id: string;
+  approver1_id: string;
+  approver2_id: string;
 };
 
 type RuntimeActors = {
@@ -176,7 +176,7 @@ async function resolveRuntimeActors(): Promise<RuntimeActors> {
 
   const { data: activeDepartments, error: departmentsError } = await client
     .from("master_departments")
-    .select("id, name, hod_user_id, founder_user_id")
+    .select("id, name, approver1_id, approver2_id")
     .eq("is_active", true);
 
   if (departmentsError) {
@@ -190,7 +190,7 @@ async function resolveRuntimeActors(): Promise<RuntimeActors> {
 
   const departmentActorIds = [
     ...new Set(
-      departments.flatMap((department) => [department.hod_user_id, department.founder_user_id]),
+      departments.flatMap((department) => [department.approver1_id, department.approver2_id]),
     ),
   ];
   const { data: departmentUsers, error: departmentUsersError } = await client
@@ -212,8 +212,8 @@ async function resolveRuntimeActors(): Promise<RuntimeActors> {
   let founder: AuthenticatedUserRecord | null = null;
 
   for (const department of departments) {
-    const hodCandidate = usersById.get(department.hod_user_id);
-    const founderCandidate = usersById.get(department.founder_user_id);
+    const hodCandidate = usersById.get(department.approver1_id);
+    const founderCandidate = usersById.get(department.approver2_id);
 
     if (!hodCandidate || !founderCandidate) {
       continue;

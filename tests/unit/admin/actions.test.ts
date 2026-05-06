@@ -305,22 +305,22 @@ describe("admin actions", () => {
   });
 
   test("updateDepartmentActorsAction handles validation and service failures", async () => {
-    const invalid = await updateDepartmentActorsAction("", "hod-1", "founder-1");
+    const invalid = await updateDepartmentActorsAction("", "approver-1", "approver-2");
     expect(invalid).toEqual({ ok: false, message: "ID is required" });
 
     mockUpdateDepartmentActors.mockResolvedValueOnce({
       success: false,
       errorMessage: "cannot update",
     });
-    const failed = await updateDepartmentActorsAction("dep-1", "hod-1", "founder-1");
+    const failed = await updateDepartmentActorsAction("dep-1", "approver-1", "approver-2");
     expect(failed).toEqual({ ok: false, message: "cannot update" });
 
-    const success = await updateDepartmentActorsAction("dep-1", "hod-1", "founder-1");
+    const success = await updateDepartmentActorsAction("dep-1", "approver-1", "approver-2");
     expect(success).toEqual({ ok: true });
     expect(mockUpdateDepartmentActors).toHaveBeenCalledWith({
       departmentId: "dep-1",
-      hodUserId: "hod-1",
-      founderUserId: "founder-1",
+      approver1Id: "approver-1",
+      approver2Id: "approver-2",
     });
   });
 
@@ -330,15 +330,15 @@ describe("admin actions", () => {
 
     const success = await updateDepartmentActorsByEmailAction(
       "dep-1",
-      "Hod@Nxtwave.co.in  ",
-      "Founder@nxtwave.co.in",
+      "Approver1@Nxtwave.co.in  ",
+      "Approver2@nxtwave.co.in",
     );
 
     expect(success).toEqual({ ok: true });
     expect(mockUpdateDepartmentActorsByEmail).toHaveBeenCalledWith({
       departmentId: "dep-1",
-      hodEmail: "Hod@Nxtwave.co.in",
-      founderEmail: "Founder@nxtwave.co.in",
+      approver1Email: "Approver1@Nxtwave.co.in",
+      approver2Email: "Approver2@nxtwave.co.in",
     });
   });
 

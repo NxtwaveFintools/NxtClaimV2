@@ -15,8 +15,8 @@ type DepartmentJoinRow = {
   id: string;
   name: string;
   is_active: boolean;
-  hod_user_id: string | null;
-  founder_user_id: string | null;
+  approver1_id: string | null;
+  approver2_id: string | null;
 };
 
 export class SupabaseDepartmentRepository implements DepartmentRepository {
@@ -28,7 +28,7 @@ export class SupabaseDepartmentRepository implements DepartmentRepository {
 
     const { data, error } = await client
       .from("master_departments")
-      .select("id, name, is_active, hod_user_id, founder_user_id")
+      .select("id, name, is_active, approver1_id, approver2_id")
       .eq("is_active", true)
       .order("name", { ascending: true });
 
@@ -43,7 +43,7 @@ export class SupabaseDepartmentRepository implements DepartmentRepository {
     const approverIds = Array.from(
       new Set(
         rows
-          .flatMap((row) => [row.hod_user_id, row.founder_user_id])
+          .flatMap((row) => [row.approver1_id, row.approver2_id])
           .filter((id): id is string => Boolean(id)),
       ),
     );
@@ -74,12 +74,10 @@ export class SupabaseDepartmentRepository implements DepartmentRepository {
 
     const mapped = rows
       .map((row) => {
-        const hodUser = row.hod_user_id ? (usersById.get(row.hod_user_id) ?? null) : null;
-        const founderUser = row.founder_user_id
-          ? (usersById.get(row.founder_user_id) ?? null)
-          : null;
+        const approver1User = row.approver1_id ? (usersById.get(row.approver1_id) ?? null) : null;
+        const approver2User = row.approver2_id ? (usersById.get(row.approver2_id) ?? null) : null;
 
-        if (!hodUser || !founderUser) {
+        if (!approver1User || !approver2User) {
           return null;
         }
 
@@ -87,17 +85,17 @@ export class SupabaseDepartmentRepository implements DepartmentRepository {
           id: row.id,
           name: row.name,
           isActive: row.is_active,
-          hod: {
-            id: hodUser.id,
-            email: hodUser.email,
-            fullName: hodUser.full_name,
-            isActive: hodUser.is_active,
+          approver1: {
+            id: approver1User.id,
+            email: approver1User.email,
+            fullName: approver1User.full_name,
+            isActive: approver1User.is_active,
           },
-          founder: {
-            id: founderUser.id,
-            email: founderUser.email,
-            fullName: founderUser.full_name,
-            isActive: founderUser.is_active,
+          approver2: {
+            id: approver2User.id,
+            email: approver2User.email,
+            fullName: approver2User.full_name,
+            isActive: approver2User.is_active,
           },
         };
       })

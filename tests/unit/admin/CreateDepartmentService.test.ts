@@ -12,8 +12,8 @@ function createLogger() {
 const SAMPLE_DEPARTMENT: CreatedDepartmentRecord = {
   id: "dept-1",
   name: "Engineering",
-  hodUserId: "hod-1",
-  founderUserId: "founder-1",
+  approver1Id: "approver-1",
+  approver2Id: "approver-2",
   isActive: true,
 };
 
@@ -55,8 +55,8 @@ describe("CreateDepartmentService", () => {
 
     const result = await service.createDepartment({
       name: "  ",
-      hodEmail: "hod@nxtwave.co.in",
-      founderEmail: "founder@nxtwave.co.in",
+      approver1Email: "approver1@nxtwave.co.in",
+      approver2Email: "approver2@nxtwave.co.in",
     });
 
     expect(result.errorCode).toBe("INVALID_INPUT");
@@ -69,14 +69,14 @@ describe("CreateDepartmentService", () => {
 
     const invalidHod = await service.createDepartment({
       name: "Engineering",
-      hodEmail: "bad",
-      founderEmail: "founder@nxtwave.co.in",
+      approver1Email: "bad",
+      approver2Email: "approver2@nxtwave.co.in",
     });
 
     const invalidFounder = await service.createDepartment({
       name: "Engineering",
-      hodEmail: "hod@nxtwave.co.in",
-      founderEmail: "",
+      approver1Email: "approver1@nxtwave.co.in",
+      approver2Email: "",
     });
 
     expect(invalidHod.errorCode).toBe("INVALID_INPUT");
@@ -90,12 +90,12 @@ describe("CreateDepartmentService", () => {
 
     const result = await service.createDepartment({
       name: "Engineering",
-      hodEmail: "same@nxtwave.co.in",
-      founderEmail: "same@nxtwave.co.in",
+      approver1Email: "same@nxtwave.co.in",
+      approver2Email: "same@nxtwave.co.in",
     });
 
     expect(result.errorCode).toBe("SAME_APPROVER");
-    expect(result.errorMessage).toBe("HOD and Founder cannot be the same person.");
+    expect(result.errorMessage).toBe("Approver 1 and Approver 2 cannot be the same person.");
     expect(repository.createDepartmentWithActorsByEmail).not.toHaveBeenCalled();
   });
 
@@ -110,8 +110,8 @@ describe("CreateDepartmentService", () => {
 
     const result = await service.createDepartment({
       name: "Engineering",
-      hodEmail: "hod@nxtwave.co.in",
-      founderEmail: "founder@nxtwave.co.in",
+      approver1Email: "approver1@nxtwave.co.in",
+      approver2Email: "approver2@nxtwave.co.in",
     });
 
     expect(result.errorCode).toBe("CREATE_FAILED");
@@ -124,14 +124,14 @@ describe("CreateDepartmentService", () => {
 
     const result = await service.createDepartment({
       name: "  Engineering  ",
-      hodEmail: "HOD@Nxtwave.co.in ",
-      founderEmail: " Founder@Nxtwave.co.in",
+      approver1Email: "Approver1@Nxtwave.co.in ",
+      approver2Email: " Approver2@Nxtwave.co.in",
     });
 
     expect(repository.createDepartmentWithActorsByEmail).toHaveBeenCalledWith({
       name: "Engineering",
-      hodEmail: "hod@nxtwave.co.in",
-      founderEmail: "founder@nxtwave.co.in",
+      approver1Email: "approver1@nxtwave.co.in",
+      approver2Email: "approver2@nxtwave.co.in",
     });
     expect(result.errorCode).toBeNull();
     expect(result.data).toEqual(SAMPLE_DEPARTMENT);

@@ -285,12 +285,12 @@ type DepartmentActorRow = {
   id: string;
   name: string;
   is_active: boolean;
-  hod_user_id: string | null;
-  founder_user_id: string | null;
-  hod_provisional_email: string | null;
-  founder_provisional_email: string | null;
-  hod: UserNameRow | UserNameRow[] | null;
-  founder: UserNameRow | UserNameRow[] | null;
+  approver1_id: string | null;
+  approver2_id: string | null;
+  approver1_provisional_email: string | null;
+  approver2_provisional_email: string | null;
+  approver1: UserNameRow | UserNameRow[] | null;
+  approver2: UserNameRow | UserNameRow[] | null;
 };
 
 type FinanceApproverRow = {
@@ -329,8 +329,8 @@ type MasterDataRow = {
 type DepartmentInsertRow = {
   id: string;
   name: string;
-  hod_user_id: string;
-  founder_user_id: string;
+  approver1_id: string;
+  approver2_id: string;
   is_active: boolean;
 };
 
@@ -1087,7 +1087,7 @@ export class SupabaseAdminRepository implements AdminRepository {
     const { data, error } = await this.client
       .from("master_departments")
       .select(
-        "id, name, is_active, hod_user_id, founder_user_id, hod_provisional_email, founder_provisional_email, hod:users!master_departments_hod_user_id_fkey(full_name, email), founder:users!master_departments_founder_user_id_fkey(full_name, email)",
+        "id, name, is_active, approver1_id, approver2_id, approver1_provisional_email, approver2_provisional_email, approver1:users!master_departments_approver1_id_fkey(full_name, email), approver2:users!master_departments_approver2_id_fkey(full_name, email)",
       )
       .order("name", { ascending: true });
 
@@ -1097,21 +1097,21 @@ export class SupabaseAdminRepository implements AdminRepository {
 
     return {
       data: (data ?? []).map((row: DepartmentActorRow) => {
-        const hod = normalizeRelation(row.hod);
-        const founder = normalizeRelation(row.founder);
+        const approver1 = normalizeRelation(row.approver1);
+        const approver2 = normalizeRelation(row.approver2);
 
         return {
           id: row.id,
           name: row.name,
           isActive: row.is_active,
-          hodUserId: row.hod_user_id,
-          hodUserName: hod?.full_name ?? null,
-          hodUserEmail: hod?.email ?? null,
-          hodProvisionalEmail: row.hod_provisional_email,
-          founderUserId: row.founder_user_id,
-          founderUserName: founder?.full_name ?? null,
-          founderUserEmail: founder?.email ?? null,
-          founderProvisionalEmail: row.founder_provisional_email,
+          approver1Id: row.approver1_id,
+          approver1Name: approver1?.full_name ?? null,
+          approver1Email: approver1?.email ?? null,
+          approver1ProvisionalEmail: row.approver1_provisional_email,
+          approver2Id: row.approver2_id,
+          approver2Name: approver2?.full_name ?? null,
+          approver2Email: approver2?.email ?? null,
+          approver2ProvisionalEmail: row.approver2_provisional_email,
         };
       }),
       errorMessage: null,
@@ -1120,16 +1120,19 @@ export class SupabaseAdminRepository implements AdminRepository {
 
   async updateDepartmentActors(
     departmentId: string,
-    hodUserId: string,
-    founderUserId: string,
+    approver1Id: string,
+    approver2Id: string,
   ): Promise<{ success: boolean; errorMessage: string | null }> {
-    if (hodUserId === founderUserId) {
-      return { success: false, errorMessage: "HOD and Founder cannot be the same person." };
+    if (approver1Id === approver2Id) {
+      return {
+        success: false,
+        errorMessage: "Approver 1 and Approver 2 cannot be the same person.",
+      };
     }
 
     const { error } = await this.client
       .from("master_departments")
-      .update({ hod_user_id: hodUserId, founder_user_id: founderUserId })
+      .update({ approver1_id: approver1Id, approver2_id: approver2Id })
       .eq("id", departmentId);
 
     if (error) {
@@ -1141,35 +1144,36 @@ export class SupabaseAdminRepository implements AdminRepository {
 
   async updateDepartmentActorsByEmail(
     departmentId: string,
-    hodEmail: string,
-    founderEmail: string,
+    approver1Email: string,
+    approver2Email: string,
   ): Promise<{ success: boolean; errorMessage: string | null }> {
-    // Look up HOD user by email
-    const { data: hodUser } = await this.client
+    const { data: approver1User } = await this.client
       .from("users")
       .select("id")
-      .eq("email", hodEmail)
+      .eq("email", approver1Email)
       .maybeSingle();
 
-    // Look up Founder user by email
-    const { data: founderUser } = await this.client
+    const { data: approver2User } = await this.client
       .from("users")
       .select("id")
-      .eq("email", founderEmail)
+      .eq("email", approver2Email)
       .maybeSingle();
 
-    const hodUserId = hodUser?.id ?? null;
-    const founderUserId = founderUser?.id ?? null;
+    const approver1Id = approver1User?.id ?? null;
+    const approver2Id = approver2User?.id ?? null;
 
-    if (hodUserId && founderUserId && hodUserId === founderUserId) {
-      return { success: false, errorMessage: "HOD and Founder cannot be the same person." };
+    if (approver1Id && approver2Id && approver1Id === approver2Id) {
+      return {
+        success: false,
+        errorMessage: "Approver 1 and Approver 2 cannot be the same person.",
+      };
     }
 
     const updatePayload: Record<string, unknown> = {
-      hod_user_id: hodUserId,
-      hod_provisional_email: hodUserId ? null : hodEmail,
-      founder_user_id: founderUserId,
-      founder_provisional_email: founderUserId ? null : founderEmail,
+      approver1_id: approver1Id,
+      approver1_provisional_email: approver1Id ? null : approver1Email,
+      approver2_id: approver2Id,
+      approver2_provisional_email: approver2Id ? null : approver2Email,
     };
 
     const { error } = await this.client
@@ -1186,54 +1190,60 @@ export class SupabaseAdminRepository implements AdminRepository {
 
   async createDepartmentWithActorsByEmail(input: {
     name: string;
-    hodEmail: string;
-    founderEmail: string;
+    approver1Email: string;
+    approver2Email: string;
   }): Promise<{ data: CreatedDepartmentRecord | null; errorMessage: string | null }> {
     const name = input.name.trim();
-    const hodEmail = input.hodEmail.trim().toLowerCase();
-    const founderEmail = input.founderEmail.trim().toLowerCase();
+    const approver1Email = input.approver1Email.trim().toLowerCase();
+    const approver2Email = input.approver2Email.trim().toLowerCase();
 
-    if (hodEmail === founderEmail) {
-      return { data: null, errorMessage: "HOD and Founder cannot be the same person." };
-    }
-
-    const [hodLookup, founderLookup] = await Promise.all([
-      this.resolveUserIdByEmail(hodEmail),
-      this.resolveUserIdByEmail(founderEmail),
-    ]);
-
-    if (hodLookup.errorMessage) {
-      return { data: null, errorMessage: hodLookup.errorMessage };
-    }
-
-    if (founderLookup.errorMessage) {
-      return { data: null, errorMessage: founderLookup.errorMessage };
-    }
-
-    const hodUserId = hodLookup.userId;
-    const founderUserId = founderLookup.userId;
-
-    if (!hodUserId || !founderUserId) {
+    if (approver1Email === approver2Email) {
       return {
         data: null,
-        errorMessage: "Failed to resolve HOD/Founder user IDs.",
+        errorMessage: "Approver 1 and Approver 2 cannot be the same person.",
       };
     }
 
-    if (hodUserId === founderUserId) {
-      return { data: null, errorMessage: "HOD and Founder cannot be the same person." };
+    const [approver1Lookup, approver2Lookup] = await Promise.all([
+      this.resolveUserIdByEmail(approver1Email),
+      this.resolveUserIdByEmail(approver2Email),
+    ]);
+
+    if (approver1Lookup.errorMessage) {
+      return { data: null, errorMessage: approver1Lookup.errorMessage };
+    }
+
+    if (approver2Lookup.errorMessage) {
+      return { data: null, errorMessage: approver2Lookup.errorMessage };
+    }
+
+    const approver1Id = approver1Lookup.userId;
+    const approver2Id = approver2Lookup.userId;
+
+    if (!approver1Id || !approver2Id) {
+      return {
+        data: null,
+        errorMessage: "Failed to resolve approver user IDs.",
+      };
+    }
+
+    if (approver1Id === approver2Id) {
+      return {
+        data: null,
+        errorMessage: "Approver 1 and Approver 2 cannot be the same person.",
+      };
     }
 
     const { data, error } = await this.client
       .from("master_departments")
       .insert({
         name,
-        hod_user_id: hodUserId,
-        founder_user_id: founderUserId,
-        hod_provisional_email: null,
-        founder_provisional_email: null,
+        approver1_id: approver1Id,
+        approver2_id: approver2Id,
+        approver1_provisional_email: null,
+        approver2_provisional_email: null,
       })
-      .select("id, name, hod_user_id, founder_user_id, is_active")
+      .select("id, name, approver1_id, approver2_id, is_active")
       .single();
 
     if (error) {
@@ -1245,8 +1255,8 @@ export class SupabaseAdminRepository implements AdminRepository {
       data: {
         id: row.id,
         name: row.name,
-        hodUserId: row.hod_user_id,
-        founderUserId: row.founder_user_id,
+        approver1Id: row.approver1_id,
+        approver2Id: row.approver2_id,
         isActive: row.is_active,
       },
       errorMessage: null,

@@ -473,27 +473,27 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     [departmentId, options.departmentRouting],
   );
 
-  const founderEmail = selectedDepartment?.founder.email ?? "";
+  const approver2Email = selectedDepartment?.approver2.email ?? "";
   const actualBeneficiaryEmail =
     submissionType === "On Behalf" ? (onBehalfEmail ?? "") : currentUser.email;
 
   const normalizedActualBeneficiaryEmail = actualBeneficiaryEmail.trim().toLowerCase();
 
-  const globalHodEmailSet = useMemo(
+  const globalApprover1EmailSet = useMemo(
     () =>
       new Set(
         options.departmentRouting
-          .map((department) => department.hod.email.trim().toLowerCase())
+          .map((department) => department.approver1.email.trim().toLowerCase())
           .filter((email) => email.length > 0),
       ),
     [options.departmentRouting],
   );
 
-  const isGlobalHodBeneficiary =
+  const isGlobalApprover1Beneficiary =
     normalizedActualBeneficiaryEmail.length > 0 &&
-    globalHodEmailSet.has(normalizedActualBeneficiaryEmail);
+    globalApprover1EmailSet.has(normalizedActualBeneficiaryEmail);
 
-  const isBypassingHod = isGlobalHodBeneficiary && Boolean(founderEmail);
+  const isBypassingApprover1 = isGlobalApprover1Beneficiary && Boolean(approver2Email);
 
   const isNiatDepartment = selectedDepartment?.name === NIAT_OFFLINE_LEAD_GEN_DEPARTMENT;
 
@@ -515,24 +515,26 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       return null;
     }
 
-    if (currentUser.isGlobalHod || currentUser.id === selectedDepartment.hod.id) {
-      return selectedDepartment.founder;
+    if (currentUser.isGlobalApprover1 || currentUser.id === selectedDepartment.approver1.id) {
+      return selectedDepartment.approver2;
     }
 
-    return selectedDepartment.hod;
-  }, [currentUser.id, currentUser.isGlobalHod, selectedDepartment]);
+    return selectedDepartment.approver1;
+  }, [currentUser.id, currentUser.isGlobalApprover1, selectedDepartment]);
 
-  const displayApprover = isBypassingHod
-    ? (selectedDepartment?.founder ?? null)
+  const displayApprover = isBypassingApprover1
+    ? (selectedDepartment?.approver2 ?? null)
     : resolvedL1Approver;
 
-  const displayApproverLabel = isBypassingHod
-    ? "Level 1 Approver (Bypassing HOD)"
-    : currentUser.isGlobalHod
-      ? "Approver (Finance/Senior)"
-      : "Head of Department";
+  const displayApproverLabel = isBypassingApprover1
+    ? "Level 1 Approver (Escalated to Approver 2)"
+    : currentUser.isGlobalApprover1
+      ? "Level 1 Approver (Escalated)"
+      : "Approver 1";
 
-  const displayApproverEmail = isBypassingHod ? founderEmail : (displayApprover?.email ?? "");
+  const displayApproverEmail = isBypassingApprover1
+    ? approver2Email
+    : (displayApprover?.email ?? "");
 
   useEffect(() => {
     setValue("employeeName", currentUser.name, { shouldValidate: true });

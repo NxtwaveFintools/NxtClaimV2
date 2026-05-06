@@ -23,7 +23,9 @@ const PAYMENT_MODE_REIMBURSEMENT_LABEL = "Reimbursement";
 const PAYMENT_MODE_PETTY_CASH_REQUEST_LABEL = "Petty Cash Request";
 
 const EMPLOYEE_B_OVERRIDE_EMAIL = process.env.E2E_EMPLOYEE_B_EMAIL?.toLowerCase() ?? null;
-const PREFERRED_L1_HOD_EMAIL = (process.env.E2E_HOD_EMAIL ?? "hod@nxtwave.co.in").toLowerCase();
+const PREFERRED_L1_APPROVER1_EMAIL = (
+  process.env.E2E_HOD_EMAIL ?? "hod@nxtwave.co.in"
+).toLowerCase();
 const DEFAULT_PASSWORD = process.env.E2E_DEFAULT_PASSWORD ?? "password123";
 
 type Beneficiary = "A" | "B";
@@ -37,12 +39,12 @@ type ActiveUser = {
 type Department = {
   id: string;
   name: string;
-  hodUserId: string;
-  founderUserId: string;
+  approver1Id: string;
+  approver2Id: string;
 };
 
-type DepartmentWithHodEmail = Department & {
-  hodEmail: string;
+type DepartmentWithApprover1Email = Department & {
+  approver1Email: string;
 };
 
 type UserEmailRelation = { email: string | null } | Array<{ email: string | null }> | null;
@@ -237,28 +239,28 @@ async function canLoginWithDefaultPassword(email: string): Promise<boolean> {
   return canLogin;
 }
 
-async function resolveDepartmentForHodUser(hodUserId: string): Promise<Department> {
+async function resolveDepartmentForApprover1User(approver1Id: string): Promise<Department> {
   const client = getAdminSupabaseClient();
   const { data, error } = await client
     .from("master_departments")
-    .select("id, name, hod_user_id, founder_user_id")
+    .select("id, name, approver1_id, approver2_id")
     .eq("is_active", true)
-    .eq("hod_user_id", hodUserId)
+    .eq("approver1_id", approver1Id)
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
 
-  if (error || !data?.id || !data?.name || !data?.hod_user_id || !data?.founder_user_id) {
+  if (error || !data?.id || !data?.name || !data?.approver1_id || !data?.approver2_id) {
     throw new Error(
-      error?.message ?? `Unable to resolve active department for HOD user ${hodUserId}.`,
+      error?.message ?? `Unable to resolve active department for Approver 1 user ${approver1Id}.`,
     );
   }
 
   return {
     id: data.id as string,
     name: data.name as string,
-    hodUserId: data.hod_user_id as string,
-    founderUserId: data.founder_user_id as string,
+    approver1Id: data.approver1_id as string,
+    approver2Id: data.approver2_id as string,
   };
 }
 
@@ -270,7 +272,7 @@ async function resolveLoginCapableL1Department(): Promise<{
   const { data, error } = await client
     .from("master_departments")
     .select(
-      "id, name, hod_user_id, founder_user_id, hod:users!master_departments_hod_user_id_fkey(email)",
+      "id, name, approver1_id, approver2_id, approver1:users!master_departments_approver1_id_fkey(email)",
     )
     .eq("is_active", true)
     .order("created_at", { ascending: true });
@@ -285,9 +287,9 @@ async function resolveLoginCapableL1Department(): Promise<{
     (data ?? []) as Array<{
       id: string | null;
       name: string | null;
-      hod_user_id: string | null;
-      founder_user_id: string | null;
-      hod: UserEmailRelation;
+      approver1_id: string | null;
+      approver2_id: string | null;
+      approver1: UserEmailRelation;
     }>
   )
     .filter(
@@ -296,16 +298,16 @@ async function resolveLoginCapableL1Department(): Promise<{
       ): row is {
         id: string;
         name: string;
-        hod_user_id: string;
-        founder_user_id: string;
-        hod: UserEmailRelation;
+        approver1_id: string;
+        approver2_id: string;
+        approver1: UserEmailRelation;
       } =>
         Boolean(
           row.id &&
           row.name &&
-          row.hod_user_id &&
-          row.founder_user_id &&
-          getRelatedUserEmail(row.hod),
+          row.approver1_id &&
+          row.approver2_id &&
+          getRelatedUserEmail(row.approver1),
         ),
     )
     .map(
@@ -313,37 +315,37 @@ async function resolveLoginCapableL1Department(): Promise<{
         ({
           id: row.id,
           name: row.name,
-          hodUserId: row.hod_user_id,
-          founderUserId: row.founder_user_id,
-          hodEmail: getRelatedUserEmail(row.hod)!.toLowerCase(),
-        }) satisfies DepartmentWithHodEmail,
+          approver1Id: row.approver1_id,
+          approver2Id: row.approver2_id,
+          approver1Email: getRelatedUserEmail(row.approver1)!.toLowerCase(),
+        }) satisfies DepartmentWithApprover1Email,
     );
 
   const orderedDepartments = [
-    ...departmentRows.filter((row) => row.hodEmail === PREFERRED_L1_HOD_EMAIL),
-    ...departmentRows.filter((row) => row.hodEmail !== PREFERRED_L1_HOD_EMAIL),
+    ...departmentRows.filter((row) => row.approver1Email === PREFERRED_L1_APPROVER1_EMAIL),
+    ...departmentRows.filter((row) => row.approver1Email !== PREFERRED_L1_APPROVER1_EMAIL),
   ];
 
   for (const department of orderedDepartments) {
-    if (!(await canLoginWithDefaultPassword(department.hodEmail))) {
+    if (!(await canLoginWithDefaultPassword(department.approver1Email))) {
       continue;
     }
 
     return {
       hod: {
-        id: department.hodUserId,
-        email: department.hodEmail,
+        id: department.approver1Id,
+        email: department.approver1Email,
       },
       department: {
         id: department.id,
         name: department.name,
-        hodUserId: department.hodUserId,
-        founderUserId: department.founderUserId,
+        approver1Id: department.approver1Id,
+        approver2Id: department.approver2Id,
       },
     };
   }
 
-  throw new Error("Unable to find an active department with a login-capable HOD actor.");
+  throw new Error("Unable to find an active department with a login-capable Approver 1 actor.");
 }
 
 async function resolveReservedActorIds(): Promise<Set<string>> {
@@ -355,7 +357,7 @@ async function resolveReservedActorIds(): Promise<Set<string>> {
       .select("user_id")
       .eq("is_active", true)
       .not("user_id", "is", null),
-    client.from("master_departments").select("hod_user_id, founder_user_id").eq("is_active", true),
+    client.from("master_departments").select("approver1_id, approver2_id").eq("is_active", true),
   ]);
 
   if (adminsResult.error || financeResult.error || departmentsResult.error) {
@@ -382,12 +384,12 @@ async function resolveReservedActorIds(): Promise<Set<string>> {
   }
 
   for (const row of departmentsResult.data ?? []) {
-    if (row.hod_user_id) {
-      reservedActorIds.add(String(row.hod_user_id));
+    if (row.approver1_id) {
+      reservedActorIds.add(String(row.approver1_id));
     }
 
-    if (row.founder_user_id) {
-      reservedActorIds.add(String(row.founder_user_id));
+    if (row.approver2_id) {
+      reservedActorIds.add(String(row.approver2_id));
     }
   }
 
@@ -1036,14 +1038,14 @@ test.describe("Bulk Multi-User Wallet Stress", () => {
     const employeeB = await resolveBeneficiaryEmployeeB({
       primarySubmitterId: employeeA.id,
       configuredHodId: configuredHod.id,
-      departmentFounderId: l1Department.founderUserId,
+      departmentFounderId: l1Department.approver2Id,
       reservedActorIds,
     });
 
     expect(employeeA.id).not.toBe(employeeB.id);
     expect(reservedActorIds.has(employeeB.id)).toBe(false);
     expect(employeeB.id).not.toBe(configuredHod.id);
-    expect(employeeB.id).not.toBe(l1Department.founderUserId);
+    expect(employeeB.id).not.toBe(l1Department.approver2Id);
 
     const plans = buildSeedPlans(runTag);
     const expectedDeltas = computeExpectedWalletDeltas(plans);

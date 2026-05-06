@@ -8,7 +8,7 @@ import { formatDate } from "@/lib/format";
 
 type ExportClaimsRepository = {
   getApprovalViewerContext(userId: string): Promise<{
-    data: { isHod: boolean; isFounder: boolean; isFinance: boolean };
+    data: { isApprover1: boolean; isApprover2: boolean; isFinance: boolean };
     errorMessage: string | null;
   }>;
   getClaimsForFullExport(input: {
@@ -155,7 +155,7 @@ function toTextValue(value: string | null): string {
 
 function resolveExportScope(
   input: ExportClaimsServiceInput,
-  viewerContext: { isHod: boolean; isFounder: boolean; isFinance: boolean },
+  viewerContext: { isApprover1: boolean; isApprover2: boolean; isFinance: boolean },
 ): ClaimsExportFetchScope | null {
   if (input.scope === "submissions") {
     return "submissions";
@@ -173,7 +173,7 @@ function resolveExportScope(
     return "finance_approvals";
   }
 
-  if (viewerContext.isHod || viewerContext.isFounder) {
+  if (viewerContext.isApprover1 || viewerContext.isApprover2) {
     return "l1_approvals";
   }
 
