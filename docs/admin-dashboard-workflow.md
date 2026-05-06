@@ -122,21 +122,19 @@ UPDATE  → admin check
 
 **Columns relevant to routing:**
 
-- `hod_user_id` — FK to `users`, set when HOD has logged in.
-- `founder_user_id` — FK to `users`, set when Founder has logged in.
-- `hod_provisional_email` — set when HOD entered by email before first login.
-- `founder_provisional_email` — set when Founder entered by email before first login.
+- `approver1_id` — FK to `users`, set when Approver 1 has logged in.
+- `approver2_id` — FK to `users`, set when Approver 2 has logged in.
+- `approver1_provisional_email` — set when Approver 1 entered by email before first login.
+- `approver2_provisional_email` — set when Approver 2 entered by email before first login.
 
 **UI:** `src/modules/admin/ui/settings/departments-management.tsx`  
 **Server Action:** `updateDepartmentActorsByEmailAction` in `src/modules/admin/actions.ts`
 
 ### Update flow
 
-1. Admin enters HOD email + Founder email for a department row.
+1. Admin enters Approver 1 email + Approver 2 email for a department row.
 2. Server action calls `ManageActorsService.updateDepartmentActorsByEmail()`.
-3. Service checks `users` table for a matching email (case-insensitive).
-   - **Match found:** writes `hod_user_id` / `founder_user_id`, clears provisional field.
-   - **No match:** writes `hod_provisional_email` / `founder_provisional_email`, leaves `_user_id` null — badge shown as "Pending first login".
+3. Service checks `users` table for a matching email (case-insensitive). - **Match found:** writes `approver1_id` / `approver2_id`, clears provisional field. - **No match:** writes `approver1_provisional_email` / `approver2_provisional_email`, leaves `_user_id` null — badge shown as "Pending first login".
 4. On next login by that email, the `handle_new_user` DB trigger promotes provisional email → real user link.
 
 ---

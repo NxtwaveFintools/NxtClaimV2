@@ -38,7 +38,8 @@ export class GetActiveDepartmentsService {
     }
 
     const validDepartments = result.data.filter((department) => {
-      const hasRoutingUsers = Boolean(department.hod?.id) && Boolean(department.founder?.id);
+      const hasRoutingUsers =
+        Boolean(department.approver1?.id) && Boolean(department.approver2?.id);
       if (!hasRoutingUsers) {
         this.logger.warn("departments.active.invalid_routing_mapping", {
           departmentId: department.id,

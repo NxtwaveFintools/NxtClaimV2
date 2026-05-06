@@ -195,7 +195,7 @@ async function fetchReferencesWithPg(client) {
     await Promise.all([
       client.query(`select id, email, full_name, role from public.users where is_active = true order by created_at asc`),
       client.query(
-        `select id, name, hod_user_id, founder_user_id from public.master_departments where is_active = true order by name asc`,
+        `select id, name, approver1_id, approver2_id from public.master_departments where is_active = true order by name asc`,
       ),
       client.query(
         `select id, name from public.master_payment_modes where is_active = true order by name asc`,
@@ -278,7 +278,7 @@ async function fetchReferencesWithSupabase(client) {
         .order("created_at", { ascending: true }),
       client
         .from("master_departments")
-        .select("id, name, hod_user_id, founder_user_id")
+        .select("id, name, approver1_id, approver2_id")
         .eq("is_active", true)
         .order("name", { ascending: true }),
       client
@@ -388,7 +388,7 @@ function resolveDepartmentForSubmitter(departments, submitter, random) {
   }
 
   const directAssignment = departments.find(
-    (department) => department.hod_user_id === submitter.id || department.founder_user_id === submitter.id,
+    (department) => department.approver1_id === submitter.id || department.approver2_id === submitter.id,
   );
 
   if (directAssignment) {
@@ -399,7 +399,7 @@ function resolveDepartmentForSubmitter(departments, submitter, random) {
 }
 
 function resolveApproverForDepartment(department) {
-  return department.hod_user_id ?? department.founder_user_id;
+  return department.approver1_id ?? department.approver2_id;
 }
 
 function pickPaymentModeByDetail(paymentModes, detailType, random) {

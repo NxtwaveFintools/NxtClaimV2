@@ -71,7 +71,7 @@ async function resolveRuntimeFormData(): Promise<RuntimeFormData> {
         .from("master_departments")
         .select("name")
         .eq("is_active", true)
-        .eq("hod_user_id", hod.id)
+        .eq("approver1_id", hod.id)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();

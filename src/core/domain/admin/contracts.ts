@@ -75,23 +75,23 @@ export type DepartmentWithActors = {
   id: string;
   name: string;
   isActive: boolean;
-  hodUserId: string | null;
-  hodUserName: string | null;
-  hodUserEmail: string | null;
-  /** Set when HOD was entered by email before their first login. Null once promoted. */
-  hodProvisionalEmail: string | null;
-  founderUserId: string | null;
-  founderUserName: string | null;
-  founderUserEmail: string | null;
-  /** Set when Founder was entered by email before their first login. Null once promoted. */
-  founderProvisionalEmail: string | null;
+  approver1Id: string | null;
+  approver1Name: string | null;
+  approver1Email: string | null;
+  /** Set when Approver 1 was entered by email before their first login. Null once promoted. */
+  approver1ProvisionalEmail: string | null;
+  approver2Id: string | null;
+  approver2Name: string | null;
+  approver2Email: string | null;
+  /** Set when Approver 2 was entered by email before their first login. Null once promoted. */
+  approver2ProvisionalEmail: string | null;
 };
 
 export type CreatedDepartmentRecord = {
   id: string;
   name: string;
-  hodUserId: string;
-  founderUserId: string;
+  approver1Id: string;
+  approver2Id: string;
   isActive: boolean;
 };
 
@@ -214,20 +214,20 @@ export interface AdminRepository {
 
   updateDepartmentActors(
     departmentId: string,
-    hodUserId: string,
-    founderUserId: string,
+    approver1Id: string,
+    approver2Id: string,
   ): Promise<{ success: boolean; errorMessage: string | null }>;
 
   updateDepartmentActorsByEmail(
     departmentId: string,
-    hodEmail: string,
-    founderEmail: string,
+    approver1Email: string,
+    approver2Email: string,
   ): Promise<{ success: boolean; errorMessage: string | null }>;
 
   createDepartmentWithActorsByEmail(input: {
     name: string;
-    hodEmail: string;
-    founderEmail: string;
+    approver1Email: string;
+    approver2Email: string;
   }): Promise<{
     data: CreatedDepartmentRecord | null;
     errorMessage: string | null;

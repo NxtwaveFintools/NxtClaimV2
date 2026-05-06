@@ -18,14 +18,14 @@ const createDepartmentService = new CreateDepartmentService({
 
 const addDepartmentSchema = z.object({
   name: z.string().trim().min(1, "Department name is required."),
-  hod_email: z.string().trim().email("A valid HOD email is required."),
-  founder_email: z.string().trim().email("A valid Founder email is required."),
+  approver1Email: z.string().trim().email("A valid Approver 1 email is required."),
+  approver2Email: z.string().trim().email("A valid Approver 2 email is required."),
 });
 
 export type AddDepartmentPayload = {
   name: string;
-  hod_email: string;
-  founder_email: string;
+  approver1Email: string;
+  approver2Email: string;
 };
 
 async function requireAdmin(): Promise<{ userId: string } | { forbidden: true }> {
@@ -53,8 +53,8 @@ export async function addDepartmentAction(
 
   const result = await createDepartmentService.createDepartment({
     name: parsed.data.name,
-    hodEmail: parsed.data.hod_email,
-    founderEmail: parsed.data.founder_email,
+    approver1Email: parsed.data.approver1Email,
+    approver2Email: parsed.data.approver2Email,
   });
 
   if (result.errorMessage) {

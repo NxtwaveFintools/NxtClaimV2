@@ -226,19 +226,19 @@ export class GetAnalyticsService {
       };
     }
 
-    const isFounder = viewerContextResult.data.founderDepartmentIds.length > 0;
+    const isApprover2 = viewerContextResult.data.approver2DepartmentIds.length > 0;
     const isFinance = viewerContextResult.data.financeApproverIds.length > 0;
-    const canUseScopeFilters = viewerContextResult.data.isAdmin || isFounder || isFinance;
-    const canUseFinanceApproverFilter = viewerContextResult.data.isAdmin || isFounder;
+    const canUseScopeFilters = viewerContextResult.data.isAdmin || isApprover2 || isFinance;
+    const canUseFinanceApproverFilter = viewerContextResult.data.isAdmin || isApprover2;
 
     let advancedFilters = emptyAdvancedFilters();
 
     if (canUseScopeFilters || canUseFinanceApproverFilter) {
       const optionsResult = await this.repository.getAnalyticsFilterOptions({
         isAdmin: viewerContextResult.data.isAdmin,
-        isFounder,
+        isApprover2,
         isFinance,
-        founderDepartmentIds: viewerContextResult.data.founderDepartmentIds,
+        approver2DepartmentIds: viewerContextResult.data.approver2DepartmentIds,
       });
 
       if (optionsResult.errorMessage || !optionsResult.data) {
@@ -342,7 +342,7 @@ export class GetAnalyticsService {
 
     const currentPayloadResult = await this.repository.getAnalyticsPayload({
       scope,
-      hodDepartmentIds: viewerContextResult.data.hodDepartmentIds,
+      hodDepartmentIds: viewerContextResult.data.approver1DepartmentIds,
       financeApproverIds: viewerContextResult.data.financeApproverIds,
       dateFrom: period.dateFrom,
       dateTo: period.dateTo,
@@ -371,7 +371,7 @@ export class GetAnalyticsService {
     if (period.hasExplicitRange && period.previousPeriod) {
       const previousPayloadResult = await this.repository.getAnalyticsPayload({
         scope,
-        hodDepartmentIds: viewerContextResult.data.hodDepartmentIds,
+        hodDepartmentIds: viewerContextResult.data.approver1DepartmentIds,
         financeApproverIds: viewerContextResult.data.financeApproverIds,
         dateFrom: period.previousPeriod.dateFrom,
         dateTo: period.previousPeriod.dateTo,

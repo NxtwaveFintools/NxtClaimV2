@@ -12,14 +12,14 @@ type Dependencies = {
 
 type UpdateDepartmentActorsInput = {
   departmentId: string;
-  hodUserId: string;
-  founderUserId: string;
+  approver1Id: string;
+  approver2Id: string;
 };
 
 type UpdateDepartmentActorsByEmailInput = {
   departmentId: string;
-  hodEmail: string;
-  founderEmail: string;
+  approver1Email: string;
+  approver2Email: string;
 };
 
 type CreateFinanceApproverInput = { userId: string };
@@ -86,40 +86,40 @@ export class ManageActorsService {
       };
     }
 
-    if (!input.hodUserId?.trim()) {
+    if (!input.approver1Id?.trim()) {
       return {
         success: false,
         errorCode: "INVALID_INPUT",
-        errorMessage: "HOD user ID is required.",
+        errorMessage: "Approver 1 user ID is required.",
       };
     }
 
-    if (!input.founderUserId?.trim()) {
+    if (!input.approver2Id?.trim()) {
       return {
         success: false,
         errorCode: "INVALID_INPUT",
-        errorMessage: "Founder user ID is required.",
+        errorMessage: "Approver 2 user ID is required.",
       };
     }
 
-    if (input.hodUserId === input.founderUserId) {
+    if (input.approver1Id === input.approver2Id) {
       return {
         success: false,
         errorCode: "SAME_APPROVER",
-        errorMessage: "HOD and Founder cannot be the same person.",
+        errorMessage: "Approver 1 and Approver 2 cannot be the same person.",
       };
     }
 
     this.logger.info("ManageActorsService.updateDepartmentActors", {
       departmentId: input.departmentId,
-      hodUserId: input.hodUserId,
-      founderUserId: input.founderUserId,
+      approver1Id: input.approver1Id,
+      approver2Id: input.approver2Id,
     });
 
     const result = await this.repository.updateDepartmentActors(
       input.departmentId,
-      input.hodUserId,
-      input.founderUserId,
+      input.approver1Id,
+      input.approver2Id,
     );
 
     if (!result.success) {
@@ -141,30 +141,30 @@ export class ManageActorsService {
   async updateDepartmentActorsByEmail(
     input: UpdateDepartmentActorsByEmailInput,
   ): Promise<MutateResult> {
-    const hodEmail = input.hodEmail?.trim().toLowerCase();
-    const founderEmail = input.founderEmail?.trim().toLowerCase();
+    const approver1Email = input.approver1Email?.trim().toLowerCase();
+    const approver2Email = input.approver2Email?.trim().toLowerCase();
 
-    if (!hodEmail || !hodEmail.includes("@")) {
+    if (!approver1Email || !approver1Email.includes("@")) {
       return {
         success: false,
         errorCode: "INVALID_INPUT",
-        errorMessage: "A valid HOD email address is required.",
+        errorMessage: "A valid Approver 1 email address is required.",
       };
     }
 
-    if (!founderEmail || !founderEmail.includes("@")) {
+    if (!approver2Email || !approver2Email.includes("@")) {
       return {
         success: false,
         errorCode: "INVALID_INPUT",
-        errorMessage: "A valid Founder email address is required.",
+        errorMessage: "A valid Approver 2 email address is required.",
       };
     }
 
-    if (hodEmail === founderEmail) {
+    if (approver1Email === approver2Email) {
       return {
         success: false,
         errorCode: "SAME_APPROVER",
-        errorMessage: "HOD and Founder cannot be the same person.",
+        errorMessage: "Approver 1 and Approver 2 cannot be the same person.",
       };
     }
 
@@ -178,14 +178,14 @@ export class ManageActorsService {
 
     this.logger.info("ManageActorsService.updateDepartmentActorsByEmail", {
       departmentId: input.departmentId,
-      hodEmail,
-      founderEmail,
+      approver1Email,
+      approver2Email,
     });
 
     const result = await this.repository.updateDepartmentActorsByEmail(
       input.departmentId,
-      hodEmail,
-      founderEmail,
+      approver1Email,
+      approver2Email,
     );
 
     if (!result.success) {

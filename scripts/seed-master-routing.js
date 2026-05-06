@@ -436,8 +436,8 @@ async function main() {
     const { error } = await adminClient.from("master_departments").upsert(
       {
         name: row.departmentName,
-        hod_user_id: hodUser.id,
-        founder_user_id: founderUser.id,
+        approver1_id: hodUser.id,
+        approver2_id: founderUser.id,
         is_active: true,
       },
       { onConflict: "name", ignoreDuplicates: false },

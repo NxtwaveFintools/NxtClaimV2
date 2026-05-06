@@ -31,12 +31,11 @@ function DepartmentActorRow({ department }: { department: DepartmentWithActors }
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  // Pre-fill from existing linked email or provisional email
-  const [hodEmail, setHodEmail] = useState(
-    department.hodUserEmail ?? department.hodProvisionalEmail ?? "",
+  const [approver1Email, setApprover1Email] = useState(
+    department.approver1Email ?? department.approver1ProvisionalEmail ?? "",
   );
-  const [founderEmail, setFounderEmail] = useState(
-    department.founderUserEmail ?? department.founderProvisionalEmail ?? "",
+  const [approver2Email, setApprover2Email] = useState(
+    department.approver2Email ?? department.approver2ProvisionalEmail ?? "",
   );
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -47,8 +46,8 @@ function DepartmentActorRow({ department }: { department: DepartmentWithActors }
     startTransition(async () => {
       const result = await updateDepartmentActorsByEmailAction(
         department.id,
-        hodEmail,
-        founderEmail,
+        approver1Email,
+        approver2Email,
       );
       if (result.ok) {
         setSaved(true);
@@ -59,8 +58,10 @@ function DepartmentActorRow({ department }: { department: DepartmentWithActors }
     });
   }
 
-  const hodIsPending = !department.hodUserId && Boolean(department.hodProvisionalEmail);
-  const founderIsPending = !department.founderUserId && Boolean(department.founderProvisionalEmail);
+  const approver1IsPending =
+    !department.approver1Id && Boolean(department.approver1ProvisionalEmail);
+  const approver2IsPending =
+    !department.approver2Id && Boolean(department.approver2ProvisionalEmail);
 
   return (
     <div className="rounded-[26px] border border-zinc-200/80 bg-zinc-50/60 p-5 dark:border-zinc-800/80 dark:bg-zinc-950/40">
@@ -80,8 +81,8 @@ function DepartmentActorRow({ department }: { department: DepartmentWithActors }
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div>
           <label className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            HOD
-            {hodIsPending ? (
+            Approver 1
+            {approver1IsPending ? (
               <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                 Pending first login
               </span>
@@ -89,20 +90,20 @@ function DepartmentActorRow({ department }: { department: DepartmentWithActors }
           </label>
           <input
             type="email"
-            value={hodEmail}
+            value={approver1Email}
             onChange={(e) => {
-              setHodEmail(e.target.value);
+              setApprover1Email(e.target.value);
               setSaved(false);
             }}
-            placeholder="hod@company.com"
+            placeholder="approver1@company.com"
             className="nxt-input w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
           />
         </div>
 
         <div>
           <label className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            Founder
-            {founderIsPending ? (
+            Approver 2
+            {approver2IsPending ? (
               <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                 Pending first login
               </span>
@@ -110,12 +111,12 @@ function DepartmentActorRow({ department }: { department: DepartmentWithActors }
           </label>
           <input
             type="email"
-            value={founderEmail}
+            value={approver2Email}
             onChange={(e) => {
-              setFounderEmail(e.target.value);
+              setApprover2Email(e.target.value);
               setSaved(false);
             }}
-            placeholder="founder@company.com"
+            placeholder="approver2@company.com"
             className="nxt-input w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
           />
         </div>
@@ -123,13 +124,13 @@ function DepartmentActorRow({ department }: { department: DepartmentWithActors }
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <Button
-          disabled={isPending || !hodEmail || !founderEmail}
+          disabled={isPending || !approver1Email || !approver2Email}
           onClick={handleSave}
           type="button"
           variant="primary"
           size="md"
         >
-          {isPending ? "Saving…" : "Save Actors"}
+          {isPending ? "Saving…" : "Save Approvers"}
         </Button>
         {saved ? (
           <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">

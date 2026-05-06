@@ -23,8 +23,8 @@ const ACTORS = {
 type LeapfrogContext = {
   departmentId: string;
   departmentName: string;
-  hodUserId: string;
-  hodEmail: string;
+  approver1Id: string;
+  approver1Email: string;
   financeUserId: string;
   financeEmail: string;
 };
@@ -32,12 +32,12 @@ type LeapfrogContext = {
 type CrossDepartmentHodEscalationContext = {
   submitterDepartmentId: string;
   submitterDepartmentName: string;
-  submitterHodUserId: string;
-  submitterHodEmail: string;
+  submitterApprover1Id: string;
+  submitterApprover1Email: string;
   targetDepartmentId: string;
   targetDepartmentName: string;
-  targetHodUserId: string;
-  targetHodEmail: string;
+  targetApprover1Id: string;
+  targetApprover1Email: string;
   targetApprover2UserId: string;
   targetApprover2Email: string;
 };
@@ -45,7 +45,7 @@ type CrossDepartmentHodEscalationContext = {
 type ProxyFounderContext = {
   departmentId: string;
   departmentName: string;
-  founderUserId: string;
+  approver2Id: string;
   founderEmail: string;
   seniorApproverUserId: string;
 };
@@ -112,10 +112,10 @@ async function resolveLeapfrogContext(): Promise<LeapfrogContext> {
 
       const { data: departmentRows, error: departmentError } = await client
         .from("master_departments")
-        .select("id, name, hod_user_id")
+        .select("id, name, approver1_id")
         .eq("is_active", true)
-        .eq("founder_user_id", financeUserId)
-        .neq("hod_user_id", financeUserId)
+        .eq("approver2_id", financeUserId)
+        .neq("approver1_id", financeUserId)
         .order("created_at", { ascending: false })
         .limit(1);
 
@@ -130,11 +130,11 @@ async function resolveLeapfrogContext(): Promise<LeapfrogContext> {
         );
       }
 
-      const hodUserId = department.hod_user_id;
+      const approver1Id = department.approver1_id;
       const { data: hodRows, error: hodError } = await client
         .from("users")
         .select("id, email")
-        .eq("id", hodUserId)
+        .eq("id", approver1Id)
         .eq("is_active", true)
         .limit(1);
 
@@ -150,8 +150,8 @@ async function resolveLeapfrogContext(): Promise<LeapfrogContext> {
       return {
         departmentId: department.id,
         departmentName: department.name,
-        hodUserId,
-        hodEmail,
+        approver1Id,
+        approver1Email: hodEmail,
         financeUserId,
         financeEmail,
       };
@@ -168,10 +168,10 @@ async function resolveCrossDepartmentHodEscalationContext(): Promise<CrossDepart
 
       const { data: departments, error: departmentsError } = await client
         .from("master_departments")
-        .select("id, name, hod_user_id, founder_user_id")
+        .select("id, name, approver1_id, approver2_id")
         .eq("is_active", true)
-        .not("hod_user_id", "is", null)
-        .not("founder_user_id", "is", null);
+        .not("approver1_id", "is", null)
+        .not("approver2_id", "is", null);
 
       if (departmentsError) {
         throw new Error(
@@ -182,13 +182,13 @@ async function resolveCrossDepartmentHodEscalationContext(): Promise<CrossDepart
       const departmentRows = (departments ?? []) as Array<{
         id: string;
         name: string;
-        hod_user_id: string;
-        founder_user_id: string;
+        approver1_id: string;
+        approver2_id: string;
       }>;
 
       if (departmentRows.length < 2) {
         throw new Error(
-          "At least two active departments with hod_user_id and founder_user_id are required for cross-department HOD escalation test.",
+          "At least two active departments with approver1_id and approver2_id are required for cross-department approver escalation test.",
         );
       }
 
@@ -203,13 +203,13 @@ async function resolveCrossDepartmentHodEscalationContext(): Promise<CrossDepart
       let submitterDepartment =
         preferredSubmitterDepartment &&
         preferredTargetDepartment &&
-        preferredSubmitterDepartment.hod_user_id !== preferredTargetDepartment.hod_user_id
+        preferredSubmitterDepartment.approver1_id !== preferredTargetDepartment.approver1_id
           ? preferredSubmitterDepartment
           : null;
       let targetDepartment =
         preferredSubmitterDepartment &&
         preferredTargetDepartment &&
-        preferredSubmitterDepartment.hod_user_id !== preferredTargetDepartment.hod_user_id
+        preferredSubmitterDepartment.approver1_id !== preferredTargetDepartment.approver1_id
           ? preferredTargetDepartment
           : null;
 
@@ -218,8 +218,8 @@ async function resolveCrossDepartmentHodEscalationContext(): Promise<CrossDepart
           const candidate = departmentRows.find(
             (target) =>
               target.id !== source.id &&
-              target.hod_user_id !== source.hod_user_id &&
-              target.founder_user_id !== source.hod_user_id,
+              target.approver1_id !== source.approver1_id &&
+              target.approver2_id !== source.approver1_id,
           );
 
           if (candidate) {
@@ -232,14 +232,14 @@ async function resolveCrossDepartmentHodEscalationContext(): Promise<CrossDepart
 
       if (!submitterDepartment || !targetDepartment) {
         throw new Error(
-          "Unable to resolve two departments where submitter is HOD in one department and target department has a different HOD plus a founder_user_id.",
+          "Unable to resolve two departments where submitter is Approver 1 in one department and target department has a different Approver 1 plus an approver2_id.",
         );
       }
 
       const userIds = [
-        submitterDepartment.hod_user_id,
-        targetDepartment.hod_user_id,
-        targetDepartment.founder_user_id,
+        submitterDepartment.approver1_id,
+        targetDepartment.approver1_id,
+        targetDepartment.approver2_id,
       ];
       const uniqueUserIds = [...new Set(userIds)];
 
@@ -256,11 +256,11 @@ async function resolveCrossDepartmentHodEscalationContext(): Promise<CrossDepart
       }
 
       const emailByUserId = new Map((userRows ?? []).map((row) => [row.id, row.email]));
-      const submitterHodEmail = emailByUserId.get(submitterDepartment.hod_user_id);
-      const targetHodEmail = emailByUserId.get(targetDepartment.hod_user_id);
-      const targetApprover2Email = emailByUserId.get(targetDepartment.founder_user_id);
+      const submitterApprover1Email = emailByUserId.get(submitterDepartment.approver1_id);
+      const targetApprover1Email = emailByUserId.get(targetDepartment.approver1_id);
+      const targetApprover2Email = emailByUserId.get(targetDepartment.approver2_id);
 
-      if (!submitterHodEmail || !targetHodEmail || !targetApprover2Email) {
+      if (!submitterApprover1Email || !targetApprover1Email || !targetApprover2Email) {
         throw new Error(
           "Resolved approvers for cross-department escalation test must all have active email addresses.",
         );
@@ -269,13 +269,13 @@ async function resolveCrossDepartmentHodEscalationContext(): Promise<CrossDepart
       return {
         submitterDepartmentId: submitterDepartment.id,
         submitterDepartmentName: submitterDepartment.name,
-        submitterHodUserId: submitterDepartment.hod_user_id,
-        submitterHodEmail,
+        submitterApprover1Id: submitterDepartment.approver1_id,
+        submitterApprover1Email,
         targetDepartmentId: targetDepartment.id,
         targetDepartmentName: targetDepartment.name,
-        targetHodUserId: targetDepartment.hod_user_id,
-        targetHodEmail,
-        targetApprover2UserId: targetDepartment.founder_user_id,
+        targetApprover1Id: targetDepartment.approver1_id,
+        targetApprover1Email,
+        targetApprover2UserId: targetDepartment.approver2_id,
         targetApprover2Email,
       };
     })();
@@ -307,10 +307,10 @@ async function resolveProxyFounderContext(): Promise<ProxyFounderContext> {
 
       const { data: departmentRows, error: departmentError } = await client
         .from("master_departments")
-        .select("id, name, hod_user_id, founder_user_id")
+        .select("id, name, approver1_id, approver2_id")
         .eq("is_active", true)
-        .eq("founder_user_id", founder.id)
-        .not("hod_user_id", "is", null)
+        .eq("approver2_id", founder.id)
+        .not("approver1_id", "is", null)
         .limit(1);
 
       if (departmentError) {
@@ -318,7 +318,7 @@ async function resolveProxyFounderContext(): Promise<ProxyFounderContext> {
       }
 
       const department = departmentRows?.[0];
-      if (!department?.id || !department?.name || !department?.founder_user_id) {
+      if (!department?.id || !department?.name || !department?.approver2_id) {
         throw new Error(
           "No active department found where founder is configured as the senior approver.",
         );
@@ -327,9 +327,9 @@ async function resolveProxyFounderContext(): Promise<ProxyFounderContext> {
       return {
         departmentId: department.id,
         departmentName: department.name,
-        founderUserId: founder.id,
+        approver2Id: founder.id,
         founderEmail: founder.email,
-        seniorApproverUserId: department.founder_user_id,
+        seniorApproverUserId: department.approver2_id,
       };
     })();
   }
@@ -1207,10 +1207,10 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
 
     expect(claimRouting.departmentId).toBe(leapfrog.departmentId);
     expect(claimRouting.assignedL1ApproverId).toBe(leapfrog.financeUserId);
-    expect(claimRouting.assignedL1ApproverId).not.toBe(leapfrog.hodUserId);
+    expect(claimRouting.assignedL1ApproverId).not.toBe(leapfrog.approver1Id);
     expect(claimRouting.status).toBe("Submitted - Awaiting HOD approval");
 
-    await withActorPage(browser, leapfrog.hodEmail, async (page) =>
+    await withActorPage(browser, leapfrog.approver1Email, async (page) =>
       expectClaimVisibleInApprovals(page, submission.claimId, false),
     );
 
@@ -1236,7 +1236,7 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
       `CROSS_DEPARTMENT_ESCALATION submitter=${context.submitterDepartmentName} target=${context.targetDepartmentName}`,
     );
 
-    const submission = await withActorPage(browser, context.submitterHodEmail, async (page) =>
+    const submission = await withActorPage(browser, context.submitterApprover1Email, async (page) =>
       submitPettyCashRequest(page, {
         employeeId: `XDEPT-${runTag}`,
         requestedAmount: 89.75,
@@ -1250,10 +1250,10 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
 
     expect(claimRouting.departmentId).toBe(context.targetDepartmentId);
     expect(claimRouting.assignedL1ApproverId).toBe(context.targetApprover2UserId);
-    expect(claimRouting.assignedL1ApproverId).not.toBe(context.targetHodUserId);
+    expect(claimRouting.assignedL1ApproverId).not.toBe(context.targetApprover1Id);
     expect(claimRouting.status).toBe("Submitted - Awaiting HOD approval");
 
-    await withActorPage(browser, context.targetHodEmail, async (page) =>
+    await withActorPage(browser, context.targetApprover1Email, async (page) =>
       expectClaimVisibleInApprovals(page, submission.claimId, false),
     );
 

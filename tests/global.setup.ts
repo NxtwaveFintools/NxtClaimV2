@@ -27,8 +27,8 @@ type FinanceApproverRow = {
 type UserEmailRelation = { email: string | null } | Array<{ email: string | null }> | null;
 
 type DepartmentActorRow = {
-  hod: UserEmailRelation;
-  founder: UserEmailRelation;
+  approver1: UserEmailRelation;
+  approver2: UserEmailRelation;
 };
 
 type RoleCredential = {
@@ -228,7 +228,7 @@ async function resolveRoleCredentials(): Promise<ResolvedRoleCredentials> {
     client
       .from("master_departments")
       .select(
-        "hod:users!master_departments_hod_user_id_fkey(email), founder:users!master_departments_founder_user_id_fkey(email)",
+        "approver1:users!master_departments_approver1_id_fkey(email), approver2:users!master_departments_approver2_id_fkey(email)",
       )
       .eq("is_active", true),
   ]);
@@ -282,11 +282,11 @@ async function resolveRoleCredentials(): Promise<ResolvedRoleCredentials> {
   const departmentRows = (departmentActors ?? []) as DepartmentActorRow[];
   const orderedHodCandidates = prioritizeCandidates(
     [defaults.hod],
-    departmentRows.map((row) => getRelatedUserEmail(row.hod) ?? ""),
+    departmentRows.map((row) => getRelatedUserEmail(row.approver1) ?? ""),
   );
   const orderedFounderCandidates = prioritizeCandidates(
     [defaults.founder],
-    departmentRows.map((row) => getRelatedUserEmail(row.founder) ?? ""),
+    departmentRows.map((row) => getRelatedUserEmail(row.approver2) ?? ""),
   );
   const orderedFinanceCandidates = prioritizeCandidates(
     [defaults.finance, defaults.finance2],

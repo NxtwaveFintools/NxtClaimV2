@@ -76,7 +76,7 @@ async function seedFinanceClaims(seedTag: string, financeEmail: string): Promise
         .maybeSingle(),
       client
         .from("master_departments")
-        .select("id, hod_user_id")
+        .select("id, approver1_id")
         .eq("is_active", true)
         .limit(1)
         .maybeSingle(),
@@ -86,7 +86,7 @@ async function seedFinanceClaims(seedTag: string, financeEmail: string): Promise
     throw new Error(financeUserError?.message ?? "Finance user not found for export seed.");
   }
 
-  if (deptError || !department?.id || !department?.hod_user_id) {
+  if (deptError || !department?.id || !department?.approver1_id) {
     throw new Error(deptError?.message ?? "Department routing not found for export seed.");
   }
 
@@ -136,7 +136,7 @@ async function seedFinanceClaims(seedTag: string, financeEmail: string): Promise
     cc_emails: "NA",
     department_id: department.id,
     payment_mode_id: paymentMode.id,
-    assigned_l1_approver_id: department.hod_user_id,
+    assigned_l1_approver_id: department.approver1_id,
     assigned_l2_approver_id: null,
     submitted_at: new Date(Date.now() - index * 60_000).toISOString(),
     is_active: true,

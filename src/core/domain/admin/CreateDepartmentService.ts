@@ -11,8 +11,8 @@ type Dependencies = {
 
 type CreateDepartmentInput = {
   name: string;
-  hodEmail: string;
-  founderEmail: string;
+  approver1Email: string;
+  approver2Email: string;
 };
 
 type CreateDepartmentResult = {
@@ -32,8 +32,8 @@ export class CreateDepartmentService {
 
   async createDepartment(input: CreateDepartmentInput): Promise<CreateDepartmentResult> {
     const name = input.name?.trim();
-    const hodEmail = input.hodEmail?.trim().toLowerCase();
-    const founderEmail = input.founderEmail?.trim().toLowerCase();
+    const approver1Email = input.approver1Email?.trim().toLowerCase();
+    const approver2Email = input.approver2Email?.trim().toLowerCase();
 
     if (!name) {
       return {
@@ -43,40 +43,40 @@ export class CreateDepartmentService {
       };
     }
 
-    if (!hodEmail || !hodEmail.includes("@")) {
+    if (!approver1Email || !approver1Email.includes("@")) {
       return {
         data: null,
         errorCode: "INVALID_INPUT",
-        errorMessage: "A valid HOD email address is required.",
+        errorMessage: "A valid Approver 1 email address is required.",
       };
     }
 
-    if (!founderEmail || !founderEmail.includes("@")) {
+    if (!approver2Email || !approver2Email.includes("@")) {
       return {
         data: null,
         errorCode: "INVALID_INPUT",
-        errorMessage: "A valid Founder email address is required.",
+        errorMessage: "A valid Approver 2 email address is required.",
       };
     }
 
-    if (hodEmail === founderEmail) {
+    if (approver1Email === approver2Email) {
       return {
         data: null,
         errorCode: "SAME_APPROVER",
-        errorMessage: "HOD and Founder cannot be the same person.",
+        errorMessage: "Approver 1 and Approver 2 cannot be the same person.",
       };
     }
 
     this.logger.info("CreateDepartmentService.createDepartment", {
       name,
-      hodEmail,
-      founderEmail,
+      approver1Email,
+      approver2Email,
     });
 
     const result = await this.repository.createDepartmentWithActorsByEmail({
       name,
-      hodEmail,
-      founderEmail,
+      approver1Email,
+      approver2Email,
     });
 
     if (result.errorMessage) {
