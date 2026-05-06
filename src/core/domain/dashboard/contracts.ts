@@ -44,8 +44,8 @@ export type DashboardAnalyticsScope = "admin" | "hod" | "finance";
 export type DashboardAnalyticsViewerContext = {
   userId: string;
   isAdmin: boolean;
-  hodDepartmentIds: string[];
-  founderDepartmentIds: string[];
+  approver1DepartmentIds: string[];
+  approver2DepartmentIds: string[];
   financeApproverIds: string[];
 };
 
@@ -192,9 +192,9 @@ export type DashboardAnalyticsRepository = {
   }>;
   getAnalyticsFilterOptions(input: {
     isAdmin: boolean;
-    isFounder: boolean;
+    isApprover2: boolean;
     isFinance: boolean;
-    founderDepartmentIds: string[];
+    approver2DepartmentIds: string[];
   }): Promise<{
     data: DashboardAnalyticsAdvancedFilters | null;
     errorMessage: string | null;

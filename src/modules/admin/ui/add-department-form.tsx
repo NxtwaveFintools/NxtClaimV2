@@ -11,8 +11,8 @@ export function AddDepartmentForm() {
   const [isPending, startTransition] = useTransition();
 
   const [name, setName] = useState("");
-  const [hodEmail, setHodEmail] = useState("");
-  const [founderEmail, setFounderEmail] = useState("");
+  const [approver1Email, setApprover1Email] = useState("");
+  const [approver2Email, setApprover2Email] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -22,8 +22,8 @@ export function AddDepartmentForm() {
     startTransition(async () => {
       const result = await addDepartmentAction({
         name,
-        hod_email: hodEmail,
-        founder_email: founderEmail,
+        approver1Email,
+        approver2Email,
       });
 
       if (!result.ok) {
@@ -34,8 +34,8 @@ export function AddDepartmentForm() {
       }
 
       setName("");
-      setHodEmail("");
-      setFounderEmail("");
+      setApprover1Email("");
+      setApprover2Email("");
       toast.success("Department created successfully.");
       router.refresh();
     });
@@ -47,8 +47,8 @@ export function AddDepartmentForm() {
         Add Department
       </h3>
       <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-        Enter a department and actor emails. Missing users are auto-created with default credentials
-        and linked immediately.
+        Enter a department and approver emails. Missing users are auto-created with default
+        credentials and linked immediately.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-4 grid gap-3 md:grid-cols-3">
@@ -62,17 +62,17 @@ export function AddDepartmentForm() {
 
         <input
           type="email"
-          value={hodEmail}
-          onChange={(event) => setHodEmail(event.target.value)}
-          placeholder="HOD email"
+          value={approver1Email}
+          onChange={(event) => setApprover1Email(event.target.value)}
+          placeholder="Approver 1 email"
           className="nxt-input w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
         />
 
         <input
           type="email"
-          value={founderEmail}
-          onChange={(event) => setFounderEmail(event.target.value)}
-          placeholder="Founder email"
+          value={approver2Email}
+          onChange={(event) => setApprover2Email(event.target.value)}
+          placeholder="Approver 2 email"
           className="nxt-input w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
         />
 
@@ -81,7 +81,7 @@ export function AddDepartmentForm() {
             type="submit"
             variant="primary"
             size="md"
-            disabled={isPending || !name.trim() || !hodEmail.trim() || !founderEmail.trim()}
+            disabled={isPending || !name.trim() || !approver1Email.trim() || !approver2Email.trim()}
           >
             {isPending ? "Creating..." : "Create Department"}
           </Button>

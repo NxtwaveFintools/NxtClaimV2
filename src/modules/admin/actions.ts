@@ -313,8 +313,8 @@ export async function updateMasterDataItemAction(
 
 export async function updateDepartmentActorsAction(
   departmentId: string,
-  hodUserId: string,
-  founderUserId: string,
+  approver1Id: string,
+  approver2Id: string,
 ): Promise<{ ok: boolean; message?: string }> {
   const guard = await requireAdmin();
   if ("forbidden" in guard) {
@@ -323,11 +323,11 @@ export async function updateDepartmentActorsAction(
 
   const schema = z.object({
     departmentId: idSchema,
-    hodUserId: idSchema,
-    founderUserId: idSchema,
+    approver1Id: idSchema,
+    approver2Id: idSchema,
   });
 
-  const parsed = schema.safeParse({ departmentId, hodUserId, founderUserId });
+  const parsed = schema.safeParse({ departmentId, approver1Id, approver2Id });
   if (!parsed.success) {
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid input." };
   }
@@ -345,8 +345,8 @@ export async function updateDepartmentActorsAction(
 
 export async function updateDepartmentActorsByEmailAction(
   departmentId: string,
-  hodEmail: string,
-  founderEmail: string,
+  approver1Email: string,
+  approver2Email: string,
 ): Promise<{ ok: boolean; message?: string }> {
   const guard = await requireAdmin();
   if ("forbidden" in guard) {
@@ -355,19 +355,19 @@ export async function updateDepartmentActorsByEmailAction(
 
   const schema = z.object({
     departmentId: idSchema,
-    hodEmail: z.string().trim().email(),
-    founderEmail: z.string().trim().email(),
+    approver1Email: z.string().trim().email(),
+    approver2Email: z.string().trim().email(),
   });
 
-  const parsed = schema.safeParse({ departmentId, hodEmail, founderEmail });
+  const parsed = schema.safeParse({ departmentId, approver1Email, approver2Email });
   if (!parsed.success) {
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid input." };
   }
 
   const result = await manageActorsService.updateDepartmentActorsByEmail({
     departmentId: parsed.data.departmentId,
-    hodEmail: parsed.data.hodEmail,
-    founderEmail: parsed.data.founderEmail,
+    approver1Email: parsed.data.approver1Email,
+    approver2Email: parsed.data.approver2Email,
   });
 
   if (!result.success) {

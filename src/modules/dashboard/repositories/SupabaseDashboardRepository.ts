@@ -34,8 +34,8 @@ type AdminMembershipRow = {
 
 type DepartmentAssignmentRow = {
   id: string;
-  hod_user_id: string | null;
-  founder_user_id: string | null;
+  approver1_id: string | null;
+  approver2_id: string | null;
 };
 
 type DepartmentOptionRow = {
@@ -516,9 +516,9 @@ export class SupabaseDashboardRepository
       client.from("admins").select("id").eq("user_id", userId),
       client
         .from("master_departments")
-        .select("id, hod_user_id, founder_user_id")
+        .select("id, approver1_id, approver2_id")
         .eq("is_active", true)
-        .or(`hod_user_id.eq.${userId},founder_user_id.eq.${userId}`),
+        .or(`approver1_id.eq.${userId},approver2_id.eq.${userId}`),
       client
         .from("master_finance_approvers")
         .select("id")
@@ -541,16 +541,16 @@ export class SupabaseDashboardRepository
     const adminRows = (adminResult.data ?? []) as AdminMembershipRow[];
     const departmentRows = (departmentsResult.data ?? []) as DepartmentAssignmentRow[];
     const financeRows = (financeResult.data ?? []) as FinanceApproverAssignmentRow[];
-    const founderDepartmentIds = departmentRows
-      .filter((row) => row.founder_user_id === userId)
+    const approver2DepartmentIds = departmentRows
+      .filter((row) => row.approver2_id === userId)
       .map((row) => row.id);
 
     return {
       data: {
         userId,
         isAdmin: adminRows.length > 0,
-        hodDepartmentIds: departmentRows.map((row) => row.id),
-        founderDepartmentIds,
+        approver1DepartmentIds: departmentRows.map((row) => row.id),
+        approver2DepartmentIds,
         financeApproverIds: financeRows.map((row) => row.id),
       },
       errorMessage: null,
@@ -706,14 +706,14 @@ export class SupabaseDashboardRepository
 
   async getAnalyticsFilterOptions(input: {
     isAdmin: boolean;
-    isFounder: boolean;
+    isApprover2: boolean;
     isFinance: boolean;
-    founderDepartmentIds: string[];
+    approver2DepartmentIds: string[];
   }): Promise<{
     data: DashboardAnalyticsAdvancedFilters | null;
     errorMessage: string | null;
   }> {
-    if (!input.isAdmin && !input.isFounder && !input.isFinance) {
+    if (!input.isAdmin && !input.isApprover2 && !input.isFinance) {
       return {
         data: {
           canUseScopeFilters: false,
@@ -772,13 +772,13 @@ export class SupabaseDashboardRepository
 
       const productRows = (productsResult.data ?? []) as ProductOptionRow[];
       products = productRows.map((row) => ({ id: row.id, label: row.name }));
-    } else if (input.founderDepartmentIds.length > 0) {
+    } else if (input.approver2DepartmentIds.length > 0) {
       const [departmentsResult, expenseCategoriesResult, productsResult] = await Promise.all([
         client
           .from("master_departments")
           .select("id, name")
           .eq("is_active", true)
-          .in("id", input.founderDepartmentIds)
+          .in("id", input.approver2DepartmentIds)
           .order("name", { ascending: true }),
         client
           .from("master_expense_categories")
@@ -842,7 +842,7 @@ export class SupabaseDashboardRepository
           }),
         };
       });
-    } else if (input.isFounder && departments.length > 0) {
+    } else if (input.isApprover2 && departments.length > 0) {
       const departmentIds = departments.map((department) => department.id);
       const { data, error } = await client
         .from("claims_analytics_daily_stats")
@@ -889,7 +889,7 @@ export class SupabaseDashboardRepository
         return {
           data: {
             canUseScopeFilters: true,
-            canUseFinanceApproverFilter: input.isAdmin || input.isFounder,
+            canUseFinanceApproverFilter: input.isAdmin || input.isApprover2,
             departments,
             expenseCategories,
             products,
@@ -943,7 +943,7 @@ export class SupabaseDashboardRepository
     return {
       data: {
         canUseScopeFilters: true,
-        canUseFinanceApproverFilter: input.isAdmin || input.isFounder,
+        canUseFinanceApproverFilter: input.isAdmin || input.isApprover2,
         departments,
         expenseCategories,
         products,

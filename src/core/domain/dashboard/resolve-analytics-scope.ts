@@ -5,7 +5,7 @@ import type {
 
 type AnalyticsScopeInput = Pick<
   DashboardAnalyticsViewerContext,
-  "isAdmin" | "hodDepartmentIds" | "financeApproverIds"
+  "isAdmin" | "approver1DepartmentIds" | "financeApproverIds"
 >;
 
 export function resolveDashboardAnalyticsScope(
@@ -19,7 +19,7 @@ export function resolveDashboardAnalyticsScope(
     return "finance";
   }
 
-  if (input.hodDepartmentIds.length > 0) {
+  if (input.approver1DepartmentIds.length > 0) {
     return "hod";
   }
 

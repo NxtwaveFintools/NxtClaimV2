@@ -40,13 +40,13 @@ const PUBLIC_USER_LOOKUP_DELAY_MS = 1000;
 const EMAIL_COLUMNS_TO_UPDATE: ColumnUpdateConfig[] = [
   { column: "hod_email", optional: true },
   { column: "founder_email", optional: true },
-  { column: "hod_provisional_email", optional: false },
-  { column: "founder_provisional_email", optional: false },
+  { column: "approver1_provisional_email", optional: false },
+  { column: "approver2_provisional_email", optional: false },
 ];
 
 const ID_COLUMNS_TO_UPDATE: ColumnUpdateConfig[] = [
-  { column: "hod_user_id", optional: false },
-  { column: "founder_user_id", optional: false },
+  { column: "approver1_id", optional: false },
+  { column: "approver2_id", optional: false },
   { column: "hod_id", optional: true },
   { column: "founder_id", optional: true },
 ];

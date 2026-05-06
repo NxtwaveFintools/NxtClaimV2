@@ -17,14 +17,14 @@ const SAMPLE_DEPARTMENT: DepartmentWithActors = {
   id: "dept-1",
   name: "Engineering",
   isActive: true,
-  hodUserId: "user-hod-1",
-  hodUserName: "Alice",
-  hodUserEmail: "alice@example.com",
-  hodProvisionalEmail: null,
-  founderUserId: "user-founder-1",
-  founderUserName: "Bob",
-  founderUserEmail: "bob@example.com",
-  founderProvisionalEmail: null,
+  approver1Id: "user-approver-1",
+  approver1Name: "Alice",
+  approver1Email: "alice@example.com",
+  approver1ProvisionalEmail: null,
+  approver2Id: "user-approver-2",
+  approver2Name: "Bob",
+  approver2Email: "bob@example.com",
+  approver2ProvisionalEmail: null,
 };
 
 const SAMPLE_FINANCE_APPROVER: FinanceApproverRecord = {
@@ -118,14 +118,14 @@ describe("ManageActorsService", () => {
 
       const result = await service.updateDepartmentActors({
         departmentId: "dept-1",
-        hodUserId: "user-hod-1",
-        founderUserId: "user-founder-1",
+        approver1Id: "user-approver-1",
+        approver2Id: "user-approver-2",
       });
 
       expect(repository.updateDepartmentActors).toHaveBeenCalledWith(
         "dept-1",
-        "user-hod-1",
-        "user-founder-1",
+        "user-approver-1",
+        "user-approver-2",
       );
       expect(result.success).toBe(true);
       expect(result.errorCode).toBeNull();
@@ -137,8 +137,8 @@ describe("ManageActorsService", () => {
 
       const result = await service.updateDepartmentActors({
         departmentId: "  ",
-        hodUserId: "user-hod-1",
-        founderUserId: "user-founder-1",
+        approver1Id: "user-approver-1",
+        approver2Id: "user-approver-2",
       });
 
       expect(repository.updateDepartmentActors).not.toHaveBeenCalled();
@@ -146,14 +146,14 @@ describe("ManageActorsService", () => {
       expect(result.errorCode).toBe("INVALID_INPUT");
     });
 
-    test("returns INVALID_INPUT for empty hodUserId", async () => {
+    test("returns INVALID_INPUT for empty approver1Id", async () => {
       const repository = createRepository();
       const service = new ManageActorsService({ repository, logger: createLogger() });
 
       const result = await service.updateDepartmentActors({
         departmentId: "dept-1",
-        hodUserId: "",
-        founderUserId: "user-founder-1",
+        approver1Id: "",
+        approver2Id: "user-approver-2",
       });
 
       expect(repository.updateDepartmentActors).not.toHaveBeenCalled();
@@ -161,14 +161,14 @@ describe("ManageActorsService", () => {
       expect(result.errorCode).toBe("INVALID_INPUT");
     });
 
-    test("returns INVALID_INPUT for empty founderUserId", async () => {
+    test("returns INVALID_INPUT for empty approver2Id", async () => {
       const repository = createRepository();
       const service = new ManageActorsService({ repository, logger: createLogger() });
 
       const result = await service.updateDepartmentActors({
         departmentId: "dept-1",
-        hodUserId: "user-hod-1",
-        founderUserId: "",
+        approver1Id: "user-approver-1",
+        approver2Id: "",
       });
 
       expect(repository.updateDepartmentActors).not.toHaveBeenCalled();
@@ -176,14 +176,14 @@ describe("ManageActorsService", () => {
       expect(result.errorCode).toBe("INVALID_INPUT");
     });
 
-    test("returns SAME_APPROVER when hodUserId equals founderUserId", async () => {
+    test("returns SAME_APPROVER when approver1Id equals approver2Id", async () => {
       const repository = createRepository();
       const service = new ManageActorsService({ repository, logger: createLogger() });
 
       const result = await service.updateDepartmentActors({
         departmentId: "dept-1",
-        hodUserId: "user-1",
-        founderUserId: "user-1",
+        approver1Id: "user-1",
+        approver2Id: "user-1",
       });
 
       expect(repository.updateDepartmentActors).not.toHaveBeenCalled();
@@ -202,8 +202,8 @@ describe("ManageActorsService", () => {
 
       const result = await service.updateDepartmentActors({
         departmentId: "dept-1",
-        hodUserId: "user-hod-1",
-        founderUserId: "user-founder-1",
+        approver1Id: "user-approver-1",
+        approver2Id: "user-approver-2",
       });
 
       expect(result.success).toBe(false);
@@ -219,8 +219,8 @@ describe("ManageActorsService", () => {
 
       const result = await service.updateDepartmentActorsByEmail({
         departmentId: "dept-1",
-        hodEmail: "alice@example.com",
-        founderEmail: "bob@example.com",
+        approver1Email: "alice@example.com",
+        approver2Email: "bob@example.com",
       });
 
       expect(repository.updateDepartmentActorsByEmail).toHaveBeenCalledWith(
@@ -232,14 +232,14 @@ describe("ManageActorsService", () => {
       expect(result.errorCode).toBeNull();
     });
 
-    test("returns INVALID_INPUT for invalid HOD email", async () => {
+    test("returns INVALID_INPUT for invalid Approver 1 email", async () => {
       const repository = createRepository();
       const service = new ManageActorsService({ repository, logger: createLogger() });
 
       const result = await service.updateDepartmentActorsByEmail({
         departmentId: "dept-1",
-        hodEmail: "not-an-email",
-        founderEmail: "bob@example.com",
+        approver1Email: "not-an-email",
+        approver2Email: "bob@example.com",
       });
 
       expect(repository.updateDepartmentActorsByEmail).not.toHaveBeenCalled();
@@ -247,14 +247,14 @@ describe("ManageActorsService", () => {
       expect(result.errorCode).toBe("INVALID_INPUT");
     });
 
-    test("returns INVALID_INPUT for invalid Founder email", async () => {
+    test("returns INVALID_INPUT for invalid Approver 2 email", async () => {
       const repository = createRepository();
       const service = new ManageActorsService({ repository, logger: createLogger() });
 
       const result = await service.updateDepartmentActorsByEmail({
         departmentId: "dept-1",
-        hodEmail: "alice@example.com",
-        founderEmail: "",
+        approver1Email: "alice@example.com",
+        approver2Email: "",
       });
 
       expect(repository.updateDepartmentActorsByEmail).not.toHaveBeenCalled();

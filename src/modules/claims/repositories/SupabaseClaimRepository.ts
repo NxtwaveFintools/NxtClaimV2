@@ -130,8 +130,8 @@ type ClaimAuditLogRow = {
 };
 
 type DepartmentApproverRoleRow = {
-  hod_user_id: string | null;
-  founder_user_id: string | null;
+  approver1_id: string | null;
+  approver2_id: string | null;
 };
 
 type UserLookupRow = {
@@ -2166,7 +2166,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
   }
 
   async getApprovalViewerContext(userId: string): Promise<{
-    data: { isHod: boolean; isFounder: boolean; isFinance: boolean };
+    data: { isApprover1: boolean; isApprover2: boolean; isFinance: boolean };
     errorMessage: string | null;
   }> {
     const client = getServiceRoleSupabaseClient();
@@ -2174,9 +2174,9 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const [departmentRoleResult, financeRoleResult] = await Promise.all([
       client
         .from("master_departments")
-        .select("hod_user_id, founder_user_id")
+        .select("approver1_id, approver2_id")
         .eq("is_active", true)
-        .or(`hod_user_id.eq.${userId},founder_user_id.eq.${userId}`),
+        .or(`approver1_id.eq.${userId},approver2_id.eq.${userId}`),
       client
         .from("master_finance_approvers")
         .select("id")
@@ -2187,14 +2187,14 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
     if (departmentRoleResult.error) {
       return {
-        data: { isHod: false, isFounder: false, isFinance: false },
+        data: { isApprover1: false, isApprover2: false, isFinance: false },
         errorMessage: departmentRoleResult.error.message,
       };
     }
 
     if (financeRoleResult.error) {
       return {
-        data: { isHod: false, isFounder: false, isFinance: false },
+        data: { isApprover1: false, isApprover2: false, isFinance: false },
         errorMessage: financeRoleResult.error.message,
       };
     }
@@ -2203,8 +2203,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
     return {
       data: {
-        isHod: departmentRows.some((row) => row.hod_user_id === userId),
-        isFounder: departmentRows.some((row) => row.founder_user_id === userId),
+        isApprover1: departmentRows.some((row) => row.approver1_id === userId),
+        isApprover2: departmentRows.some((row) => row.approver2_id === userId),
         isFinance: (financeRoleResult.data ?? []).length > 0,
       },
       errorMessage: null,
@@ -2449,7 +2449,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const client = getServiceRoleSupabaseClient();
     const { data, error } = await client
       .from("master_departments")
-      .select("hod_user_id, founder_user_id")
+      .select("approver1_id, approver2_id")
       .eq("id", departmentId)
       .eq("is_active", true)
       .maybeSingle();
@@ -2465,8 +2465,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const row = data as DepartmentApproverRoleRow;
     return {
       data: {
-        approver1Id: row.hod_user_id,
-        approver2Id: row.founder_user_id,
+        approver1Id: row.approver1_id,
+        approver2Id: row.approver2_id,
       },
       errorMessage: null,
     };
@@ -2562,7 +2562,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const { data, error } = await client
       .from("master_departments")
       .select("id")
-      .eq("hod_user_id", userId)
+      .eq("approver1_id", userId)
       .eq("is_active", true)
       .limit(1);
 

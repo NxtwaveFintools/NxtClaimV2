@@ -431,8 +431,8 @@ export type ClaimListDetail = {
 };
 
 export type ApprovalViewerContext = {
-  isHod: boolean;
-  isFounder: boolean;
+  isApprover1: boolean;
+  isApprover2: boolean;
   isFinance: boolean;
 };
 

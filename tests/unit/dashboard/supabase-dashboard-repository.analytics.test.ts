@@ -51,7 +51,7 @@ describe("SupabaseDashboardRepository analytics methods", () => {
     jest.clearAllMocks();
   });
 
-  test("getAnalyticsViewerContext resolves admin and founder-assigned departments", async () => {
+  test("getAnalyticsViewerContext resolves admin and approver2-assigned departments", async () => {
     const adminsQuery = {} as AnyQuery;
     adminsQuery.eq = jest.fn(async () => ({
       data: [{ id: "admin-1" }],
@@ -62,8 +62,8 @@ describe("SupabaseDashboardRepository analytics methods", () => {
     deptsQuery.eq = jest.fn(() => deptsQuery);
     deptsQuery.or = jest.fn(async () => ({
       data: [
-        { id: "dept-1", hod_user_id: "other-user", founder_user_id: "user-1" },
-        { id: "dept-2", hod_user_id: "user-1", founder_user_id: "user-9" },
+        { id: "dept-1", approver1_id: "other-user", approver2_id: "user-1" },
+        { id: "dept-2", approver1_id: "user-1", approver2_id: "user-9" },
       ],
       error: null,
     }));
@@ -102,8 +102,8 @@ describe("SupabaseDashboardRepository analytics methods", () => {
     expect(result.data).toEqual({
       userId: "user-1",
       isAdmin: true,
-      hodDepartmentIds: ["dept-1", "dept-2"],
-      founderDepartmentIds: ["dept-1"],
+      approver1DepartmentIds: ["dept-1", "dept-2"],
+      approver2DepartmentIds: ["dept-1"],
       financeApproverIds: ["fa-1"],
     });
   });
@@ -177,9 +177,9 @@ describe("SupabaseDashboardRepository analytics methods", () => {
 
     const result = await repository.getAnalyticsFilterOptions({
       isAdmin: false,
-      isFounder: false,
+      isApprover2: false,
       isFinance: false,
-      founderDepartmentIds: [],
+      approver2DepartmentIds: [],
     });
 
     expect(result).toEqual({

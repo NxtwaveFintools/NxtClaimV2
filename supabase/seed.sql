@@ -111,12 +111,12 @@ set
 	is_active = true,
 	updated_at = now();
 
-insert into public.master_departments (name, hod_user_id, founder_user_id, is_active)
+insert into public.master_departments (name, approver1_id, approver2_id, is_active)
 values ('Tech', '22222222-2222-2222-2222-222222222222'::uuid, '33333333-3333-3333-3333-333333333333'::uuid, true)
 on conflict (name) do update
 set
-	hod_user_id = excluded.hod_user_id,
-	founder_user_id = excluded.founder_user_id,
+	approver1_id = excluded.approver1_id,
+	approver2_id = excluded.approver2_id,
 	is_active = excluded.is_active,
 	updated_at = now();
 
@@ -445,7 +445,7 @@ insert_hod_wallet as (
 		user_id = excluded.user_id
 	returning user_id
 )
-insert into public.master_departments (name, hod_user_id, founder_user_id, is_active)
+insert into public.master_departments (name, approver1_id, approver2_id, is_active)
 select
 	(select department_name from seed_constants),
 	hpu.id,
@@ -455,8 +455,8 @@ from insert_hod_public_user hpu
 join insert_founder_public_user fpu on true
 on conflict (name) do update
 set
-	hod_user_id = excluded.hod_user_id,
-	founder_user_id = excluded.founder_user_id,
+	approver1_id = excluded.approver1_id,
+	approver2_id = excluded.approver2_id,
 	is_active = excluded.is_active,
 	updated_at = now();
 -- END: TA BULK HIRING SEED

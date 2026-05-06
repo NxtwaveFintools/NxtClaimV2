@@ -10,10 +10,10 @@ type HODBypassContext = {
   departmentName: string;
   employeeUserId: string;
   employeeEmail: string;
-  hodUserId: string;
-  hodEmail: string;
-  founderUserId: string;
-  founderEmail: string;
+  approver1Id: string;
+  approver1Email: string;
+  approver2Id: string;
+  approver2Email: string;
 };
 
 let bypassContextPromise: Promise<HODBypassContext> | null = null;
@@ -59,10 +59,10 @@ async function resolveHodBypassContext(): Promise<HODBypassContext> {
 
       const { data: departmentRows, error: departmentError } = await client
         .from("master_departments")
-        .select("id, name, hod_user_id, founder_user_id")
+        .select("id, name, approver1_id, approver2_id")
         .eq("is_active", true)
-        .not("hod_user_id", "is", null)
-        .not("founder_user_id", "is", null);
+        .not("approver1_id", "is", null)
+        .not("approver2_id", "is", null);
 
       if (departmentError) {
         throw new Error(`Failed to resolve department routing context: ${departmentError.message}`);
@@ -70,26 +70,21 @@ async function resolveHodBypassContext(): Promise<HODBypassContext> {
 
       const candidate = (departmentRows ?? []).find((department) => {
         return (
-          department.hod_user_id &&
-          department.founder_user_id &&
-          department.hod_user_id !== department.founder_user_id &&
-          department.hod_user_id !== employee.id &&
-          department.founder_user_id !== employee.id
+          department.approver1_id &&
+          department.approver2_id &&
+          department.approver1_id !== department.approver2_id &&
+          department.approver1_id !== employee.id &&
+          department.approver2_id !== employee.id
         );
       });
 
-      if (
-        !candidate?.id ||
-        !candidate.name ||
-        !candidate.hod_user_id ||
-        !candidate.founder_user_id
-      ) {
+      if (!candidate?.id || !candidate.name || !candidate.approver1_id || !candidate.approver2_id) {
         throw new Error(
-          "No active department found with distinct HOD and Founder where employee is neither approver.",
+          "No active department found with distinct Approver 1 and Approver 2 where employee is neither approver.",
         );
       }
 
-      const actorIds = [candidate.hod_user_id, candidate.founder_user_id];
+      const actorIds = [candidate.approver1_id, candidate.approver2_id];
 
       const { data: approverRows, error: approverError } = await client
         .from("users")
@@ -102,11 +97,11 @@ async function resolveHodBypassContext(): Promise<HODBypassContext> {
       }
 
       const emailByUserId = new Map((approverRows ?? []).map((row) => [row.id, row.email]));
-      const hodEmail = emailByUserId.get(candidate.hod_user_id);
-      const founderEmail = emailByUserId.get(candidate.founder_user_id);
+      const approver1Email = emailByUserId.get(candidate.approver1_id);
+      const approver2Email = emailByUserId.get(candidate.approver2_id);
 
-      if (!hodEmail || !founderEmail) {
-        throw new Error("Resolved HOD and Founder users must have active emails.");
+      if (!approver1Email || !approver2Email) {
+        throw new Error("Resolved Approver 1 and Approver 2 users must have active emails.");
       }
 
       return {
@@ -114,10 +109,10 @@ async function resolveHodBypassContext(): Promise<HODBypassContext> {
         departmentName: candidate.name,
         employeeUserId: employee.id,
         employeeEmail: employee.email,
-        hodUserId: candidate.hod_user_id,
-        hodEmail,
-        founderUserId: candidate.founder_user_id,
-        founderEmail,
+        approver1Id: candidate.approver1_id,
+        approver1Email,
+        approver2Id: candidate.approver2_id,
+        approver2Email,
       };
     })();
   }
@@ -531,7 +526,7 @@ test.describe("HOD bypass routing", () => {
         requestedAmount: 145.9,
         purpose,
         departmentName: context.departmentName,
-        onBehalfEmail: context.hodEmail,
+        onBehalfEmail: context.approver1Email,
         onBehalfEmployeeCode: `HOD-${runTag}`,
       }),
     );
@@ -539,12 +534,12 @@ test.describe("HOD bypass routing", () => {
     const routing = await getClaimRoutingSnapshot(submission.claimId);
 
     expect(routing.departmentId).toBe(context.departmentId);
-    expect(routing.onBehalfOfId).toBe(context.hodUserId);
+    expect(routing.onBehalfOfId).toBe(context.approver1Id);
     expect(routing.submittedBy).toBe(context.employeeUserId);
-    expect(routing.assignedL1ApproverId).toBe(context.founderUserId);
-    expect(routing.assignedL1ApproverId).not.toBe(context.hodUserId);
+    expect(routing.assignedL1ApproverId).toBe(context.approver2Id);
+    expect(routing.assignedL1ApproverId).not.toBe(context.approver1Id);
 
-    await withActorPage(browser, context.hodEmail, async (page) =>
+    await withActorPage(browser, context.approver1Email, async (page) =>
       expectClaimVisibleInApprovals(page, submission.claimId, false),
     );
 

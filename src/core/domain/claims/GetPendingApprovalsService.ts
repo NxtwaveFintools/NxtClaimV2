@@ -44,8 +44,8 @@ type RepositoryApprovalRow = Omit<
 >;
 
 type ApprovalViewerContext = {
-  isHod: boolean;
-  isFounder: boolean;
+  isApprover1: boolean;
+  isApprover2: boolean;
   isFinance: boolean;
 };
 
@@ -117,7 +117,7 @@ export class GetPendingApprovalsService {
       };
     }
 
-    const isL1 = viewerContextResult.data.isHod || viewerContextResult.data.isFounder;
+    const isL1 = viewerContextResult.data.isApprover1 || viewerContextResult.data.isApprover2;
     const isFinance = viewerContextResult.data.isFinance;
 
     return {

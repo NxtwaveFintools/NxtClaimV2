@@ -44,8 +44,8 @@ describe("addDepartmentAction", () => {
       data: {
         id: "dept-1",
         name: "Engineering",
-        hodUserId: "hod-1",
-        founderUserId: "founder-1",
+        approver1Id: "approver-1",
+        approver2Id: "approver-2",
         isActive: true,
       },
       errorCode: null,
@@ -58,8 +58,8 @@ describe("addDepartmentAction", () => {
 
     const result = await addDepartmentAction({
       name: "Engineering",
-      hod_email: "hod@nxtwave.co.in",
-      founder_email: "founder@nxtwave.co.in",
+      approver1Email: "approver1@nxtwave.co.in",
+      approver2Email: "approver2@nxtwave.co.in",
     });
 
     expect(result).toEqual({ ok: false, message: "Forbidden: admin access required." });
@@ -69,20 +69,20 @@ describe("addDepartmentAction", () => {
   test("validates payload", async () => {
     const invalidName = await addDepartmentAction({
       name: "  ",
-      hod_email: "hod@nxtwave.co.in",
-      founder_email: "founder@nxtwave.co.in",
+      approver1Email: "approver1@nxtwave.co.in",
+      approver2Email: "approver2@nxtwave.co.in",
     });
 
     const invalidHod = await addDepartmentAction({
       name: "Engineering",
-      hod_email: "bad",
-      founder_email: "founder@nxtwave.co.in",
+      approver1Email: "bad",
+      approver2Email: "approver2@nxtwave.co.in",
     });
 
     expect(invalidName.ok).toBe(false);
     expect(invalidName.message).toBe("Department name is required.");
     expect(invalidHod.ok).toBe(false);
-    expect(invalidHod.message).toBe("A valid HOD email is required.");
+    expect(invalidHod.message).toBe("A valid Approver 1 email is required.");
     expect(mockCreateDepartment).not.toHaveBeenCalled();
   });
 
@@ -95,8 +95,8 @@ describe("addDepartmentAction", () => {
 
     const result = await addDepartmentAction({
       name: "Engineering",
-      hod_email: "hod@nxtwave.co.in",
-      founder_email: "founder@nxtwave.co.in",
+      approver1Email: "approver1@nxtwave.co.in",
+      approver2Email: "approver2@nxtwave.co.in",
     });
 
     expect(result).toEqual({ ok: false, message: "duplicate key value" });
@@ -105,15 +105,15 @@ describe("addDepartmentAction", () => {
   test("calls service and revalidates on success", async () => {
     const result = await addDepartmentAction({
       name: "  Engineering  ",
-      hod_email: "HOD@Nxtwave.co.in",
-      founder_email: "Founder@Nxtwave.co.in",
+      approver1Email: "Approver1@Nxtwave.co.in",
+      approver2Email: "Approver2@Nxtwave.co.in",
     });
 
     expect(result).toEqual({ ok: true });
     expect(mockCreateDepartment).toHaveBeenCalledWith({
       name: "Engineering",
-      hodEmail: "HOD@Nxtwave.co.in",
-      founderEmail: "Founder@Nxtwave.co.in",
+      approver1Email: "Approver1@Nxtwave.co.in",
+      approver2Email: "Approver2@Nxtwave.co.in",
     });
     expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/admin/settings");
   });

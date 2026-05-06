@@ -153,12 +153,12 @@ export type ClaimFormOptions = {
   departmentRouting: {
     id: string;
     name: string;
-    hod: {
+    approver1: {
       id: string;
       email: string;
       fullName: string | null;
     };
-    founder: {
+    approver2: {
       id: string;
       email: string;
       fullName: string | null;
@@ -174,7 +174,7 @@ export type CurrentUserHydration = {
   id: string;
   email: string;
   name: string;
-  isGlobalHod: boolean;
+  isGlobalApprover1: boolean;
 };
 
 function classifyDetailType(modeName: string): ClaimDetailType | null {
@@ -582,15 +582,15 @@ export async function getClaimFormHydrationAction(): Promise<{
   const departmentRouting = departmentsResult.departments.map((department) => ({
     id: department.id,
     name: department.name,
-    hod: {
-      id: department.hod.id,
-      email: department.hod.email,
-      fullName: department.hod.fullName,
+    approver1: {
+      id: department.approver1.id,
+      email: department.approver1.email,
+      fullName: department.approver1.fullName,
     },
-    founder: {
-      id: department.founder.id,
-      email: department.founder.email,
-      fullName: department.founder.fullName,
+    approver2: {
+      id: department.approver2.id,
+      email: department.approver2.email,
+      fullName: department.approver2.fullName,
     },
   }));
 
@@ -615,7 +615,7 @@ export async function getClaimFormHydrationAction(): Promise<{
         id: resolvedCurrentUser.id,
         email: resolvedCurrentUser.email,
         name: resolvedCurrentUser.fullName ?? resolvedCurrentUser.email,
-        isGlobalHod: globalHodResult.isApprover1,
+        isGlobalApprover1: globalHodResult.isApprover1,
       },
       options: {
         departments: departmentRouting.map((department) => ({
