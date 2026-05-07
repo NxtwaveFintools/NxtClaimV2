@@ -17,7 +17,7 @@ type ClaimDetailActionPermissions = {
 type ClaimDetailActionPermissionsInput = {
   status: DbClaimStatus;
   currentUserId: string;
-  submittedBy: string;
+  beneficiaryUserId: string;
   assignedL1ApproverId: string;
   isFinanceActor: boolean;
 };
@@ -49,7 +49,7 @@ export function getAvailableClaimActions(
 export function getClaimDetailActionPermissions(
   input: ClaimDetailActionPermissionsInput,
 ): ClaimDetailActionPermissions {
-  if (input.currentUserId === input.submittedBy) {
+  if (input.currentUserId === input.beneficiaryUserId) {
     return NO_DETAIL_ACTION_PERMISSIONS;
   }
 

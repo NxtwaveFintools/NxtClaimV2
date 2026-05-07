@@ -632,15 +632,15 @@ async function ClaimDetailCore({
   } = getClaimDetailActionPermissions({
     status: claim.status,
     currentUserId,
-    submittedBy: claim.submittedBy,
+    beneficiaryUserId: claim.onBehalfOfId,
     assignedL1ApproverId: claim.assignedL1ApproverId,
     isFinanceActor,
   });
-  const isSubmitter = currentUserId === claim.submittedBy;
-  const shouldRenderL1DecisionActions = !isSubmitter && canTakeL1Decision;
+  const isBeneficiary = currentUserId === claim.onBehalfOfId;
+  const shouldRenderL1DecisionActions = !isBeneficiary && canTakeL1Decision;
   const shouldRenderFinanceAuthorizationActions =
-    !isSubmitter && canTakeFinanceAuthorizationDecision;
-  const shouldRenderFinanceExecutionAction = !isSubmitter && canTakeFinanceExecutionDecision;
+    !isBeneficiary && canTakeFinanceAuthorizationDecision;
+  const shouldRenderFinanceExecutionAction = !isBeneficiary && canTakeFinanceExecutionDecision;
   const canTakeDecision =
     shouldRenderL1DecisionActions ||
     shouldRenderFinanceAuthorizationActions ||
@@ -654,8 +654,10 @@ async function ClaimDetailCore({
     currentUserId,
     " | Submitter:",
     claim.submittedBy,
-    " | Is Submitter:",
-    isSubmitter,
+    " | Beneficiary:",
+    claim.onBehalfOfId,
+    " | Is Beneficiary:",
+    isBeneficiary,
   );
 
   const approveFromDetail = async () => {
@@ -1075,7 +1077,7 @@ async function ClaimDetailCore({
                   <ClaimDecisionActionForm
                     action={markPaidFromDetail}
                     decision="mark-paid"
-                    isSubmitter={isSubmitter}
+                    isSubmitter={isBeneficiary}
                     loadingMessage="Marking payment as done..."
                     successMessage="Claim marked as paid."
                     errorMessage="Unable to mark payment as done."
@@ -1088,7 +1090,7 @@ async function ClaimDetailCore({
                     <ClaimDecisionActionForm
                       action={approveFinanceFromDetail}
                       decision="approve"
-                      isSubmitter={isSubmitter}
+                      isSubmitter={isBeneficiary}
                       loadingMessage="Approving finance step..."
                       successMessage="Finance decision approved."
                       errorMessage="Unable to approve finance step."
@@ -1096,7 +1098,7 @@ async function ClaimDetailCore({
                     />
                     <ClaimRejectWithReasonForm
                       action={rejectFinanceFromDetail}
-                      isSubmitter={isSubmitter}
+                      isSubmitter={isBeneficiary}
                       redirectToHref={returnToPath}
                     />
                   </>
@@ -1107,7 +1109,7 @@ async function ClaimDetailCore({
                     <ClaimDecisionActionForm
                       action={approveFromDetail}
                       decision="approve"
-                      isSubmitter={isSubmitter}
+                      isSubmitter={isBeneficiary}
                       loadingMessage="Approving claim..."
                       successMessage="Claim approved."
                       errorMessage="Unable to approve claim."
@@ -1115,7 +1117,7 @@ async function ClaimDetailCore({
                     />
                     <ClaimRejectWithReasonForm
                       action={rejectFromDetail}
-                      isSubmitter={isSubmitter}
+                      isSubmitter={isBeneficiary}
                       redirectToHref={returnToPath}
                     />
                   </>

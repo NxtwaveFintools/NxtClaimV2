@@ -49,7 +49,7 @@ const currentUser = {
   id: "11111111-1111-4111-8111-111111111111",
   email: "employee@nxtwave.co.in",
   name: "Alice Employee",
-  isGlobalHod: false,
+  isGlobalApprover1: false,
 };
 
 const options = {
@@ -58,12 +58,12 @@ const options = {
     {
       id: "22222222-2222-4222-8222-222222222222",
       name: "Finance",
-      hod: {
+      approver1: {
         id: "33333333-3333-4333-8333-333333333333",
         email: "hod@nxtwave.co.in",
         fullName: "Dept HOD",
       },
-      founder: {
+      approver2: {
         id: "44444444-4444-4444-8444-444444444444",
         email: "founder@nxtwave.co.in",
         fullName: "Founder",
@@ -134,6 +134,36 @@ describe("NewClaimFormClient", () => {
     expect(screen.getByLabelText(/CGST Amount/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/SGST Amount/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/IGST Amount/i)).toBeInTheDocument();
+  });
+
+  test("shows department approver_1 as Level 1 Approver for self submission", async () => {
+    render(<NewClaimFormClient currentUser={currentUser} options={options} />);
+
+    const approverNameInput = screen.getByLabelText("Level 1 Approver") as HTMLInputElement;
+    const approverEmailInput = screen.getByLabelText("Level 1 Approver Email") as HTMLInputElement;
+
+    expect(approverNameInput.value).toBe("Dept HOD");
+    expect(approverEmailInput.value).toBe("hod@nxtwave.co.in");
+  });
+
+  test("shows escalated founder approver when on-behalf beneficiary is department approver_1", async () => {
+    const user = userEvent.setup();
+    render(<NewClaimFormClient currentUser={currentUser} options={options} />);
+
+    await user.selectOptions(screen.getByLabelText(/Submission Type/i), "On Behalf");
+    await user.type(screen.getByLabelText(/On Behalf Email/i), "hod@nxtwave.co.in");
+
+    await waitFor(() => {
+      const approverNameInput = screen.getByLabelText(
+        "Level 1 Approver (Escalated to Approver 2)",
+      ) as HTMLInputElement;
+      const approverEmailInput = screen.getByLabelText(
+        "Level 1 Approver (Escalated to Approver 2) Email",
+      ) as HTMLInputElement;
+
+      expect(approverNameInput.value).toBe("Founder");
+      expect(approverEmailInput.value).toBe("founder@nxtwave.co.in");
+    });
   });
 
   test("auto-calculates total amount when basic and GST components are entered", async () => {
