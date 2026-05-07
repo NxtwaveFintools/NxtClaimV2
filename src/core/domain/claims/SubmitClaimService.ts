@@ -182,7 +182,6 @@ export class SubmitClaimService {
       }
 
       const actualBeneficiaryId = beneficiaryResolutionResult.effectiveUserId;
-      const isProxySubmission = input.submittedBy !== actualBeneficiaryId;
 
       const departmentApproversResult = await this.repository.getDepartmentApprovers(
         input.departmentId,
@@ -203,31 +202,10 @@ export class SubmitClaimService {
         };
       }
 
-      const beneficiaryRoleResult =
-        await this.repository.isUserApprover1InAnyDepartment(actualBeneficiaryId);
-      if (beneficiaryRoleResult.errorMessage) {
-        return {
-          preparedSubmission: null,
-          errorCode: "DEPARTMENT_ROUTING_RESOLUTION_FAILED",
-          errorMessage: beneficiaryRoleResult.errorMessage,
-        };
-      }
-
-      const isBeneficiaryAnHod = beneficiaryRoleResult.isApprover1;
       const departmentApprover1Id = departmentApproversResult.data.approver1Id;
       const departmentApprover2Id = departmentApproversResult.data.approver2Id;
       const isBeneficiaryDepartmentApprover1 = actualBeneficiaryId === departmentApprover1Id;
-      const isBeneficiaryDepartmentApprover2 = actualBeneficiaryId === departmentApprover2Id;
-
-      const isGlobalHodBeneficiary = isBeneficiaryAnHod;
-      const isGlobalHodSelfSubmission = isGlobalHodBeneficiary && !isProxySubmission;
-      const requiresFounderEscalation = isProxySubmission
-        ? isBeneficiaryDepartmentApprover1 ||
-          isBeneficiaryDepartmentApprover2 ||
-          isGlobalHodBeneficiary
-        : isGlobalHodSelfSubmission;
-
-      const assignedL1ApproverId = requiresFounderEscalation
+      const assignedL1ApproverId = isBeneficiaryDepartmentApprover1
         ? departmentApprover2Id
         : departmentApprover1Id;
 
@@ -235,8 +213,8 @@ export class SubmitClaimService {
         return {
           preparedSubmission: null,
           errorCode: "DEPARTMENT_ROUTING_MISSING",
-          errorMessage: requiresFounderEscalation
-            ? "Escalation approver is not configured for this department."
+          errorMessage: isBeneficiaryDepartmentApprover1
+            ? "Escalation approver (Founder) is not configured for this department."
             : "Department approver routing is not configured.",
         };
       }

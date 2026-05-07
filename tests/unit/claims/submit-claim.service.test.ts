@@ -375,12 +375,7 @@ describe("SubmitClaimService", () => {
   });
 
   test("Routes to Founder when an HOD submits their own claim directly.", async () => {
-    const repository = createRepository({
-      isUserApprover1InAnyDepartment: jest.fn(async () => ({
-        isApprover1: true,
-        errorMessage: null,
-      })),
-    });
+    const repository = createRepository();
     const logger = createLogger();
     const service = new SubmitClaimService({ repository, logger });
 
@@ -397,14 +392,9 @@ describe("SubmitClaimService", () => {
     );
   });
 
-  test("Should escalate and assign Department approver_2 when submitter is HOD in another department", async () => {
+  test("Should assign Department approver_1 when submitter is HOD in another department", async () => {
     const crossDepartmentHodId = "99999999-9999-9999-9999-999999999999";
-    const repository = createRepository({
-      isUserApprover1InAnyDepartment: jest.fn(async () => ({
-        isApprover1: true,
-        errorMessage: null,
-      })),
-    });
+    const repository = createRepository();
     const logger = createLogger();
     const service = new SubmitClaimService({ repository, logger });
 
@@ -415,7 +405,7 @@ describe("SubmitClaimService", () => {
 
     expect(repository.createClaimWithDetail).toHaveBeenCalledWith(
       expect.objectContaining({
-        assigned_l1_approver_id: departmentApprover2Id,
+        assigned_l1_approver_id: departmentApprover1Id,
         initial_status: "Submitted - Awaiting HOD approval",
       }),
     );
@@ -460,10 +450,6 @@ describe("SubmitClaimService", () => {
         data: beneficiaryHodId,
         errorMessage: null,
       })),
-      isUserApprover1InAnyDepartment: jest.fn(async (userId: string) => ({
-        isApprover1: userId === beneficiaryHodId,
-        errorMessage: null,
-      })),
     });
     const logger = createLogger();
     const service = new SubmitClaimService({ repository, logger });
@@ -486,14 +472,68 @@ describe("SubmitClaimService", () => {
     );
   });
 
-  test("Routes to Founder when a normal user submits On Behalf of HOD X to Department Y (Cross-Department Proxy)", async () => {
-    const crossDepartmentHodId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+  test("Routes to Department approver_1 when HOD submits on behalf of their own employee", async () => {
+    const beneficiaryEmployeeId = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
     const repository = createRepository({
-      isUserApprover1InAnyDepartment: jest.fn(async (userId: string) => ({
-        isApprover1: userId === crossDepartmentHodId,
+      getActiveUserIdByEmail: jest.fn(async () => ({
+        data: beneficiaryEmployeeId,
         errorMessage: null,
       })),
     });
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    await service.execute({
+      ...baseInput,
+      submissionType: "On Behalf",
+      onBehalfEmail: "employee@nxtwave.co.in",
+      onBehalfEmployeeCode: "EMP-REP-101",
+      onBehalfOfId: beneficiaryEmployeeId,
+      submittedBy: departmentApprover1Id,
+    });
+
+    expect(repository.createClaimWithDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        on_behalf_of_id: beneficiaryEmployeeId,
+        assigned_l1_approver_id: departmentApprover1Id,
+        initial_status: "Submitted - Awaiting HOD approval",
+      }),
+    );
+  });
+
+  test("Routes to Dept B approver_1 when Dept A HOD submits on behalf of Dept B employee", async () => {
+    const deptAHodId = "99999999-9999-9999-9999-999999999999";
+    const deptBEmployeeId = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+    const repository = createRepository({
+      getActiveUserIdByEmail: jest.fn(async () => ({
+        data: deptBEmployeeId,
+        errorMessage: null,
+      })),
+    });
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    await service.execute({
+      ...baseInput,
+      submissionType: "On Behalf",
+      onBehalfEmail: "employee-deptb@nxtwave.co.in",
+      onBehalfEmployeeCode: "EMP-DEPTB-22",
+      onBehalfOfId: deptBEmployeeId,
+      submittedBy: deptAHodId,
+    });
+
+    expect(repository.createClaimWithDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        on_behalf_of_id: deptBEmployeeId,
+        assigned_l1_approver_id: departmentApprover1Id,
+        initial_status: "Submitted - Awaiting HOD approval",
+      }),
+    );
+  });
+
+  test("Routes to Department approver_1 when beneficiary HOD is from another department", async () => {
+    const crossDepartmentHodId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+    const repository = createRepository();
     const logger = createLogger();
     const service = new SubmitClaimService({ repository, logger });
 
@@ -506,25 +546,20 @@ describe("SubmitClaimService", () => {
       submittedBy: submitterId,
     });
 
-    expect(repository.isUserApprover1InAnyDepartment).toHaveBeenCalledWith(crossDepartmentHodId);
     expect(repository.createClaimWithDetail).toHaveBeenCalledWith(
       expect.objectContaining({
         on_behalf_of_id: crossDepartmentHodId,
-        assigned_l1_approver_id: departmentApprover2Id,
+        assigned_l1_approver_id: departmentApprover1Id,
         initial_status: "Submitted - Awaiting HOD approval",
       }),
     );
   });
 
-  test("routes proxy submission for founder beneficiary to department approver_2", async () => {
+  test("routes proxy submission for founder beneficiary to department approver_1", async () => {
     const beneficiaryFounderId = departmentApprover2Id;
     const repository = createRepository({
       getActiveUserIdByEmail: jest.fn(async () => ({
         data: beneficiaryFounderId,
-        errorMessage: null,
-      })),
-      isUserApprover1InAnyDepartment: jest.fn(async () => ({
-        isApprover1: false,
         errorMessage: null,
       })),
     });
@@ -543,7 +578,7 @@ describe("SubmitClaimService", () => {
     expect(repository.createClaimWithDetail).toHaveBeenCalledWith(
       expect.objectContaining({
         on_behalf_of_id: beneficiaryFounderId,
-        assigned_l1_approver_id: departmentApprover2Id,
+        assigned_l1_approver_id: departmentApprover1Id,
         initial_status: "Submitted - Awaiting HOD approval",
       }),
     );

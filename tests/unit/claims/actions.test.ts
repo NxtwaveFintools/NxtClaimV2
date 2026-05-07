@@ -364,12 +364,12 @@ describe("claims actions", () => {
           id: departmentId,
           name: "Finance",
           isActive: true,
-          hod: {
+          approver1: {
             id: hodId,
             email: "hod@nxtwave.co.in",
             fullName: "Dept HOD",
           },
-          founder: {
+          approver2: {
             id: founderId,
             email: "founder@nxtwave.co.in",
             fullName: "Founder",
@@ -557,7 +557,7 @@ describe("claims actions", () => {
       id: "11111111-1111-4111-8111-111111111111",
       email: "user@nxtwave.co.in",
       name: "Alice Employee",
-      isGlobalHod: false,
+      isGlobalApprover1: false,
     });
     expect(result.data?.options.paymentModes).toEqual([
       { id: paymentModeId, name: "Reimbursement", detailType: "expense" },
@@ -583,7 +583,7 @@ describe("claims actions", () => {
       id: "11111111-1111-4111-8111-111111111111",
       email: "user@nxtwave.co.in",
       name: "user@nxtwave.co.in",
-      isGlobalHod: false,
+      isGlobalApprover1: false,
     });
   });
 
