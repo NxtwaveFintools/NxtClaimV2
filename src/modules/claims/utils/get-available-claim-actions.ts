@@ -17,7 +17,7 @@ type ClaimDetailActionPermissions = {
 type ClaimDetailActionPermissionsInput = {
   status: DbClaimStatus;
   currentUserId: string;
-  beneficiaryUserId: string;
+  beneficiaryUserId: string | null;
   assignedL1ApproverId: string;
   isFinanceActor: boolean;
 };
