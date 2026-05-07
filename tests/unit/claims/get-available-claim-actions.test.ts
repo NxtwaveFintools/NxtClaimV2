@@ -44,7 +44,7 @@ describe("getAvailableClaimActions", () => {
     const permissions = getClaimDetailActionPermissions({
       status: DB_CLAIM_STATUSES[0],
       currentUserId: "approver-1",
-      submittedBy: "submitter-1",
+      beneficiaryUserId: "beneficiary-1",
       assignedL1ApproverId: "approver-1",
       isFinanceActor: false,
     });
@@ -60,7 +60,7 @@ describe("getAvailableClaimActions", () => {
     const permissions = getClaimDetailActionPermissions({
       status: DB_CLAIM_STATUSES[1],
       currentUserId: "finance-1",
-      submittedBy: "submitter-1",
+      beneficiaryUserId: "beneficiary-1",
       assignedL1ApproverId: "approver-1",
       isFinanceActor: true,
     });
@@ -72,13 +72,29 @@ describe("getAvailableClaimActions", () => {
     });
   });
 
-  test("blocks the submitter from L1 decisions on the detail page", () => {
+  test("allows proxy submitter to take L1 decision when assigned approver and not beneficiary", () => {
     const permissions = getClaimDetailActionPermissions({
       status: DB_CLAIM_STATUSES[0],
       currentUserId: "submitter-1",
-      submittedBy: "submitter-1",
+      beneficiaryUserId: "beneficiary-1",
       assignedL1ApproverId: "submitter-1",
       isFinanceActor: false,
+    });
+
+    expect(permissions).toEqual({
+      canTakeL1Decision: true,
+      canTakeFinanceAuthorizationDecision: false,
+      canTakeFinanceExecutionDecision: false,
+    });
+  });
+
+  test("blocks the beneficiary from finance decisions even if finance-scoped", () => {
+    const permissions = getClaimDetailActionPermissions({
+      status: DB_CLAIM_STATUSES[1],
+      currentUserId: "beneficiary-1",
+      beneficiaryUserId: "beneficiary-1",
+      assignedL1ApproverId: "approver-1",
+      isFinanceActor: true,
     });
 
     expect(permissions).toEqual({
@@ -88,13 +104,13 @@ describe("getAvailableClaimActions", () => {
     });
   });
 
-  test("blocks the submitter from finance decisions even if finance-scoped", () => {
+  test("blocks the beneficiary from L1 decisions even if assigned as approver", () => {
     const permissions = getClaimDetailActionPermissions({
-      status: DB_CLAIM_STATUSES[1],
-      currentUserId: "submitter-1",
-      submittedBy: "submitter-1",
-      assignedL1ApproverId: "approver-1",
-      isFinanceActor: true,
+      status: DB_CLAIM_STATUSES[0],
+      currentUserId: "beneficiary-1",
+      beneficiaryUserId: "beneficiary-1",
+      assignedL1ApproverId: "beneficiary-1",
+      isFinanceActor: false,
     });
 
     expect(permissions).toEqual({
@@ -108,7 +124,7 @@ describe("getAvailableClaimActions", () => {
     const permissions = getClaimDetailActionPermissions({
       status: DB_CLAIM_STATUSES[0],
       currentUserId: "viewer-1",
-      submittedBy: "submitter-1",
+      beneficiaryUserId: "beneficiary-1",
       assignedL1ApproverId: "approver-1",
       isFinanceActor: false,
     });

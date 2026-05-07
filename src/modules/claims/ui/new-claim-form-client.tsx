@@ -473,27 +473,39 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     [departmentId, options.departmentRouting],
   );
 
-  const approver2Email = selectedDepartment?.approver2.email ?? "";
   const actualBeneficiaryEmail =
     submissionType === "On Behalf" ? (onBehalfEmail ?? "") : currentUser.email;
-
   const normalizedActualBeneficiaryEmail = actualBeneficiaryEmail.trim().toLowerCase();
 
-  const globalApprover1EmailSet = useMemo(
-    () =>
-      new Set(
-        options.departmentRouting
-          .map((department) => department.approver1.email.trim().toLowerCase())
-          .filter((email) => email.length > 0),
-      ),
-    [options.departmentRouting],
-  );
+  const effectiveBeneficiaryId = useMemo(() => {
+    if (submissionType === "Self") {
+      return currentUser.id;
+    }
 
-  const isGlobalApprover1Beneficiary =
-    normalizedActualBeneficiaryEmail.length > 0 &&
-    globalApprover1EmailSet.has(normalizedActualBeneficiaryEmail);
+    if (!selectedDepartment || normalizedActualBeneficiaryEmail.length === 0) {
+      return null;
+    }
 
-  const isBypassingApprover1 = isGlobalApprover1Beneficiary && Boolean(approver2Email);
+    const normalizedApprover1Email = selectedDepartment.approver1.email.trim().toLowerCase();
+    const normalizedApprover2Email = selectedDepartment.approver2.email.trim().toLowerCase();
+
+    if (normalizedActualBeneficiaryEmail === normalizedApprover1Email) {
+      return selectedDepartment.approver1.id;
+    }
+
+    if (normalizedActualBeneficiaryEmail === normalizedApprover2Email) {
+      return selectedDepartment.approver2.id;
+    }
+
+    return null;
+  }, [currentUser.id, normalizedActualBeneficiaryEmail, selectedDepartment, submissionType]);
+
+  const isBeneficiaryDepartmentApprover1 =
+    selectedDepartment !== null &&
+    (effectiveBeneficiaryId
+      ? effectiveBeneficiaryId === selectedDepartment.approver1.id
+      : normalizedActualBeneficiaryEmail ===
+        selectedDepartment.approver1.email.trim().toLowerCase());
 
   const isNiatDepartment = selectedDepartment?.name === NIAT_OFFLINE_LEAD_GEN_DEPARTMENT;
 
@@ -510,31 +522,18 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     }
   }, [locationType, setValue]);
 
-  const resolvedL1Approver = useMemo(() => {
-    if (!selectedDepartment) {
-      return null;
-    }
+  const displayApprover =
+    selectedDepartment === null
+      ? null
+      : isBeneficiaryDepartmentApprover1
+        ? selectedDepartment.approver2
+        : selectedDepartment.approver1;
 
-    if (currentUser.isGlobalApprover1 || currentUser.id === selectedDepartment.approver1.id) {
-      return selectedDepartment.approver2;
-    }
-
-    return selectedDepartment.approver1;
-  }, [currentUser.id, currentUser.isGlobalApprover1, selectedDepartment]);
-
-  const displayApprover = isBypassingApprover1
-    ? (selectedDepartment?.approver2 ?? null)
-    : resolvedL1Approver;
-
-  const displayApproverLabel = isBypassingApprover1
+  const displayApproverLabel = isBeneficiaryDepartmentApprover1
     ? "Level 1 Approver (Escalated to Approver 2)"
-    : currentUser.isGlobalApprover1
-      ? "Level 1 Approver (Escalated)"
-      : "Approver 1";
+    : "Level 1 Approver";
 
-  const displayApproverEmail = isBypassingApprover1
-    ? approver2Email
-    : (displayApprover?.email ?? "");
+  const displayApproverEmail = displayApprover?.email ?? "";
 
   useEffect(() => {
     setValue("employeeName", currentUser.name, { shouldValidate: true });
