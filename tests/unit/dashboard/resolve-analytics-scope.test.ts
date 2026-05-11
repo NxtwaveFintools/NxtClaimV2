@@ -4,7 +4,7 @@ describe("resolveDashboardAnalyticsScope", () => {
   test("returns admin when user is admin", () => {
     const scope = resolveDashboardAnalyticsScope({
       isAdmin: true,
-      hodDepartmentIds: ["dept-1"],
+      approver1DepartmentIds: ["dept-1"],
       financeApproverIds: [],
     });
 
@@ -14,7 +14,7 @@ describe("resolveDashboardAnalyticsScope", () => {
   test("returns finance when finance approver assignment exists", () => {
     const scope = resolveDashboardAnalyticsScope({
       isAdmin: false,
-      hodDepartmentIds: [],
+      approver1DepartmentIds: [],
       financeApproverIds: ["fa-1"],
     });
 
@@ -24,7 +24,7 @@ describe("resolveDashboardAnalyticsScope", () => {
   test("returns hod when user manages departments", () => {
     const scope = resolveDashboardAnalyticsScope({
       isAdmin: false,
-      hodDepartmentIds: ["dept-1"],
+      approver1DepartmentIds: ["dept-1"],
       financeApproverIds: [],
     });
 
@@ -34,7 +34,7 @@ describe("resolveDashboardAnalyticsScope", () => {
   test("returns null when user has no analytics permissions", () => {
     const scope = resolveDashboardAnalyticsScope({
       isAdmin: false,
-      hodDepartmentIds: [],
+      approver1DepartmentIds: [],
       financeApproverIds: [],
     });
 

@@ -78,6 +78,18 @@ type PendingApprovalsRepository = {
     totalCount: number;
     errorMessage: string | null;
   }>;
+  getPendingApprovalsForFinanceHodPendingObservability(
+    userId: string,
+    cursor: string | null,
+    limit: number,
+    filters?: GetMyClaimsFilters,
+  ): Promise<{
+    data: RepositoryApprovalRow[];
+    nextCursor: string | null;
+    hasNextPage: boolean;
+    totalCount: number;
+    errorMessage: string | null;
+  }>;
 };
 
 type GetPendingApprovalsServiceDependencies = {
@@ -183,6 +195,81 @@ export class GetPendingApprovalsService {
       this.logger.error("claims.get_pending_approvals.fetch_failed", {
         userId: input.userId,
         scope: viewerContext.activeScope,
+        cursor: input.cursor,
+        errorMessage: approvalsResult.errorMessage,
+      });
+
+      return {
+        data: [],
+        nextCursor: null,
+        hasNextPage: false,
+        totalCount: 0,
+        errorMessage: approvalsResult.errorMessage,
+      };
+    }
+
+    return {
+      data: approvalsResult.data.map((row) => ({
+        ...row,
+        formattedTotalAmount: formatCurrency(row.totalAmount),
+        formattedSubmittedAt: formatDate(row.submittedAt),
+        formattedHodActionDate: formatDate(row.hodActionAt),
+        formattedFinanceActionDate: formatDate(row.financeActionAt),
+      })),
+      nextCursor: approvalsResult.nextCursor,
+      hasNextPage: approvalsResult.hasNextPage,
+      totalCount: approvalsResult.totalCount,
+      errorMessage: null,
+    };
+  }
+
+  async executeFinanceHodPendingObservability(input: {
+    userId: string;
+    cursor: string | null;
+    limit: number;
+    filters?: GetMyClaimsFilters;
+    viewerContext?: PendingApprovalsViewerContext;
+  }): Promise<{
+    data: PendingApprovalRecord[];
+    nextCursor: string | null;
+    hasNextPage: boolean;
+    totalCount: number;
+    errorMessage: string | null;
+  }> {
+    const viewerContext =
+      input.viewerContext ?? (await this.getViewerContext({ userId: input.userId }));
+
+    if (viewerContext.errorMessage) {
+      return {
+        data: [],
+        nextCursor: null,
+        hasNextPage: false,
+        totalCount: 0,
+        errorMessage: viewerContext.errorMessage,
+      };
+    }
+
+    if (!viewerContext.canViewApprovals || viewerContext.activeScope !== "finance") {
+      return {
+        data: [],
+        nextCursor: null,
+        hasNextPage: false,
+        totalCount: 0,
+        errorMessage: null,
+      };
+    }
+
+    const approvalsResult =
+      await this.repository.getPendingApprovalsForFinanceHodPendingObservability(
+        input.userId,
+        input.cursor,
+        input.limit,
+        input.filters,
+      );
+
+    if (approvalsResult.errorMessage) {
+      this.logger.error("claims.get_pending_approvals.finance_hod_pending.fetch_failed", {
+        userId: input.userId,
         cursor: input.cursor,
         errorMessage: approvalsResult.errorMessage,
       });

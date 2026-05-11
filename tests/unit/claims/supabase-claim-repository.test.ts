@@ -257,6 +257,36 @@ describe("SupabaseClaimRepository.getMyClaims", () => {
       "Finance Approved - Payment under process",
     ]);
   });
+
+  test("returns finance HOD-pending observability rows with fixed submitted status", async () => {
+    const queryBuilder = createQueryBuilder({
+      data: [],
+      count: 0,
+      error: null,
+    });
+
+    mockFrom.mockReturnValue({
+      select: jest.fn(() => queryBuilder),
+    });
+
+    mockGetServiceRoleSupabaseClient.mockReturnValue({
+      from: mockFrom,
+    });
+
+    const repository = new SupabaseClaimRepository();
+
+    await repository.getPendingApprovalsForFinanceHodPendingObservability(
+      "finance-user",
+      null,
+      20,
+      {
+        status: ["Submitted - Awaiting HOD approval"],
+      },
+    );
+
+    expect(queryBuilder.eq).toHaveBeenCalledWith("status", "Submitted - Awaiting HOD approval");
+    expect(queryBuilder.not).not.toHaveBeenCalledWith("status", "in", expect.anything());
+  });
 });
 
 describe("SupabaseClaimRepository selectable approvals counts", () => {

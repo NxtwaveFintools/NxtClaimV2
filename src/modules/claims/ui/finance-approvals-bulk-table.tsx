@@ -56,6 +56,7 @@ type FinanceApprovalsBulkTableProps = {
   totalSelectableCount: number;
   filters: GetMyClaimsFilters;
   approvalScope: "l1" | "finance";
+  readOnly?: boolean;
 };
 
 function normalizeFilters(filters: GetMyClaimsFilters): GetMyClaimsFilters {
@@ -85,6 +86,7 @@ export function FinanceApprovalsBulkTable({
   totalSelectableCount,
   filters,
   approvalScope,
+  readOnly = false,
 }: FinanceApprovalsBulkTableProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -110,7 +112,7 @@ export function FinanceApprovalsBulkTable({
   const isPageFullySelected =
     actionableIds.length > 0 && selectedOnPageCount === actionableIds.length;
   const selectedCount = isGlobalSelect ? totalSelectableCount : selectedIds.length;
-  const canBulkAct = selectedCount > 0;
+  const canBulkAct = !readOnly && selectedCount > 0;
 
   // Map selected IDs back to their row data for status inspection.
   // When isGlobalSelect is true we can't inspect all pages, so we fall back to
@@ -361,71 +363,22 @@ export function FinanceApprovalsBulkTable({
             >
               Approvals History
             </p>
-            {selectedCount > 0 ? (
+            {!readOnly && selectedCount > 0 ? (
               <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
                 {selectedCount} selected
               </span>
             ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={submitBulkApprove}
-              disabled={!isApproveValid || isAnyBulkSubmitting}
-              title={approveTitle}
-              className="inline-flex h-8 items-center justify-center rounded-lg border border-emerald-300 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 transition-all duration-200 enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-700/60 dark:bg-emerald-950/20 dark:text-emerald-300 dark:enabled:hover:bg-emerald-950/40"
-            >
-              {isSubmittingBulkApprove ? (
-                <>
-                  <svg
-                    className="mr-1.5 h-3 w-3 animate-spin"
-                    viewBox="0 0 20 20"
-                    aria-hidden="true"
-                    fill="none"
-                  >
-                    <circle
-                      cx="10"
-                      cy="10"
-                      r="7"
-                      stroke="currentColor"
-                      strokeOpacity="0.3"
-                      strokeWidth="2"
-                    />
-                    <path
-                      d="M10 3a7 7 0 0 1 7 7"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  Processing...
-                </>
-              ) : (
-                "Bulk Approve"
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (isRejectValid) {
-                  setIsRejectModalOpen(true);
-                }
-              }}
-              disabled={!isRejectValid || isAnyBulkSubmitting}
-              title={rejectTitle}
-              className="inline-flex h-8 items-center justify-center rounded-lg border border-rose-300 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition-all duration-200 enabled:hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-700/60 dark:bg-rose-950/20 dark:text-rose-300 dark:enabled:hover:bg-rose-950/40"
-            >
-              Bulk Reject
-            </button>
-            {approvalScope === "finance" ? (
+          {!readOnly ? (
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={submitBulkMarkPaid}
-                disabled={!isMarkAsPaidValid || isAnyBulkSubmitting}
-                title={markPaidTitle}
-                className="inline-flex h-8 items-center justify-center rounded-lg border border-indigo-300 bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 transition-all duration-200 enabled:hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-300 dark:enabled:hover:bg-indigo-950/40"
+                onClick={submitBulkApprove}
+                disabled={!isApproveValid || isAnyBulkSubmitting}
+                title={approveTitle}
+                className="inline-flex h-8 items-center justify-center rounded-lg border border-emerald-300 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 transition-all duration-200 enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-700/60 dark:bg-emerald-950/20 dark:text-emerald-300 dark:enabled:hover:bg-emerald-950/40"
               >
-                {isSubmittingBulkMarkPaid ? (
+                {isSubmittingBulkApprove ? (
                   <>
                     <svg
                       className="mr-1.5 h-3 w-3 animate-spin"
@@ -451,15 +404,69 @@ export function FinanceApprovalsBulkTable({
                     Processing...
                   </>
                 ) : (
-                  "Bulk Mark Paid"
+                  "Bulk Approve"
                 )}
               </button>
-            ) : null}
-          </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (isRejectValid) {
+                    setIsRejectModalOpen(true);
+                  }
+                }}
+                disabled={!isRejectValid || isAnyBulkSubmitting}
+                title={rejectTitle}
+                className="inline-flex h-8 items-center justify-center rounded-lg border border-rose-300 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition-all duration-200 enabled:hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-700/60 dark:bg-rose-950/20 dark:text-rose-300 dark:enabled:hover:bg-rose-950/40"
+              >
+                Bulk Reject
+              </button>
+              {approvalScope === "finance" ? (
+                <button
+                  type="button"
+                  onClick={submitBulkMarkPaid}
+                  disabled={!isMarkAsPaidValid || isAnyBulkSubmitting}
+                  title={markPaidTitle}
+                  className="inline-flex h-8 items-center justify-center rounded-lg border border-indigo-300 bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 transition-all duration-200 enabled:hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-300 dark:enabled:hover:bg-indigo-950/40"
+                >
+                  {isSubmittingBulkMarkPaid ? (
+                    <>
+                      <svg
+                        className="mr-1.5 h-3 w-3 animate-spin"
+                        viewBox="0 0 20 20"
+                        aria-hidden="true"
+                        fill="none"
+                      >
+                        <circle
+                          cx="10"
+                          cy="10"
+                          r="7"
+                          stroke="currentColor"
+                          strokeOpacity="0.3"
+                          strokeWidth="2"
+                        />
+                        <path
+                          d="M10 3a7 7 0 0 1 7 7"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      Processing...
+                    </>
+                  ) : (
+                    "Bulk Mark Paid"
+                  )}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </div>
 
-      {isPageFullySelected && !isGlobalSelect && totalSelectableCount > actionableIds.length ? (
+      {!readOnly &&
+      isPageFullySelected &&
+      !isGlobalSelect &&
+      totalSelectableCount > actionableIds.length ? (
         <div className="mx-5 mt-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-xs text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/20 dark:text-indigo-300">
           All {actionableIds.length} claims on this page are selected.{" "}
           <button
@@ -474,7 +481,7 @@ export function FinanceApprovalsBulkTable({
         </div>
       ) : null}
 
-      {isGlobalSelect ? (
+      {!readOnly && isGlobalSelect ? (
         <div className="mx-5 mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300">
           All {totalSelectableCount} matching claims are selected.
           <button
@@ -494,19 +501,21 @@ export function FinanceApprovalsBulkTable({
         <table className="min-w-430 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
           <thead className="bg-zinc-50/80 text-[11px] uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
             <tr>
-              <th className="px-3 py-2.5">
-                <input
-                  type="checkbox"
-                  checked={isPageFullySelected}
-                  onChange={(event) => {
-                    toggleMaster(event.currentTarget.checked);
-                  }}
-                  disabled={actionableIds.length === 0}
-                  aria-label="Select all claims on this page"
-                  data-testid="bulk-master-checkbox"
-                  className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 dark:border-zinc-700"
-                />
-              </th>
+              {!readOnly ? (
+                <th className="px-3 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={isPageFullySelected}
+                    onChange={(event) => {
+                      toggleMaster(event.currentTarget.checked);
+                    }}
+                    disabled={actionableIds.length === 0}
+                    aria-label="Select all claims on this page"
+                    data-testid="bulk-master-checkbox"
+                    className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 dark:border-zinc-700"
+                  />
+                </th>
+              ) : null}
               <th className="whitespace-nowrap px-3 py-2.5 font-semibold">CLAIM ID</th>
               <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTER ID</th>
               <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTER EMAIL</th>
@@ -545,24 +554,26 @@ export function FinanceApprovalsBulkTable({
                   key={claim.id}
                   className="group transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
                 >
-                  <td className="px-3 py-2">
-                    {isActionable ? (
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={(event) => {
-                          toggleRow(claim.id, event.currentTarget.checked);
-                        }}
-                        aria-label={`Select claim ${claim.id}`}
-                        className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 dark:border-zinc-700"
-                      />
-                    ) : (
-                      <span
-                        aria-hidden="true"
-                        className="inline-block h-4 w-4 rounded border border-transparent"
-                      />
-                    )}
-                  </td>
+                  {!readOnly ? (
+                    <td className="px-3 py-2">
+                      {isActionable ? (
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(event) => {
+                            toggleRow(claim.id, event.currentTarget.checked);
+                          }}
+                          aria-label={`Select claim ${claim.id}`}
+                          className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 dark:border-zinc-700"
+                        />
+                      ) : (
+                        <span
+                          aria-hidden="true"
+                          className="inline-block h-4 w-4 rounded border border-transparent"
+                        />
+                      )}
+                    </td>
+                  ) : null}
                   <td className="whitespace-nowrap px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
                     <Link href={detailHref} className={CLAIM_ID_LINK_CLASSES}>
                       {claim.id}
@@ -621,7 +632,7 @@ export function FinanceApprovalsBulkTable({
         </table>
       </div>
 
-      {isRejectModalOpen ? (
+      {!readOnly && isRejectModalOpen ? (
         <div className="fixed inset-0 z-50">
           <button
             type="button"

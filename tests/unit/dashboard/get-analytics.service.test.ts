@@ -42,8 +42,8 @@ function createRepository(
       data: {
         userId: "user-1",
         isAdmin: true,
-        hodDepartmentIds: [],
-        founderDepartmentIds: [],
+        approver1DepartmentIds: [],
+        approver2DepartmentIds: [],
         financeApproverIds: [],
       },
       errorMessage: null,
@@ -276,8 +276,8 @@ describe("GetAnalyticsService", () => {
         data: {
           userId: "user-2",
           isAdmin: false,
-          hodDepartmentIds: [],
-          founderDepartmentIds: [],
+          approver1DepartmentIds: [],
+          approver2DepartmentIds: [],
           financeApproverIds: ["fa-1"],
         },
         errorMessage: null,
@@ -324,8 +324,8 @@ describe("GetAnalyticsService", () => {
         data: {
           userId: "user-3",
           isAdmin: false,
-          hodDepartmentIds: [],
-          founderDepartmentIds: [],
+          approver1DepartmentIds: [],
+          approver2DepartmentIds: [],
           financeApproverIds: [],
         },
         errorMessage: null,

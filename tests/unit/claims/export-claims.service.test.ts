@@ -87,7 +87,7 @@ function createRepository(overrides?: {
     getApprovalViewerContext:
       overrides?.getApprovalViewerContext ??
       jest.fn(async () => ({
-        data: { isHod: true, isFounder: false, isFinance: false },
+        data: { isApprover1: true, isApprover2: false, isFinance: false },
         errorMessage: null,
       })),
     getClaimsForFullExport:

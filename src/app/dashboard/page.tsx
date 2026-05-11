@@ -20,6 +20,7 @@ import { SupabaseDashboardRepository } from "@/modules/dashboard/repositories/Su
 import { WalletSummary } from "@/modules/dashboard/ui/wallet-summary";
 import { isAdmin } from "@/modules/admin/server/is-admin";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
+import { isFinancePendingApprovalsViewer } from "@/modules/claims/server/get-pending-approvals-viewer-context";
 import { getPolicyGateState } from "@/modules/policies/server/get-policy-gate-state";
 import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
 import { formatDate } from "@/lib/format";
@@ -43,11 +44,17 @@ type DashboardNavItem = {
   label: string;
   icon: typeof LayoutDashboard;
   isActive: boolean;
+  children?: Array<{
+    href: string;
+    label: string;
+    isActive: boolean;
+  }>;
 };
 
 function buildNavigationItems(input: {
   canViewAnalytics: boolean;
   isAdminUser: boolean;
+  isFinanceUser: boolean;
 }): DashboardNavItem[] {
   return [
     {
@@ -67,6 +74,15 @@ function buildNavigationItems(input: {
       label: "Claims",
       icon: FileText,
       isActive: false,
+      children: input.isFinanceUser
+        ? [
+            {
+              href: ROUTES.claims.hodPending,
+              label: "HOD Pending",
+              isActive: false,
+            },
+          ]
+        : undefined,
     },
     ...(input.canViewAnalytics
       ? [
@@ -153,9 +169,10 @@ async function DashboardPageContent({
   greeting: string;
   currentDateLabel: string;
 }) {
-  const [walletResult, analyticsViewerContextResult] = await Promise.all([
+  const [walletResult, analyticsViewerContextResult, isFinanceUser] = await Promise.all([
     getWalletSummaryService.execute(userId),
     dashboardRepository.getAnalyticsViewerContext(userId),
+    isFinancePendingApprovalsViewer(userId),
   ]);
 
   if (analyticsViewerContextResult.errorMessage) {
@@ -171,6 +188,7 @@ async function DashboardPageContent({
   const navigationItems = buildNavigationItems({
     canViewAnalytics,
     isAdminUser,
+    isFinanceUser,
   });
   const walletSummary = walletResult.data ?? GetWalletSummaryService.empty();
 
@@ -183,26 +201,46 @@ async function DashboardPageContent({
               const Icon = item.icon;
 
               return (
-                <RouterLink
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-2.5 rounded-2xl border px-3 py-2.5 transition-all duration-200 xl:gap-3 xl:px-4 xl:py-3 ${
-                    item.isActive
-                      ? "border-indigo-200 bg-linear-to-r from-indigo-50 to-sky-50 text-indigo-700 shadow-sm dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200"
-                      : "border-transparent text-zinc-700 hover:border-zinc-200 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/70"
-                  }`}
-                >
-                  <span
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                <div key={item.href} className="space-y-1.5">
+                  <RouterLink
+                    href={item.href}
+                    className={`flex items-center gap-2.5 rounded-2xl border px-3 py-2.5 transition-all duration-200 xl:gap-3 xl:px-4 xl:py-3 ${
                       item.isActive
-                        ? "bg-white text-indigo-600 shadow-sm dark:bg-slate-950 dark:text-indigo-300"
-                        : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300"
+                        ? "border-indigo-200 bg-linear-to-r from-indigo-50 to-sky-50 text-indigo-700 shadow-sm dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200"
+                        : "border-transparent text-zinc-700 hover:border-zinc-200 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/70"
                     }`}
                   >
-                    <Icon className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0 text-sm font-semibold">{item.label}</span>
-                </RouterLink>
+                    <span
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                        item.isActive
+                          ? "bg-white text-indigo-600 shadow-sm dark:bg-slate-950 dark:text-indigo-300"
+                          : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0 text-sm font-semibold">{item.label}</span>
+                  </RouterLink>
+
+                  {item.children?.length ? (
+                    <div className="ml-12 space-y-1">
+                      {item.children.map((child) => (
+                        <RouterLink
+                          key={child.href}
+                          href={child.href}
+                          className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all duration-200 ${
+                            child.isActive
+                              ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200"
+                              : "border-transparent text-zinc-600 hover:border-zinc-200 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/70"
+                          }`}
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+                          <span>{child.label}</span>
+                        </RouterLink>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               );
             })}
           </nav>
@@ -270,18 +308,38 @@ async function DashboardPageContent({
                   const Icon = item.icon;
 
                   return (
-                    <RouterLink
-                      key={`mobile-${item.href}`}
-                      href={item.href}
-                      className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
-                        item.isActive
-                          ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200"
-                          : "border-zinc-200 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
-                      }`}
-                    >
-                      <Icon className="h-4 w-4" aria-hidden="true" />
-                      {item.label}
-                    </RouterLink>
+                    <div key={`mobile-${item.href}`} className="flex shrink-0 flex-col gap-1">
+                      <RouterLink
+                        href={item.href}
+                        className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
+                          item.isActive
+                            ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200"
+                            : "border-zinc-200 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" aria-hidden="true" />
+                        {item.label}
+                      </RouterLink>
+
+                      {item.children?.length ? (
+                        <div className="ml-4 flex flex-col gap-1">
+                          {item.children.map((child) => (
+                            <RouterLink
+                              key={`mobile-${child.href}`}
+                              href={child.href}
+                              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                                child.isActive
+                                  ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200"
+                                  : "border-zinc-200 bg-white text-zinc-600 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300"
+                              }`}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+                              {child.label}
+                            </RouterLink>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
                   );
                 })}
               </div>

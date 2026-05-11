@@ -11,6 +11,7 @@ export const ROUTES = {
     list: "/claims",
     dashboardList: "/dashboard/claims",
     myClaims: DASHBOARD_MY_CLAIMS,
+    hodPending: "/dashboard/claims/hod-pending",
     detail: (id: string) => `/dashboard/claims/${id}`,
     new: "/claims/new",
   },
