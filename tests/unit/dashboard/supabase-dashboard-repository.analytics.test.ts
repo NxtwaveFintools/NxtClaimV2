@@ -283,9 +283,9 @@ describe("SupabaseDashboardRepository analytics methods", () => {
     const repository = new SupabaseDashboardRepository();
     const result = await repository.getAnalyticsFilterOptions({
       isAdmin: false,
-      isFounder: true,
+      isApprover2: true,
       isFinance: false,
-      founderDepartmentIds: ["dept-1"],
+      approver2DepartmentIds: ["dept-1"],
     });
 
     expect(result.errorMessage).toBeNull();
@@ -351,9 +351,9 @@ describe("SupabaseDashboardRepository analytics methods", () => {
     const repository = new SupabaseDashboardRepository();
     const result = await repository.getAnalyticsFilterOptions({
       isAdmin: false,
-      isFounder: false,
+      isApprover2: false,
       isFinance: true,
-      founderDepartmentIds: [],
+      approver2DepartmentIds: [],
     });
 
     expect(result.errorMessage).toBeNull();

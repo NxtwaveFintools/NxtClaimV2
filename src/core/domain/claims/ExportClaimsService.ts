@@ -34,7 +34,7 @@ type ExportClaimsServiceDependencies = {
 
 type ExportClaimsServiceInput = {
   userId: string;
-  scope: "submissions" | "approvals" | "admin" | "department";
+  scope: "submissions" | "approvals" | "finance_hod_pending" | "admin" | "department";
   filters?: GetMyClaimsFilters;
 };
 
@@ -167,6 +167,10 @@ function resolveExportScope(
 
   if (input.scope === "department") {
     return "department_viewer";
+  }
+
+  if (input.scope === "finance_hod_pending") {
+    return viewerContext.isFinance ? "finance_hod_pending_observability" : null;
   }
 
   if (viewerContext.isFinance) {

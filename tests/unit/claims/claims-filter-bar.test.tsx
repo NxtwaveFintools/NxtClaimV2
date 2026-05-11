@@ -1,4 +1,4 @@
-import { act, cleanup, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { ClaimsFilterBar } from "@/modules/claims/ui/claims-filter-bar";
 
 const mockReplace = jest.fn();
@@ -75,5 +75,44 @@ describe("ClaimsFilterBar URL sync", () => {
     await flushDebounceWindow();
 
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  test("renders a disabled locked status filter for finance HOD-pending scope", async () => {
+    render(
+      <ClaimsFilterBar
+        {...sharedProps}
+        exportScope="finance_hod_pending"
+        storageScope="finance_hod_pending"
+        lockedStatus="Submitted - Awaiting HOD approval"
+        statusFilterMode="disabled"
+      />,
+    );
+
+    await flushDebounceWindow();
+
+    const statusSelect = screen.getByDisplayValue("Submitted - Awaiting HOD approval");
+
+    expect(statusSelect).toBeDisabled();
+  });
+
+  test("preserves locked status when clear all is used", async () => {
+    setCurrentUrl("status=Submitted+-+Awaiting+HOD+approval&department_id=dept-1");
+
+    render(
+      <ClaimsFilterBar
+        {...sharedProps}
+        exportScope="finance_hod_pending"
+        storageScope="finance_hod_pending"
+        lockedStatus="Submitted - Awaiting HOD approval"
+        statusFilterMode="disabled"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear All" }));
+
+    expect(mockReplace).toHaveBeenCalledWith(
+      "/dashboard/my-claims?status=Submitted+-+Awaiting+HOD+approval",
+      { scroll: false },
+    );
   });
 });

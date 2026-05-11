@@ -1,7 +1,7 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
-import { Suspense, cache } from "react";
+import { Suspense } from "react";
 import { CirclePlus } from "lucide-react";
 import { AppShellHeader } from "@/components/app-shell-header";
 import { BackButton } from "@/components/ui/back-button";
@@ -24,12 +24,8 @@ import type {
   GetMyClaimsFilters,
 } from "@/core/domain/claims/contracts";
 import { GetMyClaimsPaginatedService } from "@/core/domain/claims/GetMyClaimsPaginatedService";
-import {
-  GetPendingApprovalsService,
-  type PendingApprovalsViewerContext,
-} from "@/core/domain/claims/GetPendingApprovalsService";
 import { logger } from "@/core/infra/logging/logger";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
 import { normalizeIsoDateOnly } from "@/lib/date-only";
 import { appendReturnToParam, buildPathWithSearchParams } from "@/lib/pagination-helpers";
@@ -37,7 +33,9 @@ import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
 import { isAdmin } from "@/modules/admin/server/is-admin";
 import { isDepartmentViewer } from "@/modules/claims/server/is-department-viewer";
+import { getCachedPendingApprovalsViewerContext } from "@/modules/claims/server/get-pending-approvals-viewer-context";
 import { AdminClaimsSection } from "@/modules/admin/ui/admin-claims-section";
+import { ClaimsApprovalsSection } from "@/modules/claims/ui/claims-approvals-section";
 import { DepartmentClaimsSection } from "@/modules/claims/ui/department-claims-section";
 import {
   CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
@@ -57,18 +55,6 @@ const VIEW_LINK_CLASSES =
 type SearchParamsValue = string | string[] | undefined;
 type ViewMode = "submissions" | "approvals" | "admin" | "admin-deleted" | "department";
 
-const pendingApprovalsRepository = new SupabaseClaimRepository();
-const pendingApprovalsViewerContextService = new GetPendingApprovalsService({
-  repository: pendingApprovalsRepository,
-  logger,
-});
-
-const getCachedPendingApprovalsViewerContext = cache(
-  async (userId: string): Promise<PendingApprovalsViewerContext> => {
-    return pendingApprovalsViewerContextService.getViewerContext({ userId });
-  },
-);
-
 export const metadata = {
   title: "Claims | NxtClaim",
 };
@@ -77,16 +63,6 @@ const ClaimsFilterBar = dynamic(
   () => import("@/modules/claims/ui/claims-filter-bar").then((module) => module.ClaimsFilterBar),
   {
     loading: () => <FilterBarSkeleton />,
-  },
-);
-
-const FinanceApprovalsBulkTable = dynamic(
-  () =>
-    import("@/modules/claims/ui/finance-approvals-bulk-table").then(
-      (module) => module.FinanceApprovalsBulkTable,
-    ),
-  {
-    loading: () => <TableSkeleton />,
   },
 );
 
@@ -377,18 +353,12 @@ function TableHeader({ showActions }: { showActions: boolean }) {
 
 async function ClaimsCommandCenterTable({
   userId,
-  view,
-  approvalScope,
-  viewerContext,
   cursor,
   previousCursorToken,
   searchParams,
   filters,
 }: {
   userId: string;
-  view: ViewMode;
-  approvalScope: "l1" | "finance" | null;
-  viewerContext: PendingApprovalsViewerContext;
   cursor: string | null;
   previousCursorToken: string | null;
   searchParams?: Record<string, SearchParamsValue>;
@@ -396,222 +366,10 @@ async function ClaimsCommandCenterTable({
 }) {
   const claimRepository = new SupabaseClaimRepository();
   const claimsService = new GetMyClaimsPaginatedService({ repository: claimRepository, logger });
-  const pendingApprovalsService = new GetPendingApprovalsService({
-    repository: claimRepository,
-    logger,
-  });
   const listReturnToPath = buildPathWithSearchParams(
     ROUTES.claims.myClaims,
     toSearchParams(searchParams).toString(),
   );
-
-  if (view === "approvals") {
-    const approvalsResult = await pendingApprovalsService.execute({
-      userId,
-      cursor,
-      limit: PAGE_SIZE,
-      filters,
-      viewerContext,
-    });
-
-    const rows = approvalsResult.data;
-    const approvalsSummaryText = `Showing ${rows.length} of ${approvalsResult.totalCount} claims`;
-
-    if (approvalScope === "finance" || approvalScope === "l1") {
-      return (
-        <section className="overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/92 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
-          {approvalsResult.errorMessage ? (
-            <div className="px-4 py-6">
-              <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
-                Unable to load approvals history. {approvalsResult.errorMessage}
-              </p>
-            </div>
-          ) : rows.length === 0 ? (
-            <>
-              <div className="grid place-items-center px-4 py-14 text-center">
-                <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  No approvals history found.
-                </p>
-                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
-                  Claims routed to your approval scope will appear here.
-                </p>
-              </div>
-            </>
-          ) : (
-            <>
-              <MyClaimsPaginationControls
-                hasNextPage={approvalsResult.hasNextPage}
-                currentCursor={cursor}
-                nextCursor={approvalsResult.nextCursor}
-                prevCursor={previousCursorToken}
-                summaryText={approvalsSummaryText}
-                position="top"
-                searchParams={searchParams}
-              />
-
-              <Suspense key={JSON.stringify(searchParams ?? {})} fallback={<TableSkeleton />}>
-                <FinanceApprovalsBulkTable
-                  claims={rows.map((claim) => ({
-                    id: claim.id,
-                    employeeId: claim.employeeId,
-                    submitter: claim.submitter,
-                    submitterEmail: claim.submitterEmail,
-                    departmentName: claim.departmentName,
-                    paymentModeName: claim.paymentModeName,
-                    detailType: claim.detailType,
-                    submissionType: claim.submissionType,
-                    onBehalfEmail: claim.onBehalfEmail,
-                    onBehalfEmployeeCode: claim.onBehalfEmployeeCode,
-                    purpose: claim.purpose,
-                    categoryName: claim.categoryName,
-                    expenseReceiptFilePath: claim.expenseReceiptFilePath,
-                    expenseBankStatementFilePath: claim.expenseBankStatementFilePath,
-                    advanceSupportingDocumentPath: claim.advanceSupportingDocumentPath,
-                    formattedTotalAmount: claim.formattedTotalAmount,
-                    status: claim.status,
-                    formattedSubmittedAt: claim.formattedSubmittedAt,
-                    formattedHodActionDate: claim.formattedHodActionDate,
-                    formattedFinanceActionDate: claim.formattedFinanceActionDate,
-                  }))}
-                  actionableIds={rows
-                    .filter((row) => {
-                      if (approvalScope === "l1") {
-                        return row.status === "Submitted - Awaiting HOD approval";
-                      }
-                      return (
-                        row.status === "HOD approved - Awaiting finance approval" ||
-                        row.status === "Finance Approved - Payment under process"
-                      );
-                    })
-                    .map((row) => row.id)}
-                  totalSelectableCount={
-                    approvalsResult.totalCount > 0 ? approvalsResult.totalCount : rows.length
-                  }
-                  filters={filters}
-                  approvalScope={approvalScope}
-                />
-              </Suspense>
-            </>
-          )}
-        </section>
-      );
-    }
-
-    return (
-      <section className="overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/92 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
-        <div className="border-b border-zinc-200/80 px-5 py-3.5 dark:border-zinc-800">
-          <p
-            aria-hidden="true"
-            className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400"
-          >
-            Approvals History
-          </p>
-        </div>
-
-        {approvalsResult.errorMessage ? (
-          <div className="px-4 py-6">
-            <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
-              Unable to load approvals history. {approvalsResult.errorMessage}
-            </p>
-          </div>
-        ) : rows.length === 0 ? (
-          <div className="grid place-items-center px-4 py-14 text-center">
-            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              No approvals history found.
-            </p>
-            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
-              Claims routed to your approval scope will appear here.
-            </p>
-          </div>
-        ) : (
-          <>
-            <MyClaimsPaginationControls
-              hasNextPage={approvalsResult.hasNextPage}
-              currentCursor={cursor}
-              nextCursor={approvalsResult.nextCursor}
-              prevCursor={previousCursorToken}
-              summaryText={approvalsSummaryText}
-              position="top"
-              searchParams={searchParams}
-            />
-
-            <div className="nxt-scroll w-full overflow-x-auto">
-              <table className="min-w-415 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
-                <TableHeader showActions />
-                <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
-                  {rows.map((claim) => {
-                    const detailHref = appendReturnToParam(
-                      ROUTES.claims.detail(claim.id),
-                      listReturnToPath,
-                    );
-
-                    return (
-                      <tr
-                        key={claim.id}
-                        className="group transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
-                      >
-                        <td className="whitespace-nowrap px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
-                          <RouterLink href={detailHref} className={CLAIM_ID_LINK_CLASSES}>
-                            {claim.id}
-                          </RouterLink>
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2">
-                          <span>{claim.employeeId}</span>
-                        </td>
-                        <td className="px-3 py-2">
-                          <span className="inline-block max-w-[150px] truncate align-bottom">
-                            {claim.submitterEmail?.trim() || claim.submitter}
-                          </span>
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2">
-                          <span>{claim.onBehalfEmployeeCode?.trim() || "N/A"}</span>
-                        </td>
-                        <td className="px-3 py-2">
-                          <span className="inline-block max-w-[150px] truncate align-bottom">
-                            {claim.onBehalfEmail?.trim() || "N/A"}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2">
-                          <span className="inline-block max-w-[130px] truncate align-bottom">
-                            {claim.departmentName ?? "Unknown Department"}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2">
-                          <span className="inline-block max-w-[140px] truncate align-bottom">
-                            {claim.paymentModeName}
-                          </span>
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2 font-semibold text-zinc-900 dark:text-zinc-100">
-                          {claim.formattedTotalAmount}
-                        </td>
-                        <td className={`${CLAIM_STATUS_COLUMN_WIDTH_CLASSES} px-3 py-2 align-top`}>
-                          <ClaimStatusBadge status={claim.status} fullWidth />
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2">
-                          {claim.formattedSubmittedAt}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2">N/A</td>
-                        <td className="whitespace-nowrap px-3 py-2">N/A</td>
-                        <td
-                          className={`${STICKY_ACTION_COLUMN_CLASSES} whitespace-nowrap px-3 py-2 text-right`}
-                        >
-                          <div className="flex min-w-28 justify-end">
-                            <Link href={detailHref} className={VIEW_LINK_CLASSES}>
-                              View
-                            </Link>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-      </section>
-    );
-  }
 
   const claimsResult = await claimsService.execute({
     userId,
@@ -874,6 +632,17 @@ async function MyClaimsDashboardPageContent({
     );
   }
 
+  if (activeView === "approvals") {
+    return (
+      <ClaimsApprovalsSection
+        userId={userId}
+        viewerContext={viewerContextResult}
+        searchParams={resolvedSearchParams}
+        filters={filters}
+      />
+    );
+  }
+
   return (
     <>
       <Suspense fallback={<FilterBarSkeleton />}>
@@ -884,18 +653,9 @@ async function MyClaimsDashboardPageContent({
         />
       </Suspense>
 
-      {activeView === "approvals" ? (
-        <h2 className="sr-only" aria-label="Approvals History">
-          Approvals History
-        </h2>
-      ) : null}
-
       <Suspense key={JSON.stringify(resolvedSearchParams)} fallback={<TableSkeleton />}>
         <ClaimsCommandCenterTable
           userId={userId}
-          view={activeView}
-          approvalScope={viewerContextResult.activeScope}
-          viewerContext={viewerContextResult}
           cursor={cursor}
           previousCursorToken={previousCursorToken}
           searchParams={resolvedSearchParams}

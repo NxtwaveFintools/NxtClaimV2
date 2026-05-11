@@ -13,6 +13,7 @@ import { ROUTES } from "@/core/config/route-registry";
 import { AppShellHeader } from "@/components/app-shell-header";
 import { PolicyGate } from "@/components/layout/PolicyGate";
 import { RouterLink } from "@/components/ui/router-link";
+import { DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS } from "@/core/constants/statuses";
 import { resolveDashboardAnalyticsScope } from "@/core/domain/dashboard/resolve-analytics-scope";
 import { logger } from "@/core/infra/logging/logger";
 import { GetWalletSummaryService } from "@/core/domain/dashboard/GetWalletSummaryService";
@@ -20,6 +21,7 @@ import { SupabaseDashboardRepository } from "@/modules/dashboard/repositories/Su
 import { WalletSummary } from "@/modules/dashboard/ui/wallet-summary";
 import { isAdmin } from "@/modules/admin/server/is-admin";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
+import { isFinancePendingApprovalsViewer } from "@/modules/claims/server/get-pending-approvals-viewer-context";
 import { getPolicyGateState } from "@/modules/policies/server/get-policy-gate-state";
 import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
 import { formatDate } from "@/lib/format";
@@ -45,9 +47,15 @@ type DashboardNavItem = {
   isActive: boolean;
 };
 
+function buildHodPendingNavHref(): string {
+  const params = new URLSearchParams({ status: DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS });
+  return `${ROUTES.claims.hodPending}?${params.toString()}`;
+}
+
 function buildNavigationItems(input: {
   canViewAnalytics: boolean;
   isAdminUser: boolean;
+  isFinanceUser: boolean;
 }): DashboardNavItem[] {
   return [
     {
@@ -68,6 +76,16 @@ function buildNavigationItems(input: {
       icon: FileText,
       isActive: false,
     },
+    ...(input.isFinanceUser
+      ? [
+          {
+            href: buildHodPendingNavHref(),
+            label: "HOD Pending",
+            icon: CalendarDays,
+            isActive: false,
+          },
+        ]
+      : []),
     ...(input.canViewAnalytics
       ? [
           {
@@ -153,9 +171,10 @@ async function DashboardPageContent({
   greeting: string;
   currentDateLabel: string;
 }) {
-  const [walletResult, analyticsViewerContextResult] = await Promise.all([
+  const [walletResult, analyticsViewerContextResult, isFinanceUser] = await Promise.all([
     getWalletSummaryService.execute(userId),
     dashboardRepository.getAnalyticsViewerContext(userId),
+    isFinancePendingApprovalsViewer(userId),
   ]);
 
   if (analyticsViewerContextResult.errorMessage) {
@@ -171,6 +190,7 @@ async function DashboardPageContent({
   const navigationItems = buildNavigationItems({
     canViewAnalytics,
     isAdminUser,
+    isFinanceUser,
   });
   const walletSummary = walletResult.data ?? GetWalletSummaryService.empty();
 

@@ -5,6 +5,7 @@ type PendingApprovalsRepository = {
   getApprovalViewerContext: jest.Mock;
   getPendingApprovalsForL1: jest.Mock;
   getPendingApprovalsForFinance: jest.Mock;
+  getPendingApprovalsForFinanceHodPendingObservability: jest.Mock;
 };
 
 function createLogger() {
@@ -20,7 +21,7 @@ function createRepository(
 ): PendingApprovalsRepository {
   return {
     getApprovalViewerContext: jest.fn(async () => ({
-      data: { isHod: false, isFounder: true, isFinance: false },
+      data: { isApprover1: false, isApprover2: true, isFinance: false },
       errorMessage: null,
     })),
     getPendingApprovalsForL1: jest.fn(async () => ({
@@ -37,12 +38,21 @@ function createRepository(
       ],
       nextCursor: null,
       hasNextPage: false,
+      totalCount: 1,
       errorMessage: null,
     })),
     getPendingApprovalsForFinance: jest.fn(async () => ({
       data: [],
       nextCursor: null,
       hasNextPage: false,
+      totalCount: 0,
+      errorMessage: null,
+    })),
+    getPendingApprovalsForFinanceHodPendingObservability: jest.fn(async () => ({
+      data: [],
+      nextCursor: null,
+      hasNextPage: false,
+      totalCount: 0,
       errorMessage: null,
     })),
     ...overrides,
@@ -78,7 +88,7 @@ describe("GetPendingApprovalsService", () => {
   test("gates finance view to L2 status only by using finance query", async () => {
     const repository = createRepository({
       getApprovalViewerContext: jest.fn(async () => ({
-        data: { isHod: false, isFounder: false, isFinance: true },
+        data: { isApprover1: false, isApprover2: false, isFinance: true },
         errorMessage: null,
       })),
       getPendingApprovalsForFinance: jest.fn(async () => ({
@@ -177,7 +187,7 @@ describe("GetPendingApprovalsService", () => {
   test("returns empty response when user has no approver privileges", async () => {
     const repository = createRepository({
       getApprovalViewerContext: jest.fn(async () => ({
-        data: { isHod: false, isFounder: false, isFinance: false },
+        data: { isApprover1: false, isApprover2: false, isFinance: false },
         errorMessage: null,
       })),
     });
@@ -204,7 +214,7 @@ describe("GetPendingApprovalsService", () => {
   test("uses provided viewer context without re-fetching role scope", async () => {
     const repository = createRepository({
       getApprovalViewerContext: jest.fn(async () => ({
-        data: { isHod: false, isFounder: false, isFinance: false },
+        data: { isApprover1: false, isApprover2: false, isFinance: false },
         errorMessage: null,
       })),
     });
@@ -234,7 +244,7 @@ describe("GetPendingApprovalsService", () => {
   test("prioritizes finance scope for dual-role users", async () => {
     const repository = createRepository({
       getApprovalViewerContext: jest.fn(async () => ({
-        data: { isHod: true, isFounder: false, isFinance: true },
+        data: { isApprover1: true, isApprover2: false, isFinance: true },
         errorMessage: null,
       })),
     });
@@ -252,10 +262,93 @@ describe("GetPendingApprovalsService", () => {
     expect(repository.getPendingApprovalsForL1).not.toHaveBeenCalled();
   });
 
+  test("routes finance HOD-pending observability through the dedicated repository method", async () => {
+    const repository = createRepository({
+      getApprovalViewerContext: jest.fn(async () => ({
+        data: { isApprover1: false, isApprover2: false, isFinance: true },
+        errorMessage: null,
+      })),
+      getPendingApprovalsForFinanceHodPendingObservability: jest.fn(async () => ({
+        data: [
+          {
+            id: "claim-fin-hod-1",
+            employeeId: "EMP-201",
+            submitter: "EMP-201",
+            departmentName: "Operations",
+            paymentModeName: "Reimbursement",
+            detailType: "expense",
+            submissionType: "Self",
+            onBehalfEmail: null,
+            onBehalfEmployeeCode: null,
+            purpose: "Travel",
+            categoryName: "Travel",
+            evidenceFilePath: null,
+            expenseReceiptFilePath: null,
+            expenseBankStatementFilePath: null,
+            advanceSupportingDocumentPath: null,
+            totalAmount: 3200,
+            status: "Submitted - Awaiting HOD approval",
+            submittedAt: "2026-03-14T09:30:00.000Z",
+            hodActionAt: null,
+            financeActionAt: null,
+          },
+        ],
+        nextCursor: null,
+        hasNextPage: false,
+        totalCount: 1,
+        errorMessage: null,
+      })),
+    });
+    const service = new GetPendingApprovalsService({ repository, logger: createLogger() });
+
+    const result = await service.executeFinanceHodPendingObservability({
+      userId: "finance-1",
+      cursor: null,
+      limit: 10,
+    });
+
+    expect(result.errorMessage).toBeNull();
+    expect(result.totalCount).toBe(1);
+    expect(result.data[0]?.status).toBe("Submitted - Awaiting HOD approval");
+    expect(repository.getPendingApprovalsForFinanceHodPendingObservability).toHaveBeenCalledWith(
+      "finance-1",
+      null,
+      10,
+      undefined,
+    );
+    expect(repository.getPendingApprovalsForFinance).not.toHaveBeenCalled();
+    expect(repository.getPendingApprovalsForL1).not.toHaveBeenCalled();
+  });
+
+  test("returns empty observability response for non-finance viewers", async () => {
+    const repository = createRepository({
+      getApprovalViewerContext: jest.fn(async () => ({
+        data: { isApprover1: true, isApprover2: false, isFinance: false },
+        errorMessage: null,
+      })),
+    });
+    const service = new GetPendingApprovalsService({ repository, logger: createLogger() });
+
+    const result = await service.executeFinanceHodPendingObservability({
+      userId: "hod-1",
+      cursor: null,
+      limit: 10,
+    });
+
+    expect(result).toEqual({
+      data: [],
+      nextCursor: null,
+      hasNextPage: false,
+      totalCount: 0,
+      errorMessage: null,
+    });
+    expect(repository.getPendingApprovalsForFinanceHodPendingObservability).not.toHaveBeenCalled();
+  });
+
   test("returns viewer-context error and logs it", async () => {
     const repository = createRepository({
       getApprovalViewerContext: jest.fn(async () => ({
-        data: { isHod: false, isFounder: false, isFinance: false },
+        data: { isApprover1: false, isApprover2: false, isFinance: false },
         errorMessage: "viewer context failed",
       })),
     });
