@@ -1169,8 +1169,8 @@ describe("SupabaseAdminRepository", () => {
     const repository = new SupabaseAdminRepository();
     const result = await repository.createDepartmentWithActorsByEmail({
       name: "Operations",
-      hodEmail: "same@nxtwave.co.in",
-      founderEmail: "same2@nxtwave.co.in",
+      approver1Email: "same@nxtwave.co.in",
+      approver2Email: "same2@nxtwave.co.in",
     });
 
     expect(result).toEqual({

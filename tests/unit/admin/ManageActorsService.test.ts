@@ -268,8 +268,8 @@ describe("ManageActorsService", () => {
 
       const result = await service.updateDepartmentActorsByEmail({
         departmentId: "dept-1",
-        hodEmail: "same@example.com",
-        founderEmail: "same@example.com",
+        approver1Email: "same@example.com",
+        approver2Email: "same@example.com",
       });
 
       expect(repository.updateDepartmentActorsByEmail).not.toHaveBeenCalled();
@@ -288,8 +288,8 @@ describe("ManageActorsService", () => {
 
       const result = await service.updateDepartmentActorsByEmail({
         departmentId: "dept-1",
-        hodEmail: "alice@example.com",
-        founderEmail: "bob@example.com",
+        approver1Email: "alice@example.com",
+        approver2Email: "bob@example.com",
       });
 
       expect(result.success).toBe(false);

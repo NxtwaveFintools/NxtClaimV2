@@ -543,7 +543,7 @@ test.describe("HOD bypass routing", () => {
       expectClaimVisibleInApprovals(page, submission.claimId, false),
     );
 
-    await withActorPage(browser, context.founderEmail, async (page) =>
+    await withActorPage(browser, context.approver2Email, async (page) =>
       expectClaimVisibleInApprovals(page, submission.claimId, true),
     );
   });

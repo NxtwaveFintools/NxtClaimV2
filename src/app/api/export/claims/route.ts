@@ -24,7 +24,13 @@ import { logger } from "@/core/infra/logging/logger";
 import { normalizeIsoDateOnly } from "@/lib/date-only";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
 
-const scopeSchema = z.enum(["submissions", "approvals", "admin", "department"]);
+const scopeSchema = z.enum([
+  "submissions",
+  "approvals",
+  "finance_hod_pending",
+  "admin",
+  "department",
+]);
 
 function normalizeSubmissionType(value: string | null): ClaimSubmissionType | undefined {
   if (value === "Self" || value === "On Behalf") {
@@ -128,7 +134,8 @@ const exportClaimsHandler = async (request: NextRequest, context: AuthenticatedC
         data: null,
         error: {
           code: "INVALID_EXPORT_SCOPE",
-          message: "scope must be one of: submissions, approvals, admin, department",
+          message:
+            "scope must be one of: submissions, approvals, finance_hod_pending, admin, department",
         },
         meta: { correlationId: context.correlationId },
       },

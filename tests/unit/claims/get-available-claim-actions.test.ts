@@ -72,6 +72,22 @@ describe("getAvailableClaimActions", () => {
     });
   });
 
+  test("blocks finance detail actions for HOD-pending claims they are only observing", () => {
+    const permissions = getClaimDetailActionPermissions({
+      status: DB_CLAIM_STATUSES[0],
+      currentUserId: "finance-1",
+      beneficiaryUserId: "beneficiary-1",
+      assignedL1ApproverId: "approver-1",
+      isFinanceActor: true,
+    });
+
+    expect(permissions).toEqual({
+      canTakeL1Decision: false,
+      canTakeFinanceAuthorizationDecision: false,
+      canTakeFinanceExecutionDecision: false,
+    });
+  });
+
   test("allows proxy submitter to take L1 decision when assigned approver and not beneficiary", () => {
     const permissions = getClaimDetailActionPermissions({
       status: DB_CLAIM_STATUSES[0],

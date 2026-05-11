@@ -75,7 +75,7 @@ function createRepository(overrides?: Partial<ClaimRepository>): ClaimRepository
       errorMessage: null,
     })),
     getApprovalViewerContext: jest.fn(async () => ({
-      data: { isHod: false, isFounder: false, isFinance: false },
+      data: { isApprover1: false, isApprover2: false, isFinance: false },
       errorMessage: null,
     })),
     getPendingApprovalsForL1: jest.fn(async () => ({

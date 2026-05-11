@@ -226,6 +226,7 @@ export type ClaimsExportFetchScope =
   | "submissions"
   | "l1_approvals"
   | "finance_approvals"
+  | "finance_hod_pending_observability"
   | "admin"
   | "department_viewer";
 

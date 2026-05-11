@@ -562,6 +562,21 @@ function normalizeFinanceVisibleStatusFilter(
   return [...new Set(normalized.filter((candidate) => FINANCE_VISIBLE_STATUS_SET.has(candidate)))];
 }
 
+function normalizeFinanceHodPendingObservabilityStatusFilter(
+  status: GetMyClaimsFilters["status"],
+): DbClaimStatus[] {
+  const normalized = normalizeStatusFilter(status);
+
+  if (normalized.length === 0) {
+    return [];
+  }
+
+  return normalized.filter(
+    (candidate): candidate is typeof DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS =>
+      candidate === DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
+  );
+}
+
 function normalizeDateRange(filters?: GetMyClaimsFilters): { fromDate?: string; toDate?: string } {
   return {
     fromDate: filters?.dateFrom ?? filters?.fromDate,
@@ -3399,6 +3414,124 @@ export class SupabaseClaimRepository implements ClaimRepository {
     };
   }
 
+  async getPendingApprovalsForFinanceHodPendingObservability(
+    _userId: string,
+    cursor: string | null,
+    limit: number,
+    filters?: GetMyClaimsFilters,
+  ): Promise<{
+    data: Array<{
+      id: string;
+      employeeId: string;
+      submitter: string;
+      submitterEmail: string | null;
+      departmentName: string | null;
+      paymentModeName: string;
+      detailType: "expense" | "advance";
+      submissionType: "Self" | "On Behalf";
+      onBehalfEmail: string | null;
+      onBehalfEmployeeCode: string | null;
+      purpose: string | null;
+      categoryName: string;
+      evidenceFilePath: string | null;
+      expenseReceiptFilePath: string | null;
+      expenseBankStatementFilePath: string | null;
+      advanceSupportingDocumentPath: string | null;
+      totalAmount: number;
+      status: DbClaimStatus;
+      submittedAt: string;
+      hodActionAt: string | null;
+      financeActionAt: string | null;
+    }>;
+    nextCursor: string | null;
+    hasNextPage: boolean;
+    totalCount: number;
+    errorMessage: string | null;
+  }> {
+    const client = getServiceRoleSupabaseClient();
+    const decodedCursor = decodeClaimsCursor(cursor);
+    const normalizedStatuses = normalizeFinanceHodPendingObservabilityStatusFilter(filters?.status);
+    const { fromDate, toDate } = normalizeDateRange(filters);
+    const dateColumn = resolvePendingApprovalsDateColumn(filters?.dateTarget, "submitted_on");
+    const normalizedSearch = normalizeSearchInput(filters);
+    const safeLimit = clampListPageSize(limit);
+
+    if (filters?.status && normalizedStatuses.length === 0) {
+      return {
+        data: [],
+        nextCursor: null,
+        hasNextPage: false,
+        totalCount: 0,
+        errorMessage: null,
+      };
+    }
+
+    if (cursor && !decodedCursor) {
+      return {
+        data: [],
+        nextCursor: null,
+        hasNextPage: false,
+        totalCount: 0,
+        errorMessage: "Invalid cursor format.",
+      };
+    }
+
+    let query = client
+      .from("vw_enterprise_claims_dashboard")
+      .select(
+        "claim_id, employee_name, employee_id, detail_type, submission_type, on_behalf_email, on_behalf_employee_code_raw, status, submitted_on, created_at, hod_action_date, finance_action_date, submitter_email, submitter_label, department_name, type_of_claim, amount, category_name, purpose, receipt_file_path, bank_statement_file_path, supporting_document_path, assigned_l2_approver_id, payment_mode_id, department_id, location_id, product_id, expense_category_id",
+        { count: "exact" },
+      )
+      .eq("status", DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS)
+      .order("created_at", { ascending: false })
+      .order("claim_id", { ascending: false });
+
+    query = applyPendingApprovalsFilters({
+      query,
+      filters,
+      normalizedStatuses,
+      fromDate,
+      toDate,
+      dateColumn,
+      normalizedSearch,
+    });
+
+    if (decodedCursor) {
+      query = query.or(
+        `created_at.lt.${decodedCursor.createdAt},and(created_at.eq.${decodedCursor.createdAt},claim_id.lt.${decodedCursor.id})`,
+      );
+    }
+
+    const { data, error, count } = await query.limit(safeLimit + 1);
+
+    if (error) {
+      return {
+        data: [],
+        nextCursor: null,
+        hasNextPage: false,
+        totalCount: 0,
+        errorMessage: error.message,
+      };
+    }
+
+    const rows = (data ?? []) as EnterpriseClaimsDashboardRow[];
+    const hasExtraRecord = rows.length > safeLimit;
+    const pageRows = hasExtraRecord ? rows.slice(0, safeLimit) : rows;
+    const lastRow = pageRows[pageRows.length - 1] ?? null;
+    const nextCursor =
+      hasExtraRecord && lastRow
+        ? encodeClaimsCursor({ createdAt: lastRow.created_at, id: lastRow.claim_id })
+        : null;
+
+    return {
+      data: mapPendingApprovalRows(pageRows),
+      nextCursor,
+      hasNextPage: hasExtraRecord,
+      totalCount: count ?? 0,
+      errorMessage: null,
+    };
+  }
+
   async getClaimsForExport(input: {
     userId: string;
     fetchScope: ClaimsExportFetchScope;
@@ -3410,13 +3543,18 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const normalizedStatuses =
       input.fetchScope === "finance_approvals"
         ? normalizeFinanceVisibleStatusFilter(input.filters?.status)
-        : normalizeStatusFilter(input.filters?.status);
+        : input.fetchScope === "finance_hod_pending_observability"
+          ? normalizeFinanceHodPendingObservabilityStatusFilter(input.filters?.status)
+          : normalizeStatusFilter(input.filters?.status);
     const { fromDate, toDate } = normalizeDateRange(input.filters);
     const normalizedSearch = normalizeSearchInput(input.filters);
 
     let financeApproverIds: string[] = [];
 
-    if (input.fetchScope === "finance_approvals") {
+    if (
+      input.fetchScope === "finance_approvals" ||
+      input.fetchScope === "finance_hod_pending_observability"
+    ) {
       const financeApproversResult = await client
         .from("master_finance_approvers")
         .select("id")
@@ -3471,6 +3609,10 @@ export class SupabaseClaimRepository implements ClaimRepository {
       query = query.not("status", "in", FINANCE_EXCLUDED_QUEUE_AND_HISTORY_STATUSES_FILTER);
     }
 
+    if (input.fetchScope === "finance_hod_pending_observability") {
+      query = query.eq("status", DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS);
+    }
+
     query = applyEnterpriseDashboardFilters({
       query,
       filters: input.filters,
@@ -3520,13 +3662,18 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const normalizedStatuses =
       input.fetchScope === "finance_approvals"
         ? normalizeFinanceVisibleStatusFilter(input.filters?.status)
-        : normalizeStatusFilter(input.filters?.status);
+        : input.fetchScope === "finance_hod_pending_observability"
+          ? normalizeFinanceHodPendingObservabilityStatusFilter(input.filters?.status)
+          : normalizeStatusFilter(input.filters?.status);
     const { fromDate, toDate } = normalizeDateRange(input.filters);
     const normalizedSearch = normalizeSearchInput(input.filters);
 
     let financeApproverIds: string[] = [];
 
-    if (input.fetchScope === "finance_approvals") {
+    if (
+      input.fetchScope === "finance_approvals" ||
+      input.fetchScope === "finance_hod_pending_observability"
+    ) {
       const financeApproversResult = await client
         .from("master_finance_approvers")
         .select("id")
@@ -3577,6 +3724,10 @@ export class SupabaseClaimRepository implements ClaimRepository {
       );
 
       idsQuery = idsQuery.not("status", "in", FINANCE_EXCLUDED_QUEUE_AND_HISTORY_STATUSES_FILTER);
+    }
+
+    if (input.fetchScope === "finance_hod_pending_observability") {
+      idsQuery = idsQuery.eq("status", DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS);
     }
 
     // Admin scope: no user-level filter — return all claims

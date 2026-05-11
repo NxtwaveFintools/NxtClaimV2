@@ -55,7 +55,7 @@ describe("GetActiveDepartmentsService (seeded integration)", () => {
       await import("@/modules/departments/repositories/SupabaseDepartmentRepository"));
   });
 
-  test("returns active departments with nested hod and founder users", async () => {
+  test("returns active departments with nested approver users", async () => {
     const repository = new SupabaseDepartmentRepository();
     const service = new GetActiveDepartmentsService({ repository, logger });
 
@@ -68,8 +68,8 @@ describe("GetActiveDepartmentsService (seeded integration)", () => {
 
     const financeDepartment = result.departments.find((item) => item.name === "Finance");
     expect(financeDepartment).toBeDefined();
-    expect(financeDepartment?.hod.email).toBe("akhilesh.jhawar@nxtwave.in");
-    expect(financeDepartment?.founder.email).toBe("rahul@nxtwave.co.in");
+    expect(financeDepartment?.approver1.email).toBe("akhilesh.jhawar@nxtwave.in");
+    expect(financeDepartment?.approver2.email).toBe("rahul@nxtwave.co.in");
   });
 
   test("ensures department routing payload is complete for all active rows", async () => {
@@ -86,10 +86,10 @@ describe("GetActiveDepartmentsService (seeded integration)", () => {
       expect(department.id).toBeTruthy();
       expect(department.name).toBeTruthy();
       expect(department.isActive).toBe(true);
-      expect(department.hod.id).toBeTruthy();
-      expect(department.hod.email).toContain("@");
-      expect(department.founder.id).toBeTruthy();
-      expect(department.founder.email).toContain("@");
+      expect(department.approver1.id).toBeTruthy();
+      expect(department.approver1.email).toContain("@");
+      expect(department.approver2.id).toBeTruthy();
+      expect(department.approver2.email).toContain("@");
     }
   });
 });
