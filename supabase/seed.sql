@@ -136,13 +136,13 @@ values
 	('NIAT Batch 2024', true),
 	('NIAT Batch 2025', true),
 	('NIAT Batch 2026', true),
-	('NIAT Application', true),
-	('NIAT DS Transport', true),
-	('NxtWave Abroad Service', true),
-	('NxtWave Abroad Commission', true),
+	('NIAT Application', false),
+	('NIAT DS Transport', false),
+	('NxtWave Abroad Service', false),
+	('NxtWave Abroad Commission', false),
 	('Topin.tech', true),
 	('Common', true),
-	('NIFA', true)
+	('NIFA', false)
 on conflict (name) do update
 set
 	is_active = excluded.is_active,
