@@ -353,6 +353,8 @@ async function FinanceEditClaimSection({
                     billNo: claim.expense.billNo,
                     expenseCategoryId: claim.expense.expenseCategoryId,
                     locationId: claim.expense.locationId,
+                    locationType: claim.expense.locationType,
+                    locationDetails: claim.expense.locationDetails,
                     transactionDate: claim.expense.transactionDate,
                     isGstApplicable: claim.expense.isGstApplicable,
                     gstNumber: claim.expense.gstNumber,

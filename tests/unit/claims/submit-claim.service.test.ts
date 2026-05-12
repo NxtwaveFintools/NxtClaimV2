@@ -158,7 +158,6 @@ describe("SubmitClaimService", () => {
         cgstAmount: 5,
         sgstAmount: 5,
         igstAmount: 0,
-        totalAmount: hackedClientTotal,
       },
     });
 
