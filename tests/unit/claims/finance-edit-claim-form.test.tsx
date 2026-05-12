@@ -22,6 +22,8 @@ function createExpenseClaim(input?: {
   igstAmount?: number;
   totalAmount?: number;
 }) {
+  const resolvedTotalAmount = input?.totalAmount ?? 118;
+
   return {
     id: "CLAIM-1",
     employeeName: "Jane Doe",
@@ -44,7 +46,8 @@ function createExpenseClaim(input?: {
       cgstAmount: input?.cgstAmount ?? 9,
       sgstAmount: input?.sgstAmount ?? 9,
       igstAmount: input?.igstAmount ?? 0,
-      totalAmount: input?.totalAmount ?? 118,
+      requestedTotalAmount: resolvedTotalAmount,
+      approvedAmount: resolvedTotalAmount,
       vendorName: "Vendor",
       purpose: "Client visit",
       productId: "prod-1",
@@ -58,6 +61,7 @@ function createExpenseClaim(input?: {
 function renderForm(input?: { claim?: ReturnType<typeof createExpenseClaim> }) {
   return render(
     <FinanceEditClaimForm
+      editFlow="own"
       claim={input?.claim ?? createExpenseClaim()}
       departments={departments}
       paymentModes={paymentModes}
@@ -76,6 +80,7 @@ function renderEmbeddedSheetForm(action: () => Promise<{ ok: boolean; error?: st
     <Sheet defaultOpen>
       <SheetContent side="right" hideDefaultCloseButton>
         <FinanceEditClaimForm
+          editFlow="finance"
           claim={createExpenseClaim()}
           departments={departments}
           paymentModes={paymentModes}

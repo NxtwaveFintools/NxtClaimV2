@@ -33,6 +33,7 @@ type ExpenseAmountState = {
 };
 
 type FinanceEditClaimFormProps = {
+  editFlow: "finance" | "own";
   claim: {
     id: string;
     employeeName: string;
@@ -55,7 +56,8 @@ type FinanceEditClaimFormProps = {
       cgstAmount: number | null;
       sgstAmount: number | null;
       igstAmount: number | null;
-      totalAmount: number | null;
+      requestedTotalAmount: number | null;
+      approvedAmount: number | null;
       vendorName: string | null;
       purpose: string | null;
       productId: string | null;
@@ -65,7 +67,8 @@ type FinanceEditClaimFormProps = {
     advance: {
       id: string;
       purpose: string;
-      requestedAmount: number | null;
+      requestedTotalAmount: number | null;
+      approvedAmount: number | null;
       expectedUsageDate: string;
       productId: string | null;
       locationId: string | null;
@@ -112,7 +115,12 @@ function buildExpenseAmountState(
   expense:
     | Pick<
         NonNullable<FinanceEditClaimFormProps["claim"]["expense"]>,
-        "basicAmount" | "cgstAmount" | "sgstAmount" | "igstAmount" | "totalAmount"
+        | "basicAmount"
+        | "cgstAmount"
+        | "sgstAmount"
+        | "igstAmount"
+        | "requestedTotalAmount"
+        | "approvedAmount"
       >
     | null
     | undefined,
@@ -122,9 +130,9 @@ function buildExpenseAmountState(
   const sgstAmount = toNonNegativeCurrency(expense?.sgstAmount);
   const igstAmount = toNonNegativeCurrency(expense?.igstAmount);
   const totalAmount =
-    expense?.totalAmount === null || expense?.totalAmount === undefined
+    expense?.requestedTotalAmount === null || expense?.requestedTotalAmount === undefined
       ? calculateExpenseTotal({ basicAmount, cgstAmount, sgstAmount, igstAmount })
-      : toNonNegativeCurrency(expense.totalAmount);
+      : toNonNegativeCurrency(expense.requestedTotalAmount ?? expense.approvedAmount);
 
   return {
     basicAmount,
@@ -148,6 +156,7 @@ function toDateInputValue(value: string | null | undefined): string {
 }
 
 export function FinanceEditClaimForm({
+  editFlow,
   claim,
   departments,
   paymentModes,
@@ -164,6 +173,8 @@ export function FinanceEditClaimForm({
   action,
 }: FinanceEditClaimFormProps) {
   const sheetContext = useOptionalSheetContext();
+  const isFinanceEdit = editFlow === "finance";
+  const isOwnEdit = editFlow === "own";
   const initialExpenseAmounts = buildExpenseAmountState(claim.expense);
   const [isInlineOpen, setIsInlineOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -178,7 +189,8 @@ export function FinanceEditClaimForm({
   const expenseCgstAmount = claim.expense?.cgstAmount ?? null;
   const expenseSgstAmount = claim.expense?.sgstAmount ?? null;
   const expenseIgstAmount = claim.expense?.igstAmount ?? null;
-  const expenseTotalAmount = claim.expense?.totalAmount ?? null;
+  const expenseTotalAmount =
+    claim.expense?.requestedTotalAmount ?? claim.expense?.approvedAmount ?? null;
   const isEmbeddedPresentation = presentation === "embedded";
   const isOpen = isEmbeddedPresentation ? true : isInlineOpen;
   const isDepartmentFieldLocked = isEditMode;
@@ -197,7 +209,8 @@ export function FinanceEditClaimForm({
       cgstAmount: expenseCgstAmount,
       sgstAmount: expenseSgstAmount,
       igstAmount: expenseIgstAmount,
-      totalAmount: expenseTotalAmount,
+      requestedTotalAmount: expenseTotalAmount,
+      approvedAmount: claim.expense?.approvedAmount ?? null,
     });
 
     setExpenseAmounts(nextExpenseAmounts);
@@ -472,228 +485,312 @@ export function FinanceEditClaimForm({
             </div>
 
             {claim.detailType === "expense" ? (
-              <>
+              isFinanceEdit ? (
                 <div className={groupedWrapperClassName}>
-                  <h4 className={groupedTitleClassName}>Vendor Details</h4>
+                  <h4 className={groupedTitleClassName}>Finance Approval</h4>
                   <div className={groupedGridClassName}>
                     <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      Bill No
-                      <FormInput
-                        name="billNo"
-                        required
-                        defaultValue={expense?.billNo ?? ""}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                      />
-                    </label>
-
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      Expense Category
-                      <FormSelect
-                        name="expenseCategoryId"
-                        required
-                        defaultValue={expense?.expenseCategoryId ?? ""}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                      >
-                        <option value="" disabled>
-                          Select expense category
-                        </option>
-                        {expenseCategories.map((category) => (
-                          <option key={category.id} value={category.id}>
-                            {category.name}
-                          </option>
-                        ))}
-                      </FormSelect>
-                    </label>
-
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      Vendor Name
-                      <FormInput
-                        name="vendorName"
-                        defaultValue={expense?.vendorName ?? ""}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                      />
-                    </label>
-
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      Location
-                      <FormSelect
-                        name="locationId"
-                        required
-                        defaultValue={expense?.locationId ?? ""}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                      >
-                        <option value="" disabled>
-                          Select location
-                        </option>
-                        {locations.map((location) => (
-                          <option key={location.id} value={location.id}>
-                            {location.name}
-                          </option>
-                        ))}
-                      </FormSelect>
-                    </label>
-
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      Transaction Date
-                      <DateInput
-                        name="transactionDate"
-                        required
-                        defaultValue={toDateInputValue(expense?.transactionDate)}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                      />
-                    </label>
-
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      GST Applicable
-                      <FormSelect
-                        name="isGstApplicable"
-                        required
-                        defaultValue={expense?.isGstApplicable ? "true" : "false"}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                      >
-                        <option value="true">Yes</option>
-                        <option value="false">No</option>
-                      </FormSelect>
-                    </label>
-
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      GST Number
-                      <FormInput
-                        name="gstNumber"
-                        defaultValue={expense?.gstNumber ?? ""}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                <div className={groupedWrapperClassName}>
-                  <h4 className={groupedTitleClassName}>Amount Details</h4>
-                  <div className={groupedGridClassName}>
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      Basic Amount
+                      Requested Amount
                       <CurrencyInput
-                        name="basicAmount"
+                        value={expense?.requestedTotalAmount ?? ""}
+                        disabled
+                        className={lockedFieldClassName}
+                      />
+                    </label>
+
+                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      Approved Amount
+                      <CurrencyInput
+                        name="approvedAmount"
                         min="0"
                         step="0.01"
                         required
-                        value={expenseAmounts.basicAmount}
-                        onValueChange={(value) => {
-                          handleExpenseComponentAmountChange("basicAmount", value);
-                        }}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                      />
-                    </label>
-
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      CGST Amount
-                      <CurrencyInput
-                        name="cgstAmount"
-                        min="0"
-                        step="0.01"
-                        value={expenseAmounts.cgstAmount}
-                        onValueChange={(value) => {
-                          handleExpenseComponentAmountChange("cgstAmount", value);
-                        }}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                      />
-                    </label>
-
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      SGST Amount
-                      <CurrencyInput
-                        name="sgstAmount"
-                        min="0"
-                        step="0.01"
-                        value={expenseAmounts.sgstAmount}
-                        onValueChange={(value) => {
-                          handleExpenseComponentAmountChange("sgstAmount", value);
-                        }}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                      />
-                    </label>
-
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      IGST Amount
-                      <CurrencyInput
-                        name="igstAmount"
-                        min="0"
-                        step="0.01"
-                        value={expenseAmounts.igstAmount}
-                        onValueChange={(value) => {
-                          handleExpenseComponentAmountChange("igstAmount", value);
-                        }}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                      />
-                    </label>
-
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      Total Amount
-                      <CurrencyInput
-                        name="totalAmount"
-                        min="0"
-                        step="0.01"
-                        required
-                        value={totalAmountInputValue}
-                        onChange={(event) => {
-                          handleTotalAmountInputChange(event.currentTarget.value);
-                        }}
+                        defaultValue={
+                          expense?.approvedAmount ?? expense?.requestedTotalAmount ?? ""
+                        }
                         className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                       />
                     </label>
 
                     <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
-                      Purpose
+                      Reference
                       <FormInput
-                        name="purpose"
-                        required
-                        defaultValue={expense?.purpose ?? ""}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        value={`${expense?.billNo ?? "N/A"} · ${toDateInputValue(expense?.transactionDate) || "N/A"}`}
+                        disabled
+                        className={lockedFieldClassName}
                       />
                     </label>
                   </div>
-                </div>
 
-                <div className={groupedWrapperClassName}>
-                  <h4 className={groupedTitleClassName}>Additional Details</h4>
-                  <div className={groupedGridClassName}>
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      Product
-                      <FormSelect
-                        name="productId"
-                        defaultValue={expense?.productId ?? ""}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                      >
-                        <option value="">None</option>
-                        {products.map((product) => (
-                          <option key={product.id} value={product.id}>
-                            {product.name}
+                  <p className="text-xs text-muted-foreground">
+                    Employee-entered expense details are locked at the finance stage. Only the
+                    approved amount can be changed.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className={groupedWrapperClassName}>
+                    <h4 className={groupedTitleClassName}>Vendor Details</h4>
+                    <div className={groupedGridClassName}>
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Bill No
+                        <FormInput
+                          name="billNo"
+                          required
+                          defaultValue={expense?.billNo ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Expense Category
+                        <FormSelect
+                          name="expenseCategoryId"
+                          required
+                          defaultValue={expense?.expenseCategoryId ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        >
+                          <option value="" disabled>
+                            Select expense category
                           </option>
-                        ))}
-                      </FormSelect>
-                    </label>
+                          {expenseCategories.map((category) => (
+                            <option key={category.id} value={category.id}>
+                              {category.name}
+                            </option>
+                          ))}
+                        </FormSelect>
+                      </label>
 
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      People Involved
-                      <FormInput
-                        name="peopleInvolved"
-                        defaultValue={expense?.peopleInvolved ?? ""}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                      />
-                    </label>
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Vendor Name
+                        <FormInput
+                          name="vendorName"
+                          defaultValue={expense?.vendorName ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
 
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
-                      Remarks
-                      <FormTextarea
-                        name="remarks"
-                        rows={3}
-                        defaultValue={expense?.remarks ?? ""}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                      />
-                    </label>
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Location
+                        <FormSelect
+                          name="locationId"
+                          required
+                          defaultValue={expense?.locationId ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        >
+                          <option value="" disabled>
+                            Select location
+                          </option>
+                          {locations.map((location) => (
+                            <option key={location.id} value={location.id}>
+                              {location.name}
+                            </option>
+                          ))}
+                        </FormSelect>
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Transaction Date
+                        <DateInput
+                          name="transactionDate"
+                          required
+                          defaultValue={toDateInputValue(expense?.transactionDate)}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        GST Applicable
+                        <FormSelect
+                          name="isGstApplicable"
+                          required
+                          defaultValue={expense?.isGstApplicable ? "true" : "false"}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        >
+                          <option value="true">Yes</option>
+                          <option value="false">No</option>
+                        </FormSelect>
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        GST Number
+                        <FormInput
+                          name="gstNumber"
+                          defaultValue={expense?.gstNumber ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+                    </div>
                   </div>
+
+                  <div className={groupedWrapperClassName}>
+                    <h4 className={groupedTitleClassName}>Amount Details</h4>
+                    <div className={groupedGridClassName}>
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Basic Amount
+                        <CurrencyInput
+                          name="basicAmount"
+                          min="0"
+                          step="0.01"
+                          required
+                          value={expenseAmounts.basicAmount}
+                          onValueChange={(value) => {
+                            handleExpenseComponentAmountChange("basicAmount", value);
+                          }}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        CGST Amount
+                        <CurrencyInput
+                          name="cgstAmount"
+                          min="0"
+                          step="0.01"
+                          value={expenseAmounts.cgstAmount}
+                          onValueChange={(value) => {
+                            handleExpenseComponentAmountChange("cgstAmount", value);
+                          }}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        SGST Amount
+                        <CurrencyInput
+                          name="sgstAmount"
+                          min="0"
+                          step="0.01"
+                          value={expenseAmounts.sgstAmount}
+                          onValueChange={(value) => {
+                            handleExpenseComponentAmountChange("sgstAmount", value);
+                          }}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        IGST Amount
+                        <CurrencyInput
+                          name="igstAmount"
+                          min="0"
+                          step="0.01"
+                          value={expenseAmounts.igstAmount}
+                          onValueChange={(value) => {
+                            handleExpenseComponentAmountChange("igstAmount", value);
+                          }}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Total Amount
+                        <CurrencyInput
+                          name="totalAmount"
+                          min="0"
+                          step="0.01"
+                          required
+                          value={totalAmountInputValue}
+                          onChange={(event) => {
+                            handleTotalAmountInputChange(event.currentTarget.value);
+                          }}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                        Purpose
+                        <FormInput
+                          name="purpose"
+                          required
+                          defaultValue={expense?.purpose ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className={groupedWrapperClassName}>
+                    <h4 className={groupedTitleClassName}>Additional Details</h4>
+                    <div className={groupedGridClassName}>
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Product
+                        <FormSelect
+                          name="productId"
+                          defaultValue={expense?.productId ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        >
+                          <option value="">None</option>
+                          {products.map((product) => (
+                            <option key={product.id} value={product.id}>
+                              {product.name}
+                            </option>
+                          ))}
+                        </FormSelect>
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        People Involved
+                        <FormInput
+                          name="peopleInvolved"
+                          defaultValue={expense?.peopleInvolved ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                        Remarks
+                        <FormTextarea
+                          name="remarks"
+                          rows={3}
+                          defaultValue={expense?.remarks ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </>
+              )
+            ) : isFinanceEdit ? (
+              <div className={groupedWrapperClassName}>
+                <h4 className={groupedTitleClassName}>Finance Approval</h4>
+                <div className={groupedGridClassName}>
+                  <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                    Requested Amount
+                    <CurrencyInput
+                      value={advance?.requestedTotalAmount ?? ""}
+                      disabled
+                      className={lockedFieldClassName}
+                    />
+                  </label>
+
+                  <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                    Approved Amount
+                    <CurrencyInput
+                      name="approvedAmount"
+                      min="0"
+                      step="0.01"
+                      required
+                      defaultValue={advance?.approvedAmount ?? advance?.requestedTotalAmount ?? ""}
+                      className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                    />
+                  </label>
+
+                  <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                    Reference
+                    <FormInput
+                      value={`${advance?.purpose ?? "N/A"} · ${toDateInputValue(advance?.expectedUsageDate) || "N/A"}`}
+                      disabled
+                      className={lockedFieldClassName}
+                    />
+                  </label>
                 </div>
-              </>
+
+                <p className="text-xs text-muted-foreground">
+                  Employee-entered advance details are locked at the finance stage. Only the
+                  approved amount can be changed.
+                </p>
+              </div>
             ) : (
               <>
                 <div className={groupedWrapperClassName}>
@@ -712,11 +809,11 @@ export function FinanceEditClaimForm({
                     <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                       Requested Amount
                       <CurrencyInput
-                        name="requestedAmount"
+                        name="requestedTotalAmount"
                         min="0"
                         step="0.01"
                         required
-                        defaultValue={advance?.requestedAmount ?? ""}
+                        defaultValue={advance?.requestedTotalAmount ?? ""}
                         className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                       />
                     </label>
@@ -782,41 +879,43 @@ export function FinanceEditClaimForm({
               </>
             )}
 
-            <div className={groupedWrapperClassName}>
-              <h4 className={groupedTitleClassName}>Attachments</h4>
+            {isOwnEdit ? (
+              <div className={groupedWrapperClassName}>
+                <h4 className={groupedTitleClassName}>Attachments</h4>
 
-              <label className="col-span-full grid gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-                Replace Receipt File
-                <span className="border-2 border-dashed border-border/60 rounded-lg p-6 flex flex-col items-center justify-center bg-muted/10">
-                  <span className="mb-2 text-xs text-muted-foreground">
-                    PDF, PNG, JPG, JPEG, WEBP
-                  </span>
-                  <input
-                    name="receiptFile"
-                    type="file"
-                    accept=".pdf,.png,.jpg,.jpeg,.webp"
-                    className="w-full max-w-md text-sm text-zinc-900 dark:text-zinc-100 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-zinc-700 dark:file:bg-zinc-700 dark:file:text-zinc-100"
-                  />
-                </span>
-              </label>
-
-              {claim.detailType === "expense" ? (
                 <label className="col-span-full grid gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-                  Replace Bank Statement File
+                  Replace Receipt File
                   <span className="border-2 border-dashed border-border/60 rounded-lg p-6 flex flex-col items-center justify-center bg-muted/10">
                     <span className="mb-2 text-xs text-muted-foreground">
                       PDF, PNG, JPG, JPEG, WEBP
                     </span>
                     <input
-                      name="bankStatementFile"
+                      name="receiptFile"
                       type="file"
                       accept=".pdf,.png,.jpg,.jpeg,.webp"
                       className="w-full max-w-md text-sm text-zinc-900 dark:text-zinc-100 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-zinc-700 dark:file:bg-zinc-700 dark:file:text-zinc-100"
                     />
                   </span>
                 </label>
-              ) : null}
-            </div>
+
+                {claim.detailType === "expense" ? (
+                  <label className="col-span-full grid gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                    Replace Bank Statement File
+                    <span className="border-2 border-dashed border-border/60 rounded-lg p-6 flex flex-col items-center justify-center bg-muted/10">
+                      <span className="mb-2 text-xs text-muted-foreground">
+                        PDF, PNG, JPG, JPEG, WEBP
+                      </span>
+                      <input
+                        name="bankStatementFile"
+                        type="file"
+                        accept=".pdf,.png,.jpg,.jpeg,.webp"
+                        className="w-full max-w-md text-sm text-zinc-900 dark:text-zinc-100 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-zinc-700 dark:file:bg-zinc-700 dark:file:text-zinc-100"
+                      />
+                    </span>
+                  </label>
+                ) : null}
+              </div>
+            ) : null}
 
             {requireEditReason ? (
               <div className={groupedWrapperClassName}>

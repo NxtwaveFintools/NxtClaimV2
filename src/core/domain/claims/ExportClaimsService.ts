@@ -281,7 +281,7 @@ function toExportRow(
   const totalAmount =
     row.detailType === "expense"
       ? formatAmountDisplay(row.expenseTotalAmount)
-      : formatAmountDisplay(row.advanceRequestedAmount);
+      : formatAmountDisplay(row.advanceRequestedTotalAmount);
   const beneficiaryName =
     row.submissionType === "On Behalf"
       ? (row.beneficiaryName ?? row.submitterName)

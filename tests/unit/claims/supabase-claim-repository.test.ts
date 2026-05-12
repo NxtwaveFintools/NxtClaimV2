@@ -109,7 +109,7 @@ describe("SupabaseClaimRepository.getMyClaims", () => {
         status: "Submitted - Awaiting HOD approval",
         submittedAt: "2026-03-14T10:00:00.000Z",
         expenseTotalAmount: 118.25,
-        advanceRequestedAmount: null,
+        advanceRequestedTotalAmount: null,
       },
       {
         id: "claim-2",
@@ -121,7 +121,7 @@ describe("SupabaseClaimRepository.getMyClaims", () => {
         status: "HOD approved - Awaiting finance approval",
         submittedAt: "2026-03-13T10:00:00.000Z",
         expenseTotalAmount: null,
-        advanceRequestedAmount: 500,
+        advanceRequestedTotalAmount: 500,
       },
     ]);
   });
@@ -357,24 +357,7 @@ describe("SupabaseClaimRepository.updateClaimDetailsByFinance", () => {
       detailType: "expense" as const,
       detailId: "expense-detail-1",
       editReason: "Correcting expense detail data",
-      billNo: "BILL-1",
-      expenseCategoryId: "cat-1",
-      locationId: "loc-1",
-      transactionDate: "2026-03-22",
-      isGstApplicable: true,
-      gstNumber: "GSTIN-123",
-      vendorName: "Vendor A",
-      basicAmount: 100,
-      cgstAmount: 9,
-      sgstAmount: 9,
-      igstAmount: 0,
-      totalAmount: 118,
-      purpose: "Travel",
-      productId: "prod-1",
-      peopleInvolved: "Alice",
-      remarks: "updated",
-      receiptFilePath: "expenses/new_receipt.pdf",
-      bankStatementFilePath: "expenses/new_bank_statement.pdf",
+      approvedAmount: 118,
       ...overrides,
     };
   }

@@ -59,7 +59,8 @@ type ClaimSubmitterRow = {
 };
 
 type ClaimExpenseDetailRow = {
-  total_amount: number | string | null;
+  requested_total_amount: number | string | null;
+  approved_amount: number | string | null;
   purpose?: string | null;
   receipt_file_path?: string | null;
   bank_statement_file_path?: string | null;
@@ -67,7 +68,8 @@ type ClaimExpenseDetailRow = {
 };
 
 type ClaimAdvanceDetailRow = {
-  requested_amount: number | string | null;
+  requested_total_amount: number | string | null;
+  approved_amount: number | string | null;
   purpose?: string | null;
   supporting_document_path?: string | null;
 };
@@ -153,11 +155,13 @@ type ClaimL2DecisionRow = {
 };
 
 type ClaimWalletUpdateExpenseRow = {
-  total_amount: number | string | null;
+  requested_total_amount: number | string | null;
+  approved_amount: number | string | null;
 };
 
 type ClaimWalletUpdateAdvanceRow = {
-  requested_amount: number | string | null;
+  requested_total_amount: number | string | null;
+  approved_amount: number | string | null;
 };
 
 type ClaimMarkPaidFallbackRow = {
@@ -192,7 +196,8 @@ type ClaimDetailExpenseRow = {
   cgst_amount: number | string | null;
   sgst_amount: number | string | null;
   igst_amount: number | string | null;
-  total_amount: number | string | null;
+  requested_total_amount: number | string | null;
+  approved_amount: number | string | null;
   vendor_name: string | null;
   product_id: string | null;
   people_involved: string | null;
@@ -208,7 +213,8 @@ type ClaimDetailExpenseRow = {
 type ClaimDetailAdvanceRow = {
   id: string;
   purpose: string;
-  requested_amount: number | string | null;
+  requested_total_amount: number | string | null;
+  approved_amount: number | string | null;
   expected_usage_date: string;
   product_id: string | null;
   location_id: string | null;
@@ -281,7 +287,7 @@ type ClaimDeleteSnapshotRow = {
 
 type ExpenseDuplicateLookupRow = {
   claim_id: string;
-  basic_amount: number | string | null;
+  requested_total_amount: number | string | null;
 };
 
 type ExportClaimUserRow = {
@@ -314,7 +320,8 @@ type ExportClaimExpenseRow = {
   cgst_amount: number | string | null;
   sgst_amount: number | string | null;
   igst_amount: number | string | null;
-  total_amount: number | string | null;
+  requested_total_amount: number | string | null;
+  approved_amount: number | string | null;
   currency_code: string | null;
   vendor_name: string | null;
   people_involved: string | null;
@@ -327,7 +334,8 @@ type ExportClaimExpenseRow = {
 };
 
 type ExportClaimAdvanceRow = {
-  requested_amount: number | string | null;
+  requested_total_amount: number | string | null;
+  approved_amount: number | string | null;
   budget_month: number | null;
   budget_year: number | null;
   expected_usage_date: string | null;
@@ -1031,7 +1039,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const { data: claimData, error: claimError } = await client
       .from("claims")
       .select(
-        "id, submitted_by, on_behalf_of_id, status, master_payment_modes(name), expense_details(total_amount), advance_details(requested_amount)",
+        "id, submitted_by, on_behalf_of_id, status, master_payment_modes(name), expense_details(requested_total_amount, approved_amount), advance_details(requested_total_amount, approved_amount)",
       )
       .eq("id", input.claimId)
       .eq("is_active", true)
@@ -1067,16 +1075,19 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
     if (paymentModeName === PAYMENT_MODE_REIMBURSEMENT) {
       incrementColumn = "total_reimbursements_received";
-      incrementAmount = toNumber(expense?.total_amount) ?? 0;
+      incrementAmount =
+        toNumber(expense?.approved_amount) ?? toNumber(expense?.requested_total_amount) ?? 0;
     } else if (
       paymentModeName === PAYMENT_MODE_PETTY_CASH_REQUEST ||
       paymentModeName === PAYMENT_MODE_BULK_PETTY_CASH_REQUEST
     ) {
       incrementColumn = "total_petty_cash_received";
-      incrementAmount = toNumber(advance?.requested_amount) ?? 0;
+      incrementAmount =
+        toNumber(advance?.approved_amount) ?? toNumber(advance?.requested_total_amount) ?? 0;
     } else if (paymentModeName === PAYMENT_MODE_PETTY_CASH) {
       incrementColumn = "total_petty_cash_spent";
-      incrementAmount = toNumber(expense?.total_amount) ?? 0;
+      incrementAmount =
+        toNumber(expense?.approved_amount) ?? toNumber(expense?.requested_total_amount) ?? 0;
     }
 
     const { data: updatedClaim, error: updateClaimError } = await client
@@ -1756,7 +1767,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
         cgstAmount: number | null;
         sgstAmount: number | null;
         igstAmount: number | null;
-        totalAmount: number | null;
+        requestedTotalAmount: number | null;
+        approvedAmount: number | null;
         vendorName: string | null;
         productId: string | null;
         peopleInvolved: string | null;
@@ -1768,7 +1780,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
       advance: {
         id: string;
         purpose: string;
-        requestedAmount: number | null;
+        requestedTotalAmount: number | null;
+        approvedAmount: number | null;
         expectedUsageDate: string;
         productId: string | null;
         locationId: string | null;
@@ -1782,7 +1795,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     let query = client
       .from("claims")
       .select(
-        "id, employee_id, submission_type, detail_type, on_behalf_of_id, on_behalf_email, on_behalf_employee_code, status, is_active, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(id, bill_no, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, ai_metadata, receipt_file_path, bank_statement_file_path, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(id, purpose, requested_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
+        "id, employee_id, submission_type, detail_type, on_behalf_of_id, on_behalf_email, on_behalf_employee_code, status, is_active, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(id, bill_no, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, requested_total_amount, approved_amount, vendor_name, people_involved, remarks, ai_metadata, receipt_file_path, bank_statement_file_path, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(id, purpose, requested_total_amount, approved_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
       )
       .eq("id", claimId);
 
@@ -1863,7 +1876,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
               cgstAmount: toNumber(expense.cgst_amount),
               sgstAmount: toNumber(expense.sgst_amount),
               igstAmount: toNumber(expense.igst_amount),
-              totalAmount: toNumber(expense.total_amount),
+              requestedTotalAmount: toNumber(expense.requested_total_amount),
+              approvedAmount: toNumber(expense.approved_amount),
               vendorName: expense.vendor_name,
               productId: expense.product_id,
               peopleInvolved: expense.people_involved,
@@ -1877,7 +1891,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
           ? {
               id: advance.id,
               purpose: advance.purpose,
-              requestedAmount: toNumber(advance.requested_amount),
+              requestedTotalAmount: toNumber(advance.requested_total_amount),
+              approvedAmount: toNumber(advance.approved_amount),
               expectedUsageDate: advance.expected_usage_date,
               productId: advance.product_id,
               locationId: advance.location_id,
@@ -2108,6 +2123,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
           cgst_amount: payload.cgstAmount,
           sgst_amount: payload.sgstAmount,
           igst_amount: payload.igstAmount,
+          requested_total_amount: payload.requestedTotalAmount,
+          approved_amount: payload.approvedAmount,
           vendor_name: payload.vendorName,
           purpose: payload.purpose,
           people_involved: payload.peopleInvolved,
@@ -2140,7 +2157,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
         .from("advance_details")
         .update({
           purpose: payload.purpose,
-          requested_amount: payload.requestedAmount,
+          requested_total_amount: payload.requestedTotalAmount,
+          approved_amount: payload.approvedAmount,
           expected_usage_date: payload.expectedUsageDate,
           product_id: payload.productId,
           location_id: payload.locationId,
@@ -2379,15 +2397,14 @@ export class SupabaseClaimRepository implements ClaimRepository {
   async existsExpenseByCompositeKey(input: {
     billNo: string;
     transactionDate: string;
-    basicAmount: number;
-    totalAmount: number;
+    requestedTotalAmount: number;
   }): Promise<{ exists: boolean; errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
     const epsilon = 0.01;
 
     const { data, error } = await client
       .from("expense_details")
-      .select("basic_amount, total_amount")
+      .select("requested_total_amount")
       .eq("bill_no", input.billNo)
       .eq("transaction_date", input.transactionDate)
       .eq("is_active", true)
@@ -2397,18 +2414,19 @@ export class SupabaseClaimRepository implements ClaimRepository {
       return { exists: false, errorMessage: error.message };
     }
 
-    const rows = (data ?? []) as Array<{ basic_amount: number; total_amount: number }>;
-    const normalizedBasic = Number(input.basicAmount);
-    const normalizedTotal = Number(input.totalAmount);
+    const rows = (data ?? []) as Array<{
+      requested_total_amount: number | null;
+    }>;
+    const normalizedRequestedTotalAmount = Number(input.requestedTotalAmount);
 
     const exists = rows.some((row) => {
-      const candidateBasic = Number(row.basic_amount);
-      const candidateTotal = Number(row.total_amount);
+      const candidateRequestedTotalAmount = Number(row.requested_total_amount);
 
-      const basicMatches = Math.abs(candidateBasic - normalizedBasic) <= epsilon;
-      const totalMatches = Math.abs(candidateTotal - normalizedTotal) <= epsilon;
+      if (!Number.isFinite(candidateRequestedTotalAmount)) {
+        return false;
+      }
 
-      return basicMatches || totalMatches;
+      return Math.abs(candidateRequestedTotalAmount - normalizedRequestedTotalAmount) <= epsilon;
     });
 
     return { exists, errorMessage: null };
@@ -2417,7 +2435,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
   async findActiveExpenseDuplicateClaimIdByCompositeKey(input: {
     billNo: string;
     transactionDate: string;
-    basicAmount: number;
+    requestedTotalAmount: number;
     excludeClaimId?: string;
   }): Promise<{ claimId: string | null; errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
@@ -2425,7 +2443,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
     let query = client
       .from("expense_details")
-      .select("claim_id, basic_amount")
+      .select("claim_id, requested_total_amount")
       .eq("bill_no", input.billNo)
       .eq("transaction_date", input.transactionDate)
       .eq("is_active", true)
@@ -2442,16 +2460,16 @@ export class SupabaseClaimRepository implements ClaimRepository {
     }
 
     const rows = (data ?? []) as ExpenseDuplicateLookupRow[];
-    const normalizedBasic = Number(input.basicAmount);
+    const normalizedRequestedTotalAmount = Number(input.requestedTotalAmount);
 
     const duplicateRow = rows.find((row) => {
-      const candidateBasic = Number(row.basic_amount);
+      const candidateRequestedTotalAmount = Number(row.requested_total_amount);
 
-      if (!Number.isFinite(candidateBasic)) {
+      if (!Number.isFinite(candidateRequestedTotalAmount)) {
         return false;
       }
 
-      return Math.abs(candidateBasic - normalizedBasic) <= epsilon;
+      return Math.abs(candidateRequestedTotalAmount - normalizedRequestedTotalAmount) <= epsilon;
     });
 
     return { claimId: duplicateRow?.claim_id ?? null, errorMessage: null };
@@ -2647,6 +2665,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
         igst_amount: prepared.expense.igstAmount,
         transaction_date: prepared.expense.transactionDate,
         basic_amount: prepared.expense.basicAmount,
+        requested_total_amount: prepared.expense.requestedTotalAmount,
+        approved_amount: prepared.expense.approvedAmount,
         currency_code: prepared.expense.currencyCode,
         vendor_name: prepared.expense.vendorName,
         receipt_file_path: null,
@@ -2681,7 +2701,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
       .from("advance_details")
       .insert({
         claim_id: prepared.claim.id,
-        requested_amount: prepared.advance.requestedAmount,
+        requested_total_amount: prepared.advance.requestedTotalAmount,
+        approved_amount: prepared.advance.approvedAmount,
         budget_month: prepared.advance.budgetMonth,
         budget_year: prepared.advance.budgetYear,
         expected_usage_date: prepared.advance.expectedUsageDate,
@@ -3032,7 +3053,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
           status: row.status,
           submittedAt: row.submitted_on,
           expenseTotalAmount: row.detail_type === "expense" ? amount : null,
-          advanceRequestedAmount: row.detail_type === "advance" ? amount : null,
+          advanceRequestedTotalAmount: row.detail_type === "advance" ? amount : null,
         };
       }),
       errorMessage: null,
@@ -3786,7 +3807,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
       const { data, error } = await client
         .from("claims")
         .select(
-          "id, status, submission_type, detail_type, submitted_by, on_behalf_of_id, employee_id, cc_emails, on_behalf_email, on_behalf_employee_code, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_at, hod_action_at, finance_action_at, rejection_reason, is_resubmission_allowed, created_at, updated_at, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), l1_approver_user:users!claims_assigned_l1_approver_id_fkey(full_name, email), l2_finance_approver:master_finance_approvers!claims_assigned_l2_approver_id_fkey(approver_user:users!master_finance_approvers_user_id_fkey(full_name, email)), master_departments(id, name), master_payment_modes(id, name), expense_details(bill_no, transaction_id, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, currency_code, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(id, name), master_products(id, name), master_locations(id, name)), advance_details(requested_amount, budget_month, budget_year, expected_usage_date, purpose, product_id, location_id, remarks, supporting_document_path, master_products(id, name), master_locations(id, name))",
+          "id, status, submission_type, detail_type, submitted_by, on_behalf_of_id, employee_id, cc_emails, on_behalf_email, on_behalf_employee_code, department_id, payment_mode_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_at, hod_action_at, finance_action_at, rejection_reason, is_resubmission_allowed, created_at, updated_at, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), l1_approver_user:users!claims_assigned_l1_approver_id_fkey(full_name, email), l2_finance_approver:master_finance_approvers!claims_assigned_l2_approver_id_fkey(approver_user:users!master_finance_approvers_user_id_fkey(full_name, email)), master_departments(id, name), master_payment_modes(id, name), expense_details(bill_no, transaction_id, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, requested_total_amount, approved_amount, currency_code, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(id, name), master_products(id, name), master_locations(id, name)), advance_details(requested_total_amount, approved_amount, budget_month, budget_year, expected_usage_date, purpose, product_id, location_id, remarks, supporting_document_path, master_products(id, name), master_locations(id, name))",
         )
         .in("id", claimIdChunk)
         .eq("is_active", true)
@@ -3903,14 +3924,15 @@ export class SupabaseClaimRepository implements ClaimRepository {
           expenseCgstAmount: toNumber(expense?.cgst_amount),
           expenseSgstAmount: toNumber(expense?.sgst_amount),
           expenseIgstAmount: toNumber(expense?.igst_amount),
-          expenseTotalAmount: toNumber(expense?.total_amount),
+          expenseTotalAmount:
+            toNumber(expense?.approved_amount) ?? toNumber(expense?.requested_total_amount),
           expenseCurrencyCode: expense?.currency_code ?? null,
           expenseVendorName: expense?.vendor_name ?? null,
           expensePeopleInvolved: expense?.people_involved ?? null,
           expenseRemarks: expense?.remarks ?? null,
           expenseReceiptFilePath: expense?.receipt_file_path ?? null,
           expenseBankStatementFilePath: expense?.bank_statement_file_path ?? null,
-          advanceRequestedAmount: toNumber(advance?.requested_amount),
+          advanceRequestedTotalAmount: toNumber(advance?.requested_total_amount),
           advanceBudgetMonth: advance?.budget_month ?? null,
           advanceBudgetYear: advance?.budget_year ?? null,
           advanceExpectedUsageDate: advance?.expected_usage_date ?? null,

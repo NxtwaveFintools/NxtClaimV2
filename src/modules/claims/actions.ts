@@ -491,7 +491,7 @@ function extractSubmissionInput(input: unknown): {
       aiMetadata: getFormDataJsonObject(input, "expense.aiMetadata"),
     },
     advance: {
-      requestedAmount: getFormDataNumber(input, "advance.requestedAmount"),
+      requestedTotalAmount: getFormDataNumber(input, "advance.requestedTotalAmount"),
       budgetMonth: getFormDataNumber(input, "advance.budgetMonth"),
       budgetYear: getFormDataNumber(input, "advance.budgetYear"),
       expectedUsageDate: getFormDataNullableString(input, "advance.expectedUsageDate"),
@@ -775,8 +775,7 @@ export async function submitClaimAction(input: unknown): Promise<{
     const duplicateTransactionResult = await repository.existsExpenseByCompositeKey({
       billNo: parseResult.data.expense.billNo,
       transactionDate: parseResult.data.expense.transactionDate,
-      basicAmount: parseResult.data.expense.basicAmount,
-      totalAmount: computeExpenseTotalAmount({
+      requestedTotalAmount: computeExpenseTotalAmount({
         basicAmount: parseResult.data.expense.basicAmount,
         cgstAmount: parseResult.data.expense.cgstAmount,
         sgstAmount: parseResult.data.expense.sgstAmount,
@@ -872,7 +871,7 @@ export async function submitClaimAction(input: unknown): Promise<{
     advance:
       parseResult.data.detailType === "advance"
         ? {
-            requestedAmount: parseResult.data.advance.requestedAmount,
+            requestedTotalAmount: parseResult.data.advance.requestedTotalAmount,
             budgetMonth: parseResult.data.advance.budgetMonth,
             budgetYear: parseResult.data.advance.budgetYear,
             expectedUsageDate: parseResult.data.advance.expectedUsageDate ?? null,
@@ -1077,56 +1076,13 @@ function buildFinanceEditPayload(formData: FormData): unknown {
   const detailId = getFormDataString(formData, "detailId");
   const editReason = getFormDataString(formData, "editReason");
   const paymentModeId = getFormDataNullableString(formData, "paymentModeId");
-  const productId = getFormDataNullableString(formData, "productId");
-  const locationId = getFormDataNullableString(formData, "locationId");
-  const receiptFileEntry = formData.get("receiptFile");
-  const receiptFile =
-    receiptFileEntry instanceof File && receiptFileEntry.size > 0 ? receiptFileEntry : null;
-  const bankStatementFileEntry = formData.get("bankStatementFile");
-  const bankStatementFile =
-    bankStatementFileEntry instanceof File && bankStatementFileEntry.size > 0
-      ? bankStatementFileEntry
-      : null;
-
-  if (detailType === "expense") {
-    return {
-      detailType,
-      detailId,
-      editReason,
-      paymentModeId,
-      billNo: getFormDataString(formData, "billNo"),
-      expenseCategoryId: getFormDataString(formData, "expenseCategoryId"),
-      locationId: getFormDataString(formData, "locationId"),
-      transactionDate: getFormDataString(formData, "transactionDate"),
-      isGstApplicable: getFormDataBoolean(formData, "isGstApplicable"),
-      gstNumber: getFormDataNullableString(formData, "gstNumber"),
-      vendorName: getFormDataNullableString(formData, "vendorName"),
-      basicAmount: getFormDataNumber(formData, "basicAmount"),
-      cgstAmount: getFormDataNumber(formData, "cgstAmount"),
-      sgstAmount: getFormDataNumber(formData, "sgstAmount"),
-      igstAmount: getFormDataNumber(formData, "igstAmount"),
-      totalAmount: getFormDataNumber(formData, "totalAmount"),
-      purpose: getFormDataString(formData, "purpose"),
-      productId,
-      peopleInvolved: getFormDataNullableString(formData, "peopleInvolved"),
-      remarks: getFormDataNullableString(formData, "remarks"),
-      receiptFile,
-      bankStatementFile,
-    };
-  }
 
   return {
     detailType,
     detailId,
     editReason,
     paymentModeId,
-    purpose: getFormDataString(formData, "purpose"),
-    requestedAmount: getFormDataNumber(formData, "requestedAmount"),
-    expectedUsageDate: getFormDataString(formData, "expectedUsageDate"),
-    productId,
-    locationId,
-    remarks: getFormDataNullableString(formData, "remarks"),
-    receiptFile,
+    approvedAmount: getFormDataNumber(formData, "approvedAmount"),
   };
 }
 
@@ -1173,7 +1129,7 @@ function buildOwnEditPayload(formData: FormData): unknown {
     detailType,
     detailId,
     purpose: getFormDataString(formData, "purpose"),
-    requestedAmount: getFormDataNumber(formData, "requestedAmount"),
+    requestedTotalAmount: getFormDataNumber(formData, "requestedTotalAmount"),
     expectedUsageDate: getFormDataString(formData, "expectedUsageDate"),
     productId,
     locationId,
@@ -1301,148 +1257,22 @@ export async function updateClaimByFinanceAction(input: {
     }
   }
 
-  let nextExpenseReceiptPath = claimSnapshotResult.data.expenseReceiptFilePath;
-  let nextExpenseBankStatementPath = claimSnapshotResult.data.expenseBankStatementFilePath;
-  let nextAdvanceDocumentPath = claimSnapshotResult.data.advanceSupportingDocumentPath;
-  const uploadedReplacementPaths: string[] = [];
-  const supersededPaths: string[] = [];
-
-  if (parseResult.data.receiptFile && parseResult.data.receiptFile.size > 0) {
-    const receiptSizeError = validateUploadFileSize(parseResult.data.receiptFile, "Receipt file");
-
-    if (receiptSizeError) {
-      return {
-        ok: false,
-        message: receiptSizeError,
-      };
-    }
-
-    const fileBuffer = Buffer.from(await parseResult.data.receiptFile.arrayBuffer());
-
-    const uploadResult = await uploadClaimFile({
-      folder: parseResult.data.detailType === "expense" ? "expenses" : "petty_cash_requests",
-      userId: claimSnapshotResult.data.submittedBy,
-      claimId: claimIdParse.data.claimId,
-      fileKind: parseResult.data.detailType === "expense" ? "receipt" : "supporting",
-      fileName: parseResult.data.receiptFile.name,
-      fileType: parseResult.data.receiptFile.type || "application/octet-stream",
-      fileBuffer,
-    });
-
-    if (uploadResult.errorMessage || !uploadResult.path) {
-      return {
-        ok: false,
-        message: uploadResult.errorMessage ?? "Failed to upload replacement receipt.",
-      };
-    }
-
-    uploadedReplacementPaths.push(uploadResult.path);
-
-    const previousPath =
-      parseResult.data.detailType === "expense"
-        ? claimSnapshotResult.data.expenseReceiptFilePath
-        : claimSnapshotResult.data.advanceSupportingDocumentPath;
-
-    if (previousPath && previousPath !== uploadResult.path) {
-      supersededPaths.push(previousPath);
-    }
-
-    if (parseResult.data.detailType === "expense") {
-      nextExpenseReceiptPath = uploadResult.path;
-    } else {
-      nextAdvanceDocumentPath = uploadResult.path;
-    }
-  }
-
-  if (
-    parseResult.data.detailType === "expense" &&
-    parseResult.data.bankStatementFile &&
-    parseResult.data.bankStatementFile.size > 0
-  ) {
-    const bankStatementSizeError = validateUploadFileSize(
-      parseResult.data.bankStatementFile,
-      "Bank statement file",
-    );
-
-    if (bankStatementSizeError) {
-      return {
-        ok: false,
-        message: bankStatementSizeError,
-      };
-    }
-
-    const fileBuffer = Buffer.from(await parseResult.data.bankStatementFile.arrayBuffer());
-
-    const uploadResult = await uploadClaimFile({
-      folder: "expenses",
-      userId: claimSnapshotResult.data.submittedBy,
-      claimId: claimIdParse.data.claimId,
-      fileKind: "bankstatement",
-      fileName: parseResult.data.bankStatementFile.name,
-      fileType: parseResult.data.bankStatementFile.type || "application/octet-stream",
-      fileBuffer,
-    });
-
-    if (uploadResult.errorMessage || !uploadResult.path) {
-      return {
-        ok: false,
-        message: uploadResult.errorMessage ?? "Failed to upload replacement bank statement.",
-      };
-    }
-
-    uploadedReplacementPaths.push(uploadResult.path);
-
-    const previousBankStatementPath = claimSnapshotResult.data.expenseBankStatementFilePath;
-
-    if (previousBankStatementPath && previousBankStatementPath !== uploadResult.path) {
-      supersededPaths.push(previousBankStatementPath);
-    }
-
-    nextExpenseBankStatementPath = uploadResult.path;
-  }
-
-  let financeEditPayload: FinanceClaimEditPayload;
-
-  if (parseResult.data.detailType === "expense") {
-    financeEditPayload = {
-      detailType: "expense",
-      detailId: parseResult.data.detailId,
-      editReason: parseResult.data.editReason,
-      paymentModeId: parseResult.data.paymentModeId ?? null,
-      billNo: parseResult.data.billNo,
-      expenseCategoryId: parseResult.data.expenseCategoryId,
-      locationId: parseResult.data.locationId,
-      transactionDate: parseResult.data.transactionDate,
-      isGstApplicable: parseResult.data.isGstApplicable,
-      gstNumber: parseResult.data.gstNumber,
-      vendorName: parseResult.data.vendorName,
-      basicAmount: parseResult.data.basicAmount,
-      cgstAmount: parseResult.data.cgstAmount,
-      sgstAmount: parseResult.data.sgstAmount,
-      igstAmount: parseResult.data.igstAmount,
-      totalAmount: parseResult.data.totalAmount,
-      purpose: parseResult.data.purpose,
-      productId: parseResult.data.productId,
-      peopleInvolved: parseResult.data.peopleInvolved,
-      remarks: parseResult.data.remarks,
-      receiptFilePath: nextExpenseReceiptPath,
-      bankStatementFilePath: nextExpenseBankStatementPath,
-    };
-  } else {
-    financeEditPayload = {
-      detailType: "advance",
-      detailId: parseResult.data.detailId,
-      editReason: parseResult.data.editReason,
-      paymentModeId: parseResult.data.paymentModeId ?? null,
-      purpose: parseResult.data.purpose,
-      requestedAmount: parseResult.data.requestedAmount,
-      expectedUsageDate: parseResult.data.expectedUsageDate,
-      productId: parseResult.data.productId,
-      locationId: parseResult.data.locationId,
-      remarks: parseResult.data.remarks,
-      supportingDocumentPath: nextAdvanceDocumentPath,
-    };
-  }
+  const financeEditPayload: FinanceClaimEditPayload =
+    parseResult.data.detailType === "expense"
+      ? {
+          detailType: "expense",
+          detailId: parseResult.data.detailId,
+          editReason: parseResult.data.editReason,
+          paymentModeId: parseResult.data.paymentModeId ?? null,
+          approvedAmount: parseResult.data.approvedAmount,
+        }
+      : {
+          detailType: "advance",
+          detailId: parseResult.data.detailId,
+          editReason: parseResult.data.editReason,
+          paymentModeId: parseResult.data.paymentModeId ?? null,
+          approvedAmount: parseResult.data.approvedAmount,
+        };
 
   try {
     const result = await updateClaimByFinanceService.execute({
@@ -1452,43 +1282,16 @@ export async function updateClaimByFinanceAction(input: {
     });
 
     if (!result.ok) {
-      await removeClaimFiles(uploadedReplacementPaths);
       return {
         ok: false,
         message: result.errorMessage ?? "Failed to update claim details.",
       };
     }
-
-    await removeClaimFiles(supersededPaths);
   } catch (error) {
-    await removeClaimFiles(uploadedReplacementPaths);
-
     if (isDuplicateExpenseBillUniqueViolation(error)) {
-      let duplicateClaimId: string | null = null;
-
-      if (approvalContextResult.data.isFinance && financeEditPayload.detailType === "expense") {
-        const duplicateLookupResult =
-          await repository.findActiveExpenseDuplicateClaimIdByCompositeKey({
-            billNo: financeEditPayload.billNo,
-            transactionDate: financeEditPayload.transactionDate,
-            basicAmount: financeEditPayload.basicAmount,
-            excludeClaimId: claimIdParse.data.claimId,
-          });
-
-        if (duplicateLookupResult.errorMessage) {
-          logger.warn("claims.finance_edit.duplicate_lookup_failed", {
-            claimId: claimIdParse.data.claimId,
-            actorUserId: currentUserResult.user.id,
-            errorMessage: duplicateLookupResult.errorMessage,
-          });
-        } else {
-          duplicateClaimId = duplicateLookupResult.claimId;
-        }
-      }
-
       return {
         ok: false,
-        message: buildDuplicateActiveExpenseBillMessage(duplicateClaimId),
+        message: buildDuplicateActiveExpenseBillMessage(),
       };
     }
 
@@ -1682,6 +1485,13 @@ export async function updateOwnClaimAction(input: {
   let ownEditPayload: OwnClaimEditPayload;
 
   if (parseResult.data.detailType === "expense") {
+    const computedExpenseAmount = computeExpenseTotalAmount({
+      basicAmount: parseResult.data.basicAmount,
+      cgstAmount: parseResult.data.cgstAmount,
+      sgstAmount: parseResult.data.sgstAmount,
+      igstAmount: parseResult.data.igstAmount,
+    });
+
     ownEditPayload = {
       detailType: "expense",
       detailId: parseResult.data.detailId,
@@ -1696,7 +1506,8 @@ export async function updateOwnClaimAction(input: {
       cgstAmount: parseResult.data.cgstAmount,
       sgstAmount: parseResult.data.sgstAmount,
       igstAmount: parseResult.data.igstAmount,
-      totalAmount: parseResult.data.totalAmount,
+      requestedTotalAmount: computedExpenseAmount,
+      approvedAmount: computedExpenseAmount,
       purpose: parseResult.data.purpose,
       productId: parseResult.data.productId,
       peopleInvolved: parseResult.data.peopleInvolved,
@@ -1709,7 +1520,8 @@ export async function updateOwnClaimAction(input: {
       detailType: "advance",
       detailId: parseResult.data.detailId,
       purpose: parseResult.data.purpose,
-      requestedAmount: parseResult.data.requestedAmount,
+      requestedTotalAmount: parseResult.data.requestedTotalAmount,
+      approvedAmount: parseResult.data.requestedTotalAmount,
       expectedUsageDate: parseResult.data.expectedUsageDate,
       productId: parseResult.data.productId,
       locationId: parseResult.data.locationId,

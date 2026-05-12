@@ -517,7 +517,7 @@ export async function submitPettyCashRequestClaim(
     departmentName: string;
     paymentModeName: string;
     employeeId: string;
-    requestedAmount: number;
+    requestedTotalAmount: number;
     purpose: string;
     expectedUsageDate: string;
     budgetMonth: string;
@@ -530,7 +530,7 @@ export async function submitPettyCashRequestClaim(
   await selectOptionByLabel(page, /Payment Mode/i, input.paymentModeName);
 
   await fillTextboxIfEditable(page, /^Employee ID \*/i, input.employeeId);
-  await page.locator("#requestedAmount").fill(String(input.requestedAmount));
+  await page.locator("#requestedTotalAmount").fill(String(input.requestedTotalAmount));
   await page.locator("#expectedUsageDate").fill(input.expectedUsageDate);
   await page.locator("#budgetMonth").selectOption(input.budgetMonth);
   await page.locator("#budgetYear").selectOption(input.budgetYear);

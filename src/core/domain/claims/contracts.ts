@@ -69,7 +69,7 @@ export type ClaimSubmissionInput = {
     aiMetadata?: ClaimExpenseAiMetadata | null;
   };
   advance?: {
-    requestedAmount: number;
+    requestedTotalAmount: number;
     budgetMonth: number;
     budgetYear: number;
     expectedUsageDate: string | null;
@@ -115,6 +115,8 @@ export type PreparedClaimSubmission = {
     igstAmount: number;
     transactionDate: string;
     basicAmount: number;
+    requestedTotalAmount: number;
+    approvedAmount: number;
     currencyCode: string;
     vendorName: string | null;
     receiptFilePath: string | null;
@@ -125,7 +127,8 @@ export type PreparedClaimSubmission = {
   };
   advance?: {
     claimId: string;
-    requestedAmount: number;
+    requestedTotalAmount: number;
+    approvedAmount: number;
     budgetMonth: number;
     budgetYear: number;
     expectedUsageDate: string | null;
@@ -142,6 +145,22 @@ export type FinanceExpenseEditPayload = {
   detailId: string;
   editReason: string;
   paymentModeId?: string | null;
+  approvedAmount: number;
+};
+
+export type FinanceAdvanceEditPayload = {
+  detailType: "advance";
+  detailId: string;
+  editReason: string;
+  paymentModeId?: string | null;
+  approvedAmount: number;
+};
+
+export type FinanceClaimEditPayload = FinanceExpenseEditPayload | FinanceAdvanceEditPayload;
+
+export type OwnExpenseEditPayload = {
+  detailType: "expense";
+  detailId: string;
   billNo: string;
   expenseCategoryId: string;
   locationId: string;
@@ -153,7 +172,8 @@ export type FinanceExpenseEditPayload = {
   cgstAmount: number;
   sgstAmount: number;
   igstAmount: number;
-  totalAmount: number;
+  requestedTotalAmount: number;
+  approvedAmount: number;
   purpose: string;
   productId: string | null;
   peopleInvolved: string | null;
@@ -162,25 +182,18 @@ export type FinanceExpenseEditPayload = {
   bankStatementFilePath: string | null;
 };
 
-export type FinanceAdvanceEditPayload = {
+export type OwnAdvanceEditPayload = {
   detailType: "advance";
   detailId: string;
-  editReason: string;
-  paymentModeId?: string | null;
   purpose: string;
-  requestedAmount: number;
+  requestedTotalAmount: number;
+  approvedAmount: number;
   expectedUsageDate: string;
   productId: string | null;
   locationId: string | null;
   remarks: string | null;
   supportingDocumentPath: string | null;
 };
-
-export type FinanceClaimEditPayload = FinanceExpenseEditPayload | FinanceAdvanceEditPayload;
-
-export type OwnExpenseEditPayload = Omit<FinanceExpenseEditPayload, "editReason" | "paymentModeId">;
-
-export type OwnAdvanceEditPayload = Omit<FinanceAdvanceEditPayload, "editReason" | "paymentModeId">;
 
 export type OwnClaimEditPayload = OwnExpenseEditPayload | OwnAdvanceEditPayload;
 
@@ -301,7 +314,7 @@ export type ClaimFullExportRecord = {
   expenseRemarks: string | null;
   expenseReceiptFilePath: string | null;
   expenseBankStatementFilePath: string | null;
-  advanceRequestedAmount: number | null;
+  advanceRequestedTotalAmount: number | null;
   advanceBudgetMonth: number | null;
   advanceBudgetYear: number | null;
   advanceExpectedUsageDate: string | null;
@@ -324,7 +337,7 @@ export type MyClaimRecord = {
   status: DbClaimStatus;
   submittedAt: string;
   expenseTotalAmount: number | null;
-  advanceRequestedAmount: number | null;
+  advanceRequestedTotalAmount: number | null;
 };
 
 export type MyClaimDTO = {
@@ -453,8 +466,7 @@ export type ClaimRepository = {
   existsExpenseByCompositeKey(input: {
     billNo: string;
     transactionDate: string;
-    basicAmount: number;
-    totalAmount: number;
+    requestedTotalAmount: number;
   }): Promise<{
     exists: boolean;
     errorMessage: string | null;

@@ -61,7 +61,7 @@ function createBaseRecord(overrides?: Partial<ClaimFullExportRecord>): ClaimFull
     expenseRemarks: "N/A",
     expenseReceiptFilePath: "expenses/user-1/receipt.pdf",
     expenseBankStatementFilePath: "expenses/user-1/bank.pdf",
-    advanceRequestedAmount: null,
+    advanceRequestedTotalAmount: null,
     advanceBudgetMonth: null,
     advanceBudgetYear: null,
     advanceExpectedUsageDate: null,

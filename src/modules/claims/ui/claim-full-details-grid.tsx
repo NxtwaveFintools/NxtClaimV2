@@ -21,7 +21,8 @@ type ClaimExpenseDetail = {
   cgstAmount: number | null;
   sgstAmount: number | null;
   igstAmount: number | null;
-  totalAmount: number | null;
+  requestedTotalAmount: number | null;
+  approvedAmount: number | null;
   vendorName: string | null;
   peopleInvolved: string | null;
   remarks: string | null;
@@ -31,7 +32,8 @@ type ClaimExpenseDetail = {
 type ClaimAdvanceDetail = {
   id: string;
   purpose: string;
-  requestedAmount: number | null;
+  requestedTotalAmount: number | null;
+  approvedAmount: number | null;
   expectedUsageDate: string;
 };
 
@@ -85,6 +87,14 @@ function formatOptionalText(value: string | null | undefined, fallback = "N/A"):
   return trimmed.length > 0 ? trimmed : fallback;
 }
 
+function amountsDiffer(left: number | null | undefined, right: number | null | undefined): boolean {
+  if (left === null || left === undefined || right === null || right === undefined) {
+    return false;
+  }
+
+  return Math.abs(left - right) >= 0.01;
+}
+
 export function ClaimFullDetailsGrid({
   claim,
   includeSummary = true,
@@ -123,7 +133,15 @@ export function ClaimFullDetailsGrid({
       (claim.expense.sgstAmount ?? 0) > 0 ||
       (claim.expense.igstAmount ?? 0) > 0);
 
-  const totalAmount = claim.expense?.totalAmount ?? claim.advance?.requestedAmount ?? null;
+  const requestedTotalAmount =
+    claim.expense?.requestedTotalAmount ?? claim.advance?.requestedTotalAmount ?? null;
+  const approvedAmount =
+    claim.expense?.approvedAmount ?? claim.advance?.approvedAmount ?? requestedTotalAmount ?? null;
+  const hasAmountVariance = amountsDiffer(requestedTotalAmount, approvedAmount);
+  const amountAdjustment =
+    requestedTotalAmount !== null && approvedAmount !== null
+      ? requestedTotalAmount - approvedAmount
+      : null;
   const transactionDate =
     claim.expense?.transactionDate ?? claim.advance?.expectedUsageDate ?? null;
   const categoryLabel = claim.expense?.expenseCategoryName ?? (claim.advance ? "Advance" : null);
@@ -189,8 +207,15 @@ export function ClaimFullDetailsGrid({
         <div className={summaryGridClasses}>
           {isQuickViewMode ? null : (
             <article className={summaryCardClassName}>
-              <p className={fieldLabelClassName}>Amount</p>
-              <p className={emphasizedValueClassName}>{formatAmount(totalAmount)}</p>
+              <p className={fieldLabelClassName}>
+                {hasAmountVariance ? "Approved Amount" : "Amount"}
+              </p>
+              <p className={emphasizedValueClassName}>{formatAmount(approvedAmount)}</p>
+              {hasAmountVariance ? (
+                <p className="mt-1 text-xs text-slate-500 line-through dark:text-slate-400">
+                  Requested {formatAmount(requestedTotalAmount)}
+                </p>
+              ) : null}
             </article>
           )}
           {isQuickViewMode ? null : (
@@ -268,10 +293,26 @@ export function ClaimFullDetailsGrid({
               {renderAiWarning("transaction_date")}
             </div>
             <div className={detailCardClassName}>
-              <p className={fieldLabelClassName}>Total Amount</p>
-              <p className={emphasizedValueClassName}>{formatAmount(claim.expense.totalAmount)}</p>
-              {renderAiWarning("total_amount")}
+              <p className={fieldLabelClassName}>Approved Amount</p>
+              <p className={emphasizedValueClassName}>
+                {formatAmount(claim.expense.approvedAmount)}
+              </p>
             </div>
+            {hasAmountVariance ? (
+              <>
+                <div className={detailCardClassName}>
+                  <p className={fieldLabelClassName}>Requested Amount</p>
+                  <p className={`${fieldValueClassName} line-through`}>
+                    {formatAmount(claim.expense.requestedTotalAmount)}
+                  </p>
+                  {renderAiWarning("total_amount")}
+                </div>
+                <div className={detailCardClassName}>
+                  <p className={fieldLabelClassName}>Adjustment</p>
+                  <p className={fieldValueClassName}>{formatAmount(amountAdjustment)}</p>
+                </div>
+              </>
+            ) : null}
             <div
               className={
                 isMinimalVisual ? `${microCardClassName} col-span-2 md:col-span-full` : undefined
@@ -409,11 +450,19 @@ export function ClaimFullDetailsGrid({
               <p className={fieldValueClassName}>{claim.advance.purpose}</p>
             </div>
             <div className={detailCardClassName}>
-              <p className={fieldLabelClassName}>Requested Amount</p>
+              <p className={fieldLabelClassName}>Approved Amount</p>
               <p className={emphasizedValueClassName}>
-                {formatAmount(claim.advance.requestedAmount)}
+                {formatAmount(claim.advance.approvedAmount)}
               </p>
             </div>
+            {hasAmountVariance ? (
+              <div className={detailCardClassName}>
+                <p className={fieldLabelClassName}>Requested Amount</p>
+                <p className={`${fieldValueClassName} line-through`}>
+                  {formatAmount(claim.advance.requestedTotalAmount)}
+                </p>
+              </div>
+            ) : null}
             <div className={detailCardClassName}>
               <p className={fieldLabelClassName}>Expected Usage Date</p>
               <p className={fieldValueClassName}>{formatDate(claim.advance.expectedUsageDate)}</p>
