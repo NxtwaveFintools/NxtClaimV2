@@ -281,7 +281,10 @@ function createValidExpenseEditFormData(): FormData {
   formData.append("editReason", "Test edit");
   formData.append("billNo", "BILL-NEW-1");
   formData.append("expenseCategoryId", "66666666-6666-4666-8666-666666666666");
+  formData.append("productId", "77777777-7777-4777-8777-777777777777");
   formData.append("locationId", "88888888-8888-4888-8888-888888888888");
+  formData.append("locationType", "Out Station");
+  formData.append("locationDetails", "Chennai branch office");
   formData.append("transactionDate", "2026-03-22");
   formData.append("isGstApplicable", "true");
   formData.append("gstNumber", "GSTIN-999");
@@ -293,7 +296,6 @@ function createValidExpenseEditFormData(): FormData {
   formData.append("totalAmount", "118");
   formData.append("approvedAmount", "118");
   formData.append("purpose", "Updated purpose");
-  formData.append("productId", "77777777-7777-4777-8777-777777777777");
   formData.append("peopleInvolved", "Alice");
   formData.append("remarks", "Updated remarks");
   return formData;
@@ -1139,7 +1141,7 @@ describe("claims actions", () => {
     expect(mockStorageRemove).not.toHaveBeenCalled();
   });
 
-  test("updateClaimByFinanceAction forwards only the approved-amount finance payload", async () => {
+  test("updateClaimByFinanceAction forwards finance-editable metadata while excluding locked amounts", async () => {
     const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
 
     const formData = createValidExpenseEditFormData();
@@ -1158,13 +1160,29 @@ describe("claims actions", () => {
         detailId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
         editReason: "Test edit",
         paymentModeId: null,
+        billNo: "BILL-NEW-1",
+        expenseCategoryId: "66666666-6666-4666-8666-666666666666",
+        productId: "77777777-7777-4777-8777-777777777777",
+        locationId: "88888888-8888-4888-8888-888888888888",
+        locationType: "Out Station",
+        locationDetails: "Chennai branch office",
+        transactionDate: "2026-03-22",
+        purpose: "Updated purpose",
+        isGstApplicable: true,
+        gstNumber: "GSTIN-999",
+        vendorName: "Vendor X",
+        peopleInvolved: "Alice",
+        remarks: "Updated remarks",
         approvedAmount: 118,
       },
     });
     const forwardedPayload = mockUpdateByFinanceExecute.mock.calls[0]?.[0]?.payload;
     expect(forwardedPayload).not.toHaveProperty("departmentId");
-    expect(forwardedPayload).not.toHaveProperty("isGstApplicable");
-    expect(forwardedPayload).not.toHaveProperty("gstNumber");
+    expect(forwardedPayload).not.toHaveProperty("basicAmount");
+    expect(forwardedPayload).not.toHaveProperty("cgstAmount");
+    expect(forwardedPayload).not.toHaveProperty("sgstAmount");
+    expect(forwardedPayload).not.toHaveProperty("igstAmount");
+    expect(forwardedPayload).not.toHaveProperty("requestedTotalAmount");
     expect(forwardedPayload).not.toHaveProperty("bankStatementFilePath");
   });
 

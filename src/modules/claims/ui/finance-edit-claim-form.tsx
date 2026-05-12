@@ -9,6 +9,7 @@ import { FormInput } from "@/components/ui/form-input";
 import { FormSelect } from "@/components/ui/form-select";
 import { FormTextarea } from "@/components/ui/form-textarea";
 import { SheetClose, useOptionalSheetContext } from "@/components/ui/sheet";
+import { LOCATION_TYPE_OPTIONS } from "@/core/constants/location-types";
 
 type DropdownOption = {
   id: string;
@@ -49,6 +50,8 @@ type FinanceEditClaimFormProps = {
       billNo: string;
       expenseCategoryId: string | null;
       locationId: string | null;
+      locationType: string | null;
+      locationDetails: string | null;
       transactionDate: string;
       isGstApplicable: boolean | null;
       gstNumber: string | null;
@@ -486,47 +489,259 @@ export function FinanceEditClaimForm({
 
             {claim.detailType === "expense" ? (
               isFinanceEdit ? (
-                <div className={groupedWrapperClassName}>
-                  <h4 className={groupedTitleClassName}>Finance Approval</h4>
-                  <div className={groupedGridClassName}>
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      Requested Amount
-                      <CurrencyInput
-                        value={expense?.requestedTotalAmount ?? ""}
-                        disabled
-                        className={lockedFieldClassName}
-                      />
-                    </label>
+                <>
+                  <div className={groupedWrapperClassName}>
+                    <h4 className={groupedTitleClassName}>Finance Approval</h4>
+                    <div className={groupedGridClassName}>
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Requested Amount
+                        <CurrencyInput
+                          value={expense?.requestedTotalAmount ?? ""}
+                          disabled
+                          className={lockedFieldClassName}
+                        />
+                      </label>
 
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      Approved Amount
-                      <CurrencyInput
-                        name="approvedAmount"
-                        min="0"
-                        step="0.01"
-                        required
-                        defaultValue={
-                          expense?.approvedAmount ?? expense?.requestedTotalAmount ?? ""
-                        }
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                      />
-                    </label>
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Approved Amount
+                        <CurrencyInput
+                          name="approvedAmount"
+                          min="0"
+                          step="0.01"
+                          required
+                          defaultValue={
+                            expense?.approvedAmount ?? expense?.requestedTotalAmount ?? ""
+                          }
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
 
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
-                      Reference
-                      <FormInput
-                        value={`${expense?.billNo ?? "N/A"} · ${toDateInputValue(expense?.transactionDate) || "N/A"}`}
-                        disabled
-                        className={lockedFieldClassName}
-                      />
-                    </label>
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                        Reference
+                        <FormInput
+                          value={`${expense?.billNo ?? "N/A"} · ${toDateInputValue(expense?.transactionDate) || "N/A"}`}
+                          disabled
+                          className={lockedFieldClassName}
+                        />
+                      </label>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">
+                      Finance can correct accounting metadata before approval. Requested amount and
+                      employee-entered base amounts remain locked.
+                    </p>
                   </div>
 
-                  <p className="text-xs text-muted-foreground">
-                    Employee-entered expense details are locked at the finance stage. Only the
-                    approved amount can be changed.
-                  </p>
-                </div>
+                  <div className={groupedWrapperClassName}>
+                    <h4 className={groupedTitleClassName}>Vendor Details</h4>
+                    <div className={groupedGridClassName}>
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Bill No
+                        <FormInput
+                          name="billNo"
+                          required
+                          defaultValue={expense?.billNo ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Expense Category
+                        <FormSelect
+                          name="expenseCategoryId"
+                          required
+                          defaultValue={expense?.expenseCategoryId ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        >
+                          <option value="" disabled>
+                            Select expense category
+                          </option>
+                          {expenseCategories.map((category) => (
+                            <option key={category.id} value={category.id}>
+                              {category.name}
+                            </option>
+                          ))}
+                        </FormSelect>
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Vendor Name
+                        <FormInput
+                          name="vendorName"
+                          defaultValue={expense?.vendorName ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Location
+                        <FormSelect
+                          name="locationId"
+                          required
+                          defaultValue={expense?.locationId ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        >
+                          <option value="" disabled>
+                            Select location
+                          </option>
+                          {locations.map((location) => (
+                            <option key={location.id} value={location.id}>
+                              {location.name}
+                            </option>
+                          ))}
+                        </FormSelect>
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Location Type
+                        <FormSelect
+                          name="locationType"
+                          defaultValue={expense?.locationType ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        >
+                          <option value="">Not specified</option>
+                          {LOCATION_TYPE_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </FormSelect>
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Location Details
+                        <FormInput
+                          name="locationDetails"
+                          defaultValue={expense?.locationDetails ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Transaction Date
+                        <DateInput
+                          name="transactionDate"
+                          required
+                          defaultValue={toDateInputValue(expense?.transactionDate)}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        GST Applicable
+                        <FormSelect
+                          name="isGstApplicable"
+                          required
+                          defaultValue={expense?.isGstApplicable ? "true" : "false"}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        >
+                          <option value="true">Yes</option>
+                          <option value="false">No</option>
+                        </FormSelect>
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        GST Number
+                        <FormInput
+                          name="gstNumber"
+                          defaultValue={expense?.gstNumber ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className={groupedWrapperClassName}>
+                    <h4 className={groupedTitleClassName}>Locked Amount Components</h4>
+                    <div className={groupedGridClassName}>
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Basic Amount
+                        <CurrencyInput
+                          value={expenseAmounts.basicAmount}
+                          disabled
+                          className={lockedFieldClassName}
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        CGST Amount
+                        <CurrencyInput
+                          value={expenseAmounts.cgstAmount}
+                          disabled
+                          className={lockedFieldClassName}
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        SGST Amount
+                        <CurrencyInput
+                          value={expenseAmounts.sgstAmount}
+                          disabled
+                          className={lockedFieldClassName}
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        IGST Amount
+                        <CurrencyInput
+                          value={expenseAmounts.igstAmount}
+                          disabled
+                          className={lockedFieldClassName}
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className={groupedWrapperClassName}>
+                    <h4 className={groupedTitleClassName}>Additional Details</h4>
+                    <div className={groupedGridClassName}>
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                        Purpose
+                        <FormInput
+                          name="purpose"
+                          required
+                          defaultValue={expense?.purpose ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Product
+                        <FormSelect
+                          name="productId"
+                          defaultValue={expense?.productId ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        >
+                          <option value="">None</option>
+                          {products.map((product) => (
+                            <option key={product.id} value={product.id}>
+                              {product.name}
+                            </option>
+                          ))}
+                        </FormSelect>
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        People Involved
+                        <FormInput
+                          name="peopleInvolved"
+                          defaultValue={expense?.peopleInvolved ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                        Remarks
+                        <FormTextarea
+                          name="remarks"
+                          rows={3}
+                          defaultValue={expense?.remarks ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </>
               ) : (
                 <>
                   <div className={groupedWrapperClassName}>
@@ -752,45 +967,121 @@ export function FinanceEditClaimForm({
                 </>
               )
             ) : isFinanceEdit ? (
-              <div className={groupedWrapperClassName}>
-                <h4 className={groupedTitleClassName}>Finance Approval</h4>
-                <div className={groupedGridClassName}>
-                  <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                    Requested Amount
-                    <CurrencyInput
-                      value={advance?.requestedTotalAmount ?? ""}
-                      disabled
-                      className={lockedFieldClassName}
-                    />
-                  </label>
+              <>
+                <div className={groupedWrapperClassName}>
+                  <h4 className={groupedTitleClassName}>Finance Approval</h4>
+                  <div className={groupedGridClassName}>
+                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      Requested Amount
+                      <CurrencyInput
+                        value={advance?.requestedTotalAmount ?? ""}
+                        disabled
+                        className={lockedFieldClassName}
+                      />
+                    </label>
 
-                  <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                    Approved Amount
-                    <CurrencyInput
-                      name="approvedAmount"
-                      min="0"
-                      step="0.01"
-                      required
-                      defaultValue={advance?.approvedAmount ?? advance?.requestedTotalAmount ?? ""}
-                      className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                    />
-                  </label>
+                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      Approved Amount
+                      <CurrencyInput
+                        name="approvedAmount"
+                        min="0"
+                        step="0.01"
+                        required
+                        defaultValue={
+                          advance?.approvedAmount ?? advance?.requestedTotalAmount ?? ""
+                        }
+                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                      />
+                    </label>
 
-                  <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
-                    Reference
-                    <FormInput
-                      value={`${advance?.purpose ?? "N/A"} · ${toDateInputValue(advance?.expectedUsageDate) || "N/A"}`}
-                      disabled
-                      className={lockedFieldClassName}
-                    />
-                  </label>
+                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                      Reference
+                      <FormInput
+                        value={`${advance?.purpose ?? "N/A"} · ${toDateInputValue(advance?.expectedUsageDate) || "N/A"}`}
+                        disabled
+                        className={lockedFieldClassName}
+                      />
+                    </label>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    Finance can correct advance metadata before approval. Requested amount remains
+                    locked.
+                  </p>
                 </div>
 
-                <p className="text-xs text-muted-foreground">
-                  Employee-entered advance details are locked at the finance stage. Only the
-                  approved amount can be changed.
-                </p>
-              </div>
+                <div className={groupedWrapperClassName}>
+                  <h4 className={groupedTitleClassName}>Advance Details</h4>
+                  <div className={groupedGridClassName}>
+                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                      Purpose
+                      <FormInput
+                        name="purpose"
+                        required
+                        defaultValue={advance?.purpose ?? ""}
+                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                      />
+                    </label>
+
+                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      Expected Usage Date
+                      <DateInput
+                        name="expectedUsageDate"
+                        required
+                        defaultValue={toDateInputValue(advance?.expectedUsageDate)}
+                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className={groupedWrapperClassName}>
+                  <h4 className={groupedTitleClassName}>Additional Details</h4>
+                  <div className={groupedGridClassName}>
+                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      Product
+                      <FormSelect
+                        name="productId"
+                        defaultValue={advance?.productId ?? ""}
+                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                      >
+                        <option value="">None</option>
+                        {products.map((product) => (
+                          <option key={product.id} value={product.id}>
+                            {product.name}
+                          </option>
+                        ))}
+                      </FormSelect>
+                    </label>
+
+                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      Location
+                      <FormSelect
+                        name="locationId"
+                        defaultValue={advance?.locationId ?? ""}
+                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                      >
+                        <option value="">None</option>
+                        {locations.map((location) => (
+                          <option key={location.id} value={location.id}>
+                            {location.name}
+                          </option>
+                        ))}
+                      </FormSelect>
+                    </label>
+
+                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                      Remarks
+                      <FormTextarea
+                        name="remarks"
+                        rows={3}
+                        defaultValue={advance?.remarks ?? ""}
+                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </>
             ) : (
               <>
                 <div className={groupedWrapperClassName}>

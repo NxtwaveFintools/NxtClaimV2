@@ -1,8 +1,28 @@
 import { z } from "zod";
+import { LOCATION_TYPES } from "@/core/constants/location-types";
 
 const uuidSchema = z.uuid("Invalid UUID value");
 
+const isoDateSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format. Use YYYY-MM-DD");
+
 const editReasonSchema = z.string().trim().min(5, "An edit reason is required for the audit log.");
+
+const normalizedNullableText = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value ?? null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}, z.string().nullable());
+
+const locationTypeSchema = z.preprocess(
+  (value) => (value === null || value === undefined || value === "" ? null : value),
+  z.enum([LOCATION_TYPES.BASE, LOCATION_TYPES.OUT_STATION]).nullable(),
+);
 
 export const financeExpenseEditSchema = z
   .object({
@@ -10,7 +30,29 @@ export const financeExpenseEditSchema = z
     detailId: uuidSchema,
     editReason: editReasonSchema,
     paymentModeId: uuidSchema.nullable().optional(),
+    billNo: z.string().trim().min(1, "Bill number is required"),
+    expenseCategoryId: uuidSchema,
+    productId: uuidSchema.nullable(),
+    locationId: uuidSchema,
+    locationType: locationTypeSchema,
+    locationDetails: normalizedNullableText,
+    transactionDate: isoDateSchema,
+    purpose: z.string().trim().min(1, "Purpose is required"),
+    isGstApplicable: z.boolean(),
+    gstNumber: normalizedNullableText,
+    vendorName: normalizedNullableText,
+    peopleInvolved: normalizedNullableText,
+    remarks: normalizedNullableText,
     approvedAmount: z.number().min(0, "Approved amount cannot be negative"),
+  })
+  .superRefine((value, context) => {
+    if (value.locationType === LOCATION_TYPES.OUT_STATION && !value.locationDetails) {
+      context.addIssue({
+        code: "custom",
+        message: "Location details are required when location type is Out Station.",
+        path: ["locationDetails"],
+      });
+    }
   })
   .strict();
 
@@ -20,6 +62,11 @@ export const financeAdvanceEditSchema = z
     detailId: uuidSchema,
     editReason: editReasonSchema,
     paymentModeId: uuidSchema.nullable().optional(),
+    purpose: z.string().trim().min(1, "Purpose is required"),
+    expectedUsageDate: isoDateSchema,
+    productId: uuidSchema.nullable(),
+    locationId: uuidSchema.nullable(),
+    remarks: normalizedNullableText,
     approvedAmount: z.number().min(0, "Approved amount cannot be negative"),
   })
   .strict();

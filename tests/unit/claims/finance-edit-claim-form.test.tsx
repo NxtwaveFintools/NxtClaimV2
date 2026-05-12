@@ -39,6 +39,8 @@ function createExpenseClaim(input?: {
       billNo: "BILL-1",
       expenseCategoryId: "cat-1",
       locationId: "loc-1",
+      locationType: "Out Station",
+      locationDetails: "Chennai branch",
       transactionDate: "2026-04-12",
       isGstApplicable: true,
       gstNumber: "GSTIN-1",
@@ -97,6 +99,22 @@ function renderEmbeddedSheetForm(action: () => Promise<{ ok: boolean; error?: st
 }
 
 describe("FinanceEditClaimForm amount balancing", () => {
+  test("shows finance-editable metadata while keeping requested and base amounts locked", () => {
+    renderEmbeddedSheetForm(async () => ({ ok: true }));
+
+    expect(screen.getByRole("textbox", { name: /bill no/i })).toHaveValue("BILL-1");
+    expect(screen.getByRole("combobox", { name: /expense category/i })).toHaveValue("cat-1");
+    expect(screen.getByRole("combobox", { name: /location type/i })).toHaveValue("Out Station");
+    expect(screen.getByRole("textbox", { name: /location details/i })).toHaveValue(
+      "Chennai branch",
+    );
+    expect(screen.getByRole("textbox", { name: /purpose/i })).toHaveValue("Client visit");
+    expect(screen.getByRole("spinbutton", { name: /requested amount/i })).toBeDisabled();
+    expect(screen.getByRole("spinbutton", { name: /basic amount/i })).toBeDisabled();
+    expect(screen.getByRole("spinbutton", { name: /cgst amount/i })).toBeDisabled();
+    expect(screen.getByRole("spinbutton", { name: /approved amount/i })).not.toBeDisabled();
+  });
+
   test("recomputes total amount when basic or GST fields change", () => {
     renderForm();
 

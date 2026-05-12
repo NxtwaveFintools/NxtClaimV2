@@ -1077,11 +1077,39 @@ function buildFinanceEditPayload(formData: FormData): unknown {
   const editReason = getFormDataString(formData, "editReason");
   const paymentModeId = getFormDataNullableString(formData, "paymentModeId");
 
+  if (detailType === "expense") {
+    return {
+      detailType,
+      detailId,
+      editReason,
+      paymentModeId,
+      billNo: getFormDataString(formData, "billNo"),
+      expenseCategoryId: getFormDataString(formData, "expenseCategoryId"),
+      productId: getFormDataNullableString(formData, "productId"),
+      locationId: getFormDataString(formData, "locationId"),
+      locationType: getFormDataNullableString(formData, "locationType"),
+      locationDetails: getFormDataNullableString(formData, "locationDetails"),
+      transactionDate: getFormDataString(formData, "transactionDate"),
+      purpose: getFormDataString(formData, "purpose"),
+      isGstApplicable: getFormDataBoolean(formData, "isGstApplicable"),
+      gstNumber: getFormDataNullableString(formData, "gstNumber"),
+      vendorName: getFormDataNullableString(formData, "vendorName"),
+      peopleInvolved: getFormDataNullableString(formData, "peopleInvolved"),
+      remarks: getFormDataNullableString(formData, "remarks"),
+      approvedAmount: getFormDataNumber(formData, "approvedAmount"),
+    };
+  }
+
   return {
     detailType,
     detailId,
     editReason,
     paymentModeId,
+    purpose: getFormDataString(formData, "purpose"),
+    expectedUsageDate: getFormDataString(formData, "expectedUsageDate"),
+    productId: getFormDataNullableString(formData, "productId"),
+    locationId: getFormDataNullableString(formData, "locationId"),
+    remarks: getFormDataNullableString(formData, "remarks"),
     approvedAmount: getFormDataNumber(formData, "approvedAmount"),
   };
 }
@@ -1264,6 +1292,19 @@ export async function updateClaimByFinanceAction(input: {
           detailId: parseResult.data.detailId,
           editReason: parseResult.data.editReason,
           paymentModeId: parseResult.data.paymentModeId ?? null,
+          billNo: parseResult.data.billNo,
+          expenseCategoryId: parseResult.data.expenseCategoryId,
+          productId: parseResult.data.productId,
+          locationId: parseResult.data.locationId,
+          locationType: parseResult.data.locationType,
+          locationDetails: parseResult.data.locationDetails,
+          transactionDate: parseResult.data.transactionDate,
+          purpose: parseResult.data.purpose,
+          isGstApplicable: parseResult.data.isGstApplicable,
+          gstNumber: parseResult.data.gstNumber,
+          vendorName: parseResult.data.vendorName,
+          peopleInvolved: parseResult.data.peopleInvolved,
+          remarks: parseResult.data.remarks,
           approvedAmount: parseResult.data.approvedAmount,
         }
       : {
@@ -1271,6 +1312,11 @@ export async function updateClaimByFinanceAction(input: {
           detailId: parseResult.data.detailId,
           editReason: parseResult.data.editReason,
           paymentModeId: parseResult.data.paymentModeId ?? null,
+          purpose: parseResult.data.purpose,
+          expectedUsageDate: parseResult.data.expectedUsageDate,
+          productId: parseResult.data.productId,
+          locationId: parseResult.data.locationId,
+          remarks: parseResult.data.remarks,
           approvedAmount: parseResult.data.approvedAmount,
         };
 

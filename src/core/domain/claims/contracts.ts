@@ -145,6 +145,19 @@ export type FinanceExpenseEditPayload = {
   detailId: string;
   editReason: string;
   paymentModeId?: string | null;
+  billNo?: string;
+  expenseCategoryId?: string;
+  productId?: string | null;
+  locationId?: string;
+  locationType?: string | null;
+  locationDetails?: string | null;
+  transactionDate?: string;
+  purpose?: string;
+  isGstApplicable?: boolean;
+  gstNumber?: string | null;
+  vendorName?: string | null;
+  peopleInvolved?: string | null;
+  remarks?: string | null;
   approvedAmount: number;
 };
 
@@ -153,6 +166,11 @@ export type FinanceAdvanceEditPayload = {
   detailId: string;
   editReason: string;
   paymentModeId?: string | null;
+  purpose?: string;
+  expectedUsageDate?: string;
+  productId?: string | null;
+  locationId?: string | null;
+  remarks?: string | null;
   approvedAmount: number;
 };
 
