@@ -1194,7 +1194,7 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
     }
     const amount = 111.25;
 
-    const submission = await withActorPage(browser, leapfrog.hodEmail, async (page) =>
+    const submission = await withActorPage(browser, leapfrog.approver1Email, async (page) =>
       submitPettyCashRequest(page, {
         employeeId: `LF-${runTag}`,
         requestedAmount: amount,

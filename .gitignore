@@ -1,6 +1,4 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies.
+# ── Dependencies ─────────────────────────────────────────────────────────────
 /node_modules
 /.pnp
 .pnp.*
@@ -9,23 +7,18 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-.codeium/
-# testing
-/coverage
-/playwright-report
-/test-results
 
-# next.js
+# ── Next.js ──────────────────────────────────────────────────────────────────
 /.next/
 /out/
+next-env.d.ts
 
-# production
+# ── Build outputs ─────────────────────────────────────────────────────────────
 /build
 
 # misc
 .DS_Store
 *.pem
-
 
 
 # debug
@@ -44,26 +37,43 @@ mcp.json
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
 
-# Playwright
-node_modules/
-/blob-report/
-/playwright/.cache/
-/playwright/.auth/
-/.auth/
-
-# DLP hardening (secrets, local config, key material)
+# ── Environment & secrets ─────────────────────────────────────────────────────
 .env
 .env.*
 !.env.example
-
-.vscode/
-.idea/
-dist/
-build/
+mcp.json
 *.key
 *.keystore
 *.p12
 *.pfx
+
+# ── Testing & coverage ────────────────────────────────────────────────────────
+/coverage
+/playwright-report
+/blob-report
+/test-results
+/playwright/.cache/
+/playwright/.auth/
+/.auth/
+playwright-run*.log
 playwright.analytics.config.ts
+
+# ── Vercel ────────────────────────────────────────────────────────────────────
+.vercel
+
+# ── Debug logs ────────────────────────────────────────────────────────────────
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ── Editor & OS ───────────────────────────────────────────────────────────────
+.DS_Store
+*.pem
+.vscode/
+.idea/
+.codeium/
+
+# ── Claude Code ───────────────────────────────────────────────────────────────
+skills-lock.json

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useSessionStorage } from "@/hooks/use-session-storage";
 import { ROUTES } from "@/core/config/route-registry";
-import { DB_CLAIM_STATUSES } from "@/core/constants/statuses";
+import { DB_CLAIM_STATUSES, type DbClaimStatus } from "@/core/constants/statuses";
 import { normalizeIsoDateOnly } from "@/lib/date-only";
 import { getAccessTokenAction } from "@/modules/auth/actions";
 import { AdvancedFiltersSheet } from "@/modules/claims/ui/advanced-filters-sheet";
@@ -163,6 +163,15 @@ type StoredFilterState = {
   localToDate: string;
 };
 
+export type ClaimsFilterBarExportScope =
+  | "submissions"
+  | "approvals"
+  | "finance_hod_pending"
+  | "admin"
+  | "department";
+
+type StatusFilterMode = "visible" | "disabled" | "hidden";
+
 function setOrDeleteTrimmedParam(params: URLSearchParams, key: string, value: string): void {
   const trimmed = value.trim();
 
@@ -251,9 +260,12 @@ function applyStoredFiltersToParams(params: URLSearchParams, filters: StoredFilt
 }
 
 type ClaimsFilterBarProps = {
-  exportScope?: "submissions" | "approvals" | "admin" | "department";
+  exportScope?: ClaimsFilterBarExportScope;
   defaultFiltersExpanded?: boolean;
   isAdmin?: boolean;
+  storageScope?: string;
+  lockedStatus?: DbClaimStatus;
+  statusFilterMode?: StatusFilterMode;
   paymentModes: Array<{ id: string; name: string }>;
   departments: Array<{ id: string; name: string }>;
   locations: Array<{ id: string; name: string }>;
@@ -265,6 +277,9 @@ export function ClaimsFilterBar({
   exportScope,
   defaultFiltersExpanded = false,
   isAdmin = false,
+  storageScope,
+  lockedStatus,
+  statusFilterMode = "visible",
   paymentModes,
   departments,
   locations,
@@ -279,8 +294,8 @@ export function ClaimsFilterBar({
 
   const currentParams = useMemo(() => new URLSearchParams(searchParams.toString()), [searchParams]);
   const storageKeyPrefix = useMemo(
-    () => `dashboard-filter-${exportScope ?? "submissions"}`,
-    [exportScope],
+    () => `dashboard-filter-${storageScope ?? exportScope ?? "submissions"}`,
+    [exportScope, storageScope],
   );
   const storageKeys = useMemo(
     () => ({
@@ -340,7 +355,7 @@ export function ClaimsFilterBar({
   );
   const [localStatus, setLocalStatus] = useSessionStorage(
     storageKeys.status,
-    searchParams.get("status") ?? "",
+    searchParams.get("status") ?? lockedStatus ?? "",
   );
   const [localFromDate, setLocalFromDate] = useSessionStorage(
     storageKeys.fromDate,
@@ -415,7 +430,7 @@ export function ClaimsFilterBar({
       localLocationId: readStoredValue(storageKeys.locationId, ""),
       localProductId: readStoredValue(storageKeys.productId, ""),
       localExpenseCategoryId: readStoredValue(storageKeys.expenseCategoryId, ""),
-      localStatus: readStoredValue(storageKeys.status, ""),
+      localStatus: readStoredValue(storageKeys.status, lockedStatus ?? ""),
       localFromDate: normalizeDateQueryValue(readStoredValue(storageKeys.fromDate, "")),
       localToDate: normalizeDateQueryValue(readStoredValue(storageKeys.toDate, "")),
     };
@@ -482,13 +497,21 @@ export function ClaimsFilterBar({
     setLocalLocationId(searchParams.get("location_id") ?? "");
     setLocalProductId(searchParams.get("product_id") ?? "");
     setLocalExpenseCategoryId(searchParams.get("expense_category_id") ?? "");
-    setLocalStatus(searchParams.get("status") ?? "");
+    setLocalStatus(searchParams.get("status") ?? lockedStatus ?? "");
     setLocalFromDate(normalizeDateQueryValue(searchParams.get("from") ?? ""));
     setLocalToDate(normalizeDateQueryValue(searchParams.get("to") ?? ""));
     // Setter functions from useSessionStorage are intentionally omitted to avoid
     // effect churn from unstable function identities.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasInitializedFilterState, searchParams]);
+
+  useEffect(() => {
+    if (!lockedStatus) {
+      return;
+    }
+
+    setLocalStatus(lockedStatus);
+  }, [lockedStatus, setLocalStatus]);
 
   useEffect(() => {
     if (!hasInitializedFilterState) {
@@ -682,6 +705,8 @@ export function ClaimsFilterBar({
   }
 
   const hasActiveFilters = hasActiveFilterParams(currentParams);
+  const renderedStatusValue = lockedStatus ?? localStatus;
+  const statusOptions = lockedStatus ? [lockedStatus] : DB_CLAIM_STATUSES;
 
   const searchPlaceholder =
     localSearchField === "claim_id"
@@ -793,7 +818,7 @@ export function ClaimsFilterBar({
               setLocalLocationId("");
               setLocalProductId("");
               setLocalExpenseCategoryId("");
-              setLocalStatus("");
+              setLocalStatus(lockedStatus ?? "");
               setLocalFromDate("");
               setLocalToDate("");
 
@@ -807,6 +832,10 @@ export function ClaimsFilterBar({
 
               if (currentFilters) {
                 nextParams.set("filters", currentFilters);
+              }
+
+              if (lockedStatus) {
+                nextParams.set("status", lockedStatus);
               }
 
               startTransition(() => {
@@ -964,23 +993,29 @@ export function ClaimsFilterBar({
             </select>
           </label>
 
-          <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-            Status
-            <select
-              value={localStatus}
-              onChange={(event) => {
-                setParam("status", event.target.value, setLocalStatus);
-              }}
-              className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-            >
-              <option value="">All</option>
-              {DB_CLAIM_STATUSES.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-          </label>
+          {statusFilterMode !== "hidden" ? (
+            <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              Status
+              <select
+                value={renderedStatusValue}
+                disabled={statusFilterMode === "disabled"}
+                onChange={(event) => {
+                  setParam("status", event.target.value, setLocalStatus);
+                }}
+                title={
+                  statusFilterMode === "disabled" ? "Status is fixed for this view." : undefined
+                }
+                className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs disabled:cursor-not-allowed disabled:opacity-70 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              >
+                {lockedStatus ? null : <option value="">All</option>}
+                {statusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
 
           <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
             From
