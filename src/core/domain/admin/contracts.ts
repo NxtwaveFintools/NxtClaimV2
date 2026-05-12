@@ -16,6 +16,15 @@ export type MasterDataItem = {
   isActive: boolean;
 };
 
+export type DepartmentResponsibleMappingRecord = {
+  id: string;
+  departmentId: string;
+  responsibleDepartmentCode: string;
+  beneficiaryDepartmentCode: string;
+  isActive: boolean;
+  createdAt: string;
+};
+
 export type AdminClaimRecord = {
   claimId: string;
   employeeName: string;
