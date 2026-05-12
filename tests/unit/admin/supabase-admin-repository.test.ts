@@ -365,7 +365,11 @@ describe("SupabaseAdminRepository", () => {
         is_resubmission_allowed: false,
         submitter_user: { full_name: "Alex", email: "alex@nxtwave.co.in" },
         master_departments: { name: "Engineering" },
-        expense_details: { total_amount: "245.60", is_active: true },
+        expense_details: {
+          requested_total_amount: "245.60",
+          approved_amount: null,
+          is_active: true,
+        },
         advance_details: null,
       },
       error: null,
@@ -1175,7 +1179,7 @@ describe("SupabaseAdminRepository", () => {
 
     expect(result).toEqual({
       data: null,
-      errorMessage: "HOD and Founder cannot be the same person.",
+      errorMessage: "Approver 1 and Approver 2 cannot be the same person.",
     });
     expect(mockFrom).toHaveBeenCalledTimes(2);
   });

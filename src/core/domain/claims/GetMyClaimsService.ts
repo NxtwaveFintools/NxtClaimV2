@@ -40,7 +40,7 @@ export class GetMyClaimsService {
 
     return {
       claims: result.data.map((row) => {
-        const resolvedAmount = row.expenseTotalAmount ?? row.advanceRequestedAmount ?? 0;
+        const resolvedAmount = row.expenseTotalAmount ?? row.advanceRequestedTotalAmount ?? 0;
         const employee = row.onBehalfEmail ?? row.employeeId;
 
         return {

@@ -1,0 +1,6 @@
+{
+  "enabledMcpjsonServers": ["filesystem", "supabase"],
+  "enabledPlugins": {
+    "context-mode@context-mode": true
+  }
+}

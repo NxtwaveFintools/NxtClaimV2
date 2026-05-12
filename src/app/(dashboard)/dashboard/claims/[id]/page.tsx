@@ -17,7 +17,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../../../compone
 import { ROUTES } from "@/core/config/route-registry";
 import {
   DB_CLAIM_STATUSES,
-  DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
   DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
   DB_REJECTED_STATUSES,
   DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
@@ -137,6 +136,14 @@ function formatOptionalText(value: string | null | undefined, fallback = "N/A"):
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : fallback;
+}
+
+function amountsDiffer(left: number | null | undefined, right: number | null | undefined): boolean {
+  if (left === null || left === undefined || right === null || right === undefined) {
+    return false;
+  }
+
+  return Math.abs(left - right) >= 0.01;
 }
 
 function isPdf(path: string): boolean {
@@ -278,8 +285,7 @@ async function FinanceEditClaimSection({
     ? []
     : expenseCategoriesResult.data;
   const locationOptions = locationsResult.errorMessage ? [] : locationsResult.data;
-  const canEditPaymentMode =
-    editFlow === "finance" && claim.status === DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS;
+  const canEditPaymentMode = false;
 
   const updateFinanceDetailFromPage = async (
     formData: FormData,
@@ -347,6 +353,8 @@ async function FinanceEditClaimSection({
                     billNo: claim.expense.billNo,
                     expenseCategoryId: claim.expense.expenseCategoryId,
                     locationId: claim.expense.locationId,
+                    locationType: claim.expense.locationType,
+                    locationDetails: claim.expense.locationDetails,
                     transactionDate: claim.expense.transactionDate,
                     isGstApplicable: claim.expense.isGstApplicable,
                     gstNumber: claim.expense.gstNumber,
@@ -354,7 +362,8 @@ async function FinanceEditClaimSection({
                     cgstAmount: claim.expense.cgstAmount,
                     sgstAmount: claim.expense.sgstAmount,
                     igstAmount: claim.expense.igstAmount,
-                    totalAmount: claim.expense.totalAmount,
+                    requestedTotalAmount: claim.expense.requestedTotalAmount,
+                    approvedAmount: claim.expense.approvedAmount,
                     vendorName: claim.expense.vendorName,
                     purpose: claim.expense.purpose,
                     productId: claim.expense.productId,
@@ -366,7 +375,8 @@ async function FinanceEditClaimSection({
                 ? {
                     id: claim.advance.id,
                     purpose: claim.advance.purpose,
-                    requestedAmount: claim.advance.requestedAmount,
+                    requestedTotalAmount: claim.advance.requestedTotalAmount,
+                    approvedAmount: claim.advance.approvedAmount,
                     expectedUsageDate: claim.advance.expectedUsageDate,
                     productId: claim.advance.productId,
                     locationId: claim.advance.locationId,
@@ -379,6 +389,7 @@ async function FinanceEditClaimSection({
             expenseCategories={expenseCategoryOptions}
             products={productOptions}
             locations={locationOptions}
+            editFlow={editFlow}
             isEditMode
             canEditPaymentMode={canEditPaymentMode}
             requireEditReason={editFlow === "finance"}
@@ -749,7 +760,15 @@ async function ClaimDetailCore({
 
     return formatCurrency(value);
   };
-  const heroTotalAmountValue = claim.expense?.totalAmount ?? claim.advance?.requestedAmount ?? null;
+  const requestedTotalAmountValue =
+    claim.expense?.requestedTotalAmount ?? claim.advance?.requestedTotalAmount ?? null;
+  const approvedAmountValue =
+    claim.expense?.approvedAmount ?? claim.advance?.approvedAmount ?? requestedTotalAmountValue;
+  const hasAmountVariance = amountsDiffer(requestedTotalAmountValue, approvedAmountValue);
+  const amountAdjustmentValue =
+    requestedTotalAmountValue !== null && approvedAmountValue !== null
+      ? requestedTotalAmountValue - approvedAmountValue
+      : null;
   const heroCategoryValue = claim.expense
     ? formatOptionalText(claim.expense.expenseCategoryName)
     : "N/A";
@@ -803,10 +822,21 @@ async function ClaimDetailCore({
           <section className="bg-primary/5 border border-primary/20 rounded-xl p-6 mb-8 flex flex-col gap-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="min-w-0 md:flex-1">
-                <p className="text-[10px] uppercase text-muted-foreground">Total Amount</p>
+                <p className="text-[10px] uppercase text-muted-foreground">Approved Amount</p>
                 <p className="max-w-full break-words text-3xl font-black leading-none tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-                  {formatAmountValue(heroTotalAmountValue)}
+                  {formatAmountValue(approvedAmountValue)}
                 </p>
+                {hasAmountVariance ? (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Requested{" "}
+                    <span className="line-through">
+                      {formatAmountValue(requestedTotalAmountValue)}
+                    </span>
+                    {amountAdjustmentValue !== null
+                      ? ` · Adjustment ${formatAmountValue(amountAdjustmentValue)}`
+                      : ""}
+                  </p>
+                ) : null}
               </div>
 
               <div className="min-w-0 md:max-w-[18rem] md:flex-none">
@@ -1012,15 +1042,41 @@ async function ClaimDetailCore({
                           value={formatOptionalText(claim.expense.gstNumber)}
                         />
                         <DataCard
-                          label="Total Amount"
-                          value={formatAmountValue(claim.expense.totalAmount)}
+                          label="Approved Amount"
+                          value={formatAmountValue(claim.expense.approvedAmount)}
                         />
+                        {hasAmountVariance ? (
+                          <>
+                            <DataCard
+                              label="Requested Amount"
+                              value={formatAmountValue(claim.expense.requestedTotalAmount)}
+                            />
+                            <DataCard
+                              label="Adjustment"
+                              value={formatAmountValue(amountAdjustmentValue)}
+                            />
+                          </>
+                        ) : null}
                       </>
                     ) : claim.advance ? (
-                      <DataCard
-                        label="Requested Amount"
-                        value={formatAmountValue(claim.advance.requestedAmount)}
-                      />
+                      <>
+                        <DataCard
+                          label="Approved Amount"
+                          value={formatAmountValue(claim.advance.approvedAmount)}
+                        />
+                        {hasAmountVariance ? (
+                          <>
+                            <DataCard
+                              label="Requested Amount"
+                              value={formatAmountValue(claim.advance.requestedTotalAmount)}
+                            />
+                            <DataCard
+                              label="Adjustment"
+                              value={formatAmountValue(amountAdjustmentValue)}
+                            />
+                          </>
+                        ) : null}
+                      </>
                     ) : (
                       <DataCard label="Amount" value="N/A" />
                     )}

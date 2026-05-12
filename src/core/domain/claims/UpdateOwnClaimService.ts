@@ -50,6 +50,23 @@ export class UpdateOwnClaimService {
     return PRE_HOD_EDITABLE_STATUSES.some((candidate) => candidate === status);
   }
 
+  private normalizeExpenseAmounts(payload: OwnClaimEditPayload): OwnClaimEditPayload {
+    if (payload.detailType !== "expense") {
+      return payload;
+    }
+
+    const requestedTotalAmount =
+      Math.round(
+        (payload.basicAmount + payload.cgstAmount + payload.sgstAmount + payload.igstAmount) * 100,
+      ) / 100;
+
+    return {
+      ...payload,
+      requestedTotalAmount,
+      approvedAmount: requestedTotalAmount,
+    };
+  }
+
   async execute(input: {
     claimId: string;
     actorUserId: string;
@@ -99,17 +116,19 @@ export class UpdateOwnClaimService {
       return { ok: false, errorMessage: "Claim detail type mismatch for edit request." };
     }
 
+    const normalizedPayload = this.normalizeExpenseAmounts(input.payload);
+
     const updateResult = await this.repository.updateClaimDetailsBySubmitter(
       input.claimId,
       input.actorUserId,
-      input.payload,
+      normalizedPayload,
     );
 
     if (updateResult.errorMessage) {
       this.logger.error("claims.own_edit.update_failed", {
         claimId: input.claimId,
         actorUserId: input.actorUserId,
-        detailType: input.payload.detailType,
+        detailType: normalizedPayload.detailType,
         errorMessage: updateResult.errorMessage,
       });
       return { ok: false, errorMessage: updateResult.errorMessage };
@@ -118,7 +137,7 @@ export class UpdateOwnClaimService {
     this.logger.info("claims.own_edit.updated", {
       claimId: input.claimId,
       actorUserId: input.actorUserId,
-      detailType: input.payload.detailType,
+      detailType: normalizedPayload.detailType,
     });
 
     return { ok: true, errorMessage: null };

@@ -204,7 +204,7 @@ const validExpensePayload = {
     remarks: null,
   },
   advance: {
-    requestedAmount: 500,
+    requestedTotalAmount: 500,
     budgetMonth: 3,
     budgetYear: 2026,
     expectedUsageDate: "2026-03-20",
@@ -281,7 +281,10 @@ function createValidExpenseEditFormData(): FormData {
   formData.append("editReason", "Test edit");
   formData.append("billNo", "BILL-NEW-1");
   formData.append("expenseCategoryId", "66666666-6666-4666-8666-666666666666");
+  formData.append("productId", "77777777-7777-4777-8777-777777777777");
   formData.append("locationId", "88888888-8888-4888-8888-888888888888");
+  formData.append("locationType", "Out Station");
+  formData.append("locationDetails", "Chennai branch office");
   formData.append("transactionDate", "2026-03-22");
   formData.append("isGstApplicable", "true");
   formData.append("gstNumber", "GSTIN-999");
@@ -291,8 +294,8 @@ function createValidExpenseEditFormData(): FormData {
   formData.append("sgstAmount", "9");
   formData.append("igstAmount", "0");
   formData.append("totalAmount", "118");
+  formData.append("approvedAmount", "118");
   formData.append("purpose", "Updated purpose");
-  formData.append("productId", "77777777-7777-4777-8777-777777777777");
   formData.append("peopleInvolved", "Alice");
   formData.append("remarks", "Updated remarks");
   return formData;
@@ -301,6 +304,7 @@ function createValidExpenseEditFormData(): FormData {
 function createValidOwnExpenseEditFormData(): FormData {
   const formData = createValidExpenseEditFormData();
   formData.delete("editReason");
+  formData.delete("approvedAmount");
   return formData;
 }
 
@@ -714,7 +718,7 @@ describe("claims actions", () => {
     formData.append("departmentId", departmentId);
     formData.append("paymentModeId", "99999999-9999-4999-8999-999999999999");
     formData.append("detailType", "advance");
-    formData.append("advance.requestedAmount", "500");
+    formData.append("advance.requestedTotalAmount", "500");
     formData.append("advance.budgetMonth", "3");
     formData.append("advance.budgetYear", "2026");
     formData.append("advance.expectedUsageDate", "");
@@ -1072,7 +1076,7 @@ describe("claims actions", () => {
     expect(removeCalls).not.toContainEqual(["expenses/old_receipt.pdf"]);
   });
 
-  test("updateClaimByFinanceAction deletes superseded receipt only after DB update succeeds", async () => {
+  test("updateClaimByFinanceAction ignores replacement receipt uploads in finance flow", async () => {
     const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
     const formData = createValidExpenseEditFormData();
     formData.append(
@@ -1086,17 +1090,11 @@ describe("claims actions", () => {
     });
 
     expect(result).toEqual({ ok: true, message: "Claim details updated." });
-    const forwardedPayload = mockUpdateByFinanceExecute.mock.calls[0]?.[0]?.payload;
-    expect(forwardedPayload.receiptFilePath).toMatch(
-      /^expenses\/11111111-1111-4111-8111-111111111111\/11111111-1111-4111-8111-111111111111_receipt_v[a-z0-9]+\.pdf$/,
-    );
-    expect(mockStorageRemove).toHaveBeenCalledWith(["expenses/old_receipt.pdf"]);
-    expect(mockUpdateByFinanceExecute.mock.invocationCallOrder[0]).toBeLessThan(
-      mockStorageRemove.mock.invocationCallOrder[0],
-    );
+    expect(mockStorageUpload).not.toHaveBeenCalled();
+    expect(mockStorageRemove).not.toHaveBeenCalled();
   });
 
-  test("updateClaimByFinanceAction does not update DB or delete old receipt when upload fails", async () => {
+  test("updateClaimByFinanceAction does not attempt receipt uploads in finance flow", async () => {
     mockStorageUpload.mockResolvedValueOnce({
       data: null,
       error: { message: "upload failed" },
@@ -1114,12 +1112,13 @@ describe("claims actions", () => {
       formData,
     });
 
-    expect(result).toEqual({ ok: false, message: "upload failed" });
-    expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
-    expect(mockStorageRemove).not.toHaveBeenCalledWith(["expenses/old_receipt.pdf"]);
+    expect(result).toEqual({ ok: true, message: "Claim details updated." });
+    expect(mockUpdateByFinanceExecute).toHaveBeenCalled();
+    expect(mockStorageUpload).not.toHaveBeenCalled();
+    expect(mockStorageRemove).not.toHaveBeenCalled();
   });
 
-  test("updateClaimByFinanceAction cleans up new upload when DB update fails and keeps old receipt", async () => {
+  test("updateClaimByFinanceAction returns DB errors without storage cleanup in finance flow", async () => {
     mockUpdateByFinanceExecute.mockResolvedValueOnce({
       ok: false,
       errorMessage: "DB failed",
@@ -1138,16 +1137,11 @@ describe("claims actions", () => {
     });
 
     expect(result).toEqual({ ok: false, message: "DB failed" });
-    const removeCalls = mockStorageRemove.mock.calls.map((call) => call[0]);
-    expect(removeCalls).toContainEqual([
-      expect.stringMatching(
-        /^expenses\/11111111-1111-4111-8111-111111111111\/11111111-1111-4111-8111-111111111111_receipt_v[a-z0-9]+\.pdf$/,
-      ),
-    ]);
-    expect(removeCalls).not.toContainEqual(["expenses/old_receipt.pdf"]);
+    expect(mockStorageUpload).not.toHaveBeenCalled();
+    expect(mockStorageRemove).not.toHaveBeenCalled();
   });
 
-  test("updateClaimByFinanceAction forwards validated expense payload including GST and bank statement fields", async () => {
+  test("updateClaimByFinanceAction forwards finance-editable metadata while excluding locked amounts", async () => {
     const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
 
     const formData = createValidExpenseEditFormData();
@@ -1161,18 +1155,35 @@ describe("claims actions", () => {
     expect(mockUpdateByFinanceExecute).toHaveBeenCalledWith({
       claimId: "11111111-1111-4111-8111-111111111111",
       actorUserId: "11111111-1111-4111-8111-111111111111",
-      payload: expect.objectContaining({
+      payload: {
         detailType: "expense",
         detailId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
         editReason: "Test edit",
+        paymentModeId: null,
+        billNo: "BILL-NEW-1",
+        expenseCategoryId: "66666666-6666-4666-8666-666666666666",
+        productId: "77777777-7777-4777-8777-777777777777",
+        locationId: "88888888-8888-4888-8888-888888888888",
+        locationType: "Out Station",
+        locationDetails: "Chennai branch office",
+        transactionDate: "2026-03-22",
+        purpose: "Updated purpose",
         isGstApplicable: true,
         gstNumber: "GSTIN-999",
-        bankStatementFilePath: "expenses/old_bank.pdf",
-      }),
+        vendorName: "Vendor X",
+        peopleInvolved: "Alice",
+        remarks: "Updated remarks",
+        approvedAmount: 118,
+      },
     });
     const forwardedPayload = mockUpdateByFinanceExecute.mock.calls[0]?.[0]?.payload;
     expect(forwardedPayload).not.toHaveProperty("departmentId");
-    expect(forwardedPayload).toHaveProperty("paymentModeId", null);
+    expect(forwardedPayload).not.toHaveProperty("basicAmount");
+    expect(forwardedPayload).not.toHaveProperty("cgstAmount");
+    expect(forwardedPayload).not.toHaveProperty("sgstAmount");
+    expect(forwardedPayload).not.toHaveProperty("igstAmount");
+    expect(forwardedPayload).not.toHaveProperty("requestedTotalAmount");
+    expect(forwardedPayload).not.toHaveProperty("bankStatementFilePath");
   });
 
   test("updateClaimByFinanceAction returns friendly message for duplicate active bill unique violation", async () => {
@@ -1197,14 +1208,9 @@ describe("claims actions", () => {
     expect(result).toEqual({
       ok: false,
       message:
-        "A claim with this exact Bill Number, Date, and Amount already exists in the system. Please change the Bill Number slightly (e.g., add '-FIX') to make it unique before saving. Duplicate Claim ID: CLAIM-EXISTING-1.",
+        "A claim with this exact Bill Number, Date, and Amount already exists in the system. Please change the Bill Number slightly (e.g., add '-FIX') to make it unique before saving.",
     });
-    expect(mockFindActiveExpenseDuplicateClaimIdByCompositeKey).toHaveBeenCalledWith({
-      billNo: "BILL-NEW-1",
-      transactionDate: "2026-03-22",
-      basicAmount: 100,
-      excludeClaimId: "11111111-1111-4111-8111-111111111111",
-    });
+    expect(mockFindActiveExpenseDuplicateClaimIdByCompositeKey).not.toHaveBeenCalled();
   });
 
   test("updateClaimByFinanceAction keeps duplicate message generic for non-finance pre-HOD edits", async () => {
