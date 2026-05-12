@@ -453,6 +453,176 @@ describe("SupabaseClaimRepository.updateClaimDetailsByFinance", () => {
   });
 });
 
+describe("SupabaseClaimRepository.getClaimsForFullExport", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("maps requested and approved amounts separately for expense and advance rows", async () => {
+    const idsBuilder = createQueryBuilder({
+      data: [
+        { claim_id: "claim-expense", created_at: "2026-03-24T10:00:00.000Z" },
+        { claim_id: "claim-advance", created_at: "2026-03-23T10:00:00.000Z" },
+      ],
+      error: null,
+    });
+    const claimsBuilder = createQueryBuilder({
+      data: [
+        {
+          id: "claim-expense",
+          status: "Submitted - Awaiting HOD approval",
+          submission_type: "Self",
+          detail_type: "expense",
+          submitted_by: "user-1",
+          on_behalf_of_id: null,
+          employee_id: "EMP-100",
+          cc_emails: null,
+          on_behalf_email: null,
+          on_behalf_employee_code: null,
+          department_id: "dept-1",
+          payment_mode_id: "pm-1",
+          assigned_l1_approver_id: "l1-1",
+          assigned_l2_approver_id: "l2-1",
+          submitted_at: "2026-03-24T10:00:00.000Z",
+          hod_action_at: null,
+          finance_action_at: null,
+          rejection_reason: null,
+          is_resubmission_allowed: false,
+          created_at: "2026-03-24T10:00:00.000Z",
+          updated_at: "2026-03-24T10:05:00.000Z",
+          submitter_user: { full_name: "Employee One", email: "user1@nxtwave.co.in" },
+          beneficiary_user: null,
+          l1_approver_user: null,
+          l2_finance_approver: null,
+          master_departments: { id: "dept-1", name: "Finance" },
+          master_payment_modes: { id: "pm-1", name: "Reimbursement" },
+          expense_details: {
+            bill_no: "BILL-1",
+            transaction_id: "TXN-1",
+            purpose: "Client visit",
+            expense_category_id: "cat-1",
+            product_id: "prod-1",
+            location_id: "loc-1",
+            location_type: null,
+            location_details: null,
+            is_gst_applicable: true,
+            gst_number: "GST1234",
+            transaction_date: "2026-03-22",
+            basic_amount: "100",
+            cgst_amount: "9",
+            sgst_amount: "9",
+            igst_amount: "0",
+            requested_total_amount: "118",
+            approved_amount: "110",
+            currency_code: "INR",
+            vendor_name: "Vendor A",
+            people_involved: "Alice",
+            remarks: "Remark",
+            receipt_file_path: null,
+            bank_statement_file_path: null,
+            master_expense_categories: { id: "cat-1", name: "Travel" },
+            master_products: { id: "prod-1", name: "Product X" },
+            master_locations: { id: "loc-1", name: "Hyderabad" },
+          },
+          advance_details: null,
+        },
+        {
+          id: "claim-advance",
+          status: "HOD approved - Awaiting finance approval",
+          submission_type: "Self",
+          detail_type: "advance",
+          submitted_by: "user-1",
+          on_behalf_of_id: null,
+          employee_id: "EMP-200",
+          cc_emails: null,
+          on_behalf_email: null,
+          on_behalf_employee_code: null,
+          department_id: "dept-1",
+          payment_mode_id: "pm-2",
+          assigned_l1_approver_id: "l1-1",
+          assigned_l2_approver_id: "l2-1",
+          submitted_at: "2026-03-23T10:00:00.000Z",
+          hod_action_at: null,
+          finance_action_at: null,
+          rejection_reason: null,
+          is_resubmission_allowed: false,
+          created_at: "2026-03-23T10:00:00.000Z",
+          updated_at: "2026-03-23T10:05:00.000Z",
+          submitter_user: { full_name: "Employee Two", email: "user2@nxtwave.co.in" },
+          beneficiary_user: null,
+          l1_approver_user: null,
+          l2_finance_approver: null,
+          master_departments: { id: "dept-1", name: "Finance" },
+          master_payment_modes: { id: "pm-2", name: "Petty Cash Request" },
+          expense_details: null,
+          advance_details: {
+            requested_total_amount: "500",
+            approved_amount: "450",
+            budget_month: 3,
+            budget_year: 2026,
+            expected_usage_date: "2026-03-29",
+            purpose: "Team travel advance",
+            product_id: "prod-2",
+            location_id: "loc-2",
+            remarks: "Advance remark",
+            supporting_document_path: null,
+            master_products: { id: "prod-2", name: "Product Y" },
+            master_locations: { id: "loc-2", name: "Bengaluru" },
+          },
+        },
+      ],
+      error: null,
+    });
+    const walletsBuilder = createQueryBuilder({
+      data: [{ user_id: "user-1", petty_cash_balance: "2500" }],
+      error: null,
+    });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "vw_enterprise_claims_dashboard") {
+        return { select: jest.fn(() => idsBuilder) };
+      }
+
+      if (table === "claims") {
+        return { select: jest.fn(() => claimsBuilder) };
+      }
+
+      if (table === "wallets") {
+        return { select: jest.fn(() => walletsBuilder) };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    mockGetServiceRoleSupabaseClient.mockReturnValue({
+      from: mockFrom,
+    });
+
+    const repository = new SupabaseClaimRepository();
+    const result = await repository.getClaimsForFullExport({
+      userId: "user-1",
+      fetchScope: "submissions",
+      limit: 500,
+    });
+
+    expect(result.errorMessage).toBeNull();
+    expect(result.data).toEqual([
+      expect.objectContaining({
+        claimId: "claim-expense",
+        detailType: "expense",
+        requestedTotalAmount: 118,
+        approvedAmount: 110,
+      }),
+      expect.objectContaining({
+        claimId: "claim-advance",
+        detailType: "advance",
+        requestedTotalAmount: 500,
+        approvedAmount: 450,
+      }),
+    ]);
+  });
+});
+
 describe("SupabaseClaimRepository.getClaimAuditLogs", () => {
   beforeEach(() => {
     jest.clearAllMocks();

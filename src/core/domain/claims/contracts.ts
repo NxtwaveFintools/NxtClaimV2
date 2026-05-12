@@ -325,14 +325,14 @@ export type ClaimFullExportRecord = {
   expenseCgstAmount: number | null;
   expenseSgstAmount: number | null;
   expenseIgstAmount: number | null;
-  expenseTotalAmount: number | null;
+  requestedTotalAmount: number | null;
+  approvedAmount: number | null;
   expenseCurrencyCode: string | null;
   expenseVendorName: string | null;
   expensePeopleInvolved: string | null;
   expenseRemarks: string | null;
   expenseReceiptFilePath: string | null;
   expenseBankStatementFilePath: string | null;
-  advanceRequestedTotalAmount: number | null;
   advanceBudgetMonth: number | null;
   advanceBudgetYear: number | null;
   advanceExpectedUsageDate: string | null;

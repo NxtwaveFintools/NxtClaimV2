@@ -3924,15 +3924,20 @@ export class SupabaseClaimRepository implements ClaimRepository {
           expenseCgstAmount: toNumber(expense?.cgst_amount),
           expenseSgstAmount: toNumber(expense?.sgst_amount),
           expenseIgstAmount: toNumber(expense?.igst_amount),
-          expenseTotalAmount:
-            toNumber(expense?.approved_amount) ?? toNumber(expense?.requested_total_amount),
+          requestedTotalAmount:
+            row.detail_type === "expense"
+              ? toNumber(expense?.requested_total_amount)
+              : toNumber(advance?.requested_total_amount),
+          approvedAmount:
+            row.detail_type === "expense"
+              ? toNumber(expense?.approved_amount)
+              : toNumber(advance?.approved_amount),
           expenseCurrencyCode: expense?.currency_code ?? null,
           expenseVendorName: expense?.vendor_name ?? null,
           expensePeopleInvolved: expense?.people_involved ?? null,
           expenseRemarks: expense?.remarks ?? null,
           expenseReceiptFilePath: expense?.receipt_file_path ?? null,
           expenseBankStatementFilePath: expense?.bank_statement_file_path ?? null,
-          advanceRequestedTotalAmount: toNumber(advance?.requested_total_amount),
           advanceBudgetMonth: advance?.budget_month ?? null,
           advanceBudgetYear: advance?.budget_year ?? null,
           advanceExpectedUsageDate: advance?.expected_usage_date ?? null,

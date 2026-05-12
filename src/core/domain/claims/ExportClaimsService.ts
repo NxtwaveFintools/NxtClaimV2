@@ -62,7 +62,8 @@ export type ClaimExportRow = {
   cgst: string;
   sgst: string;
   igst: string;
-  totalAmount: string;
+  requestedTotalAmount: string;
+  approvedAmount: string;
   vendorName: string;
   transactionCategory: string;
   product: string;
@@ -122,7 +123,8 @@ export const EXPORT_HEADERS = [
   "CGST",
   "SGST",
   "IGST",
-  "Total Amount",
+  "Requested Amount",
+  "Approved Amount",
   "Vendor Name",
   "Transaction Category",
   "Product",
@@ -278,10 +280,6 @@ function toExportRow(
     ? (signedUrlMap[row.advanceSupportingDocumentPath] ?? null)
     : null;
 
-  const totalAmount =
-    row.detailType === "expense"
-      ? formatAmountDisplay(row.expenseTotalAmount)
-      : formatAmountDisplay(row.advanceRequestedTotalAmount);
   const beneficiaryName =
     row.submissionType === "On Behalf"
       ? (row.beneficiaryName ?? row.submitterName)
@@ -323,7 +321,8 @@ function toExportRow(
     cgst: formatAmountDisplay(row.expenseCgstAmount),
     sgst: formatAmountDisplay(row.expenseSgstAmount),
     igst: formatAmountDisplay(row.expenseIgstAmount),
-    totalAmount,
+    requestedTotalAmount: formatAmountDisplay(row.requestedTotalAmount),
+    approvedAmount: formatAmountDisplay(row.approvedAmount),
     vendorName: toTextValue(row.expenseVendorName),
     transactionCategory: toTextValue(row.expenseCategoryName),
     product: toTextValue(
