@@ -272,6 +272,8 @@ export type ClaimExportRecord = {
   submittedOn: string;
   hodActionDate: string | null;
   financeActionDate: string | null;
+  bcPaymentsFlag: boolean;
+  isVendorPayment: boolean;
 };
 
 export type ClaimFullExportRecord = {
@@ -289,6 +291,8 @@ export type ClaimFullExportRecord = {
   departmentName: string | null;
   paymentModeId: string;
   paymentModeName: string | null;
+  bcPaymentsFlag: boolean;
+  isVendorPayment: boolean;
   assignedL1ApproverId: string;
   assignedL2ApproverId: string | null;
   submittedAt: string;
@@ -351,6 +355,8 @@ export type MyClaimRecord = {
   onBehalfEmail: string | null;
   departmentName: string | null;
   paymentModeName: string;
+  bcPaymentsFlag: boolean;
+  isVendorPayment: boolean;
   submissionType: ClaimSubmissionType;
   status: DbClaimStatus;
   submittedAt: string;
@@ -393,6 +399,8 @@ export type MyClaimListRecord = {
   submittedAt: string;
   hodActionDate: string | null;
   financeActionDate: string | null;
+  bcPaymentsFlag: boolean;
+  isVendorPayment: boolean;
   detailType: ClaimDetailType;
   submissionType: ClaimSubmissionType;
   onBehalfEmail?: string | null;
@@ -437,6 +445,8 @@ export type PendingApprovalListRecord = {
   paymentModeName: string;
   detailType: ClaimDetailType;
   submissionType: ClaimSubmissionType;
+  bcPaymentsFlag: boolean;
+  isVendorPayment: boolean;
   onBehalfEmail: string | null;
   onBehalfEmployeeCode?: string | null;
   purpose: string | null;
@@ -453,6 +463,8 @@ export type PendingApprovalListRecord = {
 export type ClaimListDetail = {
   detailType: ClaimDetailType;
   submissionType: ClaimSubmissionType;
+  bcPaymentsFlag: boolean;
+  isVendorPayment: boolean;
   onBehalfEmail: string | null;
   submitter: string;
   categoryName: string;
@@ -637,6 +649,8 @@ export type DepartmentViewerClaimRecord = {
   submittedOn: string;
   hodActionDate: string | null;
   financeActionDate: string | null;
+  bcPaymentsFlag: boolean;
+  isVendorPayment: boolean;
   detailType: "expense" | "advance";
   submissionType: "Self" | "On Behalf";
   departmentId: string | null;
