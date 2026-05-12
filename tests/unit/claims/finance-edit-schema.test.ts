@@ -1,61 +1,51 @@
 import { financeEditSchema } from "@/modules/claims/validators/finance-edit-schema";
 
 describe("financeEditSchema", () => {
-  test("accepts allowlisted expense payload", () => {
+  test("accepts expense payload with finance-editable metadata", () => {
     const result = financeEditSchema.safeParse({
       detailType: "expense",
       detailId: "11111111-1111-4111-8111-111111111111",
       editReason: "Correcting receipt metadata",
       billNo: "BILL-100",
       expenseCategoryId: "33333333-3333-4333-8333-333333333333",
+      productId: "22222222-2222-4222-8222-222222222222",
       locationId: "44444444-4444-4444-8444-444444444444",
+      locationType: "Out Station",
+      locationDetails: "Chennai branch",
       transactionDate: "2026-03-14",
       isGstApplicable: false,
       gstNumber: null,
       vendorName: "Vendor",
-      basicAmount: 120,
-      cgstAmount: 0,
-      sgstAmount: 0,
-      igstAmount: 0,
-      totalAmount: 120,
       purpose: "Client travel",
-      productId: "55555555-5555-4555-8555-555555555555",
       peopleInvolved: null,
-      remarks: "Updated by finance",
-      receiptFile: null,
-      bankStatementFile: null,
+      remarks: null,
+      approvedAmount: 120,
     });
 
     expect(result.success).toBe(true);
   });
 
-  test("blocks read-only fields by rejecting unknown keys", () => {
+  test("rejects read-only amount fields even when metadata is present", () => {
     const result = financeEditSchema.safeParse({
       detailType: "expense",
       detailId: "11111111-1111-4111-8111-111111111111",
       editReason: "Correcting receipt metadata",
       billNo: "BILL-100",
       expenseCategoryId: "33333333-3333-4333-8333-333333333333",
+      productId: null,
       locationId: "44444444-4444-4444-8444-444444444444",
+      locationType: null,
+      locationDetails: null,
       transactionDate: "2026-03-14",
       isGstApplicable: false,
       gstNumber: null,
       vendorName: "Vendor",
-      basicAmount: 120,
-      cgstAmount: 0,
-      sgstAmount: 0,
-      igstAmount: 0,
-      totalAmount: 141.6,
       purpose: "Client travel",
-      productId: null,
       peopleInvolved: null,
       remarks: null,
-      receiptFile: null,
-      bankStatementFile: null,
-      departmentId: "11111111-1111-4111-8111-111111111111",
-      claim_id: "00000000-0000-4000-8000-000000000000",
-      submitted_at: "2026-03-15T10:00:00.000Z",
-      detail_type: "expense",
+      basicAmount: 120,
+      requestedTotalAmount: 141.6,
+      approvedAmount: 120,
     });
 
     expect(result.success).toBe(false);
@@ -67,24 +57,20 @@ describe("financeEditSchema", () => {
       detailId: "11111111-1111-4111-8111-111111111111",
       editReason: "Correcting payment mode assignment",
       paymentModeId: "22222222-2222-4222-8222-222222222222",
-      billNo: "BILL-102",
+      billNo: "BILL-100",
       expenseCategoryId: "33333333-3333-4333-8333-333333333333",
+      productId: null,
       locationId: "44444444-4444-4444-8444-444444444444",
+      locationType: null,
+      locationDetails: null,
       transactionDate: "2026-03-14",
       isGstApplicable: false,
       gstNumber: null,
-      vendorName: "Vendor",
-      basicAmount: 120,
-      cgstAmount: 0,
-      sgstAmount: 0,
-      igstAmount: 0,
-      totalAmount: 120,
+      vendorName: null,
       purpose: "Client travel",
-      productId: null,
       peopleInvolved: null,
       remarks: null,
-      receiptFile: null,
-      bankStatementFile: null,
+      approvedAmount: 120,
     });
 
     expect(result.success).toBe(true);
@@ -96,22 +82,18 @@ describe("financeEditSchema", () => {
       editReason: "Correcting receipt metadata",
       billNo: "BILL-100",
       expenseCategoryId: "33333333-3333-4333-8333-333333333333",
+      productId: null,
       locationId: "44444444-4444-4444-8444-444444444444",
+      locationType: null,
+      locationDetails: null,
       transactionDate: "2026-03-14",
       isGstApplicable: false,
       gstNumber: null,
-      vendorName: "Vendor",
-      basicAmount: 120,
-      cgstAmount: 0,
-      sgstAmount: 0,
-      igstAmount: 0,
-      totalAmount: 120,
+      vendorName: null,
       purpose: "Client travel",
-      productId: null,
       peopleInvolved: null,
       remarks: null,
-      receiptFile: null,
-      bankStatementFile: null,
+      approvedAmount: 120,
     });
 
     expect(result.success).toBe(false);
@@ -122,57 +104,51 @@ describe("financeEditSchema", () => {
       detailType: "advance",
       detailId: "22222222-2222-4222-8222-222222222222",
       editReason: "Fixing usage date after review",
-      purpose: "Petty cash correction",
-      requestedAmount: 500,
-      expectedUsageDate: "2026-03-20",
-      productId: null,
-      locationId: null,
-      remarks: "Advance remarks",
-      receiptFile: null,
+      purpose: "Conference travel advance",
+      expectedUsageDate: "2026-04-05",
+      productId: "33333333-3333-4333-8333-333333333333",
+      locationId: "44444444-4444-4444-8444-444444444444",
+      remarks: null,
+      approvedAmount: 500,
     });
 
     expect(result.success).toBe(true);
   });
 
-  test("accepts expense payload with smallest positive basic and balanced total", () => {
+  test("requires location details when location type is out station", () => {
     const result = financeEditSchema.safeParse({
       detailType: "expense",
       detailId: "11111111-1111-4111-8111-111111111111",
       editReason: "Adjusting tax split after reconciliation",
-      billNo: "BILL-101",
+      billNo: "BILL-100",
       expenseCategoryId: "33333333-3333-4333-8333-333333333333",
-      locationId: "44444444-4444-4444-8444-444444444444",
-      transactionDate: "2026-03-14",
-      isGstApplicable: true,
-      gstNumber: "29ABCDE1234F2Z5",
-      vendorName: "Vendor",
-      basicAmount: 0.01,
-      cgstAmount: 45,
-      sgstAmount: 45,
-      igstAmount: 0,
-      totalAmount: 90.01,
-      purpose: "Client travel",
       productId: null,
+      locationId: "44444444-4444-4444-8444-444444444444",
+      locationType: "Out Station",
+      locationDetails: null,
+      transactionDate: "2026-03-14",
+      isGstApplicable: false,
+      gstNumber: null,
+      vendorName: null,
+      purpose: "Client travel",
       peopleInvolved: null,
       remarks: null,
-      receiptFile: null,
-      bankStatementFile: null,
+      approvedAmount: 0,
     });
 
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
   });
 
   test("rejects payloads when editReason is missing", () => {
     const result = financeEditSchema.safeParse({
       detailType: "advance",
       detailId: "22222222-2222-4222-8222-222222222222",
-      purpose: "Petty cash correction",
-      requestedAmount: 500,
-      expectedUsageDate: "2026-03-20",
+      purpose: "Conference travel advance",
+      expectedUsageDate: "2026-04-05",
       productId: null,
       locationId: null,
-      remarks: "Advance remarks",
-      receiptFile: null,
+      remarks: null,
+      approvedAmount: 500,
     });
 
     expect(result.success).toBe(false);
@@ -185,22 +161,18 @@ describe("financeEditSchema", () => {
       editReason: "Fix",
       billNo: "BILL-100",
       expenseCategoryId: "33333333-3333-4333-8333-333333333333",
+      productId: null,
       locationId: "44444444-4444-4444-8444-444444444444",
+      locationType: null,
+      locationDetails: null,
       transactionDate: "2026-03-14",
       isGstApplicable: false,
       gstNumber: null,
-      vendorName: "Vendor",
-      basicAmount: 120,
-      cgstAmount: 0,
-      sgstAmount: 0,
-      igstAmount: 0,
-      totalAmount: 120,
+      vendorName: null,
       purpose: "Client travel",
-      productId: null,
       peopleInvolved: null,
       remarks: null,
-      receiptFile: null,
-      bankStatementFile: null,
+      approvedAmount: 120,
     });
 
     expect(result.success).toBe(false);

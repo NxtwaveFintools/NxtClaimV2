@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { LOCATION_TYPES } from "@/core/constants/location-types";
 
 const uuidSchema = z.uuid("Invalid UUID value");
+
 const isoDateSchema = z
   .string()
   .trim()
@@ -17,50 +19,9 @@ const normalizedNullableText = z.preprocess((value) => {
   return trimmed.length > 0 ? trimmed : null;
 }, z.string().nullable());
 
-const optionalReceiptFileSchema = z
-  .custom<File | null>((value) => {
-    if (value === null || value === undefined) {
-      return true;
-    }
-
-    if (typeof File === "undefined") {
-      return false;
-    }
-
-    return value instanceof File;
-  }, "Invalid receipt file")
-  .nullable()
-  .optional();
-
-const optionalBankStatementFileSchema = z
-  .custom<File | null>((value) => {
-    if (value === null || value === undefined) {
-      return true;
-    }
-
-    if (typeof File === "undefined") {
-      return false;
-    }
-
-    return value instanceof File;
-  }, "Invalid bank statement file")
-  .nullable()
-  .optional();
-
-const optionalTaxAmountSchema = z.preprocess(
-  (value) => {
-    if (value === "" || value === null || value === undefined) {
-      return 0;
-    }
-
-    if (typeof value === "string") {
-      const parsed = Number(value);
-      return Number.isFinite(parsed) ? parsed : value;
-    }
-
-    return value;
-  },
-  z.number().min(0, "Tax amount cannot be negative"),
+const locationTypeSchema = z.preprocess(
+  (value) => (value === null || value === undefined || value === "" ? null : value),
+  z.enum([LOCATION_TYPES.BASE, LOCATION_TYPES.OUT_STATION]).nullable(),
 );
 
 export const financeExpenseEditSchema = z
@@ -71,22 +32,27 @@ export const financeExpenseEditSchema = z
     paymentModeId: uuidSchema.nullable().optional(),
     billNo: z.string().trim().min(1, "Bill number is required"),
     expenseCategoryId: uuidSchema,
+    productId: uuidSchema.nullable(),
     locationId: uuidSchema,
+    locationType: locationTypeSchema,
+    locationDetails: normalizedNullableText,
     transactionDate: isoDateSchema,
+    purpose: z.string().trim().min(1, "Purpose is required"),
     isGstApplicable: z.boolean(),
     gstNumber: normalizedNullableText,
     vendorName: normalizedNullableText,
-    basicAmount: z.number().positive("Basic amount must be greater than zero"),
-    cgstAmount: optionalTaxAmountSchema,
-    sgstAmount: optionalTaxAmountSchema,
-    igstAmount: optionalTaxAmountSchema,
-    totalAmount: z.number().positive("Total amount must be greater than zero"),
-    purpose: z.string().trim().min(1, "Purpose is required"),
-    productId: uuidSchema.nullable(),
     peopleInvolved: normalizedNullableText,
     remarks: normalizedNullableText,
-    receiptFile: optionalReceiptFileSchema,
-    bankStatementFile: optionalBankStatementFileSchema,
+    approvedAmount: z.number().min(0, "Approved amount cannot be negative"),
+  })
+  .superRefine((value, context) => {
+    if (value.locationType === LOCATION_TYPES.OUT_STATION && !value.locationDetails) {
+      context.addIssue({
+        code: "custom",
+        message: "Location details are required when location type is Out Station.",
+        path: ["locationDetails"],
+      });
+    }
   })
   .strict();
 
@@ -97,12 +63,11 @@ export const financeAdvanceEditSchema = z
     editReason: editReasonSchema,
     paymentModeId: uuidSchema.nullable().optional(),
     purpose: z.string().trim().min(1, "Purpose is required"),
-    requestedAmount: z.number().positive("Requested amount must be greater than zero"),
     expectedUsageDate: isoDateSchema,
     productId: uuidSchema.nullable(),
     locationId: uuidSchema.nullable(),
     remarks: normalizedNullableText,
-    receiptFile: optionalReceiptFileSchema,
+    approvedAmount: z.number().min(0, "Approved amount cannot be negative"),
   })
   .strict();
 

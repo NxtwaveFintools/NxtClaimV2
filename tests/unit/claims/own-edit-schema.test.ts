@@ -33,7 +33,7 @@ describe("ownEditSchema", () => {
       detailType: "advance",
       detailId: "22222222-2222-4222-8222-222222222222",
       purpose: "Travel advance",
-      requestedAmount: 500,
+      requestedTotalAmount: 500,
       expectedUsageDate: "2026-03-20",
       productId: null,
       locationId: null,

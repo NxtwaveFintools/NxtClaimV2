@@ -427,14 +427,14 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
 
     // Advance-section landmark must NOT yet exist in the DOM because React
     // unmounts the entire advance JSX branch when detailType === "expense".
-    await expect(page.locator("#requestedAmount")).not.toBeAttached();
+    await expect(page.locator("#requestedTotalAmount")).not.toBeAttached();
 
     // ── Phase 2: Petty Cash → advance detail section active ──────────────
     await selectOptionByLabelWithRetry(paymentModeSelect, options.pettyCashRequestPaymentModeName);
 
     // The useEffect that syncs paymentModeId→detailType must have fired and
     // React must have re-rendered before these assertions run.
-    await expect(page.locator("#requestedAmount")).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator("#requestedTotalAmount")).toBeVisible({ timeout: 5_000 });
     await expect(page.locator("#expectedUsageDate")).toBeVisible({ timeout: 5_000 });
 
     // Expense section must have been completely removed from the DOM.
@@ -444,7 +444,7 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
     await selectOptionByLabelWithRetry(paymentModeSelect, options.reimbursementPaymentModeName);
 
     await expect(page.locator("#billNo")).toBeVisible({ timeout: 5_000 });
-    await expect(page.locator("#requestedAmount")).not.toBeAttached({ timeout: 5_000 });
+    await expect(page.locator("#requestedTotalAmount")).not.toBeAttached({ timeout: 5_000 });
   });
 
   // ─── VAL-4 ────────────────────────────────────────────────────────────────

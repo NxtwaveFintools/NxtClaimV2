@@ -21,7 +21,7 @@ function createRepository(overrides?: Partial<ClaimRepository>): ClaimRepository
       status: "Submitted - Awaiting HOD approval",
       submittedAt: "2026-03-14T10:00:00.000Z",
       expenseTotalAmount: 118,
-      advanceRequestedAmount: null,
+      advanceRequestedTotalAmount: null,
     },
     {
       id: "claim-advance-1",
@@ -33,7 +33,7 @@ function createRepository(overrides?: Partial<ClaimRepository>): ClaimRepository
       status: "HOD approved - Awaiting finance approval",
       submittedAt: "2026-03-13T10:00:00.000Z",
       expenseTotalAmount: null,
-      advanceRequestedAmount: 500,
+      advanceRequestedTotalAmount: 500,
     },
   ];
 

@@ -896,8 +896,8 @@ async function submitPettyCashRequestClaim(
   await page.locator("#departmentId").selectOption({ value: input.departmentId });
 
   await page.locator("#employeeId").fill(employeeCode);
-  await expect(page.locator("#requestedAmount")).toBeVisible({ timeout: 15000 });
-  await page.locator("#requestedAmount").fill(String(input.amount));
+  await expect(page.locator("#requestedTotalAmount")).toBeVisible({ timeout: 15000 });
+  await page.locator("#requestedTotalAmount").fill(String(input.amount));
   await expect(page.locator("#expectedUsageDate")).toBeVisible({ timeout: 15000 });
   await page.locator("#expectedUsageDate").fill("2026-03-24");
   await page.locator("#budgetMonth").selectOption(budgetMonth);

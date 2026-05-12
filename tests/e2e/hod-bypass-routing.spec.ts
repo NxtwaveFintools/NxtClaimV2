@@ -311,7 +311,7 @@ async function submitOnBehalfPettyCashRequest(
   page: Page,
   input: {
     employeeId: string;
-    requestedAmount: number;
+    requestedTotalAmount: number;
     purpose: string;
     departmentName: string;
     onBehalfEmail: string;
@@ -365,7 +365,7 @@ async function submitOnBehalfPettyCashRequest(
   const paymentMode = page.getByLabel(/payment mode/i);
   await selectOptionByLabel(paymentMode, "Petty Cash Request");
 
-  await page.locator("#requestedAmount").fill(String(input.requestedAmount));
+  await page.locator("#requestedTotalAmount").fill(String(input.requestedTotalAmount));
   await page.locator("#expectedUsageDate").fill("2026-04-07");
   await expect(page.locator("#expectedUsageDate")).toHaveValue("2026-04-07");
   await page.locator("#purpose").fill(input.purpose);
@@ -523,7 +523,7 @@ test.describe("HOD bypass routing", () => {
     const submission = await withActorPage(browser, context.employeeEmail, async (page) =>
       submitOnBehalfPettyCashRequest(page, {
         employeeId: `HODBYPASS-${runTag}`,
-        requestedAmount: 145.9,
+        requestedTotalAmount: 145.9,
         purpose,
         departmentName: context.departmentName,
         onBehalfEmail: context.approver1Email,

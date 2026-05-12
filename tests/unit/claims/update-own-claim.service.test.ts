@@ -14,7 +14,8 @@ const validExpensePayload = {
   cgstAmount: 45,
   sgstAmount: 45,
   igstAmount: 0,
-  totalAmount: 590,
+  requestedTotalAmount: 590,
+  approvedAmount: 590,
   purpose: "Updated purpose",
   productId: "prod-1",
   peopleInvolved: "Alice,Bob",
@@ -57,6 +58,40 @@ function createRepository(
 }
 
 describe("UpdateOwnClaimService", () => {
+  test("recomputes requested/approved expense totals from basic + taxes and ignores hacked client totals", async () => {
+    const repository = createRepository();
+    const service = new UpdateOwnClaimService({ repository, logger: createLogger() });
+
+    const result = await service.execute({
+      claimId: "claim-1",
+      actorUserId: "employee-1",
+      payload: {
+        ...validExpensePayload,
+        basicAmount: 100,
+        cgstAmount: 5,
+        sgstAmount: 5,
+        igstAmount: 0,
+        requestedTotalAmount: 50000,
+        approvedAmount: 50000,
+      },
+    });
+
+    expect(result).toEqual({ ok: true, errorMessage: null });
+    expect(repository.updateClaimDetailsBySubmitter).toHaveBeenCalledWith(
+      "claim-1",
+      "employee-1",
+      expect.objectContaining({
+        detailType: "expense",
+        basicAmount: 100,
+        cgstAmount: 5,
+        sgstAmount: 5,
+        igstAmount: 0,
+        requestedTotalAmount: 110,
+        approvedAmount: 110,
+      }),
+    );
+  });
+
   test("updates claim details for submitter during pre-HOD stage", async () => {
     const repository = createRepository();
     const service = new UpdateOwnClaimService({ repository, logger: createLogger() });
