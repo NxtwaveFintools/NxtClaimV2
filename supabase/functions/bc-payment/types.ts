@@ -58,7 +58,7 @@ export type BcPaymentError =
   | { code: "MISSING_VENDOR_SELECTION" }
   | { code: "MISSING_BC_CODE"; expenseCategoryId: string }
   | { code: "BC_API_ERROR"; status: number; body: unknown }
-  | { code: "DB_UPDATE_FAILED"; claimId: string; auditLogId: string }
+  | { code: "DB_UPDATE_FAILED"; claimId: string; auditLogId: string | null }
   | { code: "INVALID_INPUT"; issues: unknown };
 
 export interface BcPaymentSuccess {
