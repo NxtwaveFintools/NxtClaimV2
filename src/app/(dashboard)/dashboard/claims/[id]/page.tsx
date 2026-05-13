@@ -1151,6 +1151,8 @@ async function ClaimDetailCore({
                       successMessage="Finance decision approved."
                       errorMessage="Unable to approve finance step."
                       redirectToHref={returnToPath}
+                      claimId={claim.id}
+                      paymentModeName={claim.paymentModeName}
                     />
                     <ClaimRejectWithReasonForm
                       action={rejectFinanceFromDetail}
