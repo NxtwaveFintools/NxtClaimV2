@@ -6,6 +6,41 @@ export type Database = {
   };
   public: {
     Tables: {
+      bc_claim_vendors: {
+        Row: {
+          bc_vendor_id: string;
+          bc_vendor_name: string;
+          claim_id: string;
+          created_at: string;
+          id: string;
+          updated_at: string;
+        };
+        Insert: {
+          bc_vendor_id: string;
+          bc_vendor_name: string;
+          claim_id: string;
+          created_at?: string;
+          id?: string;
+          updated_at?: string;
+        };
+        Update: {
+          bc_vendor_id?: string;
+          bc_vendor_name?: string;
+          claim_id?: string;
+          created_at?: string;
+          id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "bc_claim_vendors_claim_id_fkey";
+            columns: ["claim_id"];
+            isOneToOne: false;
+            referencedRelation: "claims";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       allowed_auth_domains: {
         Row: {
           created_at: string;
