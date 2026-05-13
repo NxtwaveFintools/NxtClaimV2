@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -91,6 +92,10 @@ export function BcPaymentModal({ open, onOpenChange, claimId, onSuccess }: Props
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Send to Business Central</DialogTitle>
+          <DialogDescription>
+            Choose how this Reimbursement claim should be paid. Confirm submits the line items to
+            Business Central; this cannot be undone.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
