@@ -1,0 +1,142 @@
+{
+  "info": {
+    "_postman_id": "a53212cd-ed63-4478-9ed2-6f7fbca545bd",
+    "name": "NxtClaim",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "20962451"
+  },
+  "item": [
+    {
+      "name": "Access Token",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "header": [],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "grant_type",
+              "value": "client_credentials",
+              "type": "text"
+            },
+            {
+              "key": "scope",
+              "value": "https://api.businesscentral.dynamics.com/.default",
+              "type": "text"
+            },
+            {
+              "key": "client_id",
+              "value": "a5170024-af89-4142-b29b-65562f395b6f",
+              "type": "text"
+            },
+            {
+              "key": "client_secret",
+              "value": "{{BC_CLIENT_SECRET}}",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "https://login.microsoftonline.com/6ae3d026-e965-483e-8309-8f8f3aca71c8/oauth2/v2.0/token",
+          "protocol": "https",
+          "host": ["login", "microsoftonline", "com"],
+          "path": ["6ae3d026-e965-483e-8309-8f8f3aca71c8", "oauth2", "v2.0", "token"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "NxtClaim",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6Ilh0LW83aERicHVwQXotWlBtNkh4Q0ZXUzNjSSIsImtpZCI6Ilh0LW83aERicHVwQXotWlBtNkh4Q0ZXUzNjSSJ9.eyJhdWQiOiJodHRwczovL2FwaS5idXNpbmVzc2NlbnRyYWwuZHluYW1pY3MuY29tIiwiaXNzIjoiaHR0cHM6Ly9zdHMud2luZG93cy5uZXQvNmFlM2QwMjYtZTk2NS00ODNlLTgzMDktOGY4ZjNhY2E3MWM4LyIsImlhdCI6MTc3ODY1NDQxNywibmJmIjoxNzc4NjU0NDE3LCJleHAiOjE3Nzg2NTgzMTcsImFpbyI6IkFTUUEyLzhjQUFBQVdiVHcrL09Sc0hoVmtNeTdrZnFwT0FYeVlScEZrQVA2ZnN1MUplOVl1Vnc9IiwiYXBwaWQiOiJhNTE3MDAyNC1hZjg5LTQxNDItYjI5Yi02NTU2MmYzOTViNmYiLCJhcHBpZGFjciI6IjEiLCJpZHAiOiJodHRwczovL3N0cy53aW5kb3dzLm5ldC82YWUzZDAyNi1lOTY1LTQ4M2UtODMwOS04ZjhmM2FjYTcxYzgvIiwiaWR0eXAiOiJhcHAiLCJvaWQiOiIxOWNiYTNjMC04YmY2LTQ2MTYtODUxNS0wYzQzYTA5NzJmOWIiLCJyaCI6IjEuQVVvQUp0RGphbVhwUGtpRENZLVBPc3B4eUQzdmJabHNzMU5CaGdlbV9Ud0J1SjhBQUFCS0FBLiIsInJvbGVzIjpbIkF1dG9tYXRpb24uUmVhZFdyaXRlLkFsbCIsImFwcF9hY2Nlc3MiLCJBZG1pbkNlbnRlci5SZWFkV3JpdGUuQWxsIiwiQVBJLlJlYWRXcml0ZS5BbGwiXSwic3ViIjoiMTljYmEzYzAtOGJmNi00NjE2LTg1MTUtMGM0M2EwOTcyZjliIiwidGlkIjoiNmFlM2QwMjYtZTk2NS00ODNlLTgzMDktOGY4ZjNhY2E3MWM4IiwidXRpIjoiVG9VeUl6WGhQRTZDM0JEaV9kVnhBQSIsInZlciI6IjEuMCIsInhtc19hY3RfZmN0IjoiOSAzIiwieG1zX2Z0ZCI6ImlWb1haWGRJbE83QTJzUG1TajF5a2VBal9Yclp0V0ZSTFl5cTNtZjBoaWdCYW1Gd1lXNWxZWE4wTFdSemJYTSIsInhtc19pZHJlbCI6IjcgMTAiLCJ4bXNfcmQiOiIwLkFWOEFvUDhLQlFnQ0VnRktFaFFJQnhJUVdSRERocnZxRGtpQlM4N25oLWhrWGhJVUNBa1NFRVg3MWhGMDhjOU91UExiOV8yQjRBVVNGQWdJRWhBOTcyMlpiTE5UUVlZSHB2MDhBYmlmRWhRSUN4SVEyS1VNeUtpVjNJZEcteDNSdjNtSXJ3IiwieG1zX3N1Yl9mY3QiOiIzIDkifQ.Su3FCgaXyJKsmx99XWE1h0TwLmJdRwmk-cJ-Fyi1Ln1lDnl55dCwo6lejMprzDyNCz51Lv63IGGCuWxXYJ7CHcjAvc7K0F7ddvFr7y2Kvpn66YpID_vwFW4delChYtGwHo5mm4ys2R9IQRmvjrV6EFN6K3GFKxZEs4Eeqcz9NySAUPCKVSqawMwJUksd3ThAwj2QOblTXT1Brv-SaPZlmcLfxFEGayXG7LcNxcjgV2M017C8SOdS0LCT4G6-XJMubB3xQ_NPotgq_RsnE0a8QnTOLqme0CZVeZg4BQQxhxbN9yBs5UvRUdVJlNoMyVO0FLKjAR2HI7s4ZHeB5vmLng",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    // \"postingDate\": \"2026-01-13\",\r\n    // \"accountType\": \"Employee\",\r\n    // \"accountNo\": \"NW0000002\",\r\n    // \"claimAmount\": 2000,\r\n    // \"approvedAmount\": 2000,\r\n    // \"balAccountType\": \"G/L Account\",\r\n    // \"balAccountNo\": \"DIGITAL_AFFILIATE\",\r\n    // \"claimNo\": \"CLM_000001\",\r\n    // \"previousClaimNo\": \"\",\r\n    // \"remarks\": \"Approved Claim\",\r\n    // \"nwProductCode\": \"ADMISSION_FEE\",\r\n    // \"nwProgramCode\": \"INTENSIVE 3.0\",\r\n    // \"responsibleDepartment\":\"BRANDING\"\r\n\r\n  \"postingDate\": \"2026-05-13\",\r\n  \"accountType\": \"Employee\",\r\n  \"accountNo\": \"EMP0001\",\r\n  \"employeeTransactionType\": \"Travel\",\r\n  \"amount\": 16000,\r\n  \"description\": \"Travel reimbursement for client visit\",\r\n  \"balAccountType\": \"G/L Account\",\r\n  \"balAccountNo\": \"10100\",\r\n  \"claimNo\": \"CLM000147\",\r\n  \"nwProgramCode\": \"PRG001\",\r\n  \"subProductCode\": \"SUB001\",\r\n  \"responsibleDepartment\": \"FINANCE\",\r\n  \"beneficiaryDepartment\": \"OPERATIONS\",\r\n  \"regionCode\": \"SOUTH\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://api.businesscentral.dynamics.com/v2.0/Sandbox_05052026/api/Alletec/Claim/v1.0/companies(2a9bf2ba-5cfe-ef11-9346-6045bdac6fc7)/Claims",
+          "protocol": "https",
+          "host": ["api", "businesscentral", "dynamics", "com"],
+          "path": [
+            "v2.0",
+            "Sandbox_05052026",
+            "api",
+            "Alletec",
+            "Claim",
+            "v1.0",
+            "companies(2a9bf2ba-5cfe-ef11-9346-6045bdac6fc7)",
+            "Claims"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "MerchantID",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6IlBjWDk4R1g0MjBUMVg2c0JEa3poUW1xZ3dNVSIsImtpZCI6IlBjWDk4R1g0MjBUMVg2c0JEa3poUW1xZ3dNVSJ9.eyJhdWQiOiJodHRwczovL2FwaS5idXNpbmVzc2NlbnRyYWwuZHluYW1pY3MuY29tIiwiaXNzIjoiaHR0cHM6Ly9zdHMud2luZG93cy5uZXQvNmFlM2QwMjYtZTk2NS00ODNlLTgzMDktOGY4ZjNhY2E3MWM4LyIsImlhdCI6MTc2ODgyNDc5NSwibmJmIjoxNzY4ODI0Nzk1LCJleHAiOjE3Njg4Mjg2OTUsImFpbyI6ImsyWmdZRmo0NXNPNXZuU0Rkby9ORWF0WlhkSW1BUUE9IiwiYXBwaWQiOiJhNTE3MDAyNC1hZjg5LTQxNDItYjI5Yi02NTU2MmYzOTViNmYiLCJhcHBpZGFjciI6IjEiLCJpZHAiOiJodHRwczovL3N0cy53aW5kb3dzLm5ldC82YWUzZDAyNi1lOTY1LTQ4M2UtODMwOS04ZjhmM2FjYTcxYzgvIiwiaWR0eXAiOiJhcHAiLCJvaWQiOiIxOWNiYTNjMC04YmY2LTQ2MTYtODUxNS0wYzQzYTA5NzJmOWIiLCJyaCI6IjEuQVVvQUp0RGphbVhwUGtpRENZLVBPc3B4eUQzdmJabHNzMU5CaGdlbV9Ud0J1Sjk4QVFCS0FBLiIsInJvbGVzIjpbIkF1dG9tYXRpb24uUmVhZFdyaXRlLkFsbCIsImFwcF9hY2Nlc3MiLCJBZG1pbkNlbnRlci5SZWFkV3JpdGUuQWxsIiwiQVBJLlJlYWRXcml0ZS5BbGwiXSwic3ViIjoiMTljYmEzYzAtOGJmNi00NjE2LTg1MTUtMGM0M2EwOTcyZjliIiwidGlkIjoiNmFlM2QwMjYtZTk2NS00ODNlLTgzMDktOGY4ZjNhY2E3MWM4IiwidXRpIjoiaTdMdWM0OUNuRXFpZDRHMkRFNFFBQSIsInZlciI6IjEuMCIsInhtc19hY3RfZmN0IjoiMyA5IiwieG1zX2Z0ZCI6Ik1XNURNY1lvWDFRZWx2WWMtdUhKQ1BzMHpRdS1HNnkxUWVRN0pOeC11MW9CYTI5eVpXRnpiM1YwYUMxa2MyMXoiLCJ4bXNfaWRyZWwiOiI3IDIyIiwieG1zX3JkIjoiMC40MkxsWUJKaTlCSVM0V0FYRW9nVU9OeTIteFdmUjZQM3VlZnRMMUxpZ0tLY1FnS3V2NjhKbG53ODc3ZmowLTN2ZnhzZnNBSkZPWVFFYk5fbnpzelpIT3pZeHI3c3J3M2pqdmtBIiwieG1zX3N1Yl9mY3QiOiIzIDkifQ.Il6KWc2Gx_1bOAW2_QDA4lfnINQZHnyJ38JaKfpB2b_9_PYpP7Yj6UymMGRB9iH6UQfBecdxtAt5oxuSeODuZ4v_ybODcZDQR_jKxScff1UtHOuj7lOYT_WYEMbgtrZPyg5HZZ8cCXAFnMS_PMzqK8Uh4Kg220HTN81Dnanwr4RQUgf3-1d_KSklKGrC3OMtBA53P8aCU9DHh-tHkI213IImFjmLAVzxd88apyQgW5OKJhIbUGrhmz1V4rHuMz5MqCAFc1iqXJCmXcM_Ns2mdX9Qi2tChiRGUTIJa2LkePV9mCjHRwSAtyEPpg5ORXCLaBEeYb98_71b-yd0_9iF4Q",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"SystemId\": \"729fadf4-eee3-f011-8542-7c1e523d926a\",\r\n    \"Customer_ID_User_ID\": \"38F47C8A-7A42-4B0C-AD27-43D6C3147F1C\",\r\n    \"NW_Sale_Order_ID\": \"CCBP_PROD_QCDDULVWHPMPBRB\",\r\n    \"Payment_ID_of_Payment_GatewayUTR\": \"26608316706\",\r\n    \"NBFC_Name\": \"\",\r\n    \"Payment_Date\": \"2025-12-28\",\r\n    \"State\": \"\",\r\n    \"Juspay_Payment_ID\": \"nxtwave-QCDDULVWHPMPBRB-4\",\r\n    \"Amount_Paid\": 20000,\r\n    \"Subvention_Amount\": 0,\r\n    \"E_mandate_charges\": 0,\r\n    \"NW_Product_Code\": \"ADMISSION_FEE\",\r\n    \"Application_ID\": \"\",\r\n    \"NW_Program_Code\": \"NIAT\",\r\n    \"Merchant_ID\":\"UEX3YI\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://api.businesscentral.dynamics.com/v2.0/Sandbox_01022025/api/Alletec/Master/v1.0/companies(2a9bf2ba-5cfe-ef11-9346-6045bdac6fc7)/GenJournalLines",
+          "protocol": "https",
+          "host": ["api", "businesscentral", "dynamics", "com"],
+          "path": [
+            "v2.0",
+            "Sandbox_01022025",
+            "api",
+            "Alletec",
+            "Master",
+            "v1.0",
+            "companies(2a9bf2ba-5cfe-ef11-9346-6045bdac6fc7)",
+            "GenJournalLines"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
