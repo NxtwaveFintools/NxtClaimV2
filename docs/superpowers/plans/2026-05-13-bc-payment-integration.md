@@ -8,6 +8,14 @@
 
 **Tech Stack:** Postgres (Supabase), Deno (Supabase Edge Functions), TypeScript, Next.js 16 (server actions for the surrounding approve flow, but new BC code uses `supabase.functions.invoke` from the browser client), shadcn/ui + Radix Dialog + React Hook Form for the modal, Zod at every input boundary, Jest for any Next.js-side unit tests, Deno's built-in test runner for Edge Function pure modules.
 
+> **Migration tooling note (added 2026-05-13):** Steps in this plan reference
+> `npm run db:migrate` because that was the canonical command when the plan
+> was authored. After this work landed, the custom runner
+> (`scripts/run-migrations.mjs`) and its `public._migration_history` tracker
+> were retired in favour of Supabase CLI's `supabase db push`. When re-reading
+> this plan, mentally substitute `supabase db push` (and `supabase db push --dry-run`)
+> for any `npm run db:migrate` reference.
+
 **Authoritative references** the implementer must keep open:
 
 - `plan_bc.md` (repo root) — behavioural spec; every SQL/TS snippet there is reference-only and must be reconciled against actual code before pasting.
