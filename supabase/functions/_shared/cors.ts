@@ -1,27 +1,44 @@
-// CORS headers for browser-origin calls to BC Edge Functions.
-// "*" is acceptable for sandbox; production should restrict to the app's origin
-// (e.g., https://<your-domain>) once known.
-export const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
+import { getBcEnv } from "./bcEnv.ts";
+
+const BASE_HEADERS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+  Vary: "Origin",
+} as const;
 
-export function corsPreflight(): Response {
-  return new Response(null, { headers: CORS_HEADERS });
+type TestOverrides = { allowedOrigins: Set<string> };
+let overrides: TestOverrides | null = null;
+
+// Test-only seam. In tests, call __setCorsTestOverrides({ allowedOrigins: ... })
+// to bypass the env reader. Pass null to restore env-driven behaviour.
+export function __setCorsTestOverrides(o: TestOverrides | null): void {
+  overrides = o;
 }
 
-export function withCors(
-  body: unknown,
-  status = 200,
-  extraHeaders: Record<string, string> = {},
-): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      ...CORS_HEADERS,
-      "content-type": "application/json",
-      ...extraHeaders,
-    },
-  });
+function getAllowedOrigins(): Set<string> {
+  if (overrides) return overrides.allowedOrigins;
+  return getBcEnv().allowedOrigins;
+}
+
+export function resolveCors(req: Request): {
+  allow: boolean;
+  headers: Record<string, string>;
+} {
+  const origin = req.headers.get("Origin");
+  if (!origin) {
+    return { allow: false, headers: { Vary: "Origin" } };
+  }
+  const allowed = getAllowedOrigins();
+  if (allowed.has(origin)) {
+    return {
+      allow: true,
+      headers: { ...BASE_HEADERS, "Access-Control-Allow-Origin": origin },
+    };
+  }
+  return { allow: false, headers: { Vary: "Origin" } };
+}
+
+export function corsPreflightResponse(req: Request): Response {
+  const { allow, headers } = resolveCors(req);
+  return new Response(null, { status: allow ? 204 : 403, headers });
 }
