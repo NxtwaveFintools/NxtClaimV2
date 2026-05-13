@@ -31,23 +31,35 @@ Deno.serve(async (req) => {
   const env = getBcEnv();
   const token = await getBcAccessToken();
 
-  // BC's OData contains() is case-sensitive, so we wrap both sides in
-  // tolower() to give Finance approvers an ergonomic, case-insensitive
-  // search. Also: BC rejects OR across distinct fields, so we issue two
-  // parallel queries (Name, No) and merge/dedupe.
-  const lower = parsed.data.query.toLowerCase();
-  const escaped = lower.replace(/'/g, "''");
+  // BC's `tolower()` is unreliable for `contains()` so we generate a small
+  // set of case variants of the user's query and OR them across the same
+  // field. BC allows OR within a single field but not across distinct
+  // fields, so Name and No still need separate parallel queries.
+  const q = parsed.data.query;
+  const variants = Array.from(
+    new Set([
+      q,
+      q.toLowerCase(),
+      q.toUpperCase(),
+      q.charAt(0).toUpperCase() + q.slice(1).toLowerCase(),
+    ]),
+  ).map((v) => v.replace(/'/g, "''"));
+
+  const nameFilter = variants.map((v) => `contains(Name,'${v}')`).join(" or ");
+  // No (Code field) is always uppercase in BC, so only the uppercase variant matters.
+  const noFilter = `contains(No,'${q.toUpperCase().replace(/'/g, "''")}')`;
+
   const baseUrl =
     `https://api.businesscentral.dynamics.com/v2.0/${env.tenantId}/${env.environment}` +
     `/ODataV4/Company('${encodeURIComponent(env.companyName)}')/vendors`;
   const buildUrl = (filter: string) => `${baseUrl}?$filter=${encodeURIComponent(filter)}&$top=20`;
 
   const [byName, byNo] = await Promise.all([
-    fetch(buildUrl(`contains(tolower(Name),'${escaped}')`), {
+    fetch(buildUrl(nameFilter), {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
     }),
-    fetch(buildUrl(`contains(tolower(No),'${escaped}')`), {
+    fetch(buildUrl(noFilter), {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
     }),
