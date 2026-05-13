@@ -18,6 +18,10 @@ export async function postBcLineItems(lines: BcClaimLineItem[]): Promise<BcPostR
 
 async function postOne(line: BcClaimLineItem): Promise<BcPostResult> {
   const env = getBcEnv();
+  // BC's custom Alletec Claim API endpoint shape.
+  // Source: postman/sandbox/bc-claims-api.postman_collection.json (NxtClaim request).
+  // Note: this URL does NOT include {tenantId} in the path, unlike the BC vendor
+  // OData endpoint used by bc-vendor-search. Do not "unify" them.
   const url =
     `https://api.businesscentral.dynamics.com/v2.0/${env.environment}` +
     `/api/Alletec/Claim/v1.0/companies(${env.companyId})/Claims`;
