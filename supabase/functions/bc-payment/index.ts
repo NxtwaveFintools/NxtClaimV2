@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "zod";
 import { buildBcLineItems } from "./payloadBuilder.ts";
 import { postBcLineItems } from "./bcPaymentsClient.ts";
-import { CORS_HEADERS, corsPreflight } from "../_shared/cors.ts";
+import { corsPreflightResponse, resolveCors } from "../_shared/cors.ts";
 import type {
   BcClaimPayloadFromDb,
   BcPaymentError,
@@ -19,26 +19,30 @@ const InputSchema = z.object({
 });
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return corsPreflight();
-  if (req.method !== "POST") return errResp({ code: "INVALID_INPUT", issues: "method" }, 405);
+  if (req.method === "OPTIONS") return corsPreflightResponse(req);
+  const cors = resolveCors(req);
+
+  if (req.method !== "POST") {
+    return errResp(cors.headers, { code: "INVALID_INPUT", issues: "method" }, 405);
+  }
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return errResp({ code: "INVALID_INPUT", issues: "json" }, 400);
+    return errResp(cors.headers, { code: "INVALID_INPUT", issues: "json" }, 400);
   }
 
   const parsed = InputSchema.safeParse(body);
-  if (!parsed.success)
-    return errResp({ code: "INVALID_INPUT", issues: parsed.error.flatten() }, 400);
+  if (!parsed.success) {
+    return errResp(cors.headers, { code: "INVALID_INPUT", issues: parsed.error.flatten() }, 400);
+  }
 
   const { claimId, isVendorPayment, bcVendorId, bcVendorName, dryRun } = parsed.data;
 
-  // Use the caller's JWT for auth; service-role for all DB writes.
   const authHeader = req.headers.get("Authorization") ?? "";
   const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
-  if (!jwt) return errResp({ code: "UNAUTHORIZED" }, 401);
+  if (!jwt) return errResp(cors.headers, { code: "UNAUTHORIZED" }, 401);
 
   const serviceClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -46,9 +50,8 @@ Deno.serve(async (req) => {
   );
 
   // Step 0 — finance-approver auth gate.
-  // Pass the JWT explicitly; without it getUser() looks at a non-existent session.
   const { data: userData, error: userErr } = await serviceClient.auth.getUser(jwt);
-  if (userErr || !userData.user) return errResp({ code: "UNAUTHORIZED" }, 401);
+  if (userErr || !userData.user) return errResp(cors.headers, { code: "UNAUTHORIZED" }, 401);
   const actorUserId = userData.user.id;
 
   const { data: approverRow, error: approverErr } = await serviceClient
@@ -57,38 +60,42 @@ Deno.serve(async (req) => {
     .eq("user_id", actorUserId)
     .eq("is_active", true)
     .maybeSingle();
-  if (approverErr) return errResp({ code: "UNAUTHORIZED" }, 401);
-  if (!approverRow) return errResp({ code: "UNAUTHORIZED" }, 401);
+  if (approverErr) return errResp(cors.headers, { code: "UNAUTHORIZED" }, 401);
+  if (!approverRow) return errResp(cors.headers, { code: "UNAUTHORIZED" }, 401);
 
   // Step 3 — resolve payload + validate.
   const { data: payloadJson, error: payloadErr } = await serviceClient.rpc("get_bc_claim_payload", {
     p_claim_id: claimId,
   });
-  if (payloadErr) return errResp({ code: "INVALID_INPUT", issues: payloadErr.message }, 400);
+  if (payloadErr) {
+    return errResp(cors.headers, { code: "INVALID_INPUT", issues: payloadErr.message }, 400);
+  }
 
   const payload = payloadJson as Record<string, unknown>;
   if (typeof payload.error === "string") {
-    return mapDbError(payload);
+    return mapDbError(cors.headers, payload);
   }
   const dbPayload = payload as unknown as BcClaimPayloadFromDb;
 
-  if (dbPayload.bc_payments_flag) return errResp({ code: "ALREADY_SENT", claimId }, 409);
+  if (dbPayload.bc_payments_flag)
+    return errResp(cors.headers, { code: "ALREADY_SENT", claimId }, 409);
   if (isVendorPayment && (!bcVendorId || !bcVendorName))
-    return errResp({ code: "MISSING_VENDOR_SELECTION" }, 400);
-  if (!isVendorPayment && !dbPayload.bc_code)
+    return errResp(cors.headers, { code: "MISSING_VENDOR_SELECTION" }, 400);
+  if (!isVendorPayment && !dbPayload.bc_code) {
     return errResp(
+      cors.headers,
       { code: "MISSING_BC_CODE", expenseCategoryId: dbPayload.expense_category_id },
       400,
     );
+  }
 
   let lines;
   try {
     lines = buildBcLineItems(dbPayload, { isVendorPayment, bcVendorId, bcVendorName });
   } catch (e) {
-    return errResp({ code: "INVALID_INPUT", issues: (e as Error).message }, 400);
+    return errResp(cors.headers, { code: "INVALID_INPUT", issues: (e as Error).message }, 400);
   }
 
-  // Dry-run: stop here. No audit write, no BC call, no DB mutation.
   if (dryRun) {
     const result: BcPaymentDryRunResult = {
       ok: true,
@@ -99,7 +106,7 @@ Deno.serve(async (req) => {
     };
     return new Response(JSON.stringify(result), {
       status: 200,
-      headers: { ...CORS_HEADERS, "content-type": "application/json" },
+      headers: { ...cors.headers, "content-type": "application/json" },
     });
   }
 
@@ -109,8 +116,9 @@ Deno.serve(async (req) => {
     .insert({ claim_id: claimId, status: "PENDING", payload_json: lines })
     .select("id")
     .single();
-  if (auditErr || !auditRow)
-    return errResp({ code: "DB_UPDATE_FAILED", claimId, auditLogId: "" }, 500);
+  if (auditErr || !auditRow) {
+    return errResp(cors.headers, { code: "DB_UPDATE_FAILED", claimId, auditLogId: null }, 500);
+  }
   const auditLogId = auditRow.id as string;
 
   // Step 5 — call BC.
@@ -125,7 +133,11 @@ Deno.serve(async (req) => {
         resolved_at: new Date().toISOString(),
       })
       .eq("id", auditLogId);
-    return errResp({ code: "BC_API_ERROR", status: failure.status, body: failure.body }, 502);
+    return errResp(
+      cors.headers,
+      { code: "BC_API_ERROR", status: failure.status, body: failure.body },
+      502,
+    );
   }
 
   const bcResponses = bcResults.map((r) => (r.ok ? r.response : null));
@@ -144,35 +156,48 @@ Deno.serve(async (req) => {
   if (completeErr) {
     // Spec edge case 3: BC succeeded but DB update failed.
     // Leave audit row PENDING so monitoring detects it.
-    return errResp({ code: "DB_UPDATE_FAILED", claimId, auditLogId }, 500);
+    return errResp(cors.headers, { code: "DB_UPDATE_FAILED", claimId, auditLogId }, 500);
   }
 
   const success: BcPaymentSuccess = { ok: true, claimId, bcResponses, auditLogId };
   return new Response(JSON.stringify(success), {
     status: 200,
-    headers: { ...CORS_HEADERS, "content-type": "application/json" },
+    headers: { ...cors.headers, "content-type": "application/json" },
   });
 });
 
-function errResp(err: BcPaymentError, status: number): Response {
+function errResp(
+  corsHeaders: Record<string, string>,
+  err: BcPaymentError,
+  status: number,
+): Response {
   return new Response(JSON.stringify({ ok: false, error: err }), {
     status,
-    headers: { ...CORS_HEADERS, "content-type": "application/json" },
+    headers: { ...corsHeaders, "content-type": "application/json" },
   });
 }
 
-function mapDbError(p: Record<string, unknown>): Response {
+function mapDbError(corsHeaders: Record<string, string>, p: Record<string, unknown>): Response {
   const e = p.error as string;
   if (e === "CLAIM_NOT_FOUND")
-    return errResp({ code: "CLAIM_NOT_FOUND", claimId: String(p.claim_id) }, 404);
+    return errResp(corsHeaders, { code: "CLAIM_NOT_FOUND", claimId: String(p.claim_id) }, 404);
   if (e === "NOT_REIMBURSEMENT")
-    return errResp({ code: "NOT_REIMBURSEMENT", paymentMode: String(p.payment_mode) }, 400);
+    return errResp(
+      corsHeaders,
+      { code: "NOT_REIMBURSEMENT", paymentMode: String(p.payment_mode) },
+      400,
+    );
   if (e === "EXPENSE_DETAILS_MISSING")
-    return errResp({ code: "EXPENSE_DETAILS_MISSING", claimId: String(p.claim_id) }, 400);
+    return errResp(
+      corsHeaders,
+      { code: "EXPENSE_DETAILS_MISSING", claimId: String(p.claim_id) },
+      400,
+    );
   if (e === "MISSING_MAPPING")
     return errResp(
+      corsHeaders,
       { code: "MISSING_MAPPING", field: String(p.field), detail: JSON.stringify(p) },
       400,
     );
-  return errResp({ code: "INVALID_INPUT", issues: p }, 400);
+  return errResp(corsHeaders, { code: "INVALID_INPUT", issues: p }, 400);
 }
