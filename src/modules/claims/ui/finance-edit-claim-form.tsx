@@ -10,6 +10,7 @@ import { FormSelect } from "@/components/ui/form-select";
 import { FormTextarea } from "@/components/ui/form-textarea";
 import { SheetClose, useOptionalSheetContext } from "@/components/ui/sheet";
 import { LOCATION_TYPE_OPTIONS } from "@/core/constants/location-types";
+import { isAdvancePaymentModeName, isExpensePaymentModeName } from "@/core/constants/payment-modes";
 
 type DropdownOption = {
   id: string;
@@ -198,6 +199,11 @@ export function FinanceEditClaimForm({
   const isOpen = isEmbeddedPresentation ? true : isInlineOpen;
   const isDepartmentFieldLocked = isEditMode;
   const isPaymentModeFieldLocked = isEditMode && !canEditPaymentMode;
+  const filteredPaymentModes = paymentModes.filter((paymentMode) =>
+    claim.detailType === "expense"
+      ? isExpensePaymentModeName(paymentMode.name)
+      : isAdvancePaymentModeName(paymentMode.name),
+  );
   const groupedWrapperClassName =
     "bg-muted/30 border border-border/50 rounded-xl p-5 mb-6 space-y-4";
   const groupedTitleClassName =
@@ -466,6 +472,9 @@ export function FinanceEditClaimForm({
 
                 <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                   Payment Mode
+                  {isPaymentModeFieldLocked ? (
+                    <input type="hidden" name="paymentModeId" value={claim.paymentModeId} />
+                  ) : null}
                   <FormSelect
                     name="paymentModeId"
                     required
@@ -477,7 +486,7 @@ export function FinanceEditClaimForm({
                         : "rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                     }
                   >
-                    {paymentModes.map((paymentMode) => (
+                    {filteredPaymentModes.map((paymentMode) => (
                       <option key={paymentMode.id} value={paymentMode.id}>
                         {paymentMode.name}
                       </option>
@@ -1170,12 +1179,14 @@ export function FinanceEditClaimForm({
               </>
             )}
 
-            {isOwnEdit ? (
+            {isOwnEdit || isFinanceEdit ? (
               <div className={groupedWrapperClassName}>
                 <h4 className={groupedTitleClassName}>Attachments</h4>
 
                 <label className="col-span-full grid gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-                  Replace Receipt File
+                  {claim.detailType === "expense"
+                    ? "Replace Receipt File"
+                    : "Replace Supporting Document"}
                   <span className="border-2 border-dashed border-border/60 rounded-lg p-6 flex flex-col items-center justify-center bg-muted/10">
                     <span className="mb-2 text-xs text-muted-foreground">
                       PDF, PNG, JPG, JPEG, WEBP

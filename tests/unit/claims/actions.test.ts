@@ -279,6 +279,7 @@ function createValidExpenseEditFormData(): FormData {
   formData.append("detailType", "expense");
   formData.append("detailId", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
   formData.append("editReason", "Test edit");
+  formData.append("paymentModeId", paymentModeId);
   formData.append("billNo", "BILL-NEW-1");
   formData.append("expenseCategoryId", "66666666-6666-4666-8666-666666666666");
   formData.append("productId", "77777777-7777-4777-8777-777777777777");
@@ -304,6 +305,7 @@ function createValidExpenseEditFormData(): FormData {
 function createValidOwnExpenseEditFormData(): FormData {
   const formData = createValidExpenseEditFormData();
   formData.delete("editReason");
+  formData.delete("paymentModeId");
   formData.delete("approvedAmount");
   return formData;
 }
@@ -311,7 +313,7 @@ function createValidOwnExpenseEditFormData(): FormData {
 describe("claims actions", () => {
   beforeEach(() => {
     jest.resetModules();
-    jest.clearAllMocks();
+    jest.resetAllMocks();
 
     mockGetCurrentUser.mockResolvedValue({
       user: { id: "11111111-1111-4111-8111-111111111111", email: "user@nxtwave.co.in" },
@@ -488,6 +490,7 @@ describe("claims actions", () => {
         status: "HOD approved - Awaiting finance approval",
         submittedBy: "11111111-1111-4111-8111-111111111111",
         assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
+        paymentModeId,
         expenseReceiptFilePath: "expenses/old_receipt.pdf",
         expenseBankStatementFilePath: "expenses/old_bank.pdf",
         advanceSupportingDocumentPath: null,
@@ -903,6 +906,7 @@ describe("claims actions", () => {
         status: "Submitted - Awaiting HOD approval",
         submittedBy: "11111111-1111-4111-8111-111111111111",
         assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
+        paymentModeId,
         expenseReceiptFilePath: "expenses/old_receipt.pdf",
         expenseBankStatementFilePath: "expenses/old_bank.pdf",
         advanceSupportingDocumentPath: null,
@@ -938,6 +942,7 @@ describe("claims actions", () => {
         status: "Submitted - Awaiting HOD approval",
         submittedBy: "11111111-1111-4111-8111-111111111111",
         assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
+        paymentModeId,
         expenseReceiptFilePath: "expenses/old_receipt.pdf",
         expenseBankStatementFilePath: "expenses/old_bank.pdf",
         advanceSupportingDocumentPath: null,
@@ -969,6 +974,7 @@ describe("claims actions", () => {
         status: "Submitted - Awaiting HOD approval",
         submittedBy: "11111111-1111-4111-8111-111111111111",
         assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
+        paymentModeId,
         expenseReceiptFilePath: "expenses/old_receipt.pdf",
         expenseBankStatementFilePath: "expenses/old_bank.pdf",
         advanceSupportingDocumentPath: null,
@@ -1007,6 +1013,7 @@ describe("claims actions", () => {
         status: "Submitted - Awaiting HOD approval",
         submittedBy: "11111111-1111-4111-8111-111111111111",
         assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
+        paymentModeId,
         expenseReceiptFilePath: "expenses/old_receipt.pdf",
         expenseBankStatementFilePath: "expenses/old_bank.pdf",
         advanceSupportingDocumentPath: null,
@@ -1043,6 +1050,7 @@ describe("claims actions", () => {
         status: "Submitted - Awaiting HOD approval",
         submittedBy: "11111111-1111-4111-8111-111111111111",
         assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
+        paymentModeId,
         expenseReceiptFilePath: "expenses/old_receipt.pdf",
         expenseBankStatementFilePath: "expenses/old_bank.pdf",
         advanceSupportingDocumentPath: null,
@@ -1076,7 +1084,7 @@ describe("claims actions", () => {
     expect(removeCalls).not.toContainEqual(["expenses/old_receipt.pdf"]);
   });
 
-  test("updateClaimByFinanceAction ignores replacement receipt uploads in finance flow", async () => {
+  test("updateClaimByFinanceAction uploads replacement receipt and deletes superseded file after DB success", async () => {
     const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
     const formData = createValidExpenseEditFormData();
     formData.append(
@@ -1090,11 +1098,18 @@ describe("claims actions", () => {
     });
 
     expect(result).toEqual({ ok: true, message: "Claim details updated." });
-    expect(mockStorageUpload).not.toHaveBeenCalled();
-    expect(mockStorageRemove).not.toHaveBeenCalled();
+    const forwardedPayload = mockUpdateByFinanceExecute.mock.calls[0]?.[0]?.payload;
+    expect(mockStorageUpload).toHaveBeenCalledTimes(1);
+    expect(forwardedPayload.receiptFilePath).toMatch(
+      /^expenses\/11111111-1111-4111-8111-111111111111\/11111111-1111-4111-8111-111111111111_receipt_v[a-z0-9]+\.pdf$/,
+    );
+    expect(mockStorageRemove).toHaveBeenCalledWith(["expenses/old_receipt.pdf"]);
+    expect(mockUpdateByFinanceExecute.mock.invocationCallOrder[0]).toBeLessThan(
+      mockStorageRemove.mock.invocationCallOrder[0],
+    );
   });
 
-  test("updateClaimByFinanceAction does not attempt receipt uploads in finance flow", async () => {
+  test("updateClaimByFinanceAction surfaces upload failures before DB mutation", async () => {
     mockStorageUpload.mockResolvedValueOnce({
       data: null,
       error: { message: "upload failed" },
@@ -1112,13 +1127,13 @@ describe("claims actions", () => {
       formData,
     });
 
-    expect(result).toEqual({ ok: true, message: "Claim details updated." });
-    expect(mockUpdateByFinanceExecute).toHaveBeenCalled();
-    expect(mockStorageUpload).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: false, message: "upload failed" });
+    expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
+    expect(mockStorageUpload).toHaveBeenCalledTimes(1);
     expect(mockStorageRemove).not.toHaveBeenCalled();
   });
 
-  test("updateClaimByFinanceAction returns DB errors without storage cleanup in finance flow", async () => {
+  test("updateClaimByFinanceAction cleans up new uploads when DB update fails", async () => {
     mockUpdateByFinanceExecute.mockResolvedValueOnce({
       ok: false,
       errorMessage: "DB failed",
@@ -1137,8 +1152,14 @@ describe("claims actions", () => {
     });
 
     expect(result).toEqual({ ok: false, message: "DB failed" });
-    expect(mockStorageUpload).not.toHaveBeenCalled();
-    expect(mockStorageRemove).not.toHaveBeenCalled();
+    expect(mockStorageUpload).toHaveBeenCalledTimes(1);
+    const removeCalls = mockStorageRemove.mock.calls.map((call) => call[0]);
+    expect(removeCalls).toContainEqual([
+      expect.stringMatching(
+        /^expenses\/11111111-1111-4111-8111-111111111111\/11111111-1111-4111-8111-111111111111_receipt_v[a-z0-9]+\.pdf$/,
+      ),
+    ]);
+    expect(removeCalls).not.toContainEqual(["expenses/old_receipt.pdf"]);
   });
 
   test("updateClaimByFinanceAction forwards finance-editable metadata while excluding locked amounts", async () => {
@@ -1159,7 +1180,7 @@ describe("claims actions", () => {
         detailType: "expense",
         detailId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
         editReason: "Test edit",
-        paymentModeId: null,
+        paymentModeId,
         billNo: "BILL-NEW-1",
         expenseCategoryId: "66666666-6666-4666-8666-666666666666",
         productId: "77777777-7777-4777-8777-777777777777",
@@ -1173,6 +1194,8 @@ describe("claims actions", () => {
         vendorName: "Vendor X",
         peopleInvolved: "Alice",
         remarks: "Updated remarks",
+        receiptFilePath: "expenses/old_receipt.pdf",
+        bankStatementFilePath: "expenses/old_bank.pdf",
         approvedAmount: 118,
       },
     });
@@ -1183,7 +1206,7 @@ describe("claims actions", () => {
     expect(forwardedPayload).not.toHaveProperty("sgstAmount");
     expect(forwardedPayload).not.toHaveProperty("igstAmount");
     expect(forwardedPayload).not.toHaveProperty("requestedTotalAmount");
-    expect(forwardedPayload).not.toHaveProperty("bankStatementFilePath");
+    expect(forwardedPayload.bankStatementFilePath).toBe("expenses/old_bank.pdf");
   });
 
   test("updateClaimByFinanceAction returns friendly message for duplicate active bill unique violation", async () => {
@@ -1225,6 +1248,7 @@ describe("claims actions", () => {
         status: "Submitted - Awaiting HOD approval",
         submittedBy: "11111111-1111-4111-8111-111111111111",
         assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
+        paymentModeId,
         expenseReceiptFilePath: "expenses/old_receipt.pdf",
         expenseBankStatementFilePath: "expenses/old_bank.pdf",
         advanceSupportingDocumentPath: null,
@@ -1300,6 +1324,7 @@ describe("claims actions", () => {
         status: "Submitted - Awaiting HOD approval",
         submittedBy: "11111111-1111-4111-8111-111111111111",
         assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
+        paymentModeId,
         expenseReceiptFilePath: "expenses/old_receipt.pdf",
         expenseBankStatementFilePath: "expenses/old_bank.pdf",
         advanceSupportingDocumentPath: null,
@@ -1321,7 +1346,7 @@ describe("claims actions", () => {
   test("updateClaimByFinanceAction allows finance-stage payment mode correction", async () => {
     const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
     const formData = createValidExpenseEditFormData();
-    formData.append("paymentModeId", "99999999-9999-4999-8999-999999999999");
+    formData.set("paymentModeId", "99999999-9999-4999-8999-999999999999");
 
     mockGetPaymentModeById.mockResolvedValueOnce({
       data: {
@@ -1359,6 +1384,7 @@ describe("claims actions", () => {
         status: "Submitted - Awaiting HOD approval",
         submittedBy: "11111111-1111-4111-8111-111111111111",
         assignedL1ApproverId: "33333333-3333-4333-8333-333333333333",
+        paymentModeId,
         expenseReceiptFilePath: "expenses/old_receipt.pdf",
         expenseBankStatementFilePath: "expenses/old_bank.pdf",
         advanceSupportingDocumentPath: null,
@@ -1368,7 +1394,7 @@ describe("claims actions", () => {
 
     const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
     const formData = createValidExpenseEditFormData();
-    formData.append("paymentModeId", "99999999-9999-4999-8999-999999999999");
+    formData.set("paymentModeId", "99999999-9999-4999-8999-999999999999");
 
     const result = await updateClaimByFinanceAction({
       claimId: "11111111-1111-4111-8111-111111111111",
@@ -1382,10 +1408,10 @@ describe("claims actions", () => {
     expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
   });
 
-  test("updateClaimByFinanceAction blocks corporate card payment mode correction", async () => {
+  test("updateClaimByFinanceAction allows corporate card payment mode correction for expense claims", async () => {
     const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
     const formData = createValidExpenseEditFormData();
-    formData.append("paymentModeId", "cccccccc-cccc-4ccc-8ccc-cccccccccccc");
+    formData.set("paymentModeId", "cccccccc-cccc-4ccc-8ccc-cccccccccccc");
 
     mockGetPaymentModeById.mockResolvedValueOnce({
       data: {
@@ -1401,11 +1427,14 @@ describe("claims actions", () => {
       formData,
     });
 
-    expect(result).toEqual({
-      ok: false,
-      message: "Corporate Card is not allowed for finance-stage payment mode correction.",
-    });
-    expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true, message: "Claim details updated." });
+    expect(mockUpdateByFinanceExecute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          paymentModeId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        }),
+      }),
+    );
   });
 
   test("updateClaimByFinanceAction rejects routing field mutation attempts", async () => {
