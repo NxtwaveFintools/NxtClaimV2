@@ -18,6 +18,8 @@ function createBaseRecord(overrides?: Partial<ClaimFullExportRecord>): ClaimFull
     departmentName: "Engineering",
     paymentModeId: "pm-1",
     paymentModeName: "Reimbursement",
+    bcPaymentsFlag: false,
+    isVendorPayment: false,
     assignedL1ApproverId: "l1-1",
     assignedL2ApproverId: "l2-1",
     submittedAt: "2026-03-24T10:00:00.000Z",
@@ -54,14 +56,14 @@ function createBaseRecord(overrides?: Partial<ClaimFullExportRecord>): ClaimFull
     expenseCgstAmount: 9,
     expenseSgstAmount: 9,
     expenseIgstAmount: 0,
-    expenseTotalAmount: 118,
+    requestedTotalAmount: 118,
+    approvedAmount: 110,
     expenseCurrencyCode: "INR",
     expenseVendorName: "Vendor A",
     expensePeopleInvolved: "Alice",
     expenseRemarks: "N/A",
     expenseReceiptFilePath: "expenses/user-1/receipt.pdf",
     expenseBankStatementFilePath: "expenses/user-1/bank.pdf",
-    advanceRequestedAmount: null,
     advanceBudgetMonth: null,
     advanceBudgetYear: null,
     advanceExpectedUsageDate: null,
@@ -155,6 +157,8 @@ describe("ExportClaimsService", () => {
     expect(row.hodApprovedDate).toBe("24 Mar 2026");
     expect(row.financeApprovedDate).toBe("N/A");
     expect(row.billDate).toBe("22 Mar 2026");
+    expect(row.requestedTotalAmount).toBe("118.00");
+    expect(row.approvedAmount).toBe("110.00");
 
     // URL fields must be raw signed URL strings — never =HYPERLINK(...) formulas
     expect(row.billUrl).toMatch(/^https:\/\//);
@@ -201,26 +205,28 @@ describe("ExportClaimsService", () => {
     expect(result.rows[0]?.submitterEmployeeId).toBe("SUBMITTER-001");
   });
 
-  it("EXPORT_HEADERS has 36 columns matching the ClaimExportRow field order", () => {
-    expect(EXPORT_HEADERS).toHaveLength(36);
+  it("EXPORT_HEADERS has 37 columns matching the ClaimExportRow field order", () => {
+    expect(EXPORT_HEADERS).toHaveLength(37);
     expect(EXPORT_HEADERS[0]).toBe("Claim ID");
     expect(EXPORT_HEADERS[1]).toBe("Employee ID");
     expect(EXPORT_HEADERS[2]).toBe("Beneficiary Employee ID");
     expect(EXPORT_HEADERS[3]).toBe("Submitter Employee ID");
     expect(EXPORT_HEADERS[9]).toBe("Submitter Email");
+    expect(EXPORT_HEADERS[23]).toBe("Requested Amount");
+    expect(EXPORT_HEADERS[24]).toBe("Approved Amount");
     expect(EXPORT_HEADERS).toContain("Location Type");
     expect(EXPORT_HEADERS).toContain("Location Details");
     expect(EXPORT_HEADERS).toContain("Beneficiary Employee ID");
     expect(EXPORT_HEADERS).toContain("Submitter Employee ID");
-    expect(EXPORT_HEADERS[29]).toBe("Location Details");
-    expect(EXPORT_HEADERS[30]).toBe("Bank Statement URL");
-    expect(EXPORT_HEADERS[31]).toBe("Bill URL");
-    expect(EXPORT_HEADERS[32]).toBe("Petty Cash Photo URL");
-    expect(EXPORT_HEADERS[35]).toBe("Transaction Remarks");
+    expect(EXPORT_HEADERS[30]).toBe("Location Details");
+    expect(EXPORT_HEADERS[31]).toBe("Bank Statement URL");
+    expect(EXPORT_HEADERS[32]).toBe("Bill URL");
+    expect(EXPORT_HEADERS[33]).toBe("Petty Cash Photo URL");
+    expect(EXPORT_HEADERS[36]).toBe("Transaction Remarks");
     expect(EXPORT_HEADERS).not.toContain("HOD Status");
     expect(EXPORT_HEADERS).not.toContain("Finance Status");
     expect(EXPORT_HEADERS).not.toContain("Bill Status");
-    expect(EXPORT_HEADERS).not.toContain("Approved Amount");
+    expect(EXPORT_HEADERS).not.toContain("Total Amount");
     expect(EXPORT_HEADERS).not.toContain("Transaction Count");
     expect(EXPORT_HEADERS).not.toContain("Currency");
   });

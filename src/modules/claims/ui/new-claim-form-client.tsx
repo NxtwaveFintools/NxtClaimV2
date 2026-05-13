@@ -72,7 +72,7 @@ export type ClaimFormDraftValues = {
     remarks: string | null;
   };
   advance: {
-    requestedAmount: number;
+    requestedTotalAmount: number;
     budgetMonth: number;
     budgetYear: number;
     expectedUsageDate: string | null;
@@ -399,7 +399,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
         remarks: null,
       },
       advance: {
-        requestedAmount: 0,
+        requestedTotalAmount: 0,
         budgetMonth: new Date().getMonth() + 1,
         budgetYear: new Date().getFullYear(),
         expectedUsageDate: "",
@@ -692,7 +692,11 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
         formData.append("bankStatementFile", bankStatementFile);
       }
     } else {
-      appendFormDataValue(formData, "advance.requestedAmount", values.advance.requestedAmount);
+      appendFormDataValue(
+        formData,
+        "advance.requestedTotalAmount",
+        values.advance.requestedTotalAmount,
+      );
       appendFormDataValue(formData, "advance.budgetMonth", values.advance.budgetMonth);
       appendFormDataValue(formData, "advance.budgetYear", values.advance.budgetYear);
       appendFormDataValue(formData, "advance.expectedUsageDate", values.advance.expectedUsageDate);
@@ -1746,19 +1750,19 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="grid gap-1">
                   <label
-                    htmlFor="requestedAmount"
+                    htmlFor="requestedTotalAmount"
                     className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
                   >
                     Requested Amount (₹) <span className="text-rose-600">*</span>
                   </label>
                   <CurrencyInput
-                    id="requestedAmount"
+                    id="requestedTotalAmount"
                     className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
-                    {...register("advance.requestedAmount", { valueAsNumber: true })}
+                    {...register("advance.requestedTotalAmount", { valueAsNumber: true })}
                   />
-                  {errors.advance?.requestedAmount ? (
+                  {errors.advance?.requestedTotalAmount ? (
                     <p className="text-xs text-rose-600">
-                      {errors.advance.requestedAmount.message}
+                      {errors.advance.requestedTotalAmount.message}
                     </p>
                   ) : null}
                 </div>

@@ -54,6 +54,41 @@ export type Database = {
         };
         Relationships: [];
       };
+      master_department_responsible_mappings: {
+        Row: {
+          beneficiary_department_code: string;
+          created_at: string;
+          department_id: string;
+          id: string;
+          is_active: boolean;
+          responsible_department_code: string;
+        };
+        Insert: {
+          beneficiary_department_code: string;
+          created_at?: string;
+          department_id: string;
+          id?: string;
+          is_active?: boolean;
+          responsible_department_code: string;
+        };
+        Update: {
+          beneficiary_department_code?: string;
+          created_at?: string;
+          department_id?: string;
+          id?: string;
+          is_active?: boolean;
+          responsible_department_code?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "master_department_responsible_mappings_department_id_fkey";
+            columns: ["department_id"];
+            isOneToOne: false;
+            referencedRelation: "master_departments";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       users: {
         Row: {
           created_at: string;

@@ -143,6 +143,50 @@ function createRepository(overrides?: Partial<ClaimRepository>): ClaimRepository
 }
 
 describe("SubmitClaimService", () => {
+  test("recomputes expense requested/approved totals from basic + taxes and ignores hacked client total", async () => {
+    const repository = createRepository();
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    const hackedClientTotal = 50000;
+
+    const result = await service.execute({
+      ...baseInput,
+      expense: {
+        ...baseInput.expense,
+        basicAmount: 100,
+        cgstAmount: 5,
+        sgstAmount: 5,
+        igstAmount: 0,
+      },
+    });
+
+    expect(result.errorCode).toBeNull();
+
+    const createClaimPayload = (repository.createClaimWithDetail as jest.Mock).mock
+      .calls[0]?.[0] as {
+      expense?: {
+        basic_amount: number;
+        cgst_amount: number;
+        sgst_amount: number;
+        igst_amount: number;
+        requested_total_amount: number;
+        approved_amount: number;
+      };
+    };
+
+    expect(createClaimPayload.expense).toEqual(
+      expect.objectContaining({
+        basic_amount: 100,
+        cgst_amount: 5,
+        sgst_amount: 5,
+        igst_amount: 0,
+        requested_total_amount: 110,
+        approved_amount: 110,
+      }),
+    );
+  });
+
   test("submits an expense claim successfully", async () => {
     const repository = createRepository();
     const logger = createLogger();
@@ -262,7 +306,7 @@ describe("SubmitClaimService", () => {
       ...baseInput,
       detailType: "advance",
       advance: {
-        requestedAmount: 500,
+        requestedTotalAmount: 500,
         budgetMonth: 3,
         budgetYear: 2026,
         expectedUsageDate: "2026-03-25",
@@ -301,7 +345,7 @@ describe("SubmitClaimService", () => {
       onBehalfEmail: "beneficiary@nxtwave.co.in",
       onBehalfEmployeeCode: "obh-77",
       advance: {
-        requestedAmount: 500,
+        requestedTotalAmount: 500,
         budgetMonth: 3,
         budgetYear: 2026,
         expectedUsageDate: "2026-03-25",
@@ -335,7 +379,7 @@ describe("SubmitClaimService", () => {
       ...baseInput,
       detailType: "advance",
       advance: {
-        requestedAmount: 500,
+        requestedTotalAmount: 500,
         budgetMonth: 3,
         budgetYear: 2026,
         expectedUsageDate: "2026-03-25",

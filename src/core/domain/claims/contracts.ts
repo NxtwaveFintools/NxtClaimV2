@@ -69,7 +69,7 @@ export type ClaimSubmissionInput = {
     aiMetadata?: ClaimExpenseAiMetadata | null;
   };
   advance?: {
-    requestedAmount: number;
+    requestedTotalAmount: number;
     budgetMonth: number;
     budgetYear: number;
     expectedUsageDate: string | null;
@@ -115,6 +115,8 @@ export type PreparedClaimSubmission = {
     igstAmount: number;
     transactionDate: string;
     basicAmount: number;
+    requestedTotalAmount: number;
+    approvedAmount: number;
     currencyCode: string;
     vendorName: string | null;
     receiptFilePath: string | null;
@@ -125,7 +127,8 @@ export type PreparedClaimSubmission = {
   };
   advance?: {
     claimId: string;
-    requestedAmount: number;
+    requestedTotalAmount: number;
+    approvedAmount: number;
     budgetMonth: number;
     budgetYear: number;
     expectedUsageDate: string | null;
@@ -142,6 +145,40 @@ export type FinanceExpenseEditPayload = {
   detailId: string;
   editReason: string;
   paymentModeId?: string | null;
+  billNo?: string;
+  expenseCategoryId?: string;
+  productId?: string | null;
+  locationId?: string;
+  locationType?: string | null;
+  locationDetails?: string | null;
+  transactionDate?: string;
+  purpose?: string;
+  isGstApplicable?: boolean;
+  gstNumber?: string | null;
+  vendorName?: string | null;
+  peopleInvolved?: string | null;
+  remarks?: string | null;
+  approvedAmount: number;
+};
+
+export type FinanceAdvanceEditPayload = {
+  detailType: "advance";
+  detailId: string;
+  editReason: string;
+  paymentModeId?: string | null;
+  purpose?: string;
+  expectedUsageDate?: string;
+  productId?: string | null;
+  locationId?: string | null;
+  remarks?: string | null;
+  approvedAmount: number;
+};
+
+export type FinanceClaimEditPayload = FinanceExpenseEditPayload | FinanceAdvanceEditPayload;
+
+export type OwnExpenseEditPayload = {
+  detailType: "expense";
+  detailId: string;
   billNo: string;
   expenseCategoryId: string;
   locationId: string;
@@ -153,7 +190,8 @@ export type FinanceExpenseEditPayload = {
   cgstAmount: number;
   sgstAmount: number;
   igstAmount: number;
-  totalAmount: number;
+  requestedTotalAmount: number;
+  approvedAmount: number;
   purpose: string;
   productId: string | null;
   peopleInvolved: string | null;
@@ -162,25 +200,18 @@ export type FinanceExpenseEditPayload = {
   bankStatementFilePath: string | null;
 };
 
-export type FinanceAdvanceEditPayload = {
+export type OwnAdvanceEditPayload = {
   detailType: "advance";
   detailId: string;
-  editReason: string;
-  paymentModeId?: string | null;
   purpose: string;
-  requestedAmount: number;
+  requestedTotalAmount: number;
+  approvedAmount: number;
   expectedUsageDate: string;
   productId: string | null;
   locationId: string | null;
   remarks: string | null;
   supportingDocumentPath: string | null;
 };
-
-export type FinanceClaimEditPayload = FinanceExpenseEditPayload | FinanceAdvanceEditPayload;
-
-export type OwnExpenseEditPayload = Omit<FinanceExpenseEditPayload, "editReason" | "paymentModeId">;
-
-export type OwnAdvanceEditPayload = Omit<FinanceAdvanceEditPayload, "editReason" | "paymentModeId">;
 
 export type OwnClaimEditPayload = OwnExpenseEditPayload | OwnAdvanceEditPayload;
 
@@ -241,6 +272,8 @@ export type ClaimExportRecord = {
   submittedOn: string;
   hodActionDate: string | null;
   financeActionDate: string | null;
+  bcPaymentsFlag: boolean;
+  isVendorPayment: boolean;
 };
 
 export type ClaimFullExportRecord = {
@@ -258,6 +291,8 @@ export type ClaimFullExportRecord = {
   departmentName: string | null;
   paymentModeId: string;
   paymentModeName: string | null;
+  bcPaymentsFlag: boolean;
+  isVendorPayment: boolean;
   assignedL1ApproverId: string;
   assignedL2ApproverId: string | null;
   submittedAt: string;
@@ -294,14 +329,14 @@ export type ClaimFullExportRecord = {
   expenseCgstAmount: number | null;
   expenseSgstAmount: number | null;
   expenseIgstAmount: number | null;
-  expenseTotalAmount: number | null;
+  requestedTotalAmount: number | null;
+  approvedAmount: number | null;
   expenseCurrencyCode: string | null;
   expenseVendorName: string | null;
   expensePeopleInvolved: string | null;
   expenseRemarks: string | null;
   expenseReceiptFilePath: string | null;
   expenseBankStatementFilePath: string | null;
-  advanceRequestedAmount: number | null;
   advanceBudgetMonth: number | null;
   advanceBudgetYear: number | null;
   advanceExpectedUsageDate: string | null;
@@ -320,11 +355,13 @@ export type MyClaimRecord = {
   onBehalfEmail: string | null;
   departmentName: string | null;
   paymentModeName: string;
+  bcPaymentsFlag: boolean;
+  isVendorPayment: boolean;
   submissionType: ClaimSubmissionType;
   status: DbClaimStatus;
   submittedAt: string;
   expenseTotalAmount: number | null;
-  advanceRequestedAmount: number | null;
+  advanceRequestedTotalAmount: number | null;
 };
 
 export type MyClaimDTO = {
@@ -362,6 +399,8 @@ export type MyClaimListRecord = {
   submittedAt: string;
   hodActionDate: string | null;
   financeActionDate: string | null;
+  bcPaymentsFlag: boolean;
+  isVendorPayment: boolean;
   detailType: ClaimDetailType;
   submissionType: ClaimSubmissionType;
   onBehalfEmail?: string | null;
@@ -406,6 +445,8 @@ export type PendingApprovalListRecord = {
   paymentModeName: string;
   detailType: ClaimDetailType;
   submissionType: ClaimSubmissionType;
+  bcPaymentsFlag: boolean;
+  isVendorPayment: boolean;
   onBehalfEmail: string | null;
   onBehalfEmployeeCode?: string | null;
   purpose: string | null;
@@ -422,6 +463,8 @@ export type PendingApprovalListRecord = {
 export type ClaimListDetail = {
   detailType: ClaimDetailType;
   submissionType: ClaimSubmissionType;
+  bcPaymentsFlag: boolean;
+  isVendorPayment: boolean;
   onBehalfEmail: string | null;
   submitter: string;
   categoryName: string;
@@ -453,8 +496,7 @@ export type ClaimRepository = {
   existsExpenseByCompositeKey(input: {
     billNo: string;
     transactionDate: string;
-    basicAmount: number;
-    totalAmount: number;
+    requestedTotalAmount: number;
   }): Promise<{
     exists: boolean;
     errorMessage: string | null;
@@ -607,6 +649,8 @@ export type DepartmentViewerClaimRecord = {
   submittedOn: string;
   hodActionDate: string | null;
   financeActionDate: string | null;
+  bcPaymentsFlag: boolean;
+  isVendorPayment: boolean;
   detailType: "expense" | "advance";
   submissionType: "Self" | "On Behalf";
   departmentId: string | null;

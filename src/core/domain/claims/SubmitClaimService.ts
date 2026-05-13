@@ -40,6 +40,18 @@ function assertNonNegativeMoney(value: number, field: string): void {
   }
 }
 
+function calculateExpenseTotalAmount(input: {
+  basicAmount: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+}): number {
+  return (
+    Math.round((input.basicAmount + input.cgstAmount + input.sgstAmount + input.igstAmount) * 100) /
+    100
+  );
+}
+
 function validateExpenseIntegrity(input: ClaimSubmissionInput): void {
   if (!input.expense) {
     throw new ClaimIntegrityError("Data integrity failure: Missing expense payload");
@@ -56,7 +68,7 @@ function validateAdvanceIntegrity(input: ClaimSubmissionInput): void {
     throw new ClaimIntegrityError("Data integrity failure: Missing advance payload");
   }
 
-  assertNonNegativeMoney(input.advance.requestedAmount, "advance.requested_amount");
+  assertNonNegativeMoney(input.advance.requestedTotalAmount, "advance.requested_total_amount");
 }
 
 function normalizeModeName(name: string): string {
@@ -223,6 +235,15 @@ export class SubmitClaimService {
         resolveClaimIdEmployeeSegment(input),
         paymentModeResult.data.name,
       );
+      const expenseRequestedTotalAmount =
+        input.detailType === "expense" && input.expense
+          ? calculateExpenseTotalAmount({
+              basicAmount: input.expense.basicAmount,
+              cgstAmount: input.expense.cgstAmount,
+              sgstAmount: input.expense.sgstAmount,
+              igstAmount: input.expense.igstAmount,
+            })
+          : null;
 
       return {
         preparedSubmission: {
@@ -261,6 +282,8 @@ export class SubmitClaimService {
                   igstAmount: input.expense.igstAmount,
                   transactionDate: input.expense.transactionDate,
                   basicAmount: input.expense.basicAmount,
+                  requestedTotalAmount: expenseRequestedTotalAmount ?? 0,
+                  approvedAmount: expenseRequestedTotalAmount ?? 0,
                   currencyCode: input.expense.currencyCode,
                   vendorName: input.expense.vendorName,
                   receiptFilePath: input.expense.receiptFilePath,
@@ -274,7 +297,8 @@ export class SubmitClaimService {
             input.detailType === "advance" && input.advance
               ? {
                   claimId,
-                  requestedAmount: input.advance.requestedAmount,
+                  requestedTotalAmount: input.advance.requestedTotalAmount,
+                  approvedAmount: input.advance.requestedTotalAmount,
                   budgetMonth: input.advance.budgetMonth,
                   budgetYear: input.advance.budgetYear,
                   expectedUsageDate: input.advance.expectedUsageDate,
@@ -390,6 +414,8 @@ export class SubmitClaimService {
         igst_amount: preparedSubmission.expense.igstAmount,
         transaction_date: preparedSubmission.expense.transactionDate,
         basic_amount: preparedSubmission.expense.basicAmount,
+        requested_total_amount: preparedSubmission.expense.requestedTotalAmount,
+        approved_amount: preparedSubmission.expense.approvedAmount,
         currency_code: preparedSubmission.expense.currencyCode,
         vendor_name: preparedSubmission.expense.vendorName,
         receipt_file_path: preparedSubmission.expense.receiptFilePath,
@@ -402,7 +428,8 @@ export class SubmitClaimService {
 
     if (preparedSubmission.advance) {
       payload.advance = {
-        requested_amount: preparedSubmission.advance.requestedAmount,
+        requested_total_amount: preparedSubmission.advance.requestedTotalAmount,
+        approved_amount: preparedSubmission.advance.approvedAmount,
         budget_month: preparedSubmission.advance.budgetMonth,
         budget_year: preparedSubmission.advance.budgetYear,
         expected_usage_date: preparedSubmission.advance.expectedUsageDate,
