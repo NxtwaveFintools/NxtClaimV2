@@ -630,6 +630,12 @@ Show in dropdown as: `{Name} ({No})`. Example: `ABC Software Pvt Ltd (VEN/000899
 
 **Important**: The Vendor API URL structure is different from the Payments API URL — it uses `{BC_TENANT_ID}` in the path and `ODataV4/Company('{BC_COMPANY_NAME}')`, not the custom Alletec API path. Use the correct URL for each.
 
+#### Known limitation: case-variants workaround
+
+BC's `contains(tolower(Name), 'x')` returned 0 rows for partial substring search in our testing — likely because the underlying SQL collation isn't applied the way OData's `tolower()` docs imply. As a workaround, `bc-vendor-search` generates a small set of case variants of the user's query (as-typed, lowercase, uppercase, capitalize-first) and OR-s them across the `Name` field; BC accepts OR within the same field but not across distinct fields. The `No` field (Code type) is always uppercase in BC, so only the uppercase variant is sent for it.
+
+This misses unusual case combinations like `'PvT lTd'`. A more robust fix would use BC's auto-uppercased `Search Name` field once the vendor entity's OData `$metadata` is confirmed to expose it. Tracked as a follow-up in the BC integration roadmap.
+
 ---
 
 ## Edge Cases & Data Integrity Scenarios
