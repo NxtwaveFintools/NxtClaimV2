@@ -31,21 +31,23 @@ Deno.serve(async (req) => {
   const env = getBcEnv();
   const token = await getBcAccessToken();
 
-  // OData $filter escapes single quotes by doubling them.
-  // BC rejects `contains(No,...) or contains(Name,...)` ("OR on distinct
-  // fields not supported"), so we issue two parallel queries and merge.
-  const escaped = parsed.data.query.replace(/'/g, "''");
+  // BC's OData contains() is case-sensitive, so we wrap both sides in
+  // tolower() to give Finance approvers an ergonomic, case-insensitive
+  // search. Also: BC rejects OR across distinct fields, so we issue two
+  // parallel queries (Name, No) and merge/dedupe.
+  const lower = parsed.data.query.toLowerCase();
+  const escaped = lower.replace(/'/g, "''");
   const baseUrl =
     `https://api.businesscentral.dynamics.com/v2.0/${env.tenantId}/${env.environment}` +
     `/ODataV4/Company('${encodeURIComponent(env.companyName)}')/vendors`;
   const buildUrl = (filter: string) => `${baseUrl}?$filter=${encodeURIComponent(filter)}&$top=20`;
 
   const [byName, byNo] = await Promise.all([
-    fetch(buildUrl(`contains(Name,'${escaped}')`), {
+    fetch(buildUrl(`contains(tolower(Name),'${escaped}')`), {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
     }),
-    fetch(buildUrl(`contains(No,'${escaped}')`), {
+    fetch(buildUrl(`contains(tolower(No),'${escaped}')`), {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
     }),

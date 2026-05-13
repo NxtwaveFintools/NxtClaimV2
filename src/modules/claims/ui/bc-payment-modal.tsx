@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -83,6 +84,7 @@ export function BcPaymentModal({ open, onOpenChange, claimId, onSuccess }: Props
       setError(formatError(error, data));
       return;
     }
+    toast.success("Sent to Business Central. Claim is now Finance Approved.");
     onSuccess();
     onOpenChange(false);
   }
