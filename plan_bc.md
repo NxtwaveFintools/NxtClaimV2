@@ -1,5 +1,13 @@
 # BC Payment Integration — Implementation Spec
 
+> **IMPORTANT — Read before implementing**
+> All SQL queries, TypeScript types, enums, payload examples, and logic flows in this document are **reference material only**. They describe the intended behaviour and relationships, not production-ready code. Before implementing any piece:
+>
+> - Verify column names, table names, and constraints against the actual migration files in `supabase/migrations/`.
+> - Validate field names and API behaviour against the Postman collections in `postman/sandbox/`.
+> - Choose the query pattern (Supabase client, DB function, RPC, etc.) that fits the project's existing conventions — do not copy-paste reference queries verbatim.
+> - If anything conflicts between this spec and the actual codebase, **ask before assuming**.
+
 ## Feature Name
 
 `bcPaymentIntegration`
