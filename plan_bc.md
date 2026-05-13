@@ -23,14 +23,26 @@ For any UI work (modal, vendor search, bulk approval screen), use the `frontend-
 
 ### Already created: `bc_claim_vendors`
 
-This table exists. Schema for reference (do NOT re-create):
+This table exists via migration `20260513100000_create_bc_claim_vendors.sql`. Do NOT re-create it.
+
+**Required fix (add via new migration)**: The original migration created `bc_vendor_id` and `bc_vendor_name` as `NOT NULL`, but non-vendor payments have no vendor — NULL is the correct value here, not an empty string. Add a migration to drop the NOT NULL constraint:
+
+```sql
+ALTER TABLE public.bc_claim_vendors
+  ALTER COLUMN bc_vendor_id   DROP NOT NULL,
+  ALTER COLUMN bc_vendor_name DROP NOT NULL;
+```
+
+Final schema after the fix:
 
 ```
 bc_claim_vendors
-  id             UUID PK DEFAULT gen_random_uuid()
-  claim_id       TEXT NOT NULL REFERENCES claims(id)
-  bc_vendor_id   TEXT (nullable)
-  bc_vendor_name TEXT (nullable)
+  id             UUID        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY
+  claim_id       TEXT        NOT NULL REFERENCES claims(id) ON DELETE CASCADE
+  bc_vendor_id   TEXT        NULL
+  bc_vendor_name TEXT        NULL
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 ```
 
 Insert one row per claim when BC payment is processed:
@@ -38,7 +50,7 @@ Insert one row per claim when BC payment is processed:
 - **Vendor payment**: `bc_vendor_id` = vendor's `No` from BC API, `bc_vendor_name` = vendor's `Name` from BC API.
 - **Non-vendor payment**: `bc_vendor_id` = NULL, `bc_vendor_name` = NULL.
 
-Always insert a row — even for non-vendor — so there is a complete record of every BC payment.
+Always insert a row — even for non-vendor — so there is a complete audit record of every BC payment. Query `WHERE bc_vendor_id IS NULL` to identify non-vendor payments.
 
 ### Already created: columns on `claims`
 
@@ -805,5 +817,6 @@ Every mapping lookup can return null (missing row in mapping table). Handle null
 ## Implementation Notes
 
 - If you have any doubt about a requirement in this spec, **ask before implementing**. Do not assume.
-- The SQL queries in the Field Mapping section are reference examples showing the lookup logic. Use the project's existing query pattern (ORM, Supabase client, or DB function) — do not inline raw SQL in application code.
+- **All SQL queries in this document are reference examples only.** They show the intended lookup logic and table relationships, not production-ready queries. During implementation: validate the actual column names and table structures against the live migrations, use the project's existing query pattern (Supabase client, DB function, or ORM), and choose the best approach for each lookup. Never copy-paste these queries blindly into production code without verifying against the current schema.
+- Similarly, the TypeScript types, enums, and Zod schemas in the Coding Standards section are starting-point examples. Adapt them to match the project's existing conventions and file structure.
 - Read `postman/sandbox/bc-claims-api.postman_collection.json` and `postman/sandbox/bc-vendor-api.postman_collection.json` before writing any API client code. They are the authoritative source for request format, URL structure, and auth flow. When the production collection arrives, it will be at `postman/production/` with the same file names — update `BC_ENVIRONMENT` and `BC_COMPANY_ID` env vars accordingly, no code changes needed.
