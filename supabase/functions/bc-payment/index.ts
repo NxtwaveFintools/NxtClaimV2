@@ -35,20 +35,19 @@ Deno.serve(async (req) => {
 
   const { claimId, isVendorPayment, bcVendorId, bcVendorName, dryRun } = parsed.data;
 
-  // Use the caller's JWT for SECURITY INVOKER lookups; service-role for writes.
+  // Use the caller's JWT for auth; service-role for all DB writes.
   const authHeader = req.headers.get("Authorization") ?? "";
-  const userClient = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: authHeader } } },
-  );
+  const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!jwt) return errResp({ code: "UNAUTHORIZED" }, 401);
+
   const serviceClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
   // Step 0 — finance-approver auth gate.
-  const { data: userData, error: userErr } = await userClient.auth.getUser();
+  // Pass the JWT explicitly; without it getUser() looks at a non-existent session.
+  const { data: userData, error: userErr } = await serviceClient.auth.getUser(jwt);
   if (userErr || !userData.user) return errResp({ code: "UNAUTHORIZED" }, 401);
   const actorUserId = userData.user.id;
 

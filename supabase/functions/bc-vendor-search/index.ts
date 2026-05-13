@@ -32,26 +32,42 @@ Deno.serve(async (req) => {
   const token = await getBcAccessToken();
 
   // OData $filter escapes single quotes by doubling them.
+  // BC rejects `contains(No,...) or contains(Name,...)` ("OR on distinct
+  // fields not supported"), so we issue two parallel queries and merge.
   const escaped = parsed.data.query.replace(/'/g, "''");
-  const filter = `contains(No,'${escaped}') or contains(Name,'${escaped}')`;
-  const url =
+  const baseUrl =
     `https://api.businesscentral.dynamics.com/v2.0/${env.tenantId}/${env.environment}` +
-    `/ODataV4/Company('${encodeURIComponent(env.companyName)}')/vendors` +
-    `?$filter=${encodeURIComponent(filter)}&$top=20`;
+    `/ODataV4/Company('${encodeURIComponent(env.companyName)}')/vendors`;
+  const buildUrl = (filter: string) => `${baseUrl}?$filter=${encodeURIComponent(filter)}&$top=20`;
 
-  const res = await fetch(url, {
-    method: "GET",
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const [byName, byNo] = await Promise.all([
+    fetch(buildUrl(`contains(Name,'${escaped}')`), {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+    fetch(buildUrl(`contains(No,'${escaped}')`), {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+  ]);
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    return json({ error: "BC_API_ERROR", status: res.status, body: text.slice(0, 500) }, 502);
+  for (const r of [byName, byNo]) {
+    if (!r.ok) {
+      const text = await r.text().catch(() => "");
+      return json({ error: "BC_API_ERROR", status: r.status, body: text.slice(0, 500) }, 502);
+    }
   }
 
-  const data = (await res.json()) as BcVendorResponse;
-  const vendors = (data.value ?? []).map((v) => ({ no: v.No, name: v.Name }));
-  return json({ vendors });
+  const [nameData, noData] = (await Promise.all([
+    byName.json(),
+    byNo.json(),
+  ])) as BcVendorResponse[];
+  const merged = new Map<string, { no: string; name: string }>();
+  for (const v of [...(nameData.value ?? []), ...(noData.value ?? [])]) {
+    if (!merged.has(v.No)) merged.set(v.No, { no: v.No, name: v.Name });
+    if (merged.size >= 20) break;
+  }
+  return json({ vendors: Array.from(merged.values()) });
 });
 
 function json(payload: unknown, status = 200): Response {
