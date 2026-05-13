@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { getBcAccessToken } from "../_shared/bcAuth.ts";
 import { getBcEnv } from "../_shared/bcEnv.ts";
+import { CORS_HEADERS, corsPreflight } from "../_shared/cors.ts";
 
 const InputSchema = z.object({
   query: z.string().trim().min(1).max(60),
@@ -10,6 +11,9 @@ type BcVendor = { No: string; Name: string };
 type BcVendorResponse = { value?: BcVendor[] };
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return corsPreflight();
+  }
   if (req.method !== "POST") {
     return json({ error: "METHOD_NOT_ALLOWED" }, 405);
   }
@@ -53,6 +57,6 @@ Deno.serve(async (req) => {
 function json(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: { "content-type": "application/json" },
+    headers: { ...CORS_HEADERS, "content-type": "application/json" },
   });
 }

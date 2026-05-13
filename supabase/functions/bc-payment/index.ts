@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "zod";
 import { buildBcLineItems } from "./payloadBuilder.ts";
 import { postBcLineItems } from "./bcPaymentsClient.ts";
+import { CORS_HEADERS, corsPreflight } from "../_shared/cors.ts";
 import type {
   BcClaimPayloadFromDb,
   BcPaymentError,
@@ -18,6 +19,7 @@ const InputSchema = z.object({
 });
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return corsPreflight();
   if (req.method !== "POST") return errResp({ code: "INVALID_INPUT", issues: "method" }, 405);
 
   let body: unknown;
@@ -98,7 +100,7 @@ Deno.serve(async (req) => {
     };
     return new Response(JSON.stringify(result), {
       status: 200,
-      headers: { "content-type": "application/json" },
+      headers: { ...CORS_HEADERS, "content-type": "application/json" },
     });
   }
 
@@ -149,14 +151,14 @@ Deno.serve(async (req) => {
   const success: BcPaymentSuccess = { ok: true, claimId, bcResponses, auditLogId };
   return new Response(JSON.stringify(success), {
     status: 200,
-    headers: { "content-type": "application/json" },
+    headers: { ...CORS_HEADERS, "content-type": "application/json" },
   });
 });
 
 function errResp(err: BcPaymentError, status: number): Response {
   return new Response(JSON.stringify({ ok: false, error: err }), {
     status,
-    headers: { "content-type": "application/json" },
+    headers: { ...CORS_HEADERS, "content-type": "application/json" },
   });
 }
 
