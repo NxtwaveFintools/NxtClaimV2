@@ -30,11 +30,35 @@ This set matches the `EXPENSE_PAYMENT_MODE_NAMES` constant already defined in `s
 - Bulk Finance Approve through BC. The current bulk path continues to call `approveFinanceAction` directly for every selected claim, regardless of mode. A separate plan will retrofit bulk.
 - New payment modes beyond the five listed. Adding more later requires another migration + a constant update; not free.
 
-## Verification of one key assumption
+## Pre-implementation audit (test Supabase project `pltbwxddxtsavygijcnl`, 2026-05-14)
 
-The current DB function `get_bc_claim_payload` reads `expense_details` (filtered by `is_active = true`) for `purpose`, `receipt_file_path`, `bank_statement_file_path`. The design assumes every expense mode populates `expense_details` the same way Reimbursement does.
+A full audit of the BC infrastructure was run before this design was finalised. **No new tables, enums, columns, indexes, triggers, or RLS policies are needed for this expansion.** Every required object is already in place from the original BC drop:
 
-Verified against the test Supabase project on 2026-05-14:
+**Enums** (all present):
+
+- `bc_account_type` — `Employee`, `Vendor`
+- `bc_bal_account_type` — `G/L Account`
+- `bc_employee_transaction_type` — `ADVANCE` (single-value, intentionally reused across all expense modes per the requirements call)
+- `bc_payment_audit_status` — `PENDING`, `SUCCESS`, `FAILED`
+
+**Tables**:
+
+- `bc_payment_audit_log` — `id`, `claim_id` (FK→`claims.id`, no cascade), `idempotency_key` (UUID UNIQUE), `status`, `payload_json`, `bc_response_json`, `error_message`, `created_at`, `resolved_at`. RLS enabled, no policies (service-role-only). Indexes on `(status, created_at)` and `(claim_id)`.
+- `bc_claim_vendors` — `id`, `claim_id` (FK→`claims.id`, ON DELETE CASCADE), `bc_vendor_id` (NULLABLE ✓), `bc_vendor_name` (NULLABLE ✓), `created_at`, `updated_at` with maintenance trigger. RLS enabled, 1 policy. Index on `claim_id`.
+- `claims` — `bc_payments_flag BOOLEAN NOT NULL DEFAULT false` and `is_vendor_payment BOOLEAN NOT NULL DEFAULT false` columns already present and exposed by `vw_admin_claims_dashboard` and `vw_enterprise_claims_dashboard`.
+
+**Functions**:
+
+- `get_bc_claim_payload(text) → jsonb` — `STABLE`, `SECURITY INVOKER`, `search_path = public`.
+- `complete_bc_payment(text, uuid, boolean, text, text, uuid, jsonb) → void` — volatile, `SECURITY INVOKER`, `search_path = public`. Inserts into `claim_audit_logs` with `action_type = 'L2_APPROVED'`; this is mode-agnostic, no change needed.
+
+**Cascading triggers**: `master_expense_categories.is_active` and `expense_category_bc_mappings.is_active` are kept in sync via two triggers (`sync_bc_mapping_active_from_category`, `sync_category_active_from_bc_mapping`). Already wired, no change needed.
+
+**Migrations on the canonical tracker** match the 5 `.sql` files on `bc_int`: `20260513150000`, `20260513151000`, `20260513152000`, `20260513153000`, `20260513154000`.
+
+### Assumption-1 verification — `expense_details` coverage
+
+The current `get_bc_claim_payload` reads from `expense_details` (filtered by `is_active = true`). Confirmed every expense mode populates this table:
 
 | Payment mode       | Claims | With `expense_details` | With ACTIVE `expense_details` |
 | ------------------ | -----: | ---------------------: | ----------------------------: |
@@ -45,7 +69,19 @@ Verified against the test Supabase project on 2026-05-14:
 | Forex              |      6 |               6 (100%) |                      6 (100%) |
 | Petty Cash Request |    128 |                  **0** |                         **0** |
 
-Conclusion: every expense mode uses `expense_details`. ADVANCE modes do not — they belong to a separate flow and must stay out, which matches the scope above.
+### Assumption-2 verification — `bc_code` mapping coverage
+
+The function joins `expense_category_bc_mappings` (NOT `master_expense_categories.bc_code` directly) for the BC account code. Confirmed full coverage for every active claim across all 5 in-scope modes:
+
+| Payment mode   | Active claims | With `bc_code` mapping | Missing |
+| -------------- | ------------: | ---------------------: | ------: |
+| Petty Cash     |          1944 |            1944 (100%) |       0 |
+| Reimbursement  |          1748 |            1748 (100%) |       0 |
+| Corporate Card |            64 |              64 (100%) |       0 |
+| Happay         |            15 |              15 (100%) |       0 |
+| Forex          |             6 |               6 (100%) |       0 |
+
+Conclusion: the expansion is safe to enable for all 5 modes today. No operational backlog of missing mappings, no schema gaps.
 
 ## Approach
 
@@ -189,7 +225,7 @@ No CORS, secret, or env-variable changes. No new env vars.
 
 ## Risks
 
-- **Risk**: a Corporate Card / Happay / Forex / Petty Cash claim is missing its `bc_code` mapping (the `master_expense_categories.bc_code` join), causing a `MISSING_MAPPING` response. Likelihood: medium for Corporate Card and Forex (small populations, mapping coverage unverified). Mitigation: this is the existing typed-error path; the modal already surfaces "Mapping missing — contact admin." Operations team configures the mapping; the failure mode is the same as today for Reimbursement.
+- **Risk**: a new-mode claim is missing its `bc_code` mapping in `expense_category_bc_mappings` (active row joined on `expense_category_id`), causing a `MISSING_MAPPING` response. Likelihood: low — Assumption-2 verification above shows 100% coverage across all 5 in-scope modes on the test DB today. Mitigation: this is the existing typed-error path; the modal already surfaces "Mapping missing — contact admin." Failure mode is identical to today's Reimbursement behaviour.
 - **Risk**: a non-Reimbursement claim has only inactive `expense_details` rows. Mitigation: existing typed error `EXPENSE_DETAILS_MISSING` already covers this; user retries after operations marks a row active.
 - **Risk**: the renamed error code surfaces somewhere we missed. Mitigation: a grep for `NOT_REIMBURSEMENT` across the repo is a one-step task in the plan.
 
