@@ -631,7 +631,36 @@ describe("SubmitClaimService", () => {
     expect(repository.createClaimWithDetail).toHaveBeenCalledWith(
       expect.objectContaining({
         on_behalf_of_id: beneficiaryFounderId,
-        assigned_l1_approver_id: departmentApprover1Id,
+        assigned_l1_approver_id: departmentApprover2Id,
+        initial_status: "Submitted - Awaiting HOD approval",
+      }),
+    );
+  });
+
+  test("Routes to approver_2 when anyone submits on behalf of approver_2", async () => {
+    const submitterId2 = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+    const repository = createRepository({
+      getActiveUserIdByEmail: jest.fn(async () => ({
+        data: departmentApprover2Id,
+        errorMessage: null,
+      })),
+    });
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    await service.execute({
+      ...baseInput,
+      submissionType: "On Behalf",
+      onBehalfEmail: "approver2@nxtwave.co.in",
+      onBehalfEmployeeCode: "EMP-APP2-300",
+      onBehalfOfId: departmentApprover2Id,
+      submittedBy: submitterId2,
+    });
+
+    expect(repository.createClaimWithDetail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        on_behalf_of_id: departmentApprover2Id,
+        assigned_l1_approver_id: departmentApprover2Id,
         initial_status: "Submitted - Awaiting HOD approval",
       }),
     );

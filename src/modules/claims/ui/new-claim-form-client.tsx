@@ -507,6 +507,13 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       : normalizedActualBeneficiaryEmail ===
         selectedDepartment.approver1.email.trim().toLowerCase());
 
+  const isBeneficiaryDepartmentApprover2 =
+    selectedDepartment !== null &&
+    (effectiveBeneficiaryId
+      ? effectiveBeneficiaryId === selectedDepartment.approver2.id
+      : normalizedActualBeneficiaryEmail ===
+        selectedDepartment.approver2.email.trim().toLowerCase());
+
   // Check if beneficiary is an HOD (approver1) in ANY department (including cross-department)
   const isBeneficiaryApprover1InAnyDept =
     submissionType === "On Behalf" &&
@@ -515,9 +522,11 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       (dept) => dept.approver1.email.trim().toLowerCase() === normalizedActualBeneficiaryEmail,
     );
 
-  // Escalate to approver 2 only if beneficiary is an HOD in any department
+  // Route to approver 2 if beneficiary is an HOD in any department OR if beneficiary is approver 2
   const shouldEscalateToApprover2 =
-    isBeneficiaryDepartmentApprover1 || isBeneficiaryApprover1InAnyDept;
+    isBeneficiaryDepartmentApprover1 ||
+    isBeneficiaryApprover1InAnyDept ||
+    isBeneficiaryDepartmentApprover2;
 
   const isNiatDepartment = selectedDepartment?.name === NIAT_OFFLINE_LEAD_GEN_DEPARTMENT;
 
