@@ -40,6 +40,7 @@ import { ClaimDecisionActionForm } from "@/modules/claims/ui/claim-decision-acti
 import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
 import { ClaimAuditTimeline } from "@/modules/claims/ui/claim-audit-timeline";
 import { CopyableDataCard as DataCard } from "../../../../../modules/claims/ui/copyable-data-card";
+import { AiAuditCaption } from "@/components/ui/ai-audit-caption";
 import { DeleteClaimButton } from "@/modules/claims/ui/delete-claim-button";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
@@ -368,6 +369,7 @@ async function FinanceEditClaimSection({
                     productId: claim.expense.productId,
                     peopleInvolved: claim.expense.peopleInvolved,
                     remarks: claim.expense.remarks,
+                    aiMetadata: claim.expense.aiMetadata,
                   }
                 : null,
               advance: claim.advance
@@ -764,6 +766,7 @@ async function ClaimDetailCore({
   const approvedAmountValue =
     claim.expense?.approvedAmount ?? claim.advance?.approvedAmount ?? requestedTotalAmountValue;
   const hasAmountVariance = amountsDiffer(requestedTotalAmountValue, approvedAmountValue);
+  const aiMetadata = canViewAsFinance ? (claim.expense?.aiMetadata ?? null) : null;
   const amountAdjustmentValue =
     requestedTotalAmountValue !== null && approvedAmountValue !== null
       ? requestedTotalAmountValue - approvedAmountValue
@@ -878,19 +881,24 @@ async function ClaimDetailCore({
                   <div className={microGridClassName}>
                     {claim.expense ? (
                       <>
-                        <DataCard
-                          label="Bill No"
-                          value={formatOptionalText(claim.expense.billNo, "-")}
-                          className="col-span-2 2xl:col-span-2"
-                        />
+                        <div className="col-span-2 2xl:col-span-2 flex flex-col gap-1">
+                          <DataCard
+                            label="Bill No"
+                            value={formatOptionalText(claim.expense.billNo, "-")}
+                          />
+                          <AiAuditCaption aiMetadata={aiMetadata} fieldKey="bill_no" />
+                        </div>
                         <DataCard
                           label="Product"
                           value={formatOptionalText(claim.expense.productName)}
                         />
-                        <DataCard
-                          label="Transaction Date"
-                          value={formatDate(claim.expense.transactionDate)}
-                        />
+                        <div className="flex flex-col gap-1">
+                          <DataCard
+                            label="Transaction Date"
+                            value={formatDate(claim.expense.transactionDate)}
+                          />
+                          <AiAuditCaption aiMetadata={aiMetadata} fieldKey="transaction_date" />
+                        </div>
                         <DataCard
                           label="Location"
                           value={formatOptionalText(claim.expense.locationName)}
@@ -908,10 +916,13 @@ async function ClaimDetailCore({
                             className="col-span-2 2xl:col-span-3"
                           />
                         ) : null}
-                        <DataCard
-                          label="Vendor"
-                          value={formatOptionalText(claim.expense.vendorName)}
-                        />
+                        <div className="flex flex-col gap-1">
+                          <DataCard
+                            label="Vendor"
+                            value={formatOptionalText(claim.expense.vendorName)}
+                          />
+                          <AiAuditCaption aiMetadata={aiMetadata} fieldKey="vendor_name" />
+                        </div>
                         {claim.expense.remarks ? (
                           <DataCard
                             label="Remarks"
@@ -1010,22 +1021,34 @@ async function ClaimDetailCore({
                   <div className={microGridClassName}>
                     {claim.expense ? (
                       <>
-                        <DataCard
-                          label="Basic Amount"
-                          value={formatAmountValue(claim.expense.basicAmount)}
-                        />
-                        <DataCard
-                          label="CGST Amount"
-                          value={formatAmountValue(claim.expense.cgstAmount)}
-                        />
-                        <DataCard
-                          label="SGST Amount"
-                          value={formatAmountValue(claim.expense.sgstAmount)}
-                        />
-                        <DataCard
-                          label="IGST Amount"
-                          value={formatAmountValue(claim.expense.igstAmount)}
-                        />
+                        <div className="flex flex-col gap-1">
+                          <DataCard
+                            label="Basic Amount"
+                            value={formatAmountValue(claim.expense.basicAmount)}
+                          />
+                          <AiAuditCaption aiMetadata={aiMetadata} fieldKey="basic_amount" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <DataCard
+                            label="CGST Amount"
+                            value={formatAmountValue(claim.expense.cgstAmount)}
+                          />
+                          <AiAuditCaption aiMetadata={aiMetadata} fieldKey="cgst_amount" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <DataCard
+                            label="SGST Amount"
+                            value={formatAmountValue(claim.expense.sgstAmount)}
+                          />
+                          <AiAuditCaption aiMetadata={aiMetadata} fieldKey="sgst_amount" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <DataCard
+                            label="IGST Amount"
+                            value={formatAmountValue(claim.expense.igstAmount)}
+                          />
+                          <AiAuditCaption aiMetadata={aiMetadata} fieldKey="igst_amount" />
+                        </div>
                         <DataCard
                           label="GST Applicable"
                           value={
@@ -1036,10 +1059,13 @@ async function ClaimDetailCore({
                                 : "No"
                           }
                         />
-                        <DataCard
-                          label="GST Number"
-                          value={formatOptionalText(claim.expense.gstNumber)}
-                        />
+                        <div className="flex flex-col gap-1">
+                          <DataCard
+                            label="GST Number"
+                            value={formatOptionalText(claim.expense.gstNumber)}
+                          />
+                          <AiAuditCaption aiMetadata={aiMetadata} fieldKey="gst_number" />
+                        </div>
                         <DataCard
                           label="Approved Amount"
                           value={formatAmountValue(claim.expense.approvedAmount)}

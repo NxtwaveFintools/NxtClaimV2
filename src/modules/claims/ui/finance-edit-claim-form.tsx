@@ -9,8 +9,10 @@ import { FormInput } from "@/components/ui/form-input";
 import { FormSelect } from "@/components/ui/form-select";
 import { FormTextarea } from "@/components/ui/form-textarea";
 import { SheetClose, useOptionalSheetContext } from "@/components/ui/sheet";
+import { AiAuditCaption } from "@/components/ui/ai-audit-caption";
 import { LOCATION_TYPE_OPTIONS } from "@/core/constants/location-types";
 import { isAdvancePaymentModeName, isExpensePaymentModeName } from "@/core/constants/payment-modes";
+import type { ClaimExpenseAiMetadata } from "@/core/domain/claims/contracts";
 
 type DropdownOption = {
   id: string;
@@ -67,6 +69,7 @@ type FinanceEditClaimFormProps = {
       productId: string | null;
       peopleInvolved: string | null;
       remarks: string | null;
+      aiMetadata?: ClaimExpenseAiMetadata | null;
     } | null;
     advance: {
       id: string;
@@ -189,6 +192,7 @@ export function FinanceEditClaimForm({
     toCurrencyInputValue(initialExpenseAmounts.totalAmount),
   );
   const expenseId = claim.expense?.id ?? null;
+  const aiMetadata = isFinanceEdit ? (claim.expense?.aiMetadata ?? null) : null;
   const expenseBasicAmount = claim.expense?.basicAmount ?? null;
   const expenseCgstAmount = claim.expense?.cgstAmount ?? null;
   const expenseSgstAmount = claim.expense?.sgstAmount ?? null;
@@ -552,6 +556,7 @@ export function FinanceEditClaimForm({
                           defaultValue={expense?.billNo ?? ""}
                           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                         />
+                        <AiAuditCaption aiMetadata={aiMetadata} fieldKey="bill_no" />
                       </label>
 
                       <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
@@ -580,6 +585,7 @@ export function FinanceEditClaimForm({
                           defaultValue={expense?.vendorName ?? ""}
                           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                         />
+                        <AiAuditCaption aiMetadata={aiMetadata} fieldKey="vendor_name" />
                       </label>
 
                       <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
@@ -634,6 +640,7 @@ export function FinanceEditClaimForm({
                           defaultValue={toDateInputValue(expense?.transactionDate)}
                           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                         />
+                        <AiAuditCaption aiMetadata={aiMetadata} fieldKey="transaction_date" />
                       </label>
 
                       <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
@@ -656,6 +663,7 @@ export function FinanceEditClaimForm({
                           defaultValue={expense?.gstNumber ?? ""}
                           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                         />
+                        <AiAuditCaption aiMetadata={aiMetadata} fieldKey="gst_number" />
                       </label>
                     </div>
                   </div>
@@ -670,6 +678,7 @@ export function FinanceEditClaimForm({
                           disabled
                           className={lockedFieldClassName}
                         />
+                        <AiAuditCaption aiMetadata={aiMetadata} fieldKey="basic_amount" />
                       </label>
 
                       <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
@@ -679,6 +688,7 @@ export function FinanceEditClaimForm({
                           disabled
                           className={lockedFieldClassName}
                         />
+                        <AiAuditCaption aiMetadata={aiMetadata} fieldKey="cgst_amount" />
                       </label>
 
                       <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
@@ -688,6 +698,7 @@ export function FinanceEditClaimForm({
                           disabled
                           className={lockedFieldClassName}
                         />
+                        <AiAuditCaption aiMetadata={aiMetadata} fieldKey="sgst_amount" />
                       </label>
 
                       <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
@@ -697,6 +708,7 @@ export function FinanceEditClaimForm({
                           disabled
                           className={lockedFieldClassName}
                         />
+                        <AiAuditCaption aiMetadata={aiMetadata} fieldKey="igst_amount" />
                       </label>
                     </div>
                   </div>
