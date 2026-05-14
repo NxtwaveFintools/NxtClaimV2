@@ -151,6 +151,7 @@ async function seedFinanceClaims(seedTag: string, financeEmail: string): Promise
     gst_number: null,
     transaction_date: transactionDate,
     basic_amount: 100 + index,
+    requested_total_amount: 100 + index,
     currency_code: "INR",
     vendor_name: "E2E Vendor",
     purpose: `CSV export seed ${index + 1}`,

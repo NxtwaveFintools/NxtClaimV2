@@ -144,7 +144,7 @@ export type FinanceExpenseEditPayload = {
   detailType: "expense";
   detailId: string;
   editReason: string;
-  paymentModeId?: string | null;
+  paymentModeId: string;
   billNo?: string;
   expenseCategoryId?: string;
   productId?: string | null;
@@ -158,6 +158,8 @@ export type FinanceExpenseEditPayload = {
   vendorName?: string | null;
   peopleInvolved?: string | null;
   remarks?: string | null;
+  receiptFilePath?: string;
+  bankStatementFilePath?: string;
   approvedAmount: number;
 };
 
@@ -165,12 +167,13 @@ export type FinanceAdvanceEditPayload = {
   detailType: "advance";
   detailId: string;
   editReason: string;
-  paymentModeId?: string | null;
+  paymentModeId: string;
   purpose?: string;
   expectedUsageDate?: string;
   productId?: string | null;
   locationId?: string | null;
   remarks?: string | null;
+  supportingDocumentPath?: string;
   approvedAmount: number;
 };
 
@@ -221,6 +224,7 @@ export type ClaimFinanceEditSnapshot = {
   status: DbClaimStatus;
   submittedBy: string;
   assignedL1ApproverId: string;
+  paymentModeId: string;
   expenseReceiptFilePath: string | null;
   expenseBankStatementFilePath: string | null;
   advanceSupportingDocumentPath: string | null;

@@ -6,6 +6,7 @@ describe("financeEditSchema", () => {
       detailType: "expense",
       detailId: "11111111-1111-4111-8111-111111111111",
       editReason: "Correcting receipt metadata",
+      paymentModeId: "22222222-2222-4222-8222-222222222222",
       billNo: "BILL-100",
       expenseCategoryId: "33333333-3333-4333-8333-333333333333",
       productId: "22222222-2222-4222-8222-222222222222",
@@ -19,6 +20,8 @@ describe("financeEditSchema", () => {
       purpose: "Client travel",
       peopleInvolved: null,
       remarks: null,
+      receiptFilePath: "expenses/user/new-receipt.pdf",
+      bankStatementFilePath: "expenses/user/new-bank.pdf",
       approvedAmount: 120,
     });
 
@@ -51,7 +54,7 @@ describe("financeEditSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  test("accepts optional paymentModeId for finance-stage edit payload", () => {
+  test("accepts required paymentModeId for finance-stage edit payload", () => {
     const result = financeEditSchema.safeParse({
       detailType: "expense",
       detailId: "11111111-1111-4111-8111-111111111111",
@@ -104,11 +107,13 @@ describe("financeEditSchema", () => {
       detailType: "advance",
       detailId: "22222222-2222-4222-8222-222222222222",
       editReason: "Fixing usage date after review",
+      paymentModeId: "33333333-3333-4333-8333-333333333333",
       purpose: "Conference travel advance",
       expectedUsageDate: "2026-04-05",
       productId: "33333333-3333-4333-8333-333333333333",
       locationId: "44444444-4444-4444-8444-444444444444",
       remarks: null,
+      supportingDocumentPath: "petty_cash_requests/user/supporting.pdf",
       approvedAmount: 500,
     });
 
@@ -120,6 +125,7 @@ describe("financeEditSchema", () => {
       detailType: "expense",
       detailId: "11111111-1111-4111-8111-111111111111",
       editReason: "Adjusting tax split after reconciliation",
+      paymentModeId: "22222222-2222-4222-8222-222222222222",
       billNo: "BILL-100",
       expenseCategoryId: "33333333-3333-4333-8333-333333333333",
       productId: null,
@@ -143,6 +149,7 @@ describe("financeEditSchema", () => {
     const result = financeEditSchema.safeParse({
       detailType: "advance",
       detailId: "22222222-2222-4222-8222-222222222222",
+      paymentModeId: "33333333-3333-4333-8333-333333333333",
       purpose: "Conference travel advance",
       expectedUsageDate: "2026-04-05",
       productId: null,
@@ -159,6 +166,31 @@ describe("financeEditSchema", () => {
       detailType: "expense",
       detailId: "11111111-1111-4111-8111-111111111111",
       editReason: "Fix",
+      paymentModeId: "22222222-2222-4222-8222-222222222222",
+      billNo: "BILL-100",
+      expenseCategoryId: "33333333-3333-4333-8333-333333333333",
+      productId: null,
+      locationId: "44444444-4444-4444-8444-444444444444",
+      locationType: null,
+      locationDetails: null,
+      transactionDate: "2026-03-14",
+      isGstApplicable: false,
+      gstNumber: null,
+      vendorName: null,
+      purpose: "Client travel",
+      peopleInvolved: null,
+      remarks: null,
+      approvedAmount: 120,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  test("rejects payloads when paymentModeId is missing", () => {
+    const result = financeEditSchema.safeParse({
+      detailType: "expense",
+      detailId: "11111111-1111-4111-8111-111111111111",
+      editReason: "Correcting receipt metadata",
       billNo: "BILL-100",
       expenseCategoryId: "33333333-3333-4333-8333-333333333333",
       productId: null,

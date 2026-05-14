@@ -518,7 +518,7 @@ test.describe("Delete Claim", () => {
       `/dashboard/my-claims?view=submissions&search_field=claim_id&search_query=${encodeURIComponent(firstClaim.claimId)}`,
       { waitUntil: "domcontentloaded" },
     );
-    await expect(page.getByRole("heading", { name: /my claims/i })).toBeVisible({ timeout: 20000 });
+    await expect(page.getByRole("heading", { name: /^claims$/i })).toBeVisible({ timeout: 20000 });
 
     const firstRow = page.locator("tbody tr", { hasText: firstClaim.claimId }).first();
     await expect(firstRow).toBeVisible({ timeout: 30000 });

@@ -1847,7 +1847,7 @@ test.describe("Claims Workflow Multi-Role E2E", () => {
       waitUntil: "domcontentloaded",
     });
 
-    await expect(submitterPage.getByRole("heading", { name: submitted.claimId })).toBeVisible({
+    await expect(submitterPage.getByText(`Audit & Review · ${submitted.claimId}`)).toBeVisible({
       timeout: 30000,
     });
 

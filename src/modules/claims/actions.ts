@@ -1075,7 +1075,10 @@ function buildFinanceEditPayload(formData: FormData): unknown {
   const detailType = getFormDataString(formData, "detailType");
   const detailId = getFormDataString(formData, "detailId");
   const editReason = getFormDataString(formData, "editReason");
-  const paymentModeId = getFormDataNullableString(formData, "paymentModeId");
+  const paymentModeId = getFormDataString(formData, "paymentModeId");
+  const receiptFilePath = getFormDataNullableString(formData, "receiptFilePath");
+  const bankStatementFilePath = getFormDataNullableString(formData, "bankStatementFilePath");
+  const supportingDocumentPath = getFormDataNullableString(formData, "supportingDocumentPath");
 
   if (detailType === "expense") {
     return {
@@ -1096,6 +1099,8 @@ function buildFinanceEditPayload(formData: FormData): unknown {
       vendorName: getFormDataNullableString(formData, "vendorName"),
       peopleInvolved: getFormDataNullableString(formData, "peopleInvolved"),
       remarks: getFormDataNullableString(formData, "remarks"),
+      ...(receiptFilePath ? { receiptFilePath } : {}),
+      ...(bankStatementFilePath ? { bankStatementFilePath } : {}),
       approvedAmount: getFormDataNumber(formData, "approvedAmount"),
     };
   }
@@ -1110,6 +1115,7 @@ function buildFinanceEditPayload(formData: FormData): unknown {
     productId: getFormDataNullableString(formData, "productId"),
     locationId: getFormDataNullableString(formData, "locationId"),
     remarks: getFormDataNullableString(formData, "remarks"),
+    ...(supportingDocumentPath ? { supportingDocumentPath } : {}),
     approvedAmount: getFormDataNumber(formData, "approvedAmount"),
   };
 }
@@ -1210,10 +1216,14 @@ export async function updateClaimByFinanceAction(input: {
   const canEditPaymentMode =
     claimSnapshotResult.data.status === DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS &&
     approvalContextResult.data.isFinance;
+  const submittedPaymentModeId = getFormDataNullableString(input.formData, "paymentModeId");
+  const isPaymentModeChangeRequested =
+    submittedPaymentModeId !== null &&
+    submittedPaymentModeId !== claimSnapshotResult.data.paymentModeId;
 
   if (
     hasRoutingFieldMutationAttempt(input.formData, {
-      allowPaymentModeMutation: canEditPaymentMode,
+      allowPaymentModeMutation: canEditPaymentMode || !isPaymentModeChangeRequested,
     })
   ) {
     return {
@@ -1253,7 +1263,7 @@ export async function updateClaimByFinanceAction(input: {
     };
   }
 
-  if (parseResult.data.paymentModeId) {
+  if (isPaymentModeChangeRequested) {
     if (!canEditPaymentMode) {
       return {
         ok: false,
@@ -1277,12 +1287,129 @@ export async function updateClaimByFinanceAction(input: {
       };
     }
 
-    if (isCorporateCardPaymentModeName(paymentModeResult.data.name)) {
+    const isCompatiblePaymentMode =
+      parseResult.data.detailType === "expense"
+        ? isExpensePaymentModeName(paymentModeResult.data.name)
+        : isAdvancePaymentModeName(paymentModeResult.data.name);
+
+    if (!isCompatiblePaymentMode) {
       return {
         ok: false,
-        message: "Corporate Card is not allowed for finance-stage payment mode correction.",
+        message: "Selected payment mode is incompatible with this claim type.",
       };
     }
+  }
+
+  let nextExpenseReceiptPath = claimSnapshotResult.data.expenseReceiptFilePath;
+  let nextExpenseBankStatementPath = claimSnapshotResult.data.expenseBankStatementFilePath;
+  let nextAdvanceDocumentPath = claimSnapshotResult.data.advanceSupportingDocumentPath;
+  const uploadedReplacementPaths: string[] = [];
+  const supersededPaths: string[] = [];
+  const receiptFileEntry = input.formData.get("receiptFile");
+  const receiptFile =
+    receiptFileEntry instanceof File && receiptFileEntry.size > 0 ? receiptFileEntry : null;
+  const bankStatementFileEntry = input.formData.get("bankStatementFile");
+  const bankStatementFile =
+    bankStatementFileEntry instanceof File && bankStatementFileEntry.size > 0
+      ? bankStatementFileEntry
+      : null;
+
+  if (receiptFile) {
+    const receiptSizeError = validateUploadFileSize(
+      receiptFile,
+      parseResult.data.detailType === "expense" ? "Receipt file" : "Supporting document file",
+    );
+
+    if (receiptSizeError) {
+      return {
+        ok: false,
+        message: receiptSizeError,
+      };
+    }
+
+    const fileBuffer = Buffer.from(await receiptFile.arrayBuffer());
+    const uploadResult = await uploadClaimFile({
+      folder: parseResult.data.detailType === "expense" ? "expenses" : "petty_cash_requests",
+      userId: claimSnapshotResult.data.submittedBy,
+      claimId: claimIdParse.data.claimId,
+      fileKind: parseResult.data.detailType === "expense" ? "receipt" : "supporting",
+      fileName: receiptFile.name,
+      fileType: receiptFile.type || "application/octet-stream",
+      fileBuffer,
+    });
+
+    if (uploadResult.errorMessage || !uploadResult.path) {
+      return {
+        ok: false,
+        message:
+          uploadResult.errorMessage ??
+          (parseResult.data.detailType === "expense"
+            ? "Failed to upload replacement receipt."
+            : "Failed to upload replacement supporting document."),
+      };
+    }
+
+    uploadedReplacementPaths.push(uploadResult.path);
+
+    const previousPath =
+      parseResult.data.detailType === "expense"
+        ? claimSnapshotResult.data.expenseReceiptFilePath
+        : claimSnapshotResult.data.advanceSupportingDocumentPath;
+
+    if (previousPath && previousPath !== uploadResult.path) {
+      supersededPaths.push(previousPath);
+    }
+
+    if (parseResult.data.detailType === "expense") {
+      nextExpenseReceiptPath = uploadResult.path;
+    } else {
+      nextAdvanceDocumentPath = uploadResult.path;
+    }
+  }
+
+  if (
+    parseResult.data.detailType === "expense" &&
+    bankStatementFile &&
+    bankStatementFile.size > 0
+  ) {
+    const bankStatementSizeError = validateUploadFileSize(bankStatementFile, "Bank statement file");
+
+    if (bankStatementSizeError) {
+      await removeClaimFiles(uploadedReplacementPaths);
+      return {
+        ok: false,
+        message: bankStatementSizeError,
+      };
+    }
+
+    const fileBuffer = Buffer.from(await bankStatementFile.arrayBuffer());
+    const uploadResult = await uploadClaimFile({
+      folder: "expenses",
+      userId: claimSnapshotResult.data.submittedBy,
+      claimId: claimIdParse.data.claimId,
+      fileKind: "bankstatement",
+      fileName: bankStatementFile.name,
+      fileType: bankStatementFile.type || "application/octet-stream",
+      fileBuffer,
+    });
+
+    if (uploadResult.errorMessage || !uploadResult.path) {
+      await removeClaimFiles(uploadedReplacementPaths);
+      return {
+        ok: false,
+        message: uploadResult.errorMessage ?? "Failed to upload replacement bank statement.",
+      };
+    }
+
+    uploadedReplacementPaths.push(uploadResult.path);
+
+    const previousBankStatementPath = claimSnapshotResult.data.expenseBankStatementFilePath;
+
+    if (previousBankStatementPath && previousBankStatementPath !== uploadResult.path) {
+      supersededPaths.push(previousBankStatementPath);
+    }
+
+    nextExpenseBankStatementPath = uploadResult.path;
   }
 
   const financeEditPayload: FinanceClaimEditPayload =
@@ -1291,7 +1418,7 @@ export async function updateClaimByFinanceAction(input: {
           detailType: "expense",
           detailId: parseResult.data.detailId,
           editReason: parseResult.data.editReason,
-          paymentModeId: parseResult.data.paymentModeId ?? null,
+          paymentModeId: parseResult.data.paymentModeId,
           billNo: parseResult.data.billNo,
           expenseCategoryId: parseResult.data.expenseCategoryId,
           productId: parseResult.data.productId,
@@ -1305,18 +1432,23 @@ export async function updateClaimByFinanceAction(input: {
           vendorName: parseResult.data.vendorName,
           peopleInvolved: parseResult.data.peopleInvolved,
           remarks: parseResult.data.remarks,
+          ...(nextExpenseReceiptPath ? { receiptFilePath: nextExpenseReceiptPath } : {}),
+          ...(nextExpenseBankStatementPath
+            ? { bankStatementFilePath: nextExpenseBankStatementPath }
+            : {}),
           approvedAmount: parseResult.data.approvedAmount,
         }
       : {
           detailType: "advance",
           detailId: parseResult.data.detailId,
           editReason: parseResult.data.editReason,
-          paymentModeId: parseResult.data.paymentModeId ?? null,
+          paymentModeId: parseResult.data.paymentModeId,
           purpose: parseResult.data.purpose,
           expectedUsageDate: parseResult.data.expectedUsageDate,
           productId: parseResult.data.productId,
           locationId: parseResult.data.locationId,
           remarks: parseResult.data.remarks,
+          ...(nextAdvanceDocumentPath ? { supportingDocumentPath: nextAdvanceDocumentPath } : {}),
           approvedAmount: parseResult.data.approvedAmount,
         };
 
@@ -1328,12 +1460,17 @@ export async function updateClaimByFinanceAction(input: {
     });
 
     if (!result.ok) {
+      await removeClaimFiles(uploadedReplacementPaths);
       return {
         ok: false,
         message: result.errorMessage ?? "Failed to update claim details.",
       };
     }
+
+    await removeClaimFiles(supersededPaths);
   } catch (error) {
+    await removeClaimFiles(uploadedReplacementPaths);
+
     if (isDuplicateExpenseBillUniqueViolation(error)) {
       return {
         ok: false,

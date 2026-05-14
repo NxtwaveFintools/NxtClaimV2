@@ -22,6 +22,7 @@ function getAdminSupabaseClient() {
 }
 
 let insertedViewerId: string | null = null;
+let submitterUserId: string | null = null;
 let assignedDepartmentName = "";
 
 async function gotoWithRetry(page: Page, url: string, attempts = 2): Promise<void> {
@@ -122,6 +123,8 @@ async function ensureSubmitterDepartmentViewerAccess() {
     throw new Error(submitterError?.message ?? `Submitter user not found: ${submitterEmail}`);
   }
 
+  submitterUserId = submitter.id;
+
   if (departmentError || !department?.id || !department?.name) {
     throw new Error(departmentError?.message ?? "No active department found.");
   }
@@ -141,21 +144,25 @@ async function ensureSubmitterDepartmentViewerAccess() {
     throw new Error(existingError.message);
   }
 
-  if (existingViewer?.id) {
-    return;
+  if (!existingViewer?.id) {
+    const { data: inserted, error: insertError } = await client
+      .from("department_viewers")
+      .insert({ user_id: submitter.id, department_id: department.id, is_active: true })
+      .select("id")
+      .single();
+
+    if (insertError || !inserted?.id) {
+      throw new Error(insertError?.message ?? "Failed to create department viewer access.");
+    }
+
+    insertedViewerId = inserted.id;
   }
 
-  const { data: inserted, error: insertError } = await client
-    .from("department_viewers")
-    .insert({ user_id: submitter.id, department_id: department.id, is_active: true })
-    .select("id")
-    .single();
-
-  if (insertError || !inserted?.id) {
-    throw new Error(insertError?.message ?? "Failed to create department viewer access.");
-  }
-
-  insertedViewerId = inserted.id;
+  // Always update app_metadata so isDepartmentViewer() fast-paths true, bypassing the
+  // unstable_cache that may have a stale false result from earlier test renders.
+  await client.auth.admin.updateUserById(submitter.id, {
+    app_metadata: { is_department_viewer: true },
+  });
 }
 
 test.describe("department viewer claims", () => {
@@ -167,12 +174,17 @@ test.describe("department viewer claims", () => {
   });
 
   test.afterAll(async () => {
-    if (!insertedViewerId) {
-      return;
+    const client = getAdminSupabaseClient();
+
+    if (insertedViewerId) {
+      await client.from("department_viewers").delete().eq("id", insertedViewerId);
     }
 
-    const client = getAdminSupabaseClient();
-    await client.from("department_viewers").delete().eq("id", insertedViewerId);
+    if (submitterUserId) {
+      await client.auth.admin.updateUserById(submitterUserId, {
+        app_metadata: { is_department_viewer: false },
+      });
+    }
   });
 
   test("shows Department Overview tab and renders assigned claims section", async ({ page }) => {

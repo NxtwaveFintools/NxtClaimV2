@@ -217,17 +217,32 @@ export class SubmitClaimService {
       const departmentApprover1Id = departmentApproversResult.data.approver1Id;
       const departmentApprover2Id = departmentApproversResult.data.approver2Id;
       const isBeneficiaryDepartmentApprover1 = actualBeneficiaryId === departmentApprover1Id;
-      const assignedL1ApproverId = isBeneficiaryDepartmentApprover1
-        ? departmentApprover2Id
-        : departmentApprover1Id;
+      const isBeneficiaryDepartmentApprover2 = actualBeneficiaryId === departmentApprover2Id;
+
+      // Check if beneficiary is a HOD (approver1) in any department (including cross-department)
+      let isBeneficiaryApprover1InAnyDept = isBeneficiaryDepartmentApprover1;
+      if (!isBeneficiaryApprover1InAnyDept && input.submissionType === "On Behalf") {
+        const approver1CheckResult =
+          await this.repository.isUserApprover1InAnyDepartment(actualBeneficiaryId);
+        if (!approver1CheckResult.errorMessage && approver1CheckResult.isApprover1) {
+          isBeneficiaryApprover1InAnyDept = true;
+        }
+      }
+
+      // Route to approver 2 if beneficiary is an HOD in any department OR if beneficiary is approver 2
+      const assignedL1ApproverId =
+        isBeneficiaryApprover1InAnyDept || isBeneficiaryDepartmentApprover2
+          ? departmentApprover2Id
+          : departmentApprover1Id;
 
       if (!assignedL1ApproverId) {
         return {
           preparedSubmission: null,
           errorCode: "DEPARTMENT_ROUTING_MISSING",
-          errorMessage: isBeneficiaryDepartmentApprover1
-            ? "Escalation approver (Founder) is not configured for this department."
-            : "Department approver routing is not configured.",
+          errorMessage:
+            isBeneficiaryApprover1InAnyDept || isBeneficiaryDepartmentApprover2
+              ? "Escalation approver (Founder) is not configured for this department."
+              : "Department approver routing is not configured.",
         };
       }
 
