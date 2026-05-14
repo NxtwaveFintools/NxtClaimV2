@@ -17,7 +17,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../../../compone
 import { ROUTES } from "@/core/config/route-registry";
 import {
   DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
-  DB_CLAIM_STATUSES,
   DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
   DB_REJECTED_STATUSES,
   DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
@@ -610,7 +609,7 @@ async function ClaimDetailCore({
   const isAssignedL2Approver = currentUserId === claim.assignedL2ApproverId;
   const isDepartmentViewerForClaim =
     claim.departmentId != null && viewerDeptIds.includes(claim.departmentId);
-  const canViewAsFinance = isFinanceActor && claim.status !== DB_CLAIM_STATUSES[0];
+  const canViewAsFinance = isFinanceActor;
   const canView =
     currentUserId === claim.submittedBy ||
     currentUserId === claim.onBehalfOfId ||
