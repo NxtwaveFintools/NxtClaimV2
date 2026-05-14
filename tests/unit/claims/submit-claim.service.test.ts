@@ -545,7 +545,7 @@ describe("SubmitClaimService", () => {
     );
   });
 
-  test("Routes to Dept B approver_2 when Dept A HOD submits on behalf of Dept B employee", async () => {
+  test("Routes to Dept B approver_1 when Dept A HOD submits on behalf of Dept B employee", async () => {
     const deptAHodId = "99999999-9999-9999-9999-999999999999";
     const deptBEmployeeId = "cccccccc-cccc-cccc-cccc-cccccccccccc";
     const repository = createRepository({
@@ -554,7 +554,7 @@ describe("SubmitClaimService", () => {
         errorMessage: null,
       })),
       isUserApprover1InAnyDepartment: jest.fn(async (userId: string) => ({
-        isApprover1: userId === deptAHodId || userId === departmentApprover1Id,
+        isApprover1: userId === departmentApprover1Id,
         errorMessage: null,
       })),
     });
@@ -573,7 +573,7 @@ describe("SubmitClaimService", () => {
     expect(repository.createClaimWithDetail).toHaveBeenCalledWith(
       expect.objectContaining({
         on_behalf_of_id: deptBEmployeeId,
-        assigned_l1_approver_id: departmentApprover2Id,
+        assigned_l1_approver_id: departmentApprover1Id,
         initial_status: "Submitted - Awaiting HOD approval",
       }),
     );

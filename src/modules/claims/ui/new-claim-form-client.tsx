@@ -515,17 +515,9 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       (dept) => dept.approver1.email.trim().toLowerCase() === normalizedActualBeneficiaryEmail,
     );
 
-  // Check if submitter (currentUser) is an HOD in a different department (cross-department submission)
-  const isSubmitterCrossDepartmentHod =
-    submissionType === "On Behalf" &&
-    currentUser.isGlobalApprover1 &&
-    selectedDepartment !== null &&
-    currentUser.id !== selectedDepartment.approver1.id;
-
+  // Escalate to approver 2 only if beneficiary is an HOD in any department
   const shouldEscalateToApprover2 =
-    isBeneficiaryDepartmentApprover1 ||
-    isBeneficiaryApprover1InAnyDept ||
-    isSubmitterCrossDepartmentHod;
+    isBeneficiaryDepartmentApprover1 || isBeneficiaryApprover1InAnyDept;
 
   const isNiatDepartment = selectedDepartment?.name === NIAT_OFFLINE_LEAD_GEN_DEPARTMENT;
 
