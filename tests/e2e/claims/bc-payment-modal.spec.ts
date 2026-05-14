@@ -11,7 +11,7 @@ async function gotoFinanceApprovableReimbursementClaim(page: Page) {
   await page.goto("/dashboard/claims?status=HOD+approved+-+Awaiting+finance+approval");
   const firstClaim = page.locator("table tbody tr").first();
   await firstClaim.locator("a").first().click();
-  await expect(page.getByRole("button", { name: /approve/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Approve" }).first()).toBeVisible();
 }
 
 async function mockBcPayment(page: Page, response: unknown, status = 200) {
@@ -62,7 +62,7 @@ test.describe("BC payment modal", () => {
       auditLogId: "audit-1",
     });
 
-    await page.getByRole("button", { name: /approve/i }).click();
+    await page.getByRole("button", { name: "Approve" }).first().click();
     await expect(page.getByText("Send to Business Central")).toBeVisible();
 
     await page.getByText("Non-Vendor Payment").click();
@@ -85,7 +85,7 @@ test.describe("BC payment modal", () => {
       auditLogId: "audit-2",
     });
 
-    await page.getByRole("button", { name: /approve/i }).click();
+    await page.getByRole("button", { name: "Approve" }).first().click();
     await page.getByText("Vendor Payment").click();
     await page.getByPlaceholder("Search vendor by name or ID").fill("test");
     await page.getByRole("button", { name: /Test Vendor One \(VEN\/0001\)/i }).click();
@@ -105,7 +105,7 @@ test.describe("BC payment modal", () => {
       502,
     );
 
-    await page.getByRole("button", { name: /approve/i }).click();
+    await page.getByRole("button", { name: "Approve" }).first().click();
     await page.getByText("Non-Vendor Payment").click();
     await page.getByRole("button", { name: "Confirm" }).click();
 
@@ -124,7 +124,7 @@ test.describe("BC payment modal", () => {
       409,
     );
 
-    await page.getByRole("button", { name: /approve/i }).click();
+    await page.getByRole("button", { name: "Approve" }).first().click();
     await page.getByText("Non-Vendor Payment").click();
     await page.getByRole("button", { name: "Confirm" }).click();
 
@@ -137,7 +137,7 @@ test.describe("BC payment modal", () => {
     await gotoFinanceApprovableReimbursementClaim(page);
     await mockBcVendorSearch(page, []);
 
-    await page.getByRole("button", { name: /approve/i }).click();
+    await page.getByRole("button", { name: "Approve" }).first().click();
     await page.getByText("Vendor Payment").click();
     await page.getByPlaceholder("Search vendor by name or ID").fill("nonexistent");
 
@@ -161,7 +161,7 @@ test.describe("BC payment modal", () => {
       });
     });
 
-    await page.getByRole("button", { name: /approve/i }).click();
+    await page.getByRole("button", { name: "Approve" }).first().click();
     await page.getByText("Non-Vendor Payment").click();
     await page.getByRole("button", { name: "Confirm" }).click();
     await expect(page.getByRole("button", { name: /Sending to BC/i })).toBeDisabled();
