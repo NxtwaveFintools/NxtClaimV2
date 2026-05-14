@@ -507,6 +507,26 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       : normalizedActualBeneficiaryEmail ===
         selectedDepartment.approver1.email.trim().toLowerCase());
 
+  // Check if beneficiary is an HOD (approver1) in ANY department (including cross-department)
+  const isBeneficiaryApprover1InAnyDept =
+    submissionType === "On Behalf" &&
+    normalizedActualBeneficiaryEmail.length > 0 &&
+    options.departmentRouting.some(
+      (dept) => dept.approver1.email.trim().toLowerCase() === normalizedActualBeneficiaryEmail,
+    );
+
+  // Check if submitter (currentUser) is an HOD in a different department (cross-department submission)
+  const isSubmitterCrossDepartmentHod =
+    submissionType === "On Behalf" &&
+    currentUser.isGlobalApprover1 &&
+    selectedDepartment !== null &&
+    currentUser.id !== selectedDepartment.approver1.id;
+
+  const shouldEscalateToApprover2 =
+    isBeneficiaryDepartmentApprover1 ||
+    isBeneficiaryApprover1InAnyDept ||
+    isSubmitterCrossDepartmentHod;
+
   const isNiatDepartment = selectedDepartment?.name === NIAT_OFFLINE_LEAD_GEN_DEPARTMENT;
 
   useEffect(() => {
@@ -525,11 +545,11 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   const displayApprover =
     selectedDepartment === null
       ? null
-      : isBeneficiaryDepartmentApprover1
+      : shouldEscalateToApprover2
         ? selectedDepartment.approver2
         : selectedDepartment.approver1;
 
-  const displayApproverLabel = isBeneficiaryDepartmentApprover1
+  const displayApproverLabel = shouldEscalateToApprover2
     ? "Level 1 Approver (Escalated to Approver 2)"
     : "Level 1 Approver";
 

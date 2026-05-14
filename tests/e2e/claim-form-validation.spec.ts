@@ -253,7 +253,7 @@ async function countExpenseFingerprintRecords(input: {
     .select("id", { count: "exact", head: true })
     .eq("bill_no", input.billNo)
     .eq("transaction_date", input.transactionDate)
-    .eq("total_amount", input.totalAmount)
+    .eq("requested_total_amount", input.totalAmount)
     .eq("is_active", true);
 
   if (error) {

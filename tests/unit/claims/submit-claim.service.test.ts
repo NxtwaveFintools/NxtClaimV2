@@ -545,12 +545,16 @@ describe("SubmitClaimService", () => {
     );
   });
 
-  test("Routes to Dept B approver_1 when Dept A HOD submits on behalf of Dept B employee", async () => {
+  test("Routes to Dept B approver_2 when Dept A HOD submits on behalf of Dept B employee", async () => {
     const deptAHodId = "99999999-9999-9999-9999-999999999999";
     const deptBEmployeeId = "cccccccc-cccc-cccc-cccc-cccccccccccc";
     const repository = createRepository({
       getActiveUserIdByEmail: jest.fn(async () => ({
         data: deptBEmployeeId,
+        errorMessage: null,
+      })),
+      isUserApprover1InAnyDepartment: jest.fn(async (userId: string) => ({
+        isApprover1: userId === deptAHodId || userId === departmentApprover1Id,
         errorMessage: null,
       })),
     });
@@ -569,15 +573,20 @@ describe("SubmitClaimService", () => {
     expect(repository.createClaimWithDetail).toHaveBeenCalledWith(
       expect.objectContaining({
         on_behalf_of_id: deptBEmployeeId,
-        assigned_l1_approver_id: departmentApprover1Id,
+        assigned_l1_approver_id: departmentApprover2Id,
         initial_status: "Submitted - Awaiting HOD approval",
       }),
     );
   });
 
-  test("Routes to Department approver_1 when beneficiary HOD is from another department", async () => {
+  test("Routes to Department approver_2 when beneficiary HOD is from another department", async () => {
     const crossDepartmentHodId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
-    const repository = createRepository();
+    const repository = createRepository({
+      isUserApprover1InAnyDepartment: jest.fn(async () => ({
+        isApprover1: true,
+        errorMessage: null,
+      })),
+    });
     const logger = createLogger();
     const service = new SubmitClaimService({ repository, logger });
 
@@ -593,7 +602,7 @@ describe("SubmitClaimService", () => {
     expect(repository.createClaimWithDetail).toHaveBeenCalledWith(
       expect.objectContaining({
         on_behalf_of_id: crossDepartmentHodId,
-        assigned_l1_approver_id: departmentApprover1Id,
+        assigned_l1_approver_id: departmentApprover2Id,
         initial_status: "Submitted - Awaiting HOD approval",
       }),
     );

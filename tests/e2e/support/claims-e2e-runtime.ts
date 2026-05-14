@@ -762,7 +762,7 @@ export async function openSubmissionsPage(page: Page, claimId?: string): Promise
 
   await gotoWithRetry(page, `/dashboard/my-claims?${params.toString()}`);
   await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
-  await expect(page.getByRole("heading", { name: /my claims/i })).toBeVisible({ timeout: 20000 });
+  await expect(page.getByRole("heading", { name: /^claims$/i })).toBeVisible({ timeout: 20000 });
 }
 
 export function claimRow(page: Page, claimId: string): Locator {

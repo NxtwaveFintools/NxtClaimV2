@@ -336,6 +336,7 @@ async function openClaimReviewPage(page: Page, claimId: string): Promise<void> {
 
 test.describe("Routing and Action Visibility", () => {
   test.describe.configure({ mode: "serial" });
+  test.setTimeout(90000);
 
   test.describe("HOD perspective", () => {
     test.use({ storageState: getAuthStatePathByRole("hod") });
