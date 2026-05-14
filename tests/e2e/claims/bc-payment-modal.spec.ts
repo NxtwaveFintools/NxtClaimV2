@@ -9,7 +9,9 @@ const BC_VENDOR_SEARCH_URL = /supabase\.co\/functions\/v1\/bc-vendor-search(\?|$
 // non-Reimbursement claims (e.g. Petty Cash Request) at the top of the list
 // don't cause the modal-open assertions to fail.
 async function gotoFinanceApprovableReimbursementClaim(page: Page) {
-  await page.goto("/dashboard/claims?status=HOD+approved+-+Awaiting+finance+approval");
+  await page.goto(
+    "/dashboard/my-claims?view=approvals&status=HOD+approved+-+Awaiting+finance+approval",
+  );
   const matchingRow = page.locator("table tbody tr").filter({ hasText: "Reimbursement" }).first();
   await matchingRow.getByRole("link", { name: /view/i }).click();
   await expect(page.getByRole("button", { name: "Approve" }).first()).toBeVisible();
@@ -40,7 +42,9 @@ async function mockBcVendorSearch(page: Page, vendors: { no: string; name: strin
 // clicks its View link. Returns false if no such claim exists in the DB
 // (caller should test.skip() in that case).
 async function gotoFinanceApprovablePettyCashRequestClaim(page: Page): Promise<boolean> {
-  await page.goto("/dashboard/claims?status=HOD+approved+-+Awaiting+finance+approval");
+  await page.goto(
+    "/dashboard/my-claims?view=approvals&status=HOD+approved+-+Awaiting+finance+approval",
+  );
   const matchingRow = page
     .locator("table tbody tr")
     .filter({ hasText: "Petty Cash Request" })
