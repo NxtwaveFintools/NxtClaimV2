@@ -41,6 +41,7 @@ import { newClaimSubmitSchema } from "@/modules/claims/validators/new-claim-sche
 import { financeEditSchema } from "@/modules/claims/validators/finance-edit-schema";
 import { ownEditSchema } from "@/modules/claims/validators/own-edit-schema";
 import { sanitizeDashboardReturnToPath } from "@/lib/pagination-helpers";
+import { BANK_STATEMENT_REQUIRED_CATEGORIES } from "@/core/constants/bank-statement-categories";
 import { z } from "zod";
 
 const repository = new SupabaseClaimRepository();
@@ -770,6 +771,21 @@ export async function submitClaimAction(input: unknown): Promise<{
         ok: false,
         message: "Invoice/Bill upload is required.",
       };
+    }
+
+    const submittedExpenseCategoryId = parseResult.data.expense?.expenseCategoryId;
+    if (submittedExpenseCategoryId) {
+      const categoriesResult = await repository.getActiveExpenseCategories();
+      const selectedCategory = categoriesResult.data.find(
+        (c) => c.id === submittedExpenseCategoryId,
+      );
+      if (
+        selectedCategory &&
+        BANK_STATEMENT_REQUIRED_CATEGORIES.has(selectedCategory.name) &&
+        !bankStatementFile
+      ) {
+        return { ok: false, message: "Please upload bank statement" };
+      }
     }
 
     const duplicateTransactionResult = await repository.existsExpenseByCompositeKey({
