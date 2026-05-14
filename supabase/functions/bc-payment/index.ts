@@ -181,10 +181,10 @@ function mapDbError(corsHeaders: Record<string, string>, p: Record<string, unkno
   const e = p.error as string;
   if (e === "CLAIM_NOT_FOUND")
     return errResp(corsHeaders, { code: "CLAIM_NOT_FOUND", claimId: String(p.claim_id) }, 404);
-  if (e === "NOT_REIMBURSEMENT")
+  if (e === "NOT_EXPENSE_MODE")
     return errResp(
       corsHeaders,
-      { code: "NOT_REIMBURSEMENT", paymentMode: String(p.payment_mode) },
+      { code: "NOT_EXPENSE_MODE", paymentMode: String(p.payment_mode) },
       400,
     );
   if (e === "EXPENSE_DETAILS_MISSING")

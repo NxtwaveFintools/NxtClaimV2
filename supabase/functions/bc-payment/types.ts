@@ -51,7 +51,7 @@ export interface PayloadBuilderInput {
 export type BcPaymentError =
   | { code: "UNAUTHORIZED" }
   | { code: "ALREADY_SENT"; claimId: string }
-  | { code: "NOT_REIMBURSEMENT"; paymentMode: string }
+  | { code: "NOT_EXPENSE_MODE"; paymentMode: string }
   | { code: "CLAIM_NOT_FOUND"; claimId: string }
   | { code: "EXPENSE_DETAILS_MISSING"; claimId: string }
   | { code: "MISSING_MAPPING"; field: string; detail?: string }
