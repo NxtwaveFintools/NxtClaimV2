@@ -195,6 +195,8 @@ describe("SupabaseDepartmentViewerRepository", () => {
         submittedOn: "2026-03-20T10:00:00.000Z",
         hodActionDate: null,
         financeActionDate: null,
+        bcPaymentsFlag: false,
+        isVendorPayment: false,
         detailType: "expense",
         submissionType: "Self",
         departmentId: "dep-1",
