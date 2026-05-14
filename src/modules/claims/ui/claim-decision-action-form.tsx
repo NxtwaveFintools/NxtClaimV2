@@ -5,10 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ClaimDecisionSubmitButton } from "@/modules/claims/ui/claim-decision-submit-button";
 import { BcPaymentModal } from "@/modules/claims/ui/bc-payment-modal";
-import {
-  PAYMENT_MODE_REIMBURSEMENT,
-  normalizePaymentModeName,
-} from "@/core/constants/payment-modes";
+import { isExpensePaymentModeName } from "@/core/constants/payment-modes";
 
 type ClaimDecisionActionFormProps = {
   action: (formData: FormData) => Promise<void>;
@@ -41,10 +38,8 @@ export function ClaimDecisionActionForm({
   const [bcModalOpen, setBcModalOpen] = useState(false);
   const isPending = isSubmitting || isNavigating;
 
-  const isReimbursementApprove =
-    decision === "approve" &&
-    claimId !== undefined &&
-    normalizePaymentModeName(paymentModeName) === PAYMENT_MODE_REIMBURSEMENT;
+  const isExpenseModeApprove =
+    decision === "approve" && claimId !== undefined && isExpensePaymentModeName(paymentModeName);
 
   if (isSubmitter) {
     return null;
@@ -57,7 +52,7 @@ export function ClaimDecisionActionForm({
       return;
     }
 
-    if (isReimbursementApprove) {
+    if (isExpenseModeApprove) {
       setBcModalOpen(true);
       return;
     }
@@ -97,7 +92,7 @@ export function ClaimDecisionActionForm({
       <form onSubmit={handleSubmit}>
         <ClaimDecisionSubmitButton decision={decision} compact={compact} pending={isPending} />
       </form>
-      {isReimbursementApprove && claimId ? (
+      {isExpenseModeApprove && claimId ? (
         <BcPaymentModal
           open={bcModalOpen}
           onOpenChange={setBcModalOpen}
