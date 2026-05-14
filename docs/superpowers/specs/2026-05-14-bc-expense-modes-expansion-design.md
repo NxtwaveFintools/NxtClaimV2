@@ -69,19 +69,31 @@ The current `get_bc_claim_payload` reads from `expense_details` (filtered by `is
 | Forex              |      6 |               6 (100%) |                      6 (100%) |
 | Petty Cash Request |    128 |                  **0** |                         **0** |
 
-### Assumption-2 verification — `bc_code` mapping coverage
+### Assumption-2 verification — all 4 mapping joins inside `get_bc_claim_payload`
 
-The function joins `expense_category_bc_mappings` (NOT `master_expense_categories.bc_code` directly) for the BC account code. Confirmed full coverage for every active claim across all 5 in-scope modes:
+The function joins **four** mapping tables (each can raise `MISSING_MAPPING`):
 
-| Payment mode   | Active claims | With `bc_code` mapping | Missing |
-| -------------- | ------------: | ---------------------: | ------: |
-| Petty Cash     |          1944 |            1944 (100%) |       0 |
-| Reimbursement  |          1748 |            1748 (100%) |       0 |
-| Corporate Card |            64 |              64 (100%) |       0 |
-| Happay         |            15 |              15 (100%) |       0 |
-| Forex          |             6 |               6 (100%) |       0 |
+- `expense_category_bc_mappings` (→ `bc_code`)
+- `master_program_product_mappings` (→ `nwProgramCode`)
+- `master_sub_product_mappings` (→ `subProductCode`)
+- `master_department_responsible_mappings` (→ `responsibleDepartment` + `beneficiary_department_code`)
+- `master_expense_location_mappings` (→ `regionCode`)
 
-Conclusion: the expansion is safe to enable for all 5 modes today. No operational backlog of missing mappings, no schema gaps.
+Coverage across active claims for the 4 newly-in-scope modes (the existing Reimbursement gap is the baseline, unchanged by this work):
+
+| Payment mode   | Active claims | Missing bc_code | Missing program_code | Missing sub_product | Missing resp_dept | Missing region |
+| -------------- | ------------: | --------------: | -------------------: | ------------------: | ----------------: | -------------: |
+| Petty Cash     |          1944 |               0 |                    0 |                   0 |                 0 |              0 |
+| Corporate Card |            64 |               0 |                    0 |                   0 |                 0 |              0 |
+| Happay         |            15 |               0 |                    0 |                   0 |                 0 |              0 |
+| Forex          |             6 |               0 |                    0 |                   0 |                 0 |              0 |
+| Reimbursement  |          1748 |               0 |                   36 |                  36 |                 7 |              0 |
+
+Conclusion: zero new operational backlog. Every active claim in the 4 newly-in-scope modes passes all 5 mapping joins today. The 36/7 gap on Reimbursement is pre-existing and is already handled by the existing `MISSING_MAPPING` typed error.
+
+### Assumption-3 verification — status transition is mode-agnostic
+
+`complete_bc_payment` writes `'Finance Approved - Payment under process'` regardless of mode. Confirmed correct: the existing `ProcessL2ClaimDecisionService.execute(...)` (src/core/domain/claims/ProcessL2ClaimDecisionService.ts:125-127) writes the same status for every payment mode on approve — there is no mode-specific branching in the L2 state machine. The audit-row `action_type='L2_APPROVED'` is similarly mode-agnostic.
 
 ## Approach
 
@@ -123,6 +135,8 @@ END IF;
 ```
 
 The error variant name moves from `NOT_REIMBURSEMENT` to `NOT_EXPENSE_MODE` so the typed error remains truthful when an ADVANCE-mode claim is rejected.
+
+The migration must also update the `COMMENT ON FUNCTION public.get_bc_claim_payload(TEXT)` block in `20260513152000_get_bc_claim_payload.sql` so the in-DB documentation reflects the new error variant name (`{ error: 'NOT_EXPENSE_MODE', payment_mode }`). Without this, `\df+ get_bc_claim_payload` keeps the stale `NOT_REIMBURSEMENT` doc.
 
 **Why a new migration, not editing `20260513152000_get_bc_claim_payload.sql`:** the test Supabase project already has the original applied. Editing a historical migration creates drift between tracked SQL and deployed function definition. Forward-only is the project's existing pattern.
 
