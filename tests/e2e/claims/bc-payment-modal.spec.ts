@@ -34,6 +34,22 @@ async function mockBcVendorSearch(page: Page, vendors: { no: string; name: strin
   });
 }
 
+// Helper: navigate to a Finance-approvable Petty Cash Request claim.
+// Scans the claims list for a row containing "Petty Cash Request" text and
+// clicks its View link. Returns false if no such claim exists in the DB
+// (caller should test.skip() in that case).
+async function gotoFinanceApprovablePettyCashRequestClaim(page: Page): Promise<boolean> {
+  await page.goto("/dashboard/claims?status=HOD+approved+-+Awaiting+finance+approval");
+  const matchingRow = page
+    .locator("table tbody tr")
+    .filter({ hasText: "Petty Cash Request" })
+    .first();
+  const count = await matchingRow.count();
+  if (count === 0) return false;
+  await matchingRow.getByRole("link", { name: /view/i }).click();
+  return true;
+}
+
 test.describe("BC payment modal", () => {
   test.use({ storageState: getAuthStatePathByRole("finance1") });
 
@@ -149,5 +165,22 @@ test.describe("BC payment modal", () => {
     await page.getByText("Non-Vendor Payment").click();
     await page.getByRole("button", { name: "Confirm" }).click();
     await expect(page.getByRole("button", { name: /Sending to BC/i })).toBeDisabled();
+  });
+
+  test("does not open BC modal for Petty Cash Request (ADVANCE mode)", async ({ page }) => {
+    const found = await gotoFinanceApprovablePettyCashRequestClaim(page);
+    if (!found) {
+      test.skip(true, "No Petty Cash Request claim in HOD-approved state in test DB");
+    }
+
+    // The Approve button is visible (claim is in Finance-approvable state).
+    await expect(page.getByRole("button", { name: "Approve" }).first()).toBeVisible();
+
+    // Clicking Approve does NOT open the BC modal — it runs the standard direct flow.
+    await page.getByRole("button", { name: "Approve" }).first().click();
+
+    // The "Send to Business Central" modal title never appears.
+    // Give it a short window to ensure no race.
+    await expect(page.getByText("Send to Business Central")).toBeHidden({ timeout: 2000 });
   });
 });
