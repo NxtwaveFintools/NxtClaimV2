@@ -5,12 +5,13 @@ const BC_PAYMENT_URL = /supabase\.co\/functions\/v1\/bc-payment(\?|$)/;
 const BC_VENDOR_SEARCH_URL = /supabase\.co\/functions\/v1\/bc-vendor-search(\?|$)/;
 
 // Helper: pick the first Reimbursement claim awaiting Finance Approval and
-// navigate to its detail page. Uses generic table-row selectors that match
-// the project's current claims-list markup.
+// navigate to its detail page. Filters by "Reimbursement" row text so that
+// non-Reimbursement claims (e.g. Petty Cash Request) at the top of the list
+// don't cause the modal-open assertions to fail.
 async function gotoFinanceApprovableReimbursementClaim(page: Page) {
   await page.goto("/dashboard/claims?status=HOD+approved+-+Awaiting+finance+approval");
-  const firstClaim = page.locator("table tbody tr").first();
-  await firstClaim.locator("a").first().click();
+  const matchingRow = page.locator("table tbody tr").filter({ hasText: "Reimbursement" }).first();
+  await matchingRow.getByRole("link", { name: /view/i }).click();
   await expect(page.getByRole("button", { name: "Approve" }).first()).toBeVisible();
 }
 
