@@ -16,6 +16,7 @@ import { SheetClose, Sheet, SheetContent, SheetTrigger } from "@/components/ui/s
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../../../components/ui/tabs";
 import { ROUTES } from "@/core/config/route-registry";
 import {
+  DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
   DB_CLAIM_STATUSES,
   DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
   DB_REJECTED_STATUSES,
@@ -23,7 +24,6 @@ import {
   isPendingFinanceApprovalStatus,
   isSubmitterDeletableClaimStatus,
 } from "@/core/constants/statuses";
-import { isCorporateCardPaymentModeName } from "@/core/constants/payment-modes";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
 import {
   approveClaimAction,
@@ -278,14 +278,13 @@ async function FinanceEditClaimSection({
   const departmentOptions = departmentsResult.errorMessage ? [] : departmentsResult.data;
   const paymentModeOptions = paymentModesResult.errorMessage
     ? []
-    : paymentModesResult.data
-        .filter((mode) => !isCorporateCardPaymentModeName(mode.name))
-        .map((mode) => ({ id: mode.id, name: mode.name }));
+    : paymentModesResult.data.map((mode) => ({ id: mode.id, name: mode.name }));
   const expenseCategoryOptions = expenseCategoriesResult.errorMessage
     ? []
     : expenseCategoriesResult.data;
   const locationOptions = locationsResult.errorMessage ? [] : locationsResult.data;
-  const canEditPaymentMode = false;
+  const canEditPaymentMode =
+    editFlow === "finance" && claim.status === DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS;
 
   const updateFinanceDetailFromPage = async (
     formData: FormData,

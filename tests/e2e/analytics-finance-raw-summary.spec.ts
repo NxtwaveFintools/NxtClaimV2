@@ -13,11 +13,38 @@ function resolvePasswordForEmail(email: string): string {
   return DEFAULT_PASSWORD;
 }
 
+async function gotoWithRetry(page: Page, url: string, attempts = 2): Promise<void> {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded" });
+      return;
+    } catch (error) {
+      const errorText = String(error);
+      const redirectedToLogin =
+        /interrupted by another navigation/i.test(errorText) && /\/auth\/login/i.test(page.url());
+
+      if (redirectedToLogin) {
+        return;
+      }
+
+      const isNavigationAbort =
+        /ERR_ABORTED/i.test(errorText) || /interrupted by another navigation/i.test(errorText);
+      const isLastAttempt = attempt === attempts;
+
+      if (!isNavigationAbort || isLastAttempt) {
+        throw error;
+      }
+    }
+  }
+}
+
 async function ensureAuthenticated(page: Page, email: string) {
-  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+  await gotoWithRetry(page, "/dashboard");
 
   const signOutButton = page.getByRole("button", { name: /sign out/i });
-  const hasSession = await signOutButton.isVisible({ timeout: 3000 }).catch(() => false);
+  const hasSession =
+    !/\/auth\/login/i.test(page.url()) &&
+    (await signOutButton.isVisible({ timeout: 8000 }).catch(() => false));
   if (hasSession) {
     return;
   }
@@ -48,9 +75,9 @@ async function ensureAuthenticated(page: Page, email: string) {
     throw new Error(`Session bootstrap failed for ${email}: HTTP ${sessionResponse.status()}`);
   }
 
-  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+  await gotoWithRetry(page, "/dashboard");
   await expect(page).not.toHaveURL(/\/auth\/login/i);
-  await expect(signOutButton).toBeVisible({ timeout: 15000 });
+  await expect(page.getByRole("button", { name: /sign out/i })).toBeVisible({ timeout: 15000 });
 }
 
 async function ensureAuthenticatedWithFallback(page: Page, emails: string[]) {
