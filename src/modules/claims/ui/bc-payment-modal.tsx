@@ -315,6 +315,8 @@ function PaymentTypeCard({
 function formatError(error: unknown, data: unknown): string {
   const e = (data as { error?: { code?: string } } | undefined)?.error;
   if (e?.code === "ALREADY_SENT") return "This claim has already been sent to Business Central.";
+  if (e?.code === "NOT_EXPENSE_MODE")
+    return "This claim's payment mode isn't eligible for Business Central.";
   if (e?.code === "MISSING_MAPPING")
     return `Missing mapping: ${(data as { error: { field: string } }).error.field}. Contact admin.`;
   if (e?.code === "MISSING_BC_CODE") return "Expense category has no BC account code configured.";
