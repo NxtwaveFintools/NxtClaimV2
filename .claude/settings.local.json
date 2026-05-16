@@ -12,7 +12,8 @@
       "Bash(grep -A 50 \"master_expense_categories\" \"D:\\\\\\\\nxtclaim\\\\\\\\supabase\\\\\\\\migrations\\\\\\\\20260422073117_remote_schema.sql\")",
       "Bash(grep *)",
       "mcp__filesystem__list_directory",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "mcp__supabase__execute_sql"
     ]
   },
   "enabledMcpjsonServers": ["filesystem", "supabase"],
