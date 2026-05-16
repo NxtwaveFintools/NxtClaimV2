@@ -1,21 +1,22 @@
 # BC Payload Expansion Design
 
-**Date:** 2026-05-16  
+**Date:** 2026-05-16
 **Status:** Approved — ready for implementation planning
 
 ## Context
 
-The Business Central integration currently sends a fixed set of fields per claim (1–2 line items per claim). The BC API has been updated with a richer schema requiring additional GST, vendor, and document fields. This spec covers expanding the payload to match the new schema.
+The Business Central integration currently sends a fixed set of fields per claim (1–2 line items per claim). The BC API has been updated with a richer schema. This spec covers expanding the payload to match the new schema.
 
 Key decisions:
 
-- **One BC line item per claim** — each claim has exactly one `expense_detail` row, so exactly one object is POSTed to BC per claim submission.
-- 1> **`bc_claim_vendors` renamed → `bc_claim_details`** with new columns; `is_vendor_payment` moves here from `claims`
+- **One BC POST per claim** — each claim has exactly one `expense_detail` row, so exactly one JSON object is sent to BC.
+- **`bc_claim_vendors` replaced → `bc_claim_details`** — lean table: only `is_vendor_payment` is a separate column; everything else (vendor fields, payload, response) lives in JSONB columns. No schema migration needed when BC payload evolves.
+- **No separate audit log** — `bc_claim_details` stores `bc_status`, `bc_payload_json`, `bc_response_json` directly. `bc_payment_audit_log` is dropped entirely.
 - **Finance user selects** Currency Code, GST Group Code, HSN/SAC Code, Vendor Code/Name in the modal — only shown when vendor payment is chosen.
-- A new **`bc-reference` edge function** serves dropdown options from BC OData; uses `$select=Code,Description` to avoid returning BC's many internal fields
-- `amount`, `postingDate`, `accountType`, `accountNo` **removed** from the new BC API — BC derives the amount internally
-- `locationCode` is **fixed `"HBT"`** — no DB lookup needed
-- Vendor-only fields are **omitted** (not set to null) when not applicable
+- A new **`bc-reference` edge function** serves dropdown options from BC OData using `$select=Code,Description` (BC returns 35+ fields per record; we only need 2).
+- `amount`, `postingDate`, `accountType`, `accountNo` **removed** from the new BC API.
+- `locationCode` is **fixed `"HBT"`** — no DB lookup needed.
+- Vendor-only fields are **omitted entirely** (not set to null) for non-vendor claims.
 
 ---
 
@@ -26,80 +27,238 @@ Key decisions:
 No existing data to preserve — BC is test-env only. Drop and recreate cleanly.
 
 ```sql
--- Drop old table entirely
+-- Drop old table and audit table entirely
 DROP TABLE IF EXISTS bc_claim_vendors;
+DROP TABLE IF EXISTS bc_payment_audit_log;
+DROP TYPE  IF EXISTS bc_payment_audit_status;
 
--- Create bc_claim_details from scratch with all required columns
-CREATE TABLE bc_claim_details (
-  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  claim_id         TEXT NOT NULL REFERENCES claims(id),
-  is_vendor_payment BOOLEAN NOT NULL DEFAULT false,
-  bc_vendor_id     TEXT,
-  bc_vendor_name   TEXT,
-  currency_code    TEXT,
-  gst_group_code   TEXT,
-  hsn_sac_code     TEXT,
-  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+-- Create bc_claim_details — lean table, vendor fields live in bc_payload_json
+CREATE TABLE public.bc_claim_details (
+  id                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  claim_id          TEXT        NOT NULL REFERENCES public.claims(id),
+  is_vendor_payment BOOLEAN     NOT NULL DEFAULT false,
+  bc_status         TEXT        NOT NULL DEFAULT 'pending', -- 'pending' | 'success' | 'failed'
+  bc_payload_json   JSONB,      -- exact payload sent to BC
+  bc_response_json  JSONB,      -- BC's response (success body or error)
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Remove old columns from claims, add FK to bc_claim_details
-ALTER TABLE claims DROP COLUMN IF EXISTS bc_payments_flag;
-ALTER TABLE claims DROP COLUMN IF EXISTS is_vendor_payment;
-ALTER TABLE claims ADD COLUMN bc_claim_details_id UUID
-  REFERENCES bc_claim_details(id) ON DELETE SET NULL;
+-- Remove old flags from claims, add FK to bc_claim_details
+-- NULL = claim not yet sent to BC; non-NULL = BC submission exists
+ALTER TABLE public.claims DROP COLUMN IF EXISTS bc_payments_flag;
+ALTER TABLE public.claims DROP COLUMN IF EXISTS is_vendor_payment;
+ALTER TABLE public.claims
+  ADD COLUMN bc_claim_details_id UUID REFERENCES public.bc_claim_details(id) ON DELETE SET NULL;
 
--- Fix enum value
+-- Fix enum value used in bc_bal_account_type
 ALTER TYPE bc_bal_account_type RENAME VALUE 'G/L Account' TO 'G/l';
 ```
 
-### 1.2 Update `complete_bc_claim()` function (renamed from `complete_bc_payment`)
+**Example `bc_claim_details` row after a successful vendor payment:**
 
-New signature adds `currency_code`, `gst_group_code`, `hsn_sac_code`. `is_vendor_payment` moves into the `bc_claim_details` INSERT. `bc_payments_flag` is replaced by setting `bc_claim_details_id` on `claims`.
+```json
+{
+  "id": "d1e2f3a4-...",
+  "claim_id": "CLM-000145",
+  "is_vendor_payment": true,
+  "bc_status": "success",
+  "bc_payload_json": {
+    "documentType": "Invoice",
+    "locationCode": "HBT",
+    "currencyCode": "INR",
+    "vendorInvoiceNo": "INV-2026-001",
+    "documentDate": "2026-05-10",
+    "type": "G/l",
+    "quantity": 1,
+    "gstGroupCode": "GST18",
+    "gstCredit": "Non-Availment",
+    "hsnSacCode": "998314",
+    "gstSubcategory": "Ineligible-43/44",
+    "employeeId": "NW0001234",
+    "employeeName": "Arjun Chander",
+    "vendorCode": "V0001",
+    "vendorName": "Twilio Inc",
+    "glCode": "503063",
+    "employeeTransactionType": "Advance",
+    "remarks": "CLM-000145 - Software subscription\nbill - https://xyz.supabase.co/storage/v1/object/public/receipts/inv.pdf\nbank statement - https://xyz.supabase.co/storage/v1/object/public/bank/stmt.pdf",
+    "claimNo": "CLM-000145",
+    "programCode": "COMMON",
+    "subproductCode": "COMMON",
+    "responsibleDepartment": "GENAI",
+    "beneficiaryDepartment": "GENAI",
+    "regionCode": "TELUGU",
+    "invoiceRequired": true,
+    "paymentRequired": true
+  },
+  "bc_response_json": { "id": "bc-internal-id-xyz", "status": "created" },
+  "created_at": "2026-05-16T10:00:00Z",
+  "updated_at": "2026-05-16T10:00:05Z"
+}
+```
+
+**Example row for a failed non-vendor payment:**
+
+```json
+{
+  "id": "a9b8c7d6-...",
+  "claim_id": "CLM-000200",
+  "is_vendor_payment": false,
+  "bc_status": "failed",
+  "bc_payload_json": {
+    "documentType": "Invoice",
+    "locationCode": "HBT",
+    "documentDate": "2026-05-12",
+    "type": "G/l",
+    "quantity": 1,
+    "gstCredit": "Non-Availment",
+    "gstSubcategory": "Ineligible-43/44",
+    "employeeId": "NW0005678",
+    "employeeName": "Priya Sharma",
+    "glCode": "503040",
+    "employeeTransactionType": "Advance",
+    "remarks": "CLM-000200 - Team lunch\nbill - https://xyz.supabase.co/storage/v1/object/public/receipts/lunch.pdf",
+    "claimNo": "CLM-000200",
+    "programCode": "COMMON",
+    "subproductCode": "COMMON",
+    "responsibleDepartment": "HR",
+    "beneficiaryDepartment": "HR",
+    "regionCode": "TELUGU",
+    "invoiceRequired": false,
+    "paymentRequired": true
+  },
+  "bc_response_json": { "error": "InvalidGLCode", "message": "GL code 503040 not found" },
+  "created_at": "2026-05-16T11:00:00Z",
+  "updated_at": "2026-05-16T11:00:03Z"
+}
+```
+
+---
+
+### 1.2 `complete_bc_claim()` DB function (replaces `complete_bc_payment`)
+
+This function runs inside the edge function after a successful BC API call. It is atomic — both the insert and the update happen in one transaction.
 
 ```sql
--- Step 1: insert into bc_claim_details, capture the new row's id
-INSERT INTO bc_claim_details
-  (claim_id, is_vendor_payment, bc_vendor_id, bc_vendor_name,
-   currency_code, gst_group_code, hsn_sac_code)
-VALUES (...)
-RETURNING id INTO v_bc_details_id;
+CREATE OR REPLACE FUNCTION public.complete_bc_claim(
+  p_claim_id          TEXT,
+  p_actor_user_id     UUID,
+  p_is_vendor_payment BOOLEAN,
+  p_payload_json      JSONB,
+  p_response_json     JSONB
+)
+RETURNS UUID   -- returns the new bc_claim_details.id
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_bc_details_id UUID;
+BEGIN
+  -- Step 1: insert the BC submission record
+  INSERT INTO public.bc_claim_details
+    (claim_id, is_vendor_payment, bc_status, bc_payload_json, bc_response_json)
+  VALUES
+    (p_claim_id, p_is_vendor_payment, 'success', p_payload_json, p_response_json)
+  RETURNING id INTO v_bc_details_id;
 
--- Step 2: link claims back to the bc_claim_details row (replaces bc_payments_flag)
-UPDATE claims
-  SET bc_claim_details_id = v_bc_details_id,
-      status = 'Finance Approved - Payment under process'
+  -- Step 2: link the claim to the submission and advance status
+  UPDATE public.claims
+  SET
+    bc_claim_details_id = v_bc_details_id,
+    status              = 'Finance Approved - Payment under process',
+    updated_at          = now()
   WHERE id = p_claim_id;
+
+  -- Step 3: write claim audit log entry
+  INSERT INTO public.claim_audit_log (claim_id, actor_user_id, action, metadata)
+  VALUES (p_claim_id, p_actor_user_id, 'bc_submitted',
+          jsonb_build_object('bc_claim_details_id', v_bc_details_id));
+
+  RETURN v_bc_details_id;
+END;
+$$;
 ```
 
 All existing code that checks `bc_payments_flag = true` must be updated to `bc_claim_details_id IS NOT NULL`.
 
+---
+
 ### 1.3 Update DB views
 
-The views do **not** JOIN on `bc_claim_vendors`. They project `c.is_vendor_payment` and `c.bc_payments_flag` directly from `claims`. Since both columns are moving/renaming, the views need:
+Both dashboard views currently project `c.bc_payments_flag` and `c.is_vendor_payment` directly from `claims`. After removing those columns, the views break. Fix: add a LEFT JOIN on `bc_claim_details` and replace the two column expressions.
 
-1. Add `LEFT JOIN bc_claim_details bce ON bce.claim_id = c.id`
-2. Replace `c.is_vendor_payment` → `bce.is_vendor_payment`
-3. Replace `c.bc_payments_flag` → `(c.bc_claim_details_id IS NOT NULL) AS bc_payments_flag`
+**Exact change needed in both views:**
 
-Files: `vw_admin_claims_dashboard` (lines 122–123) and `vw_enterprise_claims_dashboard` (lines 233–234) in migration `20260512120000_add_payment_flags_to_claims.sql` — the new migration must recreate both views.
+```sql
+-- ADD this JOIN (after existing LEFT JOINs):
+LEFT JOIN public.bc_claim_details bcd ON bcd.claim_id = c.id
 
-### 1.4 TypeScript types
+-- REPLACE these two columns at the bottom of the SELECT list:
 
-Update `src/types/database.ts`:
+-- Before:
+c.bc_payments_flag,
+c.is_vendor_payment
 
-- Rename `bc_claim_vendors` key → `bc_claim_details`
-- Add `currency_code`, `gst_group_code`, `hsn_sac_code`, `is_vendor_payment` columns
-- On `claims` row type: remove `bc_payments_flag`, remove `is_vendor_payment`, add `bc_claim_details_id: string | null`
+-- After:
+(c.bc_claim_details_id IS NOT NULL) AS bc_payments_flag,
+bcd.is_vendor_payment
+```
+
+Views to update:
+
+- `vw_admin_claims_dashboard` — in migration `20260512120000_add_payment_flags_to_claims.sql` lines 122–123
+- `vw_enterprise_claims_dashboard` — same file, lines 233–234
+
+The output column names (`bc_payments_flag`, `is_vendor_payment`) stay exactly the same — all repository code reading from the views continues to work without changes.
+
+---
+
+### 1.4 TypeScript types (`src/types/database.ts`)
+
+```typescript
+// REMOVE:
+bc_claim_vendors: { ... }
+bc_payment_audit_log: { ... }
+
+// ADD bc_claim_details:
+bc_claim_details: {
+  Row: {
+    id: string
+    claim_id: string
+    is_vendor_payment: boolean
+    bc_status: string           // 'pending' | 'success' | 'failed'
+    bc_payload_json: Json | null
+    bc_response_json: Json | null
+    created_at: string
+    updated_at: string
+  }
+  Insert: {
+    id?: string
+    claim_id: string
+    is_vendor_payment?: boolean
+    bc_status?: string
+    bc_payload_json?: Json | null
+    bc_response_json?: Json | null
+    created_at?: string
+    updated_at?: string
+  }
+  Update: Partial<bc_claim_details['Insert']>
+}
+
+// UPDATE claims row type:
+// REMOVE: bc_payments_flag: boolean, is_vendor_payment: boolean
+// ADD:    bc_claim_details_id: string | null
+```
 
 ---
 
 ## 2. New `bc-reference` Edge Function
 
-**Location:** `supabase/functions/bc-reference/`
+**Location:** `supabase/functions/bc-reference/index.ts`
 
-**Purpose:** Serves BC OData reference data for Finance modal dropdowns. Reuses `_shared/bcAuth.ts` for token management.
+**Purpose:** Serves BC OData reference data for Finance modal dropdowns. Three types supported.
 
-**Interface:**
+**Request:**
 
 ```
 GET /bc-reference?type=currencies
@@ -107,24 +266,58 @@ GET /bc-reference?type=gstGroupCodes
 GET /bc-reference?type=hsnSacCodes
 ```
 
-Note: vendor search already has its own `bc-vendor-search` edge function — leave it unchanged.
-
-**Response shape:**
+**Response shape** (same structure for all three):
 
 ```json
-{ "value": [{ "code": "INR", "name": "Indian Rupee" }] }
+{
+  "value": [
+    { "code": "INR", "description": "Indian Rupee" },
+    { "code": "USD", "description": "US Dollar" }
+  ]
+}
 ```
 
-**BC OData entity names** — confirmed via live API call:
+**BC OData mapping** (confirmed via live API):
 
-- currencies → `/ODataV4/Company('NxtWave')/currencies?$select=Code,Description`
-- gstGroupCodes → `/ODataV4/Company('NxtWave')/gstGroup?$select=Code,Description`
-- hsnSacCodes → `/ODataV4/Company('NxtWave')/hsnSAC?$select=Code,Description`
-- vendors → `/ODataV4/Company('NxtWave')/vendors` (handled by existing `bc-vendor-search`, unchanged)
+| `type` param  | BC entity path                           | BC fields used        |
+| ------------- | ---------------------------------------- | --------------------- |
+| currencies    | `/ODataV4/Company('NxtWave')/currencies` | `Code`, `Description` |
+| gstGroupCodes | `/ODataV4/Company('NxtWave')/gstGroup`   | `Code`, `Description` |
+| hsnSacCodes   | `/ODataV4/Company('NxtWave')/hsnSAC`     | `Code`, `Description` |
 
-`$select` is required — BC returns 35 fields for currencies, 9 for gstGroup, 5 for hsnSAC. We only need `Code` and `Description` for dropdowns.
+All three append `?$select=Code,Description` — BC returns 35 fields for currencies, 9 for gstGroup, 5 for hsnSAC. We return only `code` + `description`.
 
-**Auth:** Same client credentials OAuth2 flow as `bc-claim`. Reuse `_shared/bcAuth.ts` and `_shared/bcEnv.ts`.
+**Sample edge function logic:**
+
+```typescript
+const entityMap: Record<string, string> = {
+  currencies: "currencies",
+  gstGroupCodes: "gstGroup",
+  hsnSacCodes: "hsnSAC",
+};
+
+const type = url.searchParams.get("type");
+const entity = entityMap[type];
+if (!entity) return errorResponse(400, "Unknown type");
+
+const token = await getBcToken();
+const bcRes = await fetch(
+  `${BC_BASE_URL}/ODataV4/Company('NxtWave')/${entity}?$select=Code,Description`,
+  { headers: { Authorization: `Bearer ${token}` } },
+);
+const data = await bcRes.json();
+
+return Response.json({
+  value: data.value.map((r: { Code: string; Description: string }) => ({
+    code: r.Code,
+    description: r.Description,
+  })),
+});
+```
+
+**Auth:** Reuse `_shared/bcAuth.ts` and `_shared/bcEnv.ts` — same client credentials OAuth2 flow as `bc-claim`.
+
+**Note:** Vendor search is handled by the existing `bc-vendor-search` edge function — leave it unchanged.
 
 ---
 
@@ -133,80 +326,117 @@ Note: vendor search already has its own `bc-vendor-search` edge function — lea
 ### 3.1 Updated enums (`types.ts`)
 
 ```typescript
-// Keep (unchanged values)
-export const BcAccountType = { Employee: "Employee", Vendor: "Vendor" } as const;
-// ↑ Still used for accountType field in DB records; remove from BcClaimLineItem only
+// DELETE — replaced by BcType below:
+// export const BcBalAccountType = { GLAccount: "G/L Account" } as const;
 
-// New fixed-value constants
+// DELETE — value was "ADVANCE", now "Advance":
+// export const BcEmployeeTransactionType = { Advance: "ADVANCE" } as const;
+
+// NEW fixed-value constants:
 export const BcDocumentType = { Invoice: "Invoice" } as const;
 export const BcType = { GLAccount: "G/l" } as const;
 export const BcGstCredit = { NonAvailment: "Non-Availment" } as const;
 export const BcGstSubcategory = { Ineligible4344: "Ineligible-43/44" } as const;
 export const BcEmployeeTransactionType = { Advance: "Advance" } as const;
 export const BcQuantity = 1 as const;
+export const BcLocationCode = "HBT" as const;
 
-// REMOVED enums (no longer needed in payload):
-// BcBalAccountType ("G/L Account") → replaced by BcType ("G/l")
-// Old BcEmployeeTransactionType.Advance = "ADVANCE" → updated to "Advance"
+// KEEP unchanged:
+export const BcAccountType = { Employee: "Employee", Vendor: "Vendor" } as const;
 ```
 
-**Enum cleanup:** Delete `BcBalAccountType`. After rewriting `BcClaimLineItem` and `payloadBuilder.ts`, remove any enum keys or interfaces with zero remaining references. Do not keep dead values.
+---
 
-### 3.2 Complete new `BcClaimLineItem` interface (`types.ts`)
+### 3.2 `BcClaimLineItem` interface (`types.ts`)
 
-The new BC API is a single POST per `expense_detail` row. Employee and vendor data coexist in one object. Fields `postingDate`, `accountType`, `accountNo`, `amount` are **gone** from the new API.
+Full interface for the single object POSTed to BC per claim:
 
 ```typescript
-interface BcClaimLineItem {
-  // Fixed values
+export interface BcClaimLineItem {
+  // Fixed values — always hardcoded
   documentType: "Invoice"; // BcDocumentType.Invoice
-  type: "G/l"; // BcType.GLAccount (renamed from balAccountType)
+  locationCode: "HBT"; // BcLocationCode
+  type: "G/l"; // BcType.GLAccount
   quantity: 1; // BcQuantity
   gstCredit: "Non-Availment"; // BcGstCredit.NonAvailment
   gstSubcategory: "Ineligible-43/44"; // BcGstSubcategory.Ineligible4344
   employeeTransactionType: "Advance"; // BcEmployeeTransactionType.Advance
 
-  // Per-expense-detail (varies per row)
-  documentDate: string; // expense_details.transaction_date (ISO YYYY-MM-DD)
-  glCode: string; // expense_category_bc_mappings.bc_code (renamed from balAccountNo)
+  // From expense_details row
+  documentDate: string; // expense_details.transaction_date → "2026-05-10"
+  glCode: string; // expense_category_bc_mappings.bc_code → "503063"
 
-  // Employee fields (from claim + users table)
-  employeeId: string; // on_behalf_employee_code if On_behalf, else claims.employee_id
-  employeeName: string; // users.full_name (on_behalf_of_id if On_behalf, else submitted_by)
+  // Employee — depends on submission_type
+  // If submission_type = "On_behalf": use on_behalf_employee_code + on_behalf_of_id's full_name
+  // If submission_type = "Self":      use claims.employee_id + submitted_by's full_name
+  employeeId: string; // e.g. "NW0001234"
+  employeeName: string; // e.g. "Arjun Chander"
 
-  // Claim reference + mappings
-  claimNo: string; // claims.id
-  remarks: string; // "claimId - purpose\nbill - <full_url>\nbank statement - <full_url>"
-  programCode: string; // master_program_product_mappings.program_code (renamed from nwProgramCode)
-  subproductCode: string; // master_sub_product_mappings.sub_product_code (was subProductCode)
+  // Claim-level fields
+  claimNo: string; // claims.id → "CLM-000145"
+  remarks: string; // see format below
+  programCode: string; // master_program_product_mappings.program_code
+  subproductCode: string; // master_sub_product_mappings.sub_product_code
   responsibleDepartment: string; // master_department_responsible_mappings.responsible_department_code
   beneficiaryDepartment: string; // master_department_responsible_mappings.beneficiary_department_code
   regionCode: string; // master_expense_location_mappings.region_code
-  locationCode: "HBT"; // fixed value always
 
   // Booleans
-  invoiceRequired: boolean; // true if is_vendor_payment, false otherwise
+  invoiceRequired: boolean; // true if vendor payment, false otherwise
   paymentRequired: boolean; // true if payment_mode_name = "Reimbursement", false otherwise
 
-  // Vendor-only — OMIT ENTIRELY (do not send null) for non-vendor claims
-  currencyCode?: string; // Finance modal selection
-  vendorInvoiceNo?: string; // expense_details.bill_no
-  vendorCode?: string; // Finance modal selection
-  vendorName?: string; // Finance modal selection
-  gstGroupCode?: string; // Finance modal selection
-  hsnSacCode?: string; // Finance modal selection
+  // Vendor-only — OMIT ENTIRELY (do not send null/empty) for non-vendor claims
+  currencyCode?: string; // Finance modal → bc-reference?type=currencies
+  vendorInvoiceNo?: string; // expense_details.bill_no → "INV-2026-001"
+  vendorCode?: string; // Finance modal → bc-vendor-search
+  vendorName?: string; // Finance modal → bc-vendor-search
+  gstGroupCode?: string; // Finance modal → bc-reference?type=gstGroupCodes
+  hsnSacCode?: string; // Finance modal → bc-reference?type=hsnSacCodes
 }
 ```
 
-**Null vs omit rule:** For vendor-only optional fields on a non-vendor claim, omit the key entirely. In TypeScript:
+**`remarks` format:**
+
+```
+"CLM-000145 - Software subscription
+bill - https://xyz.supabase.co/storage/v1/object/public/receipts/inv.pdf
+bank statement - https://xyz.supabase.co/storage/v1/object/public/bank/stmt.pdf"
+```
+
+Rules:
+
+- Always include: `"{claimId} - {purpose}"`
+- Include `bill` line only if `receipt_file_path` is non-null and non-empty
+- Include `bank statement` line only if `bank_statement_file_path` is non-null and non-empty
+- Use full absolute URLs — not relative storage paths
+
+**Omit pattern for vendor-only fields:**
 
 ```typescript
 const line: BcClaimLineItem = {
   documentType: "Invoice",
-  // ... all required fields ...
+  locationCode: "HBT",
+  type: "G/l",
+  quantity: 1,
+  gstCredit: "Non-Availment",
+  gstSubcategory: "Ineligible-43/44",
+  employeeTransactionType: "Advance",
+  documentDate,
+  glCode,
+  employeeId,
+  employeeName,
+  claimNo,
+  remarks,
+  programCode,
+  subproductCode,
+  responsibleDepartment,
+  beneficiaryDepartment,
+  regionCode,
+  invoiceRequired: isVendorPayment,
+  paymentRequired: paymentModeName === "Reimbursement",
   ...(isVendorPayment && {
     currencyCode,
-    vendorInvoiceNo,
+    vendorInvoiceNo: bill_no,
     vendorCode,
     vendorName,
     gstGroupCode,
@@ -215,22 +445,17 @@ const line: BcClaimLineItem = {
 };
 ```
 
+---
+
 ### 3.3 DB query — `get_bc_claim_payload` rewrite
 
-The existing `get_bc_claim_payload` function needs a full rewrite. Current gaps:
+Current function fetches minimal data. Needs a full rewrite to return all fields required to build the payload.
 
-- Only returns first `expense_detail` row (`LIMIT 1`) — fine for single-expense claims but `LIMIT 1` should be replaced with a direct WHERE on claim_id
-- No `submission_type`, `on_behalf_employee_code`, `on_behalf_of_id`, `employee_id` from claims
-- No `users.full_name` JOIN for employee name
-- No `bill_no`, `transaction_date` from expense_detail
-- No `payment_mode_name` (needed for `paymentRequired` field)
-- Still references `bc_payments_flag` (being removed)
-
-New return shape (JSONB) — flat object, no `expense_details` array since there is exactly one expense per claim:
+**New return shape (JSONB) — flat object:**
 
 ```json
 {
-  "claim_id": "CLAIM-...",
+  "claim_id": "CLM-000145",
   "bc_claim_details_id": null,
   "payment_mode_name": "Reimbursement",
   "submission_type": "Self",
@@ -242,87 +467,155 @@ New return shape (JSONB) — flat object, no `expense_details` array since there
   "responsible_department_code": "GENAI",
   "beneficiary_department_code": "GENAI",
   "region_code": "TELUGU",
-  "bill_no": "INV-001",
+  "bill_no": "INV-2026-001",
   "transaction_date": "2026-05-10",
   "approved_amount": 1500.0,
   "purpose": "Software subscription",
-  "receipt_file_path": "https://...",
+  "receipt_file_path": "receipts/CLM-000145/inv.pdf",
   "bank_statement_file_path": null,
   "bc_code": "503063"
 }
 ```
 
-The edge function body accepts new Finance modal params: `currencyCode`, `gstGroupCode`, `hsnSacCode`, `bcVendorId`, `bcVendorName`, `isVendorPayment`.
+On-behalf example (submission_type = "On_behalf"):
 
-### 3.4 Payload builder rewrite (`payloadBuilder.ts`)
-
-**Old:** 1 or 2 line items per claim (employee line + optional vendor line as separate BC API calls).
-
-**New:** 1 object per claim (one expense per claim). Vendor-only fields are conditionally spread in.
-
-```
-line = {
-  documentType: "Invoice",
-  locationCode: "HBT",
-  type: "G/l",
-  quantity: 1,
-  gstCredit: "Non-Availment",
-  gstSubcategory: "Ineligible-43/44",
-  employeeTransactionType: "Advance",
-  documentDate: db.transaction_date,
-  glCode: db.bc_code,
-  employeeId: db.submission_type === "On_behalf" ? db.on_behalf_employee_code : db.employee_id,
-  employeeName: db.employee_name,
-  claimNo: db.claim_id,
-  remarks: buildRemarks(db.claim_id, db.purpose, db.receipt_file_path, db.bank_statement_file_path),
-  programCode: db.program_code,
-  subproductCode: db.sub_product_code,
-  responsibleDepartment: db.responsible_department_code,
-  beneficiaryDepartment: db.beneficiary_department_code,
-  regionCode: db.region_code,
-  invoiceRequired: isVendorPayment,
-  paymentRequired: db.payment_mode_name === "Reimbursement",
-  ...(isVendorPayment && { currencyCode, vendorInvoiceNo: db.bill_no, vendorCode, vendorName, gstGroupCode, hsnSacCode })
+```json
+{
+  "submission_type": "On_behalf",
+  "employee_id": "NW0009999",
+  "on_behalf_employee_code": "NW0009999",
+  "employee_name": "Ravi Kumar"
 }
 ```
 
-`remarks` format: `"{claim_id} - {purpose}\nbill - {full_url}\nbank statement - {full_url}"` — only include file lines if the path is non-null and non-empty. Use full absolute URLs, not relative paths.
+→ Edge function uses `on_behalf_employee_code` for `employeeId` and `employee_name` (resolved from `on_behalf_of_id → users.full_name`) for `employeeName`.
+
+**Key JOINs the new function requires:**
+
+```sql
+FROM   public.claims c
+JOIN   public.master_payment_modes mpm   ON mpm.id = c.payment_mode_id
+JOIN   public.expense_details ed          ON ed.claim_id = c.id AND ed.is_active = true
+JOIN   public.users submitter             ON submitter.id = c.submitted_by
+LEFT JOIN public.users onbehalf           ON onbehalf.id = c.on_behalf_of_id
+JOIN   public.expense_category_bc_mappings ecm ON ecm.expense_category_id = ed.expense_category_id AND ecm.is_active = true
+JOIN   public.master_program_product_mappings ppm ON ppm.product_id = ed.product_id AND ppm.is_active = true
+JOIN   public.master_sub_product_mappings spm     ON spm.product_id = ed.product_id AND spm.is_active = true
+JOIN   public.master_department_responsible_mappings drm ON drm.department_id = c.department_id AND drm.is_active = true
+JOIN   public.master_expense_location_mappings elm        ON elm.location_id = ed.location_id AND elm.is_active = true
+WHERE  c.id = p_claim_id AND c.is_active = true
+```
+
+**Error variants the function returns:**
+
+```json
+{ "error": "CLAIM_NOT_FOUND",      "claim_id": "..." }
+{ "error": "NOT_EXPENSE_MODE",     "payment_mode": "Advance" }
+{ "error": "ALREADY_SUBMITTED",    "bc_claim_details_id": "..." }
+{ "error": "EXPENSE_DETAILS_MISSING" }
+{ "error": "MISSING_MAPPING",      "field": "bc_code",               "expense_category_id": "..." }
+{ "error": "MISSING_MAPPING",      "field": "programCode",           "product_id": "..." }
+{ "error": "MISSING_MAPPING",      "field": "subproductCode",        "product_id": "..." }
+{ "error": "MISSING_MAPPING",      "field": "responsibleDepartment", "department_id": "..." }
+{ "error": "MISSING_MAPPING",      "field": "regionCode",            "location_id": "..." }
+```
+
+---
+
+### 3.4 Edge function `bc-claim/index.ts` — request body + flow
+
+**Request body from Finance modal:**
+
+```json
+{
+  "claimId": "CLM-000145",
+  "isVendorPayment": true,
+  "bcVendorCode": "V0001",
+  "bcVendorName": "Twilio Inc",
+  "currencyCode": "INR",
+  "gstGroupCode": "GST18",
+  "hsnSacCode": "998314",
+  "actorUserId": "uuid-of-finance-user"
+}
+```
+
+Non-vendor request (vendor fields absent):
+
+```json
+{
+  "claimId": "CLM-000200",
+  "isVendorPayment": false,
+  "actorUserId": "uuid-of-finance-user"
+}
+```
+
+**Edge function flow:**
+
+```
+1. Parse + validate request body
+2. Call get_bc_claim_payload(claimId) → error if CLAIM_NOT_FOUND / ALREADY_SUBMITTED
+3. Build BcClaimLineItem via payloadBuilder
+4. POST payload to BC API
+5. On success → call complete_bc_claim(claimId, actorUserId, isVendorPayment, payload, bcResponse)
+6. Return { success: true, bcClaimDetailsId }
+
+On BC API failure:
+5b. INSERT bc_claim_details with bc_status='failed', bc_payload_json, bc_response_json
+6b. Return { success: false, error: bcResponse }
+```
 
 ---
 
 ## 4. UI — BC Claim Modal
 
-**File to update:** `src/modules/claims/ui/bc-claim-modal.tsx` (renamed from `bc-payment-modal.tsx`)
+**File:** `src/modules/claims/ui/bc-claim-modal.tsx` (renamed from `bc-payment-modal.tsx`)
 
-### 4.1 New vendor-only dropdown fields
+### 4.1 Dropdown fields — vendor payment only
 
-Shown only when `is_vendor_payment = true`:
+These three dropdowns appear **only when Finance selects "Vendor Payment"**. They are fetched from `bc-reference` when the vendor toggle is turned on (not on modal open — lazy load).
 
-| Field          | Fetched from                      |
-| -------------- | --------------------------------- |
-| Currency Code  | `bc-reference?type=currencies`    |
-| GST Group Code | `bc-reference?type=gstGroupCodes` |
-| HSN/SAC Code   | `bc-reference?type=hsnSacCodes`   |
+| Field          | Edge function call                     | What displays in dropdown |
+| -------------- | -------------------------------------- | ------------------------- |
+| Currency Code  | `GET /bc-reference?type=currencies`    | `"INR - Indian Rupee"`    |
+| GST Group Code | `GET /bc-reference?type=gstGroupCodes` | `"GST18 - GST 18%"`       |
+| HSN/SAC Code   | `GET /bc-reference?type=hsnSacCodes`   | `"998314 - IT Services"`  |
 
-Vendor Code + Vendor Name already exist in the modal via the existing `bc-vendor-search` edge function — no change needed there.
+Vendor Code + Vendor Name use the existing `bc-vendor-search` — no change.
 
-### 4.2 Payload to edge function
+### 4.2 Updated payload sent to `bc-claim` edge function
 
-Add to the existing edge function call body:
+Vendor payment submission:
 
-```json
-{
-  "currencyCode": "INR",
-  "gstGroupCode": "GOODS",
-  "hsnSacCode": "998311"
-}
+```typescript
+supabase.functions.invoke("bc-claim", {
+  body: {
+    claimId: claim.id,
+    isVendorPayment: true,
+    bcVendorCode: selectedVendor.code,
+    bcVendorName: selectedVendor.name,
+    currencyCode: selectedCurrency.code, // "INR"
+    gstGroupCode: selectedGstGroup.code, // "GST18"
+    hsnSacCode: selectedHsnSac.code, // "998314"
+    actorUserId: currentUser.id,
+  },
+});
+```
+
+Non-vendor payment submission:
+
+```typescript
+supabase.functions.invoke("bc-claim", {
+  body: {
+    claimId: claim.id,
+    isVendorPayment: false,
+    actorUserId: currentUser.id,
+  },
+});
 ```
 
 ---
 
-## 5. Rename: `bc-payment` → `bc-claim` Throughout BC Layer
-
-"BC payment" was a misnomer — these are claim postings to BC covering both expenses and vendor payments. All BC-specific identifiers must use `bc-claim` / `bc_claim`.
+## 5. Rename: `bc-payment` → `bc-claim` Throughout
 
 ### 5.1 Edge function directory
 
@@ -330,65 +623,70 @@ Add to the existing edge function call body:
 supabase/functions/bc-payment/  →  supabase/functions/bc-claim/
 ```
 
-### 5.2 DB renames (new migration)
+All files inside move with it: `index.ts`, `types.ts`, `payloadBuilder.ts`, `bcAuth.ts`, `bcEnv.ts`, `bcPaymentsClient.ts`.
+
+### 5.2 DB cleanup (handled in migration from Section 1.1)
 
 ```sql
--- Drop old audit table and enum entirely (test env, no data to preserve)
+-- Already covered in 1.1 migration:
 DROP TABLE IF EXISTS bc_payment_audit_log;
-DROP TYPE IF EXISTS bc_payment_audit_status;
-
--- Recreate with new names (schema defined in bc_claim_functions migration)
--- bc_claim_audit_log and bc_claim_audit_status created fresh there
-
--- DB function (drop old, create new with updated name and body)
+DROP TYPE  IF EXISTS bc_payment_audit_status;
 DROP FUNCTION IF EXISTS public.complete_bc_payment(TEXT, UUID, BOOLEAN, TEXT, TEXT, UUID, JSONB);
-CREATE OR REPLACE FUNCTION public.complete_bc_claim(...) ...
 ```
+
+No `bc_claim_audit_log` or `bc_claim_audit_status` is created — audit lives in `bc_claim_details`.
 
 ### 5.3 Frontend renames
 
-| File                                                            | Change                             |
-| --------------------------------------------------------------- | ---------------------------------- |
-| `src/modules/claims/ui/bc-payment-modal.tsx`                    | Rename file → `bc-claim-modal.tsx` |
-| `BcPaymentModal` (component export + usages)                    | → `BcClaimModal`                   |
-| `supabase.functions.invoke("bc-payment", ...)`                  | → `invoke("bc-claim", ...)`        |
-| `import { BcPaymentModal }` in `claim-decision-action-form.tsx` | → `import { BcClaimModal }`        |
+| Old                                                             | New                       |
+| --------------------------------------------------------------- | ------------------------- |
+| `src/modules/claims/ui/bc-payment-modal.tsx`                    | `bc-claim-modal.tsx`      |
+| `BcPaymentModal` component                                      | `BcClaimModal`            |
+| `supabase.functions.invoke("bc-payment", ...)`                  | `invoke("bc-claim", ...)` |
+| `import { BcPaymentModal }` in `claim-decision-action-form.tsx` | `import { BcClaimModal }` |
 
 ### 5.4 Domain / repository layer
 
-`bcPaymentsFlag` in `contracts.ts` and `SupabaseClaimRepository.ts` is already being removed (replaced by `bcClaimDetailsId`) — no separate rename needed there.
+| Old                                              | New                                                               |
+| ------------------------------------------------ | ----------------------------------------------------------------- |
+| `bcPaymentsFlag` in `contracts.ts`               | `bcClaimDetailsId: string \| null`                                |
+| `isVendorPayment` in `contracts.ts`              | Removed (read from `bc_claim_details` when needed)                |
+| `bc_payments_flag` in repository SELECT strings  | `bc_payments_flag` still works — view expression alias keeps name |
+| `is_vendor_payment` in repository SELECT strings | Still works — view LEFT JOIN alias keeps name                     |
 
-`bc-vendor-search` edge function is **not renamed** — it's vendor lookup, unrelated to claim posting.
+`bc-vendor-search` edge function is **not renamed** — vendor lookup, unrelated to claim posting.
 
 ---
 
 ## 6. Summary of All File Changes
 
-| File                                                                             | Change                                                                                                                                                                   |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `supabase/migrations/20260516XXXXXX_bc_schema_changes.sql`                       | Rename bc_claim_vendors→bc_claim_details; move is_vendor_payment; replace bc_payments_flag with bc_claim_details_id FK; add vendor columns; fix bc_bal_account_type enum |
-| `supabase/migrations/20260516XXXXXX_bc_claim_rename.sql`                         | Rename bc_payment_audit_log→bc_claim_audit_log, enum, indexes                                                                                                            |
-| `supabase/migrations/20260516XXXXXX_bc_claim_functions.sql`                      | Rewrite get_bc_claim_payload (all expense_details, new fields); drop complete_bc_payment, create complete_bc_claim                                                       |
-| `supabase/migrations/20260516XXXXXX_update_bc_views.sql`                         | Recreate views: LEFT JOIN bc_claim_details, is_vendor_payment from bce, bc_claim_details_id IS NOT NULL for bc_payments_flag                                             |
-| `src/types/database.ts`                                                          | Rename bc_claim_vendors → bc_claim_details, rename bc_payment_audit_log → bc_claim_audit_log, update claims columns                                                      |
-| `supabase/functions/bc-reference/index.ts`                                       | New edge function                                                                                                                                                        |
-| `supabase/functions/bc-claim/` (renamed from `bc-payment/`)                      | Directory rename; all internal files updated                                                                                                                             |
-| `supabase/functions/bc-claim/types.ts`                                           | New enums, updated interface, enum cleanup                                                                                                                               |
-| `supabase/functions/bc-claim/payloadBuilder.ts`                                  | Rewrite: single object per claim, locationCode fixed "HBT", vendor fields conditionally spread                                                                           |
-| `supabase/functions/bc-claim/index.ts`                                           | Updated DB query, new body params, calls `complete_bc_claim()`                                                                                                           |
-| `src/modules/claims/ui/bc-claim-modal.tsx` (renamed from `bc-payment-modal.tsx`) | New vendor-only dropdowns, invokes `bc-claim`                                                                                                                            |
-| `src/modules/claims/ui/claim-decision-action-form.tsx`                           | Import `BcClaimModal`                                                                                                                                                    |
-| `src/core/domain/claims/contracts.ts`                                            | Remove `bcPaymentsFlag`, add `bcClaimDetailsId`                                                                                                                          |
-| `src/modules/claims/repositories/SupabaseClaimRepository.ts`                     | Update column/field references                                                                                                                                           |
+| File                                                           | Change                                                                                                             |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `supabase/migrations/20260516XXXXXX_bc_schema_changes.sql`     | Drop bc_claim_vendors, bc_payment_audit_log; create bc_claim_details (lean table); update claims columns; fix enum |
+| `supabase/migrations/20260516XXXXXX_bc_claim_functions.sql`    | Rewrite get_bc_claim_payload; drop complete_bc_payment; create complete_bc_claim                                   |
+| `supabase/migrations/20260516XXXXXX_update_bc_views.sql`       | Recreate vw_admin_claims_dashboard and vw_enterprise_claims_dashboard with LEFT JOIN bc_claim_details              |
+| `src/types/database.ts`                                        | Remove bc_claim_vendors + bc_payment_audit_log types; add bc_claim_details type; update claims row                 |
+| `supabase/functions/bc-reference/index.ts`                     | New edge function — currencies, gstGroupCodes, hsnSacCodes                                                         |
+| `supabase/functions/bc-claim/` (dir rename from `bc-payment/`) | All internal files updated                                                                                         |
+| `supabase/functions/bc-claim/types.ts`                         | New enums + BcClaimLineItem interface; delete BcBalAccountType                                                     |
+| `supabase/functions/bc-claim/payloadBuilder.ts`                | Rewrite: single flat object, locationCode = "HBT", vendor spread                                                   |
+| `supabase/functions/bc-claim/index.ts`                         | New request body shape, updated DB call, complete_bc_claim on success                                              |
+| `src/modules/claims/ui/bc-claim-modal.tsx` (renamed)           | Three vendor-only dropdowns; updated invoke body                                                                   |
+| `src/modules/claims/ui/claim-decision-action-form.tsx`         | Import BcClaimModal                                                                                                |
+| `src/core/domain/claims/contracts.ts`                          | Remove bcPaymentsFlag + isVendorPayment; add bcClaimDetailsId                                                      |
+| `src/modules/claims/repositories/SupabaseClaimRepository.ts`   | Update mapped fields for bcClaimDetailsId                                                                          |
 
 ---
 
 ## 7. Verification
 
-1. **DB migration:** `supabase db push` clean — no errors, views resolve correctly
-2. **bc-reference function:** `curl` each type param returns a non-empty array of `{ code, name }` from BC sandbox
-3. **bc-claim function (non-vendor):** Submit a Reimbursement claim — BC receives correct per-row line items; `paymentRequired=true`, no vendor fields
-4. **bc-claim function (vendor):** Submit a vendor claim — BC receives employee + vendor line item pair per expense row; all vendor fields populated
-5. **Modal dropdowns:** Finance approval modal shows Currency/GST/HSN dropdowns only for vendor payments; they populate from bc-reference
-6. **Audit log:** `bc_claim_audit_log.payload_json` reflects new field names (`remarks` not `description`, `type` not `balAccountType`, `glCode` not `balAccountNo`)
-7. **TypeScript:** `tsc --noEmit` clean
+1. **DB migration clean:** `supabase db push` — no errors; `bc_claim_vendors` and `bc_payment_audit_log` gone; `bc_claim_details` exists with correct columns
+2. **Views resolve:** `SELECT bc_payments_flag, is_vendor_payment FROM vw_admin_claims_dashboard LIMIT 1` — no error
+3. **bc-reference (currencies):** `GET /bc-reference?type=currencies` → `{ value: [{ code: "INR", description: "Indian Rupee" }, ...] }`
+4. **bc-reference (gstGroupCodes):** `GET /bc-reference?type=gstGroupCodes` → non-empty array
+5. **bc-reference (hsnSacCodes):** `GET /bc-reference?type=hsnSacCodes` → non-empty array
+6. **Non-vendor claim POST:** BC receives payload with no `currencyCode`, `vendorCode`, `vendorName`, `gstGroupCode`, `hsnSacCode` keys at all — not null, not empty string, fully absent
+7. **Vendor claim POST:** BC receives all 26 fields including vendor-only fields; `invoiceRequired: true`
+8. **bc_claim_details row:** After successful submission — `bc_status = 'success'`, `bc_payload_json` has full payload, `claims.bc_claim_details_id` is set
+9. **Failed submission:** `bc_status = 'failed'`, `bc_response_json` has BC error message, `claims.bc_claim_details_id` remains null
+10. **TypeScript:** `tsc --noEmit` clean
