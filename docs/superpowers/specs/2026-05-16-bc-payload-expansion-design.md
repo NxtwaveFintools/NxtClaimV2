@@ -10,7 +10,7 @@ The Business Central integration currently sends a fixed set of fields per claim
 Key decisions:
 
 - **One BC line item per claim** — each claim has exactly one `expense_detail` row, so exactly one object is POSTed to BC per claim submission.
-- **`bc_claim_vendors` renamed → `bc_claim_expense`** with new columns; `is_vendor_payment` moves here from `claims`
+- 1> **`bc_claim_vendors` renamed → `bc_claim_details`** with new columns; `is_vendor_payment` moves here from `claims`
 - **Finance user selects** Currency Code, GST Group Code, HSN/SAC Code, Vendor Code/Name in the modal — only shown when vendor payment is chosen.
 - A new **`bc-reference` edge function** serves dropdown options from BC OData; uses `$select=Code,Description` to avoid returning BC's many internal fields
 - `amount`, `postingDate`, `accountType`, `accountNo` **removed** from the new BC API — BC derives the amount internally
@@ -21,27 +21,32 @@ Key decisions:
 
 ## 1. Database Schema
 
-### 1.1 Migration: Rename + Extend `bc_claim_vendors`
+### 1.1 Migration: Replace `bc_claim_vendors` with `bc_claim_details`
+
+No existing data to preserve — BC is test-env only. Drop and recreate cleanly.
 
 ```sql
--- Rename table
-ALTER TABLE bc_claim_vendors RENAME TO bc_claim_expense;
+-- Drop old table entirely
+DROP TABLE IF EXISTS bc_claim_vendors;
 
--- Move is_vendor_payment from claims to here
-ALTER TABLE claims DROP COLUMN is_vendor_payment;
-ALTER TABLE bc_claim_expense ADD COLUMN is_vendor_payment BOOLEAN NOT NULL DEFAULT false;
+-- Create bc_claim_details from scratch with all required columns
+CREATE TABLE bc_claim_details (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  claim_id         TEXT NOT NULL REFERENCES claims(id),
+  is_vendor_payment BOOLEAN NOT NULL DEFAULT false,
+  bc_vendor_id     TEXT,
+  bc_vendor_name   TEXT,
+  currency_code    TEXT,
+  gst_group_code   TEXT,
+  hsn_sac_code     TEXT,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
--- Replace bc_payments_flag (boolean) with a direct FK to bc_claim_expense
--- NULL = not yet sent to BC; non-NULL = sent, links directly to the expense record
-ALTER TABLE claims DROP COLUMN bc_payments_flag;
-ALTER TABLE claims ADD COLUMN bc_claim_expense_id UUID
-  REFERENCES bc_claim_expense(id) ON DELETE SET NULL;
-
--- Add vendor-only columns (nullable — only populated for vendor payments)
-ALTER TABLE bc_claim_expense
-  ADD COLUMN currency_code  TEXT,
-  ADD COLUMN gst_group_code TEXT,
-  ADD COLUMN hsn_sac_code   TEXT;
+-- Remove old columns from claims, add FK to bc_claim_details
+ALTER TABLE claims DROP COLUMN IF EXISTS bc_payments_flag;
+ALTER TABLE claims DROP COLUMN IF EXISTS is_vendor_payment;
+ALTER TABLE claims ADD COLUMN bc_claim_details_id UUID
+  REFERENCES bc_claim_details(id) ON DELETE SET NULL;
 
 -- Fix enum value
 ALTER TYPE bc_bal_account_type RENAME VALUE 'G/L Account' TO 'G/l';
@@ -49,32 +54,32 @@ ALTER TYPE bc_bal_account_type RENAME VALUE 'G/L Account' TO 'G/l';
 
 ### 1.2 Update `complete_bc_claim()` function (renamed from `complete_bc_payment`)
 
-New signature adds `currency_code`, `gst_group_code`, `hsn_sac_code`. `is_vendor_payment` moves into the `bc_claim_expense` INSERT. `bc_payments_flag` is replaced by setting `bc_claim_expense_id` on `claims`.
+New signature adds `currency_code`, `gst_group_code`, `hsn_sac_code`. `is_vendor_payment` moves into the `bc_claim_details` INSERT. `bc_payments_flag` is replaced by setting `bc_claim_details_id` on `claims`.
 
 ```sql
--- Step 1: insert into bc_claim_expense, capture the new row's id
-INSERT INTO bc_claim_expense
+-- Step 1: insert into bc_claim_details, capture the new row's id
+INSERT INTO bc_claim_details
   (claim_id, is_vendor_payment, bc_vendor_id, bc_vendor_name,
    currency_code, gst_group_code, hsn_sac_code)
 VALUES (...)
-RETURNING id INTO v_bc_expense_id;
+RETURNING id INTO v_bc_details_id;
 
--- Step 2: link claims back to the bc_claim_expense row (replaces bc_payments_flag)
+-- Step 2: link claims back to the bc_claim_details row (replaces bc_payments_flag)
 UPDATE claims
-  SET bc_claim_expense_id = v_bc_expense_id,
+  SET bc_claim_details_id = v_bc_details_id,
       status = 'Finance Approved - Payment under process'
   WHERE id = p_claim_id;
 ```
 
-All existing code that checks `bc_payments_flag = true` must be updated to `bc_claim_expense_id IS NOT NULL`.
+All existing code that checks `bc_payments_flag = true` must be updated to `bc_claim_details_id IS NOT NULL`.
 
 ### 1.3 Update DB views
 
 The views do **not** JOIN on `bc_claim_vendors`. They project `c.is_vendor_payment` and `c.bc_payments_flag` directly from `claims`. Since both columns are moving/renaming, the views need:
 
-1. Add `LEFT JOIN bc_claim_expense bce ON bce.claim_id = c.id`
+1. Add `LEFT JOIN bc_claim_details bce ON bce.claim_id = c.id`
 2. Replace `c.is_vendor_payment` → `bce.is_vendor_payment`
-3. Replace `c.bc_payments_flag` → `(c.bc_claim_expense_id IS NOT NULL) AS bc_payments_flag`
+3. Replace `c.bc_payments_flag` → `(c.bc_claim_details_id IS NOT NULL) AS bc_payments_flag`
 
 Files: `vw_admin_claims_dashboard` (lines 122–123) and `vw_enterprise_claims_dashboard` (lines 233–234) in migration `20260512120000_add_payment_flags_to_claims.sql` — the new migration must recreate both views.
 
@@ -82,9 +87,9 @@ Files: `vw_admin_claims_dashboard` (lines 122–123) and `vw_enterprise_claims_d
 
 Update `src/types/database.ts`:
 
-- Rename `bc_claim_vendors` key → `bc_claim_expense`
+- Rename `bc_claim_vendors` key → `bc_claim_details`
 - Add `currency_code`, `gst_group_code`, `hsn_sac_code`, `is_vendor_payment` columns
-- On `claims` row type: remove `bc_payments_flag`, remove `is_vendor_payment`, add `bc_claim_expense_id: string | null`
+- On `claims` row type: remove `bc_payments_flag`, remove `is_vendor_payment`, add `bc_claim_details_id: string | null`
 
 ---
 
@@ -226,7 +231,7 @@ New return shape (JSONB) — flat object, no `expense_details` array since there
 ```json
 {
   "claim_id": "CLAIM-...",
-  "bc_claim_expense_id": null,
+  "bc_claim_details_id": null,
   "payment_mode_name": "Reimbursement",
   "submission_type": "Self",
   "employee_id": "NW0001234",
@@ -328,18 +333,15 @@ supabase/functions/bc-payment/  →  supabase/functions/bc-claim/
 ### 5.2 DB renames (new migration)
 
 ```sql
--- Table
-ALTER TABLE bc_payment_audit_log RENAME TO bc_claim_audit_log;
+-- Drop old audit table and enum entirely (test env, no data to preserve)
+DROP TABLE IF EXISTS bc_payment_audit_log;
+DROP TYPE IF EXISTS bc_payment_audit_status;
 
--- Enum (must recreate — PostgreSQL cannot rename a type directly)
-ALTER TYPE bc_payment_audit_status RENAME TO bc_claim_audit_status;
-
--- Indexes
-ALTER INDEX idx_bc_payment_audit_log_status_created RENAME TO idx_bc_claim_audit_log_status_created;
-ALTER INDEX idx_bc_payment_audit_log_claim_id       RENAME TO idx_bc_claim_audit_log_claim_id;
+-- Recreate with new names (schema defined in bc_claim_functions migration)
+-- bc_claim_audit_log and bc_claim_audit_status created fresh there
 
 -- DB function (drop old, create new with updated name and body)
-DROP FUNCTION IF EXISTS public.complete_bc_payment(...);
+DROP FUNCTION IF EXISTS public.complete_bc_payment(TEXT, UUID, BOOLEAN, TEXT, TEXT, UUID, JSONB);
 CREATE OR REPLACE FUNCTION public.complete_bc_claim(...) ...
 ```
 
@@ -354,7 +356,7 @@ CREATE OR REPLACE FUNCTION public.complete_bc_claim(...) ...
 
 ### 5.4 Domain / repository layer
 
-`bcPaymentsFlag` in `contracts.ts` and `SupabaseClaimRepository.ts` is already being removed (replaced by `bcClaimExpenseId`) — no separate rename needed there.
+`bcPaymentsFlag` in `contracts.ts` and `SupabaseClaimRepository.ts` is already being removed (replaced by `bcClaimDetailsId`) — no separate rename needed there.
 
 `bc-vendor-search` edge function is **not renamed** — it's vendor lookup, unrelated to claim posting.
 
@@ -364,11 +366,11 @@ CREATE OR REPLACE FUNCTION public.complete_bc_claim(...) ...
 
 | File                                                                             | Change                                                                                                                                                                   |
 | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `supabase/migrations/20260516XXXXXX_bc_schema_changes.sql`                       | Rename bc_claim_vendors→bc_claim_expense; move is_vendor_payment; replace bc_payments_flag with bc_claim_expense_id FK; add vendor columns; fix bc_bal_account_type enum |
+| `supabase/migrations/20260516XXXXXX_bc_schema_changes.sql`                       | Rename bc_claim_vendors→bc_claim_details; move is_vendor_payment; replace bc_payments_flag with bc_claim_details_id FK; add vendor columns; fix bc_bal_account_type enum |
 | `supabase/migrations/20260516XXXXXX_bc_claim_rename.sql`                         | Rename bc_payment_audit_log→bc_claim_audit_log, enum, indexes                                                                                                            |
 | `supabase/migrations/20260516XXXXXX_bc_claim_functions.sql`                      | Rewrite get_bc_claim_payload (all expense_details, new fields); drop complete_bc_payment, create complete_bc_claim                                                       |
-| `supabase/migrations/20260516XXXXXX_update_bc_views.sql`                         | Recreate views: LEFT JOIN bc_claim_expense, is_vendor_payment from bce, bc_claim_expense_id IS NOT NULL for bc_payments_flag                                             |
-| `src/types/database.ts`                                                          | Rename bc_claim_vendors → bc_claim_expense, rename bc_payment_audit_log → bc_claim_audit_log, update claims columns                                                      |
+| `supabase/migrations/20260516XXXXXX_update_bc_views.sql`                         | Recreate views: LEFT JOIN bc_claim_details, is_vendor_payment from bce, bc_claim_details_id IS NOT NULL for bc_payments_flag                                             |
+| `src/types/database.ts`                                                          | Rename bc_claim_vendors → bc_claim_details, rename bc_payment_audit_log → bc_claim_audit_log, update claims columns                                                      |
 | `supabase/functions/bc-reference/index.ts`                                       | New edge function                                                                                                                                                        |
 | `supabase/functions/bc-claim/` (renamed from `bc-payment/`)                      | Directory rename; all internal files updated                                                                                                                             |
 | `supabase/functions/bc-claim/types.ts`                                           | New enums, updated interface, enum cleanup                                                                                                                               |
@@ -376,7 +378,7 @@ CREATE OR REPLACE FUNCTION public.complete_bc_claim(...) ...
 | `supabase/functions/bc-claim/index.ts`                                           | Updated DB query, new body params, calls `complete_bc_claim()`                                                                                                           |
 | `src/modules/claims/ui/bc-claim-modal.tsx` (renamed from `bc-payment-modal.tsx`) | New vendor-only dropdowns, invokes `bc-claim`                                                                                                                            |
 | `src/modules/claims/ui/claim-decision-action-form.tsx`                           | Import `BcClaimModal`                                                                                                                                                    |
-| `src/core/domain/claims/contracts.ts`                                            | Remove `bcPaymentsFlag`, add `bcClaimExpenseId`                                                                                                                          |
+| `src/core/domain/claims/contracts.ts`                                            | Remove `bcPaymentsFlag`, add `bcClaimDetailsId`                                                                                                                          |
 | `src/modules/claims/repositories/SupabaseClaimRepository.ts`                     | Update column/field references                                                                                                                                           |
 
 ---
