@@ -183,33 +183,37 @@ All existing code that checks `bc_payments_flag = true` must be updated to `bc_c
 
 ---
 
-### 1.3 Update DB views
+### 1.3 Recreate DB views (clean slate)
 
-Both dashboard views currently project `c.bc_payments_flag` and `c.is_vendor_payment` directly from `claims`. After removing those columns, the views break. Fix: add a LEFT JOIN on `bc_claim_details` and replace the two column expressions.
-
-**Exact change needed in both views:**
+Drop both views completely and recreate them fresh. The new views treat `bc_payments_flag` and `is_vendor_payment` as if they always came from `bc_claim_details` — no patching old definitions.
 
 ```sql
--- ADD this JOIN (after existing LEFT JOINs):
+DROP VIEW IF EXISTS public.vw_admin_claims_dashboard;
+DROP VIEW IF EXISTS public.vw_enterprise_claims_dashboard;
+-- Then CREATE OR REPLACE VIEW ... with full body (copy existing SQL, apply two changes below)
+```
+
+**Two changes inside each new view body:**
+
+1. Add this JOIN (after the existing `advance_details` LEFT JOIN):
+
+```sql
 LEFT JOIN public.bc_claim_details bcd ON bcd.claim_id = c.id
+```
 
--- REPLACE these two columns at the bottom of the SELECT list:
+2. Replace the last two SELECT columns:
 
--- Before:
+```sql
+-- OLD (remove these):
 c.bc_payments_flag,
 c.is_vendor_payment
 
--- After:
+-- NEW (replace with):
 (c.bc_claim_details_id IS NOT NULL) AS bc_payments_flag,
 bcd.is_vendor_payment
 ```
 
-Views to update:
-
-- `vw_admin_claims_dashboard` — in migration `20260512120000_add_payment_flags_to_claims.sql` lines 122–123
-- `vw_enterprise_claims_dashboard` — same file, lines 233–234
-
-The output column names (`bc_payments_flag`, `is_vendor_payment`) stay exactly the same — all repository code reading from the views continues to work without changes.
+Everything else in both views stays identical. Output column names `bc_payments_flag` and `is_vendor_payment` are unchanged — all repository code continues to work without any changes.
 
 ---
 
