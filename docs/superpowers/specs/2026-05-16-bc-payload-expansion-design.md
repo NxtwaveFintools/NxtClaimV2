@@ -185,15 +185,15 @@ All existing code that checks `bc_payments_flag = true` must be updated to `bc_c
 
 ### 1.3 Recreate DB views (clean slate)
 
-Drop both views completely and recreate them fresh. The new views treat `bc_payments_flag` and `is_vendor_payment` as if they always came from `bc_claim_details` — no patching old definitions.
+Drop both views completely and recreate them fresh. No backward-compat aliases — clean names throughout.
 
 ```sql
 DROP VIEW IF EXISTS public.vw_admin_claims_dashboard;
 DROP VIEW IF EXISTS public.vw_enterprise_claims_dashboard;
--- Then CREATE OR REPLACE VIEW ... with full body (copy existing SQL, apply two changes below)
+-- Then CREATE OR REPLACE VIEW ... with full body (copy existing SQL, apply changes below)
 ```
 
-**Two changes inside each new view body:**
+**Changes inside each new view body:**
 
 1. Add this JOIN (after the existing `advance_details` LEFT JOIN):
 
@@ -204,16 +204,24 @@ LEFT JOIN public.bc_claim_details bcd ON bcd.claim_id = c.id
 2. Replace the last two SELECT columns:
 
 ```sql
--- OLD (remove these):
+-- OLD (remove):
 c.bc_payments_flag,
 c.is_vendor_payment
 
 -- NEW (replace with):
-(c.bc_claim_details_id IS NOT NULL) AS bc_payments_flag,
+(c.bc_claim_details_id IS NOT NULL) AS is_bc_submitted,
 bcd.is_vendor_payment
 ```
 
-Everything else in both views stays identical. Output column names `bc_payments_flag` and `is_vendor_payment` are unchanged — all repository code continues to work without any changes.
+**Cascade — all places that read `bc_payments_flag` must be updated to `is_bc_submitted`:**
+
+| File                                        | Old                                    | New                                  |
+| ------------------------------------------- | -------------------------------------- | ------------------------------------ |
+| `SupabaseClaimRepository.ts` SELECT strings | `bc_payments_flag`                     | `is_bc_submitted`                    |
+| `SupabaseClaimRepository.ts` mappings       | `bcPaymentsFlag: row.bc_payments_flag` | `isBcSubmitted: row.is_bc_submitted` |
+| `SupabaseDepartmentViewerRepository.ts`     | same                                   | same                                 |
+| `src/core/domain/claims/contracts.ts`       | `bcPaymentsFlag: boolean`              | `isBcSubmitted: boolean`             |
+| UI files checking `claim.bcPaymentsFlag`    | `claim.bcPaymentsFlag`                 | `claim.isBcSubmitted`                |
 
 ---
 
@@ -651,12 +659,15 @@ No `bc_claim_audit_log` or `bc_claim_audit_status` is created — audit lives in
 
 ### 5.4 Domain / repository layer
 
-| Old                                              | New                                                               |
-| ------------------------------------------------ | ----------------------------------------------------------------- |
-| `bcPaymentsFlag` in `contracts.ts`               | `bcClaimDetailsId: string \| null`                                |
-| `isVendorPayment` in `contracts.ts`              | Removed (read from `bc_claim_details` when needed)                |
-| `bc_payments_flag` in repository SELECT strings  | `bc_payments_flag` still works — view expression alias keeps name |
-| `is_vendor_payment` in repository SELECT strings | Still works — view LEFT JOIN alias keeps name                     |
+| Old                                               | New                                           |
+| ------------------------------------------------- | --------------------------------------------- |
+| `bcPaymentsFlag` in `contracts.ts`                | `isBcSubmitted: boolean`                      |
+| `isVendorPayment` in `contracts.ts`               | `isVendorPayment: boolean` (keep, still used) |
+| `bc_payments_flag` in repository SELECT strings   | `is_bc_submitted`                             |
+| `bc_payments_flag: row.bc_payments_flag` mappings | `isBcSubmitted: row.is_bc_submitted`          |
+| `claim.bcPaymentsFlag` in UI files                | `claim.isBcSubmitted`                         |
+
+Also add `bcClaimDetailsId: string | null` to `contracts.ts` — needed when the edge function returns the new bc_claim_details id.
 
 `bc-vendor-search` edge function is **not renamed** — vendor lookup, unrelated to claim posting.
 
@@ -664,21 +675,22 @@ No `bc_claim_audit_log` or `bc_claim_audit_status` is created — audit lives in
 
 ## 6. Summary of All File Changes
 
-| File                                                           | Change                                                                                                             |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `supabase/migrations/20260516XXXXXX_bc_schema_changes.sql`     | Drop bc_claim_vendors, bc_payment_audit_log; create bc_claim_details (lean table); update claims columns; fix enum |
-| `supabase/migrations/20260516XXXXXX_bc_claim_functions.sql`    | Rewrite get_bc_claim_payload; drop complete_bc_payment; create complete_bc_claim                                   |
-| `supabase/migrations/20260516XXXXXX_update_bc_views.sql`       | Recreate vw_admin_claims_dashboard and vw_enterprise_claims_dashboard with LEFT JOIN bc_claim_details              |
-| `src/types/database.ts`                                        | Remove bc_claim_vendors + bc_payment_audit_log types; add bc_claim_details type; update claims row                 |
-| `supabase/functions/bc-reference/index.ts`                     | New edge function — currencies, gstGroupCodes, hsnSacCodes                                                         |
-| `supabase/functions/bc-claim/` (dir rename from `bc-payment/`) | All internal files updated                                                                                         |
-| `supabase/functions/bc-claim/types.ts`                         | New enums + BcClaimLineItem interface; delete BcBalAccountType                                                     |
-| `supabase/functions/bc-claim/payloadBuilder.ts`                | Rewrite: single flat object, locationCode = "HBT", vendor spread                                                   |
-| `supabase/functions/bc-claim/index.ts`                         | New request body shape, updated DB call, complete_bc_claim on success                                              |
-| `src/modules/claims/ui/bc-claim-modal.tsx` (renamed)           | Three vendor-only dropdowns; updated invoke body                                                                   |
-| `src/modules/claims/ui/claim-decision-action-form.tsx`         | Import BcClaimModal                                                                                                |
-| `src/core/domain/claims/contracts.ts`                          | Remove bcPaymentsFlag + isVendorPayment; add bcClaimDetailsId                                                      |
-| `src/modules/claims/repositories/SupabaseClaimRepository.ts`   | Update mapped fields for bcClaimDetailsId                                                                          |
+| File                                                                    | Change                                                                                                             |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `supabase/migrations/20260516XXXXXX_bc_schema_changes.sql`              | Drop bc_claim_vendors, bc_payment_audit_log; create bc_claim_details (lean table); update claims columns; fix enum |
+| `supabase/migrations/20260516XXXXXX_bc_claim_functions.sql`             | Rewrite get_bc_claim_payload; drop complete_bc_payment; create complete_bc_claim                                   |
+| `supabase/migrations/20260516XXXXXX_update_bc_views.sql`                | Recreate vw_admin_claims_dashboard and vw_enterprise_claims_dashboard with LEFT JOIN bc_claim_details              |
+| `src/types/database.ts`                                                 | Remove bc_claim_vendors + bc_payment_audit_log types; add bc_claim_details type; update claims row                 |
+| `supabase/functions/bc-reference/index.ts`                              | New edge function — currencies, gstGroupCodes, hsnSacCodes                                                         |
+| `supabase/functions/bc-claim/` (dir rename from `bc-payment/`)          | All internal files updated                                                                                         |
+| `supabase/functions/bc-claim/types.ts`                                  | New enums + BcClaimLineItem interface; delete BcBalAccountType                                                     |
+| `supabase/functions/bc-claim/payloadBuilder.ts`                         | Rewrite: single flat object, locationCode = "HBT", vendor spread                                                   |
+| `supabase/functions/bc-claim/index.ts`                                  | New request body shape, updated DB call, complete_bc_claim on success                                              |
+| `src/modules/claims/ui/bc-claim-modal.tsx` (renamed)                    | Three vendor-only dropdowns; updated invoke body                                                                   |
+| `src/modules/claims/ui/claim-decision-action-form.tsx`                  | Import BcClaimModal                                                                                                |
+| `src/core/domain/claims/contracts.ts`                                   | Remove `bcPaymentsFlag`; add `isBcSubmitted: boolean` + `bcClaimDetailsId: string \| null`                         |
+| `src/modules/claims/repositories/SupabaseClaimRepository.ts`            | Replace `bc_payments_flag` → `is_bc_submitted` in all SELECT strings and mappings                                  |
+| `src/modules/claims/repositories/SupabaseDepartmentViewerRepository.ts` | Same — replace `bc_payments_flag` → `is_bc_submitted`                                                              |
 
 ---
 
