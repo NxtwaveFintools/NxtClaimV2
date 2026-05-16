@@ -179,7 +179,7 @@ END;
 $$;
 ```
 
-All existing code that checks `bc_payments_flag = true` must be updated to `bc_claim_details_id IS NOT NULL`.
+`bcPaymentsFlag` is a data field only — it is never used as a condition in UI code. It exists in `contracts.ts` (type definition) and two repository files (SELECT strings + row mappings). Those three files are updated as part of Section 5.4.
 
 ---
 
