@@ -322,11 +322,11 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
               <Section number="03" label="Reference Codes">
                 <div className="space-y-3">
                   <ReferenceField
-                    label="Currency"
-                    state={currencies}
-                    value={currencyCode}
-                    onChange={setCurrencyCode}
-                    onRetry={() => fetchReference("currencies", setCurrencies)}
+                    label="HSN / SAC"
+                    state={hsnSacs}
+                    value={hsnSacCode}
+                    onChange={setHsnSacCode}
+                    onRetry={() => fetchReference("hsnSacCodes", setHsnSacs)}
                     disabled={submitting || catastrophic}
                   />
                   <ReferenceField
@@ -338,11 +338,11 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
                     disabled={submitting || catastrophic}
                   />
                   <ReferenceField
-                    label="HSN / SAC"
-                    state={hsnSacs}
-                    value={hsnSacCode}
-                    onChange={setHsnSacCode}
-                    onRetry={() => fetchReference("hsnSacCodes", setHsnSacs)}
+                    label="Currency"
+                    state={currencies}
+                    value={currencyCode}
+                    onChange={setCurrencyCode}
+                    onRetry={() => fetchReference("currencies", setCurrencies)}
                     disabled={submitting || catastrophic}
                   />
                 </div>
