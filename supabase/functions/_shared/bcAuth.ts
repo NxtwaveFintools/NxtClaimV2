@@ -23,6 +23,17 @@ export function __resetTokenCache(): void {
   overrides = null;
 }
 
+/**
+ * Force the next getBcAccessToken() call to re-fetch from Microsoft.
+ * Called by bcClient on HTTP 401 (the cached token was rejected mid-flight,
+ * e.g. tenant rotated the client secret between cache fill and use).
+ * Unlike __resetTokenCache, this does NOT clear test overrides — it is a
+ * production code path that needs to survive between test invocations.
+ */
+export function invalidateBcToken(): void {
+  cache = null;
+}
+
 export async function getBcAccessToken(): Promise<string> {
   const now = Date.now();
   if (cache && cache.expiresAt - now > 60_000) {
