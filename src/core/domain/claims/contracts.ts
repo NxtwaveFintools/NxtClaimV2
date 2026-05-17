@@ -276,7 +276,7 @@ export type ClaimExportRecord = {
   submittedOn: string;
   hodActionDate: string | null;
   financeActionDate: string | null;
-  bcPaymentsFlag: boolean;
+  bcClaimDetailsId: string | null;
   isVendorPayment: boolean;
 };
 
@@ -295,7 +295,7 @@ export type ClaimFullExportRecord = {
   departmentName: string | null;
   paymentModeId: string;
   paymentModeName: string | null;
-  bcPaymentsFlag: boolean;
+  bcClaimDetailsId: string | null;
   isVendorPayment: boolean;
   assignedL1ApproverId: string;
   assignedL2ApproverId: string | null;
@@ -359,7 +359,7 @@ export type MyClaimRecord = {
   onBehalfEmail: string | null;
   departmentName: string | null;
   paymentModeName: string;
-  bcPaymentsFlag: boolean;
+  bcClaimDetailsId: string | null;
   isVendorPayment: boolean;
   submissionType: ClaimSubmissionType;
   status: DbClaimStatus;
@@ -403,7 +403,7 @@ export type MyClaimListRecord = {
   submittedAt: string;
   hodActionDate: string | null;
   financeActionDate: string | null;
-  bcPaymentsFlag: boolean;
+  bcClaimDetailsId: string | null;
   isVendorPayment: boolean;
   detailType: ClaimDetailType;
   submissionType: ClaimSubmissionType;
@@ -449,7 +449,7 @@ export type PendingApprovalListRecord = {
   paymentModeName: string;
   detailType: ClaimDetailType;
   submissionType: ClaimSubmissionType;
-  bcPaymentsFlag: boolean;
+  bcClaimDetailsId: string | null;
   isVendorPayment: boolean;
   onBehalfEmail: string | null;
   onBehalfEmployeeCode?: string | null;
@@ -467,7 +467,7 @@ export type PendingApprovalListRecord = {
 export type ClaimListDetail = {
   detailType: ClaimDetailType;
   submissionType: ClaimSubmissionType;
-  bcPaymentsFlag: boolean;
+  bcClaimDetailsId: string | null;
   isVendorPayment: boolean;
   onBehalfEmail: string | null;
   submitter: string;
@@ -653,7 +653,7 @@ export type DepartmentViewerClaimRecord = {
   submittedOn: string;
   hodActionDate: string | null;
   financeActionDate: string | null;
-  bcPaymentsFlag: boolean;
+  bcClaimDetailsId: string | null;
   isVendorPayment: boolean;
   detailType: "expense" | "advance";
   submissionType: "Self" | "On Behalf";
