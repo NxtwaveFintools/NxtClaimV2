@@ -36,7 +36,7 @@ No existing data to preserve — BC is test-env only. Drop and recreate cleanly.
 - RLS is enabled on `bc_claim_details` mirroring the read patterns on `bc_claim_vendors`.
 - `claim_audit_logs` CHECK constraint is extended with two new `action_type` values: `BC_SUBMITTED`, `BC_SUBMISSION_FAILED`.
 - `claims.is_vendor_payment` is **dropped** — `is_vendor_payment` lives only on `bc_claim_details` (per-attempt snapshot). Dashboard reads it via JOIN on the success row.
-- `bc_bal_account_type` enum is **dropped entirely**, not renamed. It was only consumed by `bc_payment_audit_log` (also dropped). The new payload uses a TS literal `"G/l"` exposed via `BcType.GLAccount`; the DB enum is orphan after this migration.
+- `bc_bal_account_type` enum is **dropped entirely**, not renamed. It was only consumed by `bc_payment_audit_log` (also dropped). The new payload uses a TS literal `"G/L Account"` exposed via `BcType.GLAccount`; the DB enum is orphan after this migration.
 
 ```sql
 -- 1. Drop old structures (orphan after this migration).
@@ -147,7 +147,7 @@ CREATE POLICY bc_claim_details_submitter_read
     "currencyCode": "INR",
     "vendorInvoiceNo": "INV-2026-001",
     "documentDate": "2026-05-10",
-    "type": "G/l",
+    "type": "G/L Account",
     "quantity": 1,
     "gstGroupCode": "GST18",
     "gstCredit": "Non-Availment",
@@ -187,7 +187,7 @@ CREATE POLICY bc_claim_details_submitter_read
     "documentType": "Invoice",
     "locationCode": "HBT",
     "documentDate": "2026-05-12",
-    "type": "G/l",
+    "type": "G/L Account",
     "quantity": 1,
     "gstCredit": "Non-Availment",
     "gstSubcategory": "Ineligible-43/44",
@@ -780,7 +780,7 @@ return Response.json({
 
 // NEW fixed-value constants:
 export const BcDocumentType = { Invoice: "Invoice" } as const;
-export const BcType = { GLAccount: "G/l" } as const;
+export const BcType = { GLAccount: "G/L Account" } as const;
 export const BcGstCredit = { NonAvailment: "Non-Availment" } as const;
 export const BcGstSubcategory = { Ineligible4344: "Ineligible-43/44" } as const;
 export const BcEmployeeTransactionType = { Advance: "Advance" } as const;
@@ -807,7 +807,7 @@ export interface BcClaimLineItem {
   // Fixed values — always hardcoded
   documentType: "Invoice"; // BcDocumentType.Invoice
   locationCode: "HBT"; // BcLocationCode
-  type: "G/l"; // BcType.GLAccount
+  type: "G/L Account"; // BcType.GLAccount
   quantity: 1; // BcQuantity
   gstCredit: "Non-Availment"; // BcGstCredit.NonAvailment
   gstSubcategory: "Ineligible-43/44"; // BcGstSubcategory.Ineligible4344
@@ -867,7 +867,7 @@ Rules:
 const line: BcClaimLineItem = {
   documentType: "Invoice",
   locationCode: "HBT",
-  type: "G/l",
+  type: "G/L Account",
   quantity: 1,
   gstCredit: "Non-Availment",
   gstSubcategory: "Ineligible-43/44",

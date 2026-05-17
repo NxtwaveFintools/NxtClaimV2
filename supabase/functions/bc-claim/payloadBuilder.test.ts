@@ -43,7 +43,7 @@ Deno.test("vendor payload has all 26 fields with vendor-only keys present", () =
   const line = buildBcClaimLineItem(vendorInputs);
   assertEquals(line.documentType, "Invoice");
   assertEquals(line.locationCode, "HBT");
-  assertEquals(line.type, "G/l");
+  assertEquals(line.type, "G/L Account");
   assertEquals(line.quantity, 1);
   assertEquals(line.gstCredit, "Non-Availment");
   assertEquals(line.gstSubcategory, "Ineligible-43/44");

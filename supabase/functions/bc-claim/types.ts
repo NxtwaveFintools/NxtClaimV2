@@ -3,7 +3,7 @@
 export const BcDocumentType = { Invoice: "Invoice" } as const;
 export type BcDocumentType = (typeof BcDocumentType)[keyof typeof BcDocumentType];
 
-export const BcType = { GLAccount: "G/l" } as const;
+export const BcType = { GLAccount: "G/L Account" } as const;
 export type BcType = (typeof BcType)[keyof typeof BcType];
 
 export const BcGstCredit = { NonAvailment: "Non-Availment" } as const;
@@ -36,7 +36,7 @@ export interface BcClaimLineItem {
   // Fixed values — always hardcoded.
   documentType: "Invoice";
   locationCode: "HBT";
-  type: "G/l";
+  type: "G/L Account";
   quantity: 1;
   gstCredit: "Non-Availment";
   gstSubcategory: "Ineligible-43/44";

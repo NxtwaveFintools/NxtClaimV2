@@ -57,7 +57,7 @@ export function buildBcClaimLineItem(inputs: BuildInputs): BcClaimLineItem {
   const base: BcClaimLineItem = {
     documentType: "Invoice",
     locationCode: "HBT",
-    type: "G/l",
+    type: "G/L Account",
     quantity: 1,
     gstCredit: "Non-Availment",
     gstSubcategory: "Ineligible-43/44",
