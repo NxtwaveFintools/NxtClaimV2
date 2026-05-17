@@ -255,7 +255,7 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
 
   return (
     <Dialog open={open} onOpenChange={handleDialogChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader className="space-y-2 border-b border-zinc-100 pb-5 dark:border-zinc-800">
           <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-indigo-600 dark:text-indigo-400">
             Business Central · Finance Approval
