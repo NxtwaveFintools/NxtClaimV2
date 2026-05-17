@@ -1625,9 +1625,7 @@ export type Database = {
         | { Args: { p_claim_id: string; p_payload: Json }; Returns: undefined };
     };
     Enums: {
-      bc_account_type: "Employee" | "Vendor";
       bc_claim_status: "submitting" | "success" | "failed";
-      bc_employee_transaction_type: "ADVANCE";
       claim_status:
         | "Submitted - Awaiting HOD approval"
         | "HOD approved - Awaiting finance approval"
@@ -1760,9 +1758,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      bc_account_type: ["Employee", "Vendor"],
       bc_claim_status: ["submitting", "success", "failed"],
-      bc_employee_transaction_type: ["ADVANCE"],
       claim_status: [
         "Submitted - Awaiting HOD approval",
         "HOD approved - Awaiting finance approval",
