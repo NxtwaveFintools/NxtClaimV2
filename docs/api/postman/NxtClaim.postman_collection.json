@@ -32,7 +32,7 @@
             },
             {
               "key": "client_id",
-              "value": "a5170024-af89-4142-b29b-65562f395b6f",
+              "value": "{{clientId}}",
               "type": "text"
             },
             {
@@ -43,10 +43,10 @@
           ]
         },
         "url": {
-          "raw": "https://login.microsoftonline.com/6ae3d026-e965-483e-8309-8f8f3aca71c8/oauth2/v2.0/token",
+          "raw": "https://login.microsoftonline.com/{{tenantId}}/oauth2/v2.0/token",
           "protocol": "https",
           "host": ["login", "microsoftonline", "com"],
-          "path": ["6ae3d026-e965-483e-8309-8f8f3aca71c8", "oauth2", "v2.0", "token"]
+          "path": ["{{tenantId}}", "oauth2", "v2.0", "token"]
         }
       },
       "response": []
@@ -76,17 +76,17 @@
           }
         },
         "url": {
-          "raw": "https://api.businesscentral.dynamics.com/v2.0/Sandbox_05052026/api/Alletec/Claim/v1.0/companies(2a9bf2ba-5cfe-ef11-9346-6045bdac6fc7)/Claims",
+          "raw": "https://api.businesscentral.dynamics.com/v2.0/{{environment}}/api/Alletec/Claim/v1.0/companies({{companyId}})/Claims",
           "protocol": "https",
           "host": ["api", "businesscentral", "dynamics", "com"],
           "path": [
             "v2.0",
-            "Sandbox_05052026",
+            "{{environment}}",
             "api",
             "Alletec",
             "Claim",
             "v1.0",
-            "companies(2a9bf2ba-5cfe-ef11-9346-6045bdac6fc7)",
+            "companies({{companyId}})",
             "Claims"
           ]
         }
