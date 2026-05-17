@@ -1,5 +1,6 @@
 import { bcFetch } from "../_shared/bcClient.ts";
 import { corsPreflightResponse, resolveCors } from "../_shared/cors.ts";
+import { log } from "../_shared/logger.ts";
 
 /**
  * bc-reference — returns code+description pairs for Finance modal dropdowns.
@@ -67,6 +68,7 @@ export async function handler(req: Request): Promise<Response> {
 
   const cached = cache.get(type);
   if (cached && cached.expiresAt > Date.now()) {
+    log("bc-reference", "info", "cache_hit", { type });
     return json(cors.headers, cached.body, 200);
   }
 
@@ -75,6 +77,11 @@ export async function handler(req: Request): Promise<Response> {
   try {
     result = await bcFetch("odata", "GET", path);
   } catch (err) {
+    log("bc-reference", "error", "bc_fetch_outcome", {
+      type,
+      bc_status: 0,
+      error: String(err).slice(0, 500),
+    });
     return json(
       cors.headers,
       { error: "BC_REFERENCE_FETCH_FAILED", type, detail: String(err) },
@@ -83,6 +90,10 @@ export async function handler(req: Request): Promise<Response> {
   }
 
   if (result.status < 200 || result.status >= 300) {
+    log("bc-reference", "warn", "bc_fetch_outcome", {
+      type,
+      bc_status: result.status,
+    });
     return json(
       cors.headers,
       { error: "BC_REFERENCE_FETCH_FAILED", type, status: result.status, detail: result.body },
@@ -98,6 +109,11 @@ export async function handler(req: Request): Promise<Response> {
     })),
   };
 
+  log("bc-reference", "info", "bc_fetch_outcome", {
+    type,
+    bc_status: result.status,
+    count: mapped.value.length,
+  });
   cache.set(type, { body: mapped, expiresAt: Date.now() + CACHE_TTL_MS });
   return json(cors.headers, mapped, 200);
 }
