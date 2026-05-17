@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { FormInput } from "@/components/ui/form-input";
-import { FormSelect } from "@/components/ui/form-select";
+import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { getBrowserSupabaseClient } from "@/core/infra/supabase/browser-client";
 import { cn } from "@/lib/cn";
@@ -599,20 +599,13 @@ function ReferenceField({
       )}
 
       {state.status === "loaded" && (
-        <FormSelect
+        <SearchableCombobox
+          options={state.options}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
-          disabled={disabled || state.options.length === 0}
-        >
-          <option value="" disabled>
-            {state.options.length === 0 ? "No options" : "Select…"}
-          </option>
-          {state.options.map((opt) => (
-            <option key={opt.code} value={opt.code}>
-              {opt.code} &mdash; {opt.description}
-            </option>
-          ))}
-        </FormSelect>
+          onChange={onChange}
+          placeholder={state.options.length === 0 ? "No options" : "Select…"}
+          disabled={disabled}
+        />
       )}
 
       {state.status === "idle" && (
