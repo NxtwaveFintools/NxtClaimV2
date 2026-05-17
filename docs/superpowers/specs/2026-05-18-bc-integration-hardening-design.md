@@ -268,13 +268,15 @@ Implementation: `console.log(JSON.stringify({ts: new Date().toISOString(), fn, l
 
 ## Sequencing
 
-The 10 fixes have shallow dependencies:
+The 11 fixes have shallow dependencies:
 
 - Fix 3 (JWT auth) creates `_shared/auth.ts`. Fix 1 and Fix 2 don't need it, but Fix 1's logger should be in place _before_ Fix 3 so the JWT-failure path is loggable.
 - Fix 2 (`bcClient` refactor) and Fix 8 (timeouts) overlap on `bc-vendor-search`; do Fix 2 first to avoid rework.
-- Fixes 4, 5, 6, 7, 9, 10 are fully independent and can be done in any order.
+- Fix 11 (modal UX polish) is independent — touches only the React modal file. Can run in parallel with backend work.
+- Fix 9 (pre-submit validation) and Fix 11 both edit the same file. Do Fix 11 first; fold Fix 9's helper text into Fix 11's `submit-disabled hint` so they don't conflict.
+- Fixes 4, 5, 6, 7, 10 are fully independent and can be done in any order.
 
-Recommended order: **1 → 2 → 3 → 6 → 4 → 7 → 8 → 9 → 5 → 10**. Hardest/highest-impact first, docs last.
+Recommended order: **1 → 2 → 3 → 11 → 6 → 4 → 7 → 8 → 9 → 5 → 10**. Hardest/highest-impact first, docs last.
 
 ## Testing strategy
 
