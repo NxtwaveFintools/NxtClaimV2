@@ -4,11 +4,11 @@ These collections target the Microsoft Dynamics Business Central sandbox tenant.
 
 ## Files
 
-| File                                     | Purpose                                                                                       |
-| ---------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `NxtClaim.postman_collection.json`       | Custom Alletec Claims API — `POST /companies({{companyId}})/Claims`                           |
-| `NxtClaim-OData.postman_collection.json` | Standard OData reference — `GetCurrencies`, `GetGSTGroupCodes`, `GetHSNSACCodes` (3 requests) |
-| `bc-sandbox.postman_environment.json`    | Variables: tenant, environment, company, client id/secret, bearer token                       |
+| File                                   | Mirrors edge function              | Purpose                                                                                       |
+| -------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------- |
+| `bc-claim.postman_collection.json`     | `supabase/functions/bc-claim/`     | Custom Alletec Claims API — `POST /companies({{companyId}})/Claims`                           |
+| `bc-reference.postman_collection.json` | `supabase/functions/bc-reference/` | Standard OData reference — `GetCurrencies`, `GetGSTGroupCodes`, `GetHSNSACCodes` (3 requests) |
+| `bc-sandbox.postman_environment.json`  | —                                  | Variables: tenant, environment, company, client id/secret, bearer token                       |
 
 ## How to use
 
@@ -42,11 +42,15 @@ Both collection files contain **zero hardcoded credentials**: every secret has b
 parameterised to a Postman variable. The non-secret identifiers (tenant / company / client
 ids) are also parameterised so the same collections work against any BC environment.
 
-## Why one OData collection, not three
+## File naming
 
-`NxtClaim-OData` consolidates what were previously three near-identical files
+The two collection filenames match the edge function slugs exactly
+(`supabase/functions/bc-claim/` and `supabase/functions/bc-reference/`).
+If you want to verify what an edge function sends/receives, the corresponding
+Postman collection is the first place to look — same name, same endpoints.
+
+`bc-reference` consolidates what were previously three near-identical files
 (`NxtClaimCurrency`, `NxtClaimGSTGroupCodes`, `NxtClaimHSNSACCodes`). Each of those
 originally queried the wrong entity (`…/Company('…')/vendors` was copied across all
 three). The new collection has one Access Token request shared by three correctly-targeted
-data requests, each with `$select=Code,Description` to keep the response small. This
-mirrors the `bc-reference` edge function 1:1.
+data requests, each with `$select=Code,Description` to keep the response small.

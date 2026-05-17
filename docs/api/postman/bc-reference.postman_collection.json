@@ -1,7 +1,7 @@
 {
   "info": {
     "_postman_id": "bc-odata-reference",
-    "name": "NxtClaim-OData",
+    "name": "bc-reference",
     "description": "BC Standard OData reference data — currencies, GST groups, HSN/SAC codes.\nMirrors the `bc-reference` edge function. Each request uses `$select=Code,Description` to keep payloads small (BC's default response includes 30+ fields).\n\nVariables consumed (from the `BC Sandbox` environment):\n  tenantId / clientId / clientSecret — Azure AD\n  environment — BC sandbox name\n  companyName — BC company short name\n  bearerToken — auto-populated by the Access Token request\n",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
