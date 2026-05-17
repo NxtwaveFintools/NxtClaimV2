@@ -41,6 +41,17 @@ export interface BuildInputs {
  */
 const BC_REMARKS_MAX = 50;
 
+/**
+ * BC's `claimNo` (the No. column) is a standard 20-char field. Our claim
+ * IDs are 29 chars (e.g. "CLAIM-NW3341311-20260516-B324"). For testing we
+ * truncate to the first 20 chars; the full claim_id remains on
+ * bc_claim_details.claim_id for round-trip lookup.
+ *
+ * TODO: BC developer to widen the No. column. Once widened, drop the
+ * truncation and send the full claim_id.
+ */
+const BC_CLAIM_NO_MAX = 20;
+
 export function buildRemarks(db: BcClaimPayloadFromDb): string {
   if (db.claim_id.length >= BC_REMARKS_MAX) {
     return db.claim_id.slice(0, BC_REMARKS_MAX);
@@ -80,7 +91,7 @@ export function buildBcClaimLineItem(inputs: BuildInputs): BcClaimLineItem {
     glCode: db.bc_code,
     employeeId,
     employeeName: db.employee_name,
-    claimNo: db.claim_id,
+    claimNo: db.claim_id.slice(0, BC_CLAIM_NO_MAX),
     remarks: buildRemarks(db),
     programCode: db.program_code,
     subproductCode: db.sub_product_code,

@@ -131,6 +131,18 @@ Deno.test("vendor payload throws when vendor inputs are missing", () => {
   );
 });
 
+Deno.test(
+  "claimNo is truncated to BC's 20-char limit (full id stays on bc_claim_details.claim_id)",
+  () => {
+    const line = buildBcClaimLineItem({
+      db: { ...baseDb, claim_id: "CLAIM-NW3341311-20260516-B324" },
+      isVendorPayment: false,
+    });
+    assertEquals(line.claimNo, "CLAIM-NW3341311-2026");
+    assertEquals(line.claimNo.length, 20);
+  },
+);
+
 Deno.test("vendorInvoiceNo defaults to empty string when bill_no is null", () => {
   const line = buildBcClaimLineItem({
     db: { ...baseDb, bill_no: null },
