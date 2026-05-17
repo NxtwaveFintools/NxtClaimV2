@@ -4,7 +4,7 @@ import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ClaimDecisionSubmitButton } from "@/modules/claims/ui/claim-decision-submit-button";
-import { BcPaymentModal } from "@/modules/claims/ui/bc-payment-modal";
+import { BcClaimModal } from "@/modules/claims/ui/bc-claim-modal";
 import { isExpensePaymentModeName } from "@/core/constants/payment-modes";
 
 type ClaimDecisionActionFormProps = {
@@ -93,7 +93,7 @@ export function ClaimDecisionActionForm({
         <ClaimDecisionSubmitButton decision={decision} compact={compact} pending={isPending} />
       </form>
       {isExpenseModeApprove && claimId ? (
-        <BcPaymentModal
+        <BcClaimModal
           open={bcModalOpen}
           onOpenChange={setBcModalOpen}
           claimId={claimId}
