@@ -1,8 +1,19 @@
 import { assertEquals, assertRejects } from "std/assert/mod.ts";
 import { __resetTokenCache, __setTestEnv } from "./bcAuth.ts";
+import { __resetBcEnvCache } from "./bcEnv.ts";
 import { __setBcFetchImpl, bcFetch } from "./bcClient.ts";
 
+// bcClient.buildUrl() reads Deno.env via getBcEnv() — we have to populate
+// the env vars BEFORE any test calls bcFetch, then reset the cache so
+// getBcEnv sees the fresh values. __setTestEnv only covers bcAuth's path.
 function setupAuth(): void {
+  Deno.env.set("BC_TENANT_ID", "T");
+  Deno.env.set("BC_CLIENT_ID", "C");
+  Deno.env.set("BC_CLIENT_SECRET", "S");
+  Deno.env.set("BC_ENVIRONMENT", "Sandbox_Test");
+  Deno.env.set("BC_COMPANY_ID", "company-uuid");
+  Deno.env.set("BC_COMPANY_NAME", "NxtWave");
+  __resetBcEnvCache();
   __resetTokenCache();
   __setTestEnv({
     tenantId: "T",
@@ -134,15 +145,13 @@ Deno.test("bcFetch — AbortController timeout fires", async () => {
   __setBcFetchImpl(
     (_url, init) =>
       new Promise((_resolve, reject) => {
-        init!.signal!.addEventListener("abort", () =>
-          reject(new DOMException("aborted", "AbortError")),
-        );
+        init!.signal!.addEventListener("abort", () => reject(new Error("AbortError: aborted")));
       }),
   );
   try {
     await assertRejects(
       () => bcFetch("claims", "GET", "/probe", undefined, { timeoutMs: 30 }),
-      DOMException,
+      Error,
       "aborted",
     );
   } finally {
