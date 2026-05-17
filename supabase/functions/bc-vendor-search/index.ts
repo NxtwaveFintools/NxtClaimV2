@@ -2,6 +2,7 @@ import { z } from "zod";
 import { bcFetch } from "../_shared/bcClient.ts";
 import { corsPreflightResponse, resolveCors } from "../_shared/cors.ts";
 import { log } from "../_shared/logger.ts";
+import { requireAuthenticatedUser } from "../_shared/auth.ts";
 
 const InputSchema = z.object({
   query: z.string().trim().min(1).max(60),
@@ -15,6 +16,12 @@ Deno.serve(async (req) => {
 
   if (req.method !== "POST") {
     return json(cors.headers, { error: "METHOD_NOT_ALLOWED" }, 405);
+  }
+
+  const auth = await requireAuthenticatedUser(req);
+  if (!auth.ok) {
+    log("bc-vendor-search", "warn", "auth_failed");
+    return json(cors.headers, { error: "UNAUTHENTICATED" }, auth.status);
   }
 
   let body: unknown;

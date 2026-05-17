@@ -1,6 +1,7 @@
 import { bcFetch } from "../_shared/bcClient.ts";
 import { corsPreflightResponse, resolveCors } from "../_shared/cors.ts";
 import { log } from "../_shared/logger.ts";
+import { requireAuthenticatedUser } from "../_shared/auth.ts";
 
 /**
  * bc-reference — returns code+description pairs for Finance modal dropdowns.
@@ -52,6 +53,12 @@ export async function handler(req: Request): Promise<Response> {
 
   if (req.method !== "GET") {
     return json(cors.headers, { error: "METHOD_NOT_ALLOWED" }, 405);
+  }
+
+  const auth = await requireAuthenticatedUser(req);
+  if (!auth.ok) {
+    log("bc-reference", "warn", "auth_failed");
+    return json(cors.headers, { error: "UNAUTHENTICATED" }, auth.status);
   }
 
   const url = new URL(req.url);

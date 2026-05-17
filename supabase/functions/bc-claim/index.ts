@@ -4,6 +4,7 @@ import { bcFetch } from "../_shared/bcClient.ts";
 import { getBcEnv } from "../_shared/bcEnv.ts";
 import { corsPreflightResponse, resolveCors } from "../_shared/cors.ts";
 import { log } from "../_shared/logger.ts";
+import { requireFinanceApprover } from "../_shared/auth.ts";
 import { buildBcClaimLineItem } from "./payloadBuilder.ts";
 import type { BcClaimError, BcClaimPayloadFromDb } from "./types.ts";
 
@@ -78,35 +79,17 @@ Deno.serve(async (req) => {
     return errResp(cors.headers, { code: "INVALID_BODY", details: ["method must be POST"] }, 405);
   }
 
-  // Step 1 — JWT → finance approver.
-  const authHeader = req.headers.get("Authorization") ?? "";
-  const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
-  if (!jwt) {
-    log("bc-claim", "warn", "auth_missing_jwt");
-    return errResp(cors.headers, { code: "UNAUTHENTICATED" }, 401);
+  // Step 1 — JWT → finance approver (shared helper).
+  const auth = await requireFinanceApprover(req);
+  if (!auth.ok) {
+    log("bc-claim", "warn", "auth_failed");
+    return errResp(cors.headers, { code: "UNAUTHENTICATED" }, auth.status);
   }
+  const actorUserId = auth.userId;
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-
-  const { data: userData, error: userErr } = await admin.auth.getUser(jwt);
-  if (userErr || !userData.user) {
-    log("bc-claim", "warn", "auth_invalid_jwt");
-    return errResp(cors.headers, { code: "UNAUTHENTICATED" }, 401);
-  }
-  const actorUserId = userData.user.id;
-
-  const { data: approverRow } = await admin
-    .from("master_finance_approvers")
-    .select("id")
-    .eq("user_id", actorUserId)
-    .eq("is_active", true)
-    .maybeSingle();
-  if (!approverRow) {
-    log("bc-claim", "warn", "auth_not_finance_approver", { actor: actorUserId });
-    return errResp(cors.headers, { code: "UNAUTHENTICATED" }, 401);
-  }
 
   // Step 2 — body validation.
   let rawBody: unknown;
