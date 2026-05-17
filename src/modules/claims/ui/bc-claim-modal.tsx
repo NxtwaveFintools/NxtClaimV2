@@ -255,93 +255,99 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
 
   return (
     <Dialog open={open} onOpenChange={handleDialogChange}>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle className="text-lg font-semibold tracking-tight">
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader className="space-y-2 border-b border-zinc-100 pb-5 dark:border-zinc-800">
+          <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-indigo-600 dark:text-indigo-400">
+            Business Central · Finance Approval
+          </p>
+          <DialogTitle className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
             Send to Business Central
           </DialogTitle>
-          <DialogDescription className="text-sm text-zinc-500 dark:text-zinc-400">
+          <DialogDescription className="max-w-2xl text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
             Choose how this claim should be paid. On submit, the claim transitions to{" "}
-            <span className="font-medium text-zinc-700 dark:text-zinc-300">
+            <span className="font-medium text-zinc-700 dark:text-zinc-200">
               Finance Approved &mdash; Payment under process
             </span>{" "}
             and cannot be re-submitted.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="mt-2 space-y-5">
-          <fieldset className="space-y-2" disabled={submitting || catastrophic}>
-            <legend className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-              Payment Type
-            </legend>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <PaymentTypeCard
-                icon={<User className="h-4 w-4" />}
-                label="Non-Vendor Payment"
-                description="Reimburse the employee directly"
-                selected={paymentType === "non_vendor"}
-                onSelect={() => {
-                  setPaymentType("non_vendor");
-                  clearSelectedVendor();
-                }}
-              />
-              <PaymentTypeCard
-                icon={<Building2 className="h-4 w-4" />}
-                label="Vendor Payment"
-                description="Pay a third-party vendor"
-                selected={paymentType === "vendor"}
-                onSelect={() => setPaymentType("vendor")}
-              />
-            </div>
-          </fieldset>
-
-          {paymentType === "vendor" && (
-            <div className="space-y-4">
-              <VendorPicker
-                selectedVendor={selectedVendor}
-                vendorQuery={vendorQuery}
-                onQueryChange={setVendorQuery}
-                visibleVendors={visibleVendors}
-                shouldSearch={shouldSearch}
-                searching={searching}
-                onSelect={(v) => {
-                  setSelectedVendor(v);
-                  setVendorQuery("");
-                  setVendors([]);
-                }}
-                onClear={clearSelectedVendor}
-                debouncedQuery={debouncedQuery}
-                error={vendorSearchError}
-                disabled={submitting || catastrophic}
-              />
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <ReferenceField
-                  label="Currency"
-                  state={currencies}
-                  value={currencyCode}
-                  onChange={setCurrencyCode}
-                  onRetry={() => fetchReference("currencies", setCurrencies)}
-                  disabled={submitting || catastrophic}
+        <div className="mt-5 space-y-7">
+          <Section number="01" label="Payment Type">
+            <fieldset disabled={submitting || catastrophic}>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <PaymentTypeCard
+                  icon={<User className="h-4 w-4" />}
+                  label="Non-Vendor Payment"
+                  description="Reimburse the employee directly"
+                  selected={paymentType === "non_vendor"}
+                  onSelect={() => {
+                    setPaymentType("non_vendor");
+                    clearSelectedVendor();
+                  }}
                 />
-                <ReferenceField
-                  label="GST Group"
-                  state={gstGroups}
-                  value={gstGroupCode}
-                  onChange={setGstGroupCode}
-                  onRetry={() => fetchReference("gstGroupCodes", setGstGroups)}
-                  disabled={submitting || catastrophic}
-                />
-                <ReferenceField
-                  label="HSN / SAC"
-                  state={hsnSacs}
-                  value={hsnSacCode}
-                  onChange={setHsnSacCode}
-                  onRetry={() => fetchReference("hsnSacCodes", setHsnSacs)}
-                  disabled={submitting || catastrophic}
+                <PaymentTypeCard
+                  icon={<Building2 className="h-4 w-4" />}
+                  label="Vendor Payment"
+                  description="Pay a third-party vendor"
+                  selected={paymentType === "vendor"}
+                  onSelect={() => setPaymentType("vendor")}
                 />
               </div>
-            </div>
+            </fieldset>
+          </Section>
+
+          {paymentType === "vendor" && (
+            <>
+              <Section number="02" label="Vendor">
+                <VendorPicker
+                  selectedVendor={selectedVendor}
+                  vendorQuery={vendorQuery}
+                  onQueryChange={setVendorQuery}
+                  visibleVendors={visibleVendors}
+                  shouldSearch={shouldSearch}
+                  searching={searching}
+                  onSelect={(v) => {
+                    setSelectedVendor(v);
+                    setVendorQuery("");
+                    setVendors([]);
+                  }}
+                  onClear={clearSelectedVendor}
+                  debouncedQuery={debouncedQuery}
+                  error={vendorSearchError}
+                  disabled={submitting || catastrophic}
+                />
+              </Section>
+
+              <Section number="03" label="Reference Codes">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <ReferenceField
+                    label="Currency"
+                    state={currencies}
+                    value={currencyCode}
+                    onChange={setCurrencyCode}
+                    onRetry={() => fetchReference("currencies", setCurrencies)}
+                    disabled={submitting || catastrophic}
+                  />
+                  <ReferenceField
+                    label="GST Group"
+                    state={gstGroups}
+                    value={gstGroupCode}
+                    onChange={setGstGroupCode}
+                    onRetry={() => fetchReference("gstGroupCodes", setGstGroups)}
+                    disabled={submitting || catastrophic}
+                  />
+                  <ReferenceField
+                    label="HSN / SAC"
+                    state={hsnSacs}
+                    value={hsnSacCode}
+                    onChange={setHsnSacCode}
+                    onRetry={() => fetchReference("hsnSacCodes", setHsnSacs)}
+                    disabled={submitting || catastrophic}
+                  />
+                </div>
+              </Section>
+            </>
           )}
 
           {lifecycle.phase === "recoverable_error" && (
@@ -363,7 +369,7 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
           )}
         </div>
 
-        <DialogFooter className="mt-2 gap-2 sm:gap-2">
+        <DialogFooter className="mt-7 gap-2 border-t border-zinc-100 pt-5 sm:gap-3 dark:border-zinc-800">
           <Button
             type="button"
             variant="secondary"
@@ -381,7 +387,7 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
               loading={submitting}
               loadingText="Submitting to BC…"
             >
-              Submit
+              Submit to BC
             </Button>
           )}
         </DialogFooter>
@@ -391,6 +397,31 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
 }
 
 // ─── Subcomponents ────────────────────────────────────────────────────────
+
+function Section({
+  number,
+  label,
+  children,
+}: {
+  number: string;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center gap-3">
+        <span className="font-mono text-[10px] font-medium tracking-widest text-indigo-500 dark:text-indigo-400">
+          {number}
+        </span>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-700 dark:text-zinc-200">
+          {label}
+        </span>
+        <span className="h-px flex-1 bg-gradient-to-r from-zinc-200 via-zinc-200 to-transparent dark:from-zinc-800 dark:via-zinc-800" />
+      </div>
+      {children}
+    </section>
+  );
+}
 
 function PaymentTypeCard({
   icon,
@@ -477,27 +508,24 @@ function VendorPicker({
 }) {
   return (
     <div className="space-y-2">
-      <label
-        htmlFor="bc-vendor-search"
-        className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
-      >
-        Vendor
-      </label>
-
       {selectedVendor ? (
-        <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-100">
-          <span className="flex items-center gap-2">
-            <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-            <span className="font-medium">{selectedVendor.name}</span>
-            <span className="text-emerald-700/80 dark:text-emerald-300/70">
-              ({selectedVendor.no})
+        <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-100">
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">
+              <Check className="h-4 w-4" />
+            </span>
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate font-medium leading-tight">{selectedVendor.name}</span>
+              <span className="font-mono text-[11px] leading-tight text-emerald-700/80 dark:text-emerald-300/70">
+                {selectedVendor.no}
+              </span>
             </span>
           </span>
           <button
             type="button"
             onClick={onClear}
             disabled={disabled}
-            className="rounded-md p-1 text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+            className="ml-3 rounded-md p-1.5 text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
             aria-label="Clear selected vendor"
           >
             <X className="h-3.5 w-3.5" />
@@ -505,16 +533,16 @@ function VendorPicker({
         </div>
       ) : (
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400 dark:text-zinc-500" />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400 dark:text-zinc-500" />
           <FormInput
             id="bc-vendor-search"
             type="text"
-            placeholder="Search vendor by name or ID"
+            placeholder="Search vendor by name or number…"
             value={vendorQuery}
             onChange={(e) => onQueryChange(e.target.value)}
             disabled={disabled}
             autoComplete="off"
-            className="pl-9"
+            className="h-10 pl-10 text-sm"
           />
           {searching && (
             <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-zinc-400 dark:text-zinc-500" />
@@ -573,15 +601,13 @@ function ReferenceField({
   disabled: boolean;
 }) {
   return (
-    <div className="space-y-1.5">
-      <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-        {label}
-      </span>
+    <div className="space-y-2">
+      <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">{label}</label>
 
       {state.status === "loading" && (
-        <div className="flex h-9 w-full items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-400">
+        <div className="flex h-10 w-full items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50/50 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400">
           <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-          Loading…
+          Loading {label.toLowerCase()}…
         </div>
       )}
 
@@ -590,7 +616,7 @@ function ReferenceField({
           type="button"
           onClick={onRetry}
           disabled={disabled}
-          className="flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200 dark:hover:bg-rose-950/60"
+          className="flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-rose-200 bg-rose-50 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200 dark:hover:bg-rose-950/60"
           title={state.message}
         >
           <RotateCcw className="h-3.5 w-3.5" />
@@ -603,14 +629,14 @@ function ReferenceField({
           options={state.options}
           value={value}
           onChange={onChange}
-          placeholder={state.options.length === 0 ? "No options" : "Select…"}
+          placeholder={state.options.length === 0 ? "No options" : `Select ${label.toLowerCase()}…`}
           disabled={disabled}
         />
       )}
 
       {state.status === "idle" && (
-        <div className="flex h-9 w-full items-center justify-center rounded-xl border border-dashed border-zinc-200 text-xs text-zinc-400 dark:border-zinc-700 dark:text-zinc-500">
-          —
+        <div className="flex h-10 w-full items-center justify-center rounded-lg border border-dashed border-zinc-200 text-xs text-zinc-400 dark:border-zinc-800 dark:text-zinc-500">
+          Not loaded
         </div>
       )}
     </div>

@@ -160,20 +160,21 @@ export function SearchableCombobox({
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "nxt-input flex h-9 w-full items-center justify-between gap-2 rounded-xl border border-zinc-300 bg-white px-3 text-left text-sm text-zinc-800 transition-colors",
-          "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-900",
+          "flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-zinc-300 bg-white px-3.5 text-left text-sm text-zinc-800 transition-all",
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/70 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-900",
           "disabled:cursor-not-allowed disabled:opacity-50",
           "hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-zinc-600",
-          open && "border-indigo-500 ring-2 ring-indigo-500 ring-offset-2 dark:border-indigo-400",
+          open &&
+            "border-indigo-500 ring-2 ring-indigo-500/30 ring-offset-0 dark:border-indigo-400 dark:ring-indigo-400/30",
         )}
       >
         {selected ? (
-          <span className="flex min-w-0 items-baseline gap-2">
-            <span className="font-mono text-xs text-zinc-900 dark:text-zinc-100">
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="shrink-0 rounded-md bg-indigo-50 px-1.5 py-0.5 font-mono text-[11px] font-medium text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">
               {selected.code}
             </span>
             {selected.description && (
-              <span className="truncate text-zinc-500 dark:text-zinc-400">
+              <span className="truncate text-zinc-600 dark:text-zinc-400">
                 {selected.description}
               </span>
             )}
@@ -183,8 +184,8 @@ export function SearchableCombobox({
         )}
         <ChevronDown
           className={cn(
-            "h-4 w-4 shrink-0 text-zinc-400 transition-transform",
-            open && "rotate-180",
+            "h-4 w-4 shrink-0 text-zinc-400 transition-transform duration-200",
+            open && "rotate-180 text-indigo-500 dark:text-indigo-400",
           )}
         />
       </button>
@@ -192,10 +193,10 @@ export function SearchableCombobox({
       {open && (
         <div
           ref={panelRef}
-          className="absolute left-0 right-0 z-50 mt-1 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg shadow-zinc-900/5 dark:border-zinc-700 dark:bg-zinc-900 dark:shadow-black/30"
+          className="absolute left-0 right-0 z-50 mt-1.5 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl shadow-zinc-900/10 ring-1 ring-zinc-950/[0.03] dark:border-zinc-700 dark:bg-zinc-900 dark:shadow-black/40"
         >
-          <div className="relative border-b border-zinc-100 px-2 py-2 dark:border-zinc-800">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+          <div className="relative border-b border-zinc-100 bg-zinc-50/50 px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/50">
+            <Search className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
             <input
               ref={inputRef}
               type="text"
@@ -203,28 +204,28 @@ export function SearchableCombobox({
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={onKeyDown}
               placeholder={`Search ${options.length.toLocaleString()} options…`}
-              className="h-7 w-full rounded-md border-0 bg-transparent pl-7 pr-2 text-xs text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-0 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+              className="h-8 w-full rounded-md border-0 bg-transparent pl-8 pr-2 text-sm text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-0 dark:text-zinc-100 dark:placeholder:text-zinc-500"
               aria-controls={`${id}-listbox`}
               aria-activedescendant={filtered[activeIndex] ? `${id}-opt-${activeIndex}` : undefined}
             />
           </div>
 
           {filtered.length === 0 ? (
-            <p className="px-3 py-6 text-center text-xs text-zinc-500 dark:text-zinc-400">
-              {emptyText}
+            <div className="px-3 py-10 text-center">
+              <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">{emptyText}</p>
               {query && (
-                <span className="block pt-1 text-zinc-400 dark:text-zinc-500">
+                <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
                   for &ldquo;{query}&rdquo;
-                </span>
+                </p>
               )}
-            </p>
+            </div>
           ) : (
             <>
               <ul
                 ref={listRef}
                 id={`${id}-listbox`}
                 role="listbox"
-                className="max-h-56 overflow-auto py-1"
+                className="max-h-64 overflow-auto py-1.5"
               >
                 {filtered.map((opt, i) => {
                   const isSelected = opt.code === value;
@@ -239,33 +240,38 @@ export function SearchableCombobox({
                       onMouseEnter={() => setActiveIndex(i)}
                       onClick={() => commit(opt)}
                       className={cn(
-                        "flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm transition-colors",
+                        "mx-1.5 flex cursor-pointer items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-colors",
                         isActive
                           ? "bg-indigo-50 dark:bg-indigo-950/40"
                           : "hover:bg-zinc-50 dark:hover:bg-zinc-800/60",
                       )}
                     >
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                        {isSelected && (
-                          <Check className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                      <span
+                        className={cn(
+                          "shrink-0 rounded-md px-1.5 py-0.5 font-mono text-[11px] font-medium",
+                          isSelected
+                            ? "bg-indigo-600 text-white shadow-sm dark:bg-indigo-500"
+                            : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200",
                         )}
-                      </span>
-                      <span className="font-mono text-xs text-zinc-900 dark:text-zinc-100">
+                      >
                         {opt.code}
                       </span>
                       {opt.description && (
-                        <span className="min-w-0 flex-1 truncate text-zinc-500 dark:text-zinc-400">
+                        <span className="min-w-0 flex-1 truncate text-zinc-600 dark:text-zinc-300">
                           {opt.description}
                         </span>
+                      )}
+                      {isSelected && (
+                        <Check className="h-3.5 w-3.5 shrink-0 text-indigo-600 dark:text-indigo-400" />
                       )}
                     </li>
                   );
                 })}
               </ul>
               {truncatedCount > 0 && (
-                <p className="border-t border-zinc-100 px-3 py-1.5 text-center text-[10px] uppercase tracking-wider text-zinc-400 dark:border-zinc-800 dark:text-zinc-500">
-                  {truncatedCount.toLocaleString()} more match
-                  {truncatedCount === 1 ? "" : "es"} &mdash; keep typing
+                <p className="border-t border-zinc-100 bg-zinc-50/50 px-3 py-2 text-center text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400">
+                  + {truncatedCount.toLocaleString()} more match
+                  {truncatedCount === 1 ? "" : "es"} &mdash; keep typing to narrow
                 </p>
               )}
             </>
