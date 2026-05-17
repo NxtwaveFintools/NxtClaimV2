@@ -9,11 +9,11 @@
 
 ## Background
 
-The BC (Microsoft Dynamics 365 Business Central) integration on the `bc_int` branch has shipped end-to-end submission, reference lookups, and vendor search. A comprehensive audit (see `MEMORY.md` and the audit conversation 2026-05-18) surfaced 10 concrete items to address before declaring the integration production-grade.
+The BC (Microsoft Dynamics 365 Business Central) integration on the `bc_int` branch has shipped end-to-end submission, reference lookups, and vendor search. A comprehensive audit (see `MEMORY.md` and the audit conversation 2026-05-18) surfaced 11 concrete items to address before declaring the integration production-grade.
 
 Items range from observability (P0) to dead-code cleanup (P2) to documentation (P3). They are independent — any subset can ship without blocking the others.
 
-This spec consolidates all 10 into a single design so they can be planned and executed as one connected piece of work.
+This spec consolidates all 11 into a single design so they can be planned and executed as one connected piece of work.
 
 ## Goals
 
@@ -49,7 +49,7 @@ The hardening work is organized around three themes:
 
 ---
 
-## The 10 fixes
+## The 11 fixes
 
 For each fix below: **what changes**, **why**, **files touched**, **definition of done**.
 
@@ -210,6 +210,43 @@ Implementation: `console.log(JSON.stringify({ts: new Date().toISOString(), fn, l
 **Files:** `src/modules/claims/ui/bc-claim-modal.tsx`.
 
 **Done when:** Vendor mode + any unselected dropdown → Submit disabled with a visible "select all reference codes" hint.
+
+---
+
+### Fix 11 — P0 — BC claim modal UX polish (uses `frontend-design` skill)
+
+**What:** Polish the dropdown-heavy section of `src/modules/claims/ui/bc-claim-modal.tsx` so the experience matches a production-grade finance tool. The implementer invokes the `frontend-design` skill to commit to a bold, intentional aesthetic — not generic shadcn defaults.
+
+**Why:** The audit conversation flagged "lot of drop down, make sure experience is good." Reading the 706-line modal: three reference dropdowns stack vertically full-width, three separate loading spinners fire when Vendor mode is toggled on, and disabled Submit gives no hint why. The combobox itself (`searchable-combobox.tsx`) is solid — the work is around it.
+
+**Specific changes (all in `bc-claim-modal.tsx`):**
+
+1. **Reference dropdowns: responsive grid** — `grid-cols-1 sm:grid-cols-3` instead of `space-y-3` vertical stack (lines 322–349). Three small columns on `sm+`; single column on mobile.
+2. **Required indicators** — small asterisk + colored dot on the labels for HSN/SAC, GST Group, Currency, and Vendor. Use the same indigo accent the modal already establishes.
+3. **Unified reference loading** — collapse the 3 separate `Loading X…` blocks into a single skeleton row that animates until all three resolve (or any errors). Reduces cognitive load.
+4. **Submit hint when disabled** — under the Submit button when `canSubmit === false`, show a one-line helper: "Select all reference codes" or "Select a vendor first", driven by what's actually missing.
+5. **"Retry all" affordance** — when 2+ reference dropdowns are in `error` state, replace the per-field Retry buttons with a single "Retry all" CTA at the top of section 03. Keep the per-field retry when only one fails.
+6. **Modal viewport containment** — `DialogContent` gets `max-h-[90vh] overflow-y-auto` so stacked error banners never push the dialog off-screen.
+7. **Subtle section progress** — the `01/02/03` section eyebrows become filled circles when that section is complete (vendor selected; all 3 refs picked). Today they're decorative.
+
+**Aesthetic direction:** the implementer running `frontend-design` decides between (e.g.) a refined-minimal sharpen of the current look, vs. a more editorial layout with stronger typographic hierarchy. The frontend-design skill is invoked once during implementation, not pre-committed in this spec.
+
+**Files:** `src/modules/claims/ui/bc-claim-modal.tsx` only. No new components. The `SearchableCombobox` (`src/components/ui/searchable-combobox.tsx`) is not changed — it's already strong.
+
+**Non-changes (call out to avoid scope creep):**
+
+- No change to the vendor-picker search/result/pill pattern — it works.
+- No change to the 3-phase lifecycle state or error mapping.
+- No new component files. All changes inline in the modal file.
+
+**Done when:**
+
+- All 3 reference dropdowns visible on one row at `sm` breakpoint and up.
+- Required-field markers visible on the 4 required inputs.
+- Submit-disabled hint appears with the correct missing-input message.
+- Modal never overflows the viewport regardless of error-banner stack height.
+- Manual run against the deployed `bc-claim` edge function shows the full flow (toggle → vendor → references → submit → success) feels noticeably tighter than before.
+- All existing modal tests still pass; new tests cover the disabled-hint logic and the "retry all" reveal threshold.
 
 ---
 
