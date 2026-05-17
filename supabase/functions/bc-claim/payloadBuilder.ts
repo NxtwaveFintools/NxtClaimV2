@@ -42,15 +42,20 @@ export interface BuildInputs {
 const BC_REMARKS_MAX = 50;
 
 /**
- * BC's `claimNo` (the No. column) is a standard 20-char field. Our claim
- * IDs are 29 chars (e.g. "CLAIM-NW3341311-20260516-B324"). For testing we
- * truncate to the first 20 chars; the full claim_id remains on
- * bc_claim_details.claim_id for round-trip lookup.
+ * BC's "No." columns (the standard Code-style fields like claimNo, employeeId)
+ * are a fixed 20 characters wide by default. Our claim IDs (29 chars) and some
+ * test/audit employee IDs (e.g. "EMP-AUDIT-1778736715128", 23 chars) exceed
+ * this. For testing we truncate to the first 20 chars; the untruncated values
+ * remain in our own DB (`claims.id`, `users.employee_id`) for audit and
+ * lookup.
  *
- * TODO: BC developer to widen the No. column. Once widened, drop the
- * truncation and send the full claim_id.
+ * TODO: BC developer is widening the No. columns. Once widened, drop the
+ * truncation and send the full values.
  */
-const BC_CLAIM_NO_MAX = 20;
+const BC_NO_MAX = 20;
+function truncBcNo(s: string): string {
+  return s.slice(0, BC_NO_MAX);
+}
 
 export function buildRemarks(db: BcClaimPayloadFromDb): string {
   if (db.claim_id.length >= BC_REMARKS_MAX) {
@@ -74,10 +79,11 @@ export function buildRemarks(db: BcClaimPayloadFromDb): string {
 export function buildBcClaimLineItem(inputs: BuildInputs): BcClaimLineItem {
   const { db, isVendorPayment, vendor } = inputs;
 
-  const employeeId =
+  const rawEmployeeId =
     db.submission_type === "On_behalf" && db.on_behalf_employee_code
       ? db.on_behalf_employee_code
       : db.employee_id;
+  const employeeId = truncBcNo(rawEmployeeId);
 
   const base: BcClaimLineItem = {
     documentType: "Invoice",
@@ -91,7 +97,7 @@ export function buildBcClaimLineItem(inputs: BuildInputs): BcClaimLineItem {
     glCode: db.bc_code,
     employeeId,
     employeeName: db.employee_name,
-    claimNo: db.claim_id.slice(0, BC_CLAIM_NO_MAX),
+    claimNo: truncBcNo(db.claim_id),
     remarks: buildRemarks(db),
     programCode: db.program_code,
     subproductCode: db.sub_product_code,

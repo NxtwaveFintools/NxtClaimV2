@@ -143,6 +143,15 @@ Deno.test(
   },
 );
 
+Deno.test("employeeId is truncated to BC's 20-char limit", () => {
+  const line = buildBcClaimLineItem({
+    db: { ...baseDb, employee_id: "EMP-AUDIT-1778736715128" },
+    isVendorPayment: false,
+  });
+  assertEquals(line.employeeId, "EMP-AUDIT-1778736715");
+  assertEquals(line.employeeId.length, 20);
+});
+
 Deno.test("vendorInvoiceNo defaults to empty string when bill_no is null", () => {
   const line = buildBcClaimLineItem({
     db: { ...baseDb, bill_no: null },
