@@ -11,7 +11,11 @@ const customJestConfig = {
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
-  testMatch: ["<rootDir>/tests/unit/**/*.test.(ts|tsx)", "<rootDir>/src/**/*.test.(ts|tsx)"],
+  testMatch: [
+    "<rootDir>/tests/unit/**/*.test.(ts|tsx)",
+    "<rootDir>/tests/integration/**/*.test.(ts|tsx)",
+    "<rootDir>/src/**/*.test.(ts|tsx)",
+  ],
 };
 
 module.exports = createJestConfig(customJestConfig);
