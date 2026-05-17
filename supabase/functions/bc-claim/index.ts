@@ -3,6 +3,7 @@ import { z } from "zod";
 import { bcFetch } from "../_shared/bcClient.ts";
 import { getBcEnv } from "../_shared/bcEnv.ts";
 import { corsPreflightResponse, resolveCors } from "../_shared/cors.ts";
+import { log } from "../_shared/logger.ts";
 import { buildBcClaimLineItem } from "./payloadBuilder.ts";
 import type { BcClaimError, BcClaimPayloadFromDb } from "./types.ts";
 
@@ -70,6 +71,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflightResponse(req);
   const cors = resolveCors(req);
 
+  const t0 = Date.now();
+  log("bc-claim", "info", "request_start", { method: req.method });
+
   if (req.method !== "POST") {
     return errResp(cors.headers, { code: "INVALID_BODY", details: ["method must be POST"] }, 405);
   }
@@ -77,7 +81,10 @@ Deno.serve(async (req) => {
   // Step 1 — JWT → finance approver.
   const authHeader = req.headers.get("Authorization") ?? "";
   const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
-  if (!jwt) return errResp(cors.headers, { code: "UNAUTHENTICATED" }, 401);
+  if (!jwt) {
+    log("bc-claim", "warn", "auth_missing_jwt");
+    return errResp(cors.headers, { code: "UNAUTHENTICATED" }, 401);
+  }
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -85,6 +92,7 @@ Deno.serve(async (req) => {
 
   const { data: userData, error: userErr } = await admin.auth.getUser(jwt);
   if (userErr || !userData.user) {
+    log("bc-claim", "warn", "auth_invalid_jwt");
     return errResp(cors.headers, { code: "UNAUTHENTICATED" }, 401);
   }
   const actorUserId = userData.user.id;
@@ -96,6 +104,7 @@ Deno.serve(async (req) => {
     .eq("is_active", true)
     .maybeSingle();
   if (!approverRow) {
+    log("bc-claim", "warn", "auth_not_finance_approver", { actor: actorUserId });
     return errResp(cors.headers, { code: "UNAUTHENTICATED" }, 401);
   }
 
@@ -137,6 +146,11 @@ Deno.serve(async (req) => {
     return errResp(cors.headers, { code: "MISSING_MAPPING", detail: msg }, 500);
   }
   const db = dbPayloadRaw as unknown as BcClaimPayloadFromDb;
+  log("bc-claim", "info", "payload_loaded", {
+    claim_id: input.claimId,
+    actor: actorUserId,
+    is_vendor_payment: input.isVendorPayment,
+  });
 
   // Step 4 — build BC payload.
   const linePayload = buildBcClaimLineItem({
@@ -166,13 +180,30 @@ Deno.serve(async (req) => {
     return errResp(cors.headers, { code: "MISSING_MAPPING", detail: startErr.message }, 500);
   }
   const bcDetailsId = startData as string;
+  log("bc-claim", "info", "attempt_started", {
+    claim_id: input.claimId,
+    bc_details_id: bcDetailsId,
+  });
 
   // Step 6 — POST to BC.
   const env = getBcEnv();
   let bcResult;
   try {
     bcResult = await bcFetch("claims", "POST", `/companies(${env.companyId})/Claims`, linePayload);
+    log("bc-claim", "info", "bc_post_outcome", {
+      claim_id: input.claimId,
+      bc_details_id: bcDetailsId,
+      bc_status: bcResult.status,
+      duration_ms: Date.now() - t0,
+    });
   } catch (err) {
+    log("bc-claim", "error", "bc_post_outcome", {
+      claim_id: input.claimId,
+      bc_details_id: bcDetailsId,
+      bc_status: 0,
+      duration_ms: Date.now() - t0,
+      error: String(err).slice(0, 500),
+    });
     await admin.rpc("record_bc_claim_failure", {
       p_bc_details_id: bcDetailsId,
       p_actor_user_id: actorUserId,
@@ -190,6 +221,11 @@ Deno.serve(async (req) => {
   }
 
   if (bcResult.status < 200 || bcResult.status >= 300) {
+    log("bc-claim", "warn", "attempt_failed", {
+      claim_id: input.claimId,
+      bc_details_id: bcDetailsId,
+      bc_status: bcResult.status,
+    });
     await admin.rpc("record_bc_claim_failure", {
       p_bc_details_id: bcDetailsId,
       p_actor_user_id: actorUserId,
@@ -211,6 +247,11 @@ Deno.serve(async (req) => {
   if (completeErr) {
     // CATASTROPHIC — BC accepted but our RPC failed. Row stays 'submitting'.
     // Reconciliation cron / admin tool will pick this up. Frontend MUST NOT retry.
+    log("bc-claim", "error", "catastrophic_rpc_failed_after_bc_success", {
+      claim_id: input.claimId,
+      bc_details_id: bcDetailsId,
+      detail: completeErr.message,
+    });
     return errResp(
       cors.headers,
       {
@@ -222,5 +263,10 @@ Deno.serve(async (req) => {
     );
   }
 
+  log("bc-claim", "info", "attempt_completed", {
+    claim_id: input.claimId,
+    bc_details_id: bcDetailsId,
+    duration_ms: Date.now() - t0,
+  });
   return json(cors.headers, { success: true, bcClaimDetailsId: bcDetailsId }, 200);
 });
