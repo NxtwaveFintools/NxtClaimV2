@@ -202,6 +202,27 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
 
   const canSubmit = !submitting && !catastrophic && paymentType !== null && vendorComplete;
 
+  // Aggregate reference loading: true only when *all three* are pre-loaded or in-flight.
+  // When one finishes earlier than the others we fall back to per-field loaders so
+  // the user can interact with what's ready.
+  const allRefsLoading = [hsnSacs, gstGroups, currencies].every(
+    (s) => s.status === "loading" || s.status === "idle",
+  );
+
+  // Count how many reference fetches failed — drives the "Retry all" affordance.
+  const erroredRefCount = [hsnSacs, gstGroups, currencies].filter(
+    (s) => s.status === "error",
+  ).length;
+
+  // Single-line hint surfacing what's blocking Submit. Mirrors canSubmit gating.
+  let submitHint: string | null = null;
+  if (!canSubmit && !catastrophic && !submitting) {
+    if (paymentType === null) submitHint = "Choose a payment type.";
+    else if (paymentType === "vendor" && !selectedVendor) submitHint = "Select a vendor.";
+    else if (paymentType === "vendor" && (!currencyCode || !gstGroupCode || !hsnSacCode))
+      submitHint = "Select all reference codes.";
+  }
+
   async function handleSubmit() {
     setLifecycle({ phase: "submitting" });
     const body =
@@ -255,7 +276,7 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
 
   return (
     <Dialog open={open} onOpenChange={handleDialogChange}>
-      <DialogContent className="sm:max-w-3xl">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="space-y-2 border-b border-zinc-100 pb-5 dark:border-zinc-800">
           <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-indigo-600 dark:text-indigo-400">
             Business Central · Finance Approval
@@ -273,7 +294,7 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
         </DialogHeader>
 
         <div className="mt-5 space-y-7">
-          <Section number="01" label="Payment Type">
+          <Section number="01" label="Payment Type" complete={paymentType !== null}>
             <fieldset disabled={submitting || catastrophic}>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <PaymentTypeCard
@@ -299,7 +320,14 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
 
           {paymentType === "vendor" && (
             <>
-              <Section number="02" label="Vendor">
+              <Section number="02" label="Vendor" complete={!!selectedVendor}>
+                <label className="mb-2 block font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
+                  Vendor{" "}
+                  <span aria-hidden="true" className="ml-0.5 text-rose-500">
+                    •
+                  </span>
+                  <span className="sr-only">(required)</span>
+                </label>
                 <VendorPicker
                   selectedVendor={selectedVendor}
                   vendorQuery={vendorQuery}
@@ -319,33 +347,68 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
                 />
               </Section>
 
-              <Section number="03" label="Reference Codes">
-                <div className="space-y-3">
-                  <ReferenceField
-                    label="HSN / SAC"
-                    state={hsnSacs}
-                    value={hsnSacCode}
-                    onChange={setHsnSacCode}
-                    onRetry={() => fetchReference("hsnSacCodes", setHsnSacs)}
-                    disabled={submitting || catastrophic}
-                  />
-                  <ReferenceField
-                    label="GST Group"
-                    state={gstGroups}
-                    value={gstGroupCode}
-                    onChange={setGstGroupCode}
-                    onRetry={() => fetchReference("gstGroupCodes", setGstGroups)}
-                    disabled={submitting || catastrophic}
-                  />
-                  <ReferenceField
-                    label="Currency"
-                    state={currencies}
-                    value={currencyCode}
-                    onChange={setCurrencyCode}
-                    onRetry={() => fetchReference("currencies", setCurrencies)}
-                    disabled={submitting || catastrophic}
-                  />
-                </div>
+              <Section
+                number="03"
+                label="Reference Codes"
+                complete={!!currencyCode && !!gstGroupCode && !!hsnSacCode}
+              >
+                {erroredRefCount >= 2 && (
+                  <div className="mb-3 flex items-center justify-between rounded-lg border border-rose-200 bg-rose-50/60 px-3 py-2 text-xs text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200">
+                    <span>Several reference codes failed to load.</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        fetchReference("currencies", setCurrencies);
+                        fetchReference("gstGroupCodes", setGstGroups);
+                        fetchReference("hsnSacCodes", setHsnSacs);
+                      }}
+                      disabled={submitting || catastrophic}
+                      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-medium text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50 dark:text-rose-200 dark:hover:bg-rose-900/40"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      Retry all
+                    </button>
+                  </div>
+                )}
+
+                {allRefsLoading ? (
+                  <div className="flex h-20 w-full items-center justify-center rounded-xl border border-zinc-200 bg-gradient-to-b from-zinc-50 to-white dark:border-zinc-800 dark:from-zinc-900/60 dark:to-zinc-900/30">
+                    <span className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Loading reference codes…
+                    </span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <ReferenceField
+                      label="HSN / SAC"
+                      required
+                      state={hsnSacs}
+                      value={hsnSacCode}
+                      onChange={setHsnSacCode}
+                      onRetry={() => fetchReference("hsnSacCodes", setHsnSacs)}
+                      disabled={submitting || catastrophic}
+                    />
+                    <ReferenceField
+                      label="GST Group"
+                      required
+                      state={gstGroups}
+                      value={gstGroupCode}
+                      onChange={setGstGroupCode}
+                      onRetry={() => fetchReference("gstGroupCodes", setGstGroups)}
+                      disabled={submitting || catastrophic}
+                    />
+                    <ReferenceField
+                      label="Currency"
+                      required
+                      state={currencies}
+                      value={currencyCode}
+                      onChange={setCurrencyCode}
+                      onRetry={() => fetchReference("currencies", setCurrencies)}
+                      disabled={submitting || catastrophic}
+                    />
+                  </div>
+                )}
               </Section>
             </>
           )}
@@ -369,7 +432,16 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
           )}
         </div>
 
-        <DialogFooter className="mt-7 gap-2 border-t border-zinc-100 pt-5 sm:gap-3 dark:border-zinc-800">
+        <DialogFooter className="mt-7 flex-col items-stretch gap-2 border-t border-zinc-100 pt-5 sm:flex-row sm:items-center sm:justify-end sm:gap-3 dark:border-zinc-800">
+          {submitHint && (
+            <p
+              className="mr-auto text-xs text-zinc-500 dark:text-zinc-400"
+              role="status"
+              aria-live="polite"
+            >
+              {submitHint}
+            </p>
+          )}
           <Button
             type="button"
             variant="secondary"
@@ -401,18 +473,29 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
 function Section({
   number,
   label,
+  complete = false,
   children,
 }: {
   number: string;
   label: string;
+  complete?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-3">
-        <span className="font-mono text-[10px] font-medium tracking-widest text-indigo-500 dark:text-indigo-400">
-          {number}
-        </span>
+        {complete ? (
+          <span
+            className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-white shadow-sm shadow-indigo-500/30 dark:bg-indigo-500"
+            aria-label={`${label} complete`}
+          >
+            <Check className="h-2.5 w-2.5" strokeWidth={3} />
+          </span>
+        ) : (
+          <span className="font-mono text-[10px] font-medium tracking-widest text-indigo-500 dark:text-indigo-400">
+            {number}
+          </span>
+        )}
         <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-700 dark:text-zinc-200">
           {label}
         </span>
@@ -587,6 +670,7 @@ function VendorPicker({
 
 function ReferenceField({
   label,
+  required = false,
   state,
   value,
   onChange,
@@ -594,6 +678,7 @@ function ReferenceField({
   disabled,
 }: {
   label: string;
+  required?: boolean;
   state: ReferenceState;
   value: string;
   onChange: (v: string) => void;
@@ -602,7 +687,17 @@ function ReferenceField({
 }) {
   return (
     <div className="space-y-2">
-      <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-300">{label}</label>
+      <label className="block font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
+        {label}
+        {required && (
+          <>
+            <span aria-hidden="true" className="ml-1 text-rose-500">
+              •
+            </span>
+            <span className="sr-only"> (required)</span>
+          </>
+        )}
+      </label>
 
       {state.status === "loading" && (
         <div className="flex h-10 w-full items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50/50 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400">
