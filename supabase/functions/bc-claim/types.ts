@@ -1,77 +1,112 @@
-export const BcAccountType = { Employee: "Employee", Vendor: "Vendor" } as const;
-export type BcAccountType = (typeof BcAccountType)[keyof typeof BcAccountType];
+// Fixed-value constants for the BC payload — exported so the payload builder
+// and tests can assert against them without hardcoding strings.
+export const BcDocumentType = { Invoice: "Invoice" } as const;
+export type BcDocumentType = (typeof BcDocumentType)[keyof typeof BcDocumentType];
 
-export const BcEmployeeTransactionType = { Advance: "ADVANCE" } as const;
+export const BcType = { GLAccount: "G/l" } as const;
+export type BcType = (typeof BcType)[keyof typeof BcType];
+
+export const BcGstCredit = { NonAvailment: "Non-Availment" } as const;
+export type BcGstCredit = (typeof BcGstCredit)[keyof typeof BcGstCredit];
+
+export const BcGstSubcategory = { Ineligible4344: "Ineligible-43/44" } as const;
+export type BcGstSubcategory = (typeof BcGstSubcategory)[keyof typeof BcGstSubcategory];
+
+export const BcEmployeeTransactionType = { Advance: "Advance" } as const;
 export type BcEmployeeTransactionType =
   (typeof BcEmployeeTransactionType)[keyof typeof BcEmployeeTransactionType];
 
-export const BcBalAccountType = { GLAccount: "G/L Account" } as const;
-export type BcBalAccountType = (typeof BcBalAccountType)[keyof typeof BcBalAccountType];
+export const BcQuantity = 1 as const;
+export const BcLocationCode = "HBT" as const;
 
+// Reference type mirror — kept in sync with bc-reference entity dispatch.
+export const BcReferenceType = {
+  Currencies: "currencies",
+  GstGroupCodes: "gstGroupCodes",
+  HsnSacCodes: "hsnSacCodes",
+} as const;
+export type BcReferenceType = (typeof BcReferenceType)[keyof typeof BcReferenceType];
+
+/**
+ * Flat payload posted to BC's Custom Claims API (one object per claim).
+ * Vendor-only fields are spread-omitted (not null) for non-vendor claims —
+ * see payloadBuilder.ts.
+ */
 export interface BcClaimLineItem {
-  postingDate: string; // ISO YYYY-MM-DD
-  accountType: BcAccountType;
-  accountNo: string;
-  employeeTransactionType: BcEmployeeTransactionType | "";
-  amount: number;
-  description: string;
-  balAccountType: BcBalAccountType;
-  balAccountNo: string;
+  // Fixed values — always hardcoded.
+  documentType: "Invoice";
+  locationCode: "HBT";
+  type: "G/l";
+  quantity: 1;
+  gstCredit: "Non-Availment";
+  gstSubcategory: "Ineligible-43/44";
+  employeeTransactionType: "Advance";
+  // Per-claim.
+  documentDate: string;
+  glCode: string;
+  employeeId: string;
+  employeeName: string;
   claimNo: string;
-  nwProgramCode: string;
-  subProductCode: string;
+  remarks: string;
+  programCode: string;
+  subproductCode: string;
   responsibleDepartment: string;
   beneficiaryDepartment: string;
   regionCode: string;
+  invoiceRequired: boolean;
+  paymentRequired: boolean;
+  // Vendor-only — OMIT ENTIRELY (do not send null/empty) for non-vendor claims.
+  currencyCode?: string;
+  vendorInvoiceNo?: string;
+  vendorCode?: string;
+  vendorName?: string;
+  gstGroupCode?: string;
+  hsnSacCode?: string;
 }
 
+/**
+ * Return shape of public.get_bc_claim_payload(p_claim_id).
+ * See spec §3.3 and migration 20260517090100_bc_claim_functions.sql.
+ */
 export interface BcClaimPayloadFromDb {
   claim_id: string;
+  payment_mode_name: string;
+  submission_type: "Self" | "On_behalf";
   employee_id: string;
-  bc_payments_flag: boolean;
-  approved_amount: number;
-  purpose: string;
-  receipt_file_path: string | null;
-  bank_statement_file_path: string | null;
-  expense_category_id: string;
-  bc_code: string | null;
+  on_behalf_employee_code: string | null;
+  employee_name: string;
   program_code: string;
   sub_product_code: string;
   responsible_department_code: string;
   beneficiary_department_code: string;
   region_code: string;
+  bill_no: string | null;
+  transaction_date: string;
+  purpose: string;
+  receipt_file_path: string | null;
+  bank_statement_file_path: string | null;
+  bc_code: string;
 }
 
-export interface PayloadBuilderInput {
+/** Request body from the modal to the bc-claim edge function. */
+export interface BcClaimRequestBody {
+  claimId: string;
   isVendorPayment: boolean;
-  bcVendorId?: string | null;
-  bcVendorName?: string | null;
+  // Vendor-only — required iff isVendorPayment === true.
+  bcVendorCode?: string;
+  bcVendorName?: string;
+  currencyCode?: string;
+  gstGroupCode?: string;
+  hsnSacCode?: string;
 }
 
-export type BcPaymentError =
-  | { code: "UNAUTHORIZED" }
-  | { code: "ALREADY_SENT"; claimId: string }
-  | { code: "NOT_EXPENSE_MODE"; paymentMode: string }
+/** Structured errors returned to the modal. */
+export type BcClaimError =
+  | { code: "UNAUTHENTICATED" }
+  | { code: "INVALID_BODY"; details: string[] }
   | { code: "CLAIM_NOT_FOUND"; claimId: string }
-  | { code: "EXPENSE_DETAILS_MISSING"; claimId: string }
-  | { code: "MISSING_MAPPING"; field: string; detail?: string }
-  | { code: "MISSING_VENDOR_SELECTION" }
-  | { code: "MISSING_BC_CODE"; expenseCategoryId: string }
-  | { code: "BC_API_ERROR"; status: number; body: unknown }
-  | { code: "DB_UPDATE_FAILED"; claimId: string; auditLogId: string | null }
-  | { code: "INVALID_INPUT"; issues: unknown };
-
-export interface BcPaymentSuccess {
-  ok: true;
-  claimId: string;
-  bcResponses: unknown[];
-  auditLogId: string;
-}
-
-export interface BcPaymentDryRunResult {
-  ok: true;
-  dryRun: true;
-  claimId: string;
-  wouldSend: BcClaimLineItem[];
-  wouldAuditLog: { status: "PENDING"; payload_json: BcClaimLineItem[] };
-}
+  | { code: "ALREADY_SUBMITTED"; bcClaimDetailsId: string | null }
+  | { code: "ALREADY_IN_FLIGHT" }
+  | { code: "MISSING_MAPPING"; detail?: string }
+  | { code: "BC_FETCH_FAILED"; status: number; body: unknown }
+  | { code: "RPC_FAILED_AFTER_BC_SUCCESS"; bcClaimDetailsId: string; detail: string };
