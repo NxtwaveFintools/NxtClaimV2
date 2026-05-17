@@ -1,0 +1,98 @@
+{
+  "info": {
+    "_postman_id": "81362d2e-9008-4353-843a-4b1ddcdf3659",
+    "name": "NxtClaimGSTGroupCodes",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "20962451"
+  },
+  "item": [
+    {
+      "name": "Access Token",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "header": [],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "grant_type",
+              "value": "client_credentials",
+              "type": "text"
+            },
+            {
+              "key": "scope",
+              "value": "https://api.businesscentral.dynamics.com/.default",
+              "type": "text"
+            },
+            {
+              "key": "client_id",
+              "value": "a5170024-af89-4142-b29b-65562f395b6f",
+              "type": "text"
+            },
+            {
+              "key": "client_secret",
+              "value": "{{clientSecret}}",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "https://login.microsoftonline.com/6ae3d026-e965-483e-8309-8f8f3aca71c8/oauth2/v2.0/token",
+          "protocol": "https",
+          "host": ["login", "microsoftonline", "com"],
+          "path": ["6ae3d026-e965-483e-8309-8f8f3aca71c8", "oauth2", "v2.0", "token"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GetGSTGroupCodes",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"value\": [\r\n    {\r\n      \"name\": \"vendors\",\r\n      \"kind\": \"EntitySet\"\r\n    }\r\n  ]\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://api.businesscentral.dynamics.com/v2.0/6ae3d026-e965-483e-8309-8f8f3aca71c8/Sandbox_05052026/ODataV4/Company('NxtWave')/vendors",
+          "protocol": "https",
+          "host": ["api", "businesscentral", "dynamics", "com"],
+          "path": [
+            "v2.0",
+            "6ae3d026-e965-483e-8309-8f8f3aca71c8",
+            "Sandbox_05052026",
+            "ODataV4",
+            "Company('NxtWave')",
+            "vendors"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
