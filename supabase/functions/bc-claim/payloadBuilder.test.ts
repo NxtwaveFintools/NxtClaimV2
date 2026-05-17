@@ -140,28 +140,40 @@ Deno.test("vendorInvoiceNo defaults to empty string when bill_no is null", () =>
   assertEquals(line.vendorInvoiceNo, "");
 });
 
-Deno.test("buildRemarks — claim+purpose+bill+statement when both files present", () => {
-  const r = buildRemarks({
-    ...baseDb,
-    receipt_file_path: "https://x.co/r.pdf",
-    bank_statement_file_path: "https://x.co/s.pdf",
-  });
-  assertEquals(
-    r,
-    "CLM-000145 - Software subscription\nbill - https://x.co/r.pdf\nbank statement - https://x.co/s.pdf",
-  );
+Deno.test("buildRemarks — short claim_id + short purpose fits within 50 chars", () => {
+  const r = buildRemarks({ ...baseDb, claim_id: "CLM-100", purpose: "Software" });
+  assertEquals(r, "CLM-100 - Software");
+  assert(r.length <= 50);
 });
 
-Deno.test("buildRemarks — omits bill when receipt_file_path is null", () => {
+Deno.test("buildRemarks — long purpose is truncated to 50 chars total", () => {
   const r = buildRemarks({
     ...baseDb,
-    receipt_file_path: null,
-    bank_statement_file_path: "https://x.co/s.pdf",
+    claim_id: "CLAIM-NW3341311-20260516-B324",
+    purpose: "Lorem ipsum dolor sit amet consectetur adipiscing elit",
   });
-  assertEquals(r, "CLM-000145 - Software subscription\nbank statement - https://x.co/s.pdf");
+  // 29-char claim id + " - " leaves 18 chars for purpose. Length must equal 50.
+  assertEquals(r.length, 50);
+  assertEquals(r, "CLAIM-NW3341311-20260516-B324 - Lorem ipsum dolor ");
 });
 
-Deno.test("buildRemarks — claim+purpose only when both files null", () => {
-  const r = buildRemarks({ ...baseDb, receipt_file_path: null, bank_statement_file_path: null });
-  assertEquals(r, "CLM-000145 - Software subscription");
+Deno.test(
+  "buildRemarks — file paths are ignored (BC remarks is 50 chars, too short for URLs)",
+  () => {
+    const r = buildRemarks({
+      ...baseDb,
+      claim_id: "CLM-100",
+      purpose: "Software",
+      receipt_file_path: "https://x.co/very/long/url/that/will/not/fit/r.pdf",
+      bank_statement_file_path: "https://x.co/very/long/url/that/will/not/fit/s.pdf",
+    });
+    assertEquals(r, "CLM-100 - Software");
+    assert(!r.includes("bill"));
+    assert(!r.includes("bank statement"));
+  },
+);
+
+Deno.test("buildRemarks — empty purpose falls back to '{claim_id} - '", () => {
+  const r = buildRemarks({ ...baseDb, claim_id: "CLM-100", purpose: "" });
+  assertEquals(r, "CLM-100 - ");
 });
