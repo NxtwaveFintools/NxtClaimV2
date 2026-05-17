@@ -34,6 +34,8 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 
+// Test seam — clears the in-memory cache between test cases.
+// Prefixed __ to mark as not-for-production; matches __setBcFetchImpl in bcClient.ts.
 export function __resetCacheForTest(): void {
   cache.clear();
 }
