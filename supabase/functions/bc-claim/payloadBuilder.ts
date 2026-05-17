@@ -1,3 +1,12 @@
+import {
+  BcDocumentType,
+  BcEmployeeTransactionType,
+  BcGstCredit,
+  BcGstSubcategory,
+  BcLocationCode,
+  BcQuantity,
+  BcType,
+} from "./types.ts";
 import type { BcClaimLineItem, BcClaimPayloadFromDb } from "./types.ts";
 
 /**
@@ -86,13 +95,13 @@ export function buildBcClaimLineItem(inputs: BuildInputs): BcClaimLineItem {
   const employeeId = truncBcNo(rawEmployeeId);
 
   const base: BcClaimLineItem = {
-    documentType: "Invoice",
-    locationCode: "HBT",
-    type: "G/L Account",
-    quantity: 1,
-    gstCredit: "Non-Availment",
-    gstSubcategory: "Ineligible-43/44",
-    employeeTransactionType: "Advance",
+    documentType: BcDocumentType.Invoice,
+    locationCode: BcLocationCode,
+    type: BcType.GLAccount,
+    quantity: BcQuantity,
+    gstCredit: BcGstCredit.NonAvailment,
+    gstSubcategory: BcGstSubcategory.Ineligible4344,
+    employeeTransactionType: BcEmployeeTransactionType.Advance,
     documentDate: db.transaction_date,
     glCode: db.bc_code,
     employeeId,

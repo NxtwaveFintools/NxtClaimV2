@@ -19,14 +19,6 @@ export type BcEmployeeTransactionType =
 export const BcQuantity = 1 as const;
 export const BcLocationCode = "HBT" as const;
 
-// Reference type mirror — kept in sync with bc-reference entity dispatch.
-export const BcReferenceType = {
-  Currencies: "currencies",
-  GstGroupCodes: "gstGroupCodes",
-  HsnSacCodes: "hsnSacCodes",
-} as const;
-export type BcReferenceType = (typeof BcReferenceType)[keyof typeof BcReferenceType];
-
 /**
  * Flat payload posted to BC's Custom Claims API (one object per claim).
  * Vendor-only fields are spread-omitted (not null) for non-vendor claims —
@@ -86,18 +78,6 @@ export interface BcClaimPayloadFromDb {
   receipt_file_path: string | null;
   bank_statement_file_path: string | null;
   bc_code: string;
-}
-
-/** Request body from the modal to the bc-claim edge function. */
-export interface BcClaimRequestBody {
-  claimId: string;
-  isVendorPayment: boolean;
-  // Vendor-only — required iff isVendorPayment === true.
-  bcVendorCode?: string;
-  bcVendorName?: string;
-  currencyCode?: string;
-  gstGroupCode?: string;
-  hsnSacCode?: string;
 }
 
 /** Structured errors returned to the modal. */
