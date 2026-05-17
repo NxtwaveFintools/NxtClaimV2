@@ -96,8 +96,8 @@ type EnterpriseClaimsDashboardRow = {
   assigned_l2_approver_id?: string | null;
   department_id?: string;
   payment_mode_id?: string;
-  bc_payments_flag?: boolean;
-  is_vendor_payment?: boolean;
+  bc_claim_details_id: string | null;
+  is_vendor_payment: boolean;
   submitter_email?: string | null;
   hod_email?: string | null;
   finance_email?: string | null;
@@ -239,7 +239,7 @@ type ClaimDetailRow = {
   submitted_at: string;
   department_id: string;
   payment_mode_id: string;
-  bc_payments_flag: boolean;
+  bc_claim_details_id: string | null;
   is_vendor_payment: boolean;
   assigned_l1_approver_id: string;
   assigned_l2_approver_id: string | null;
@@ -365,7 +365,7 @@ type ExportClaimRow = {
   on_behalf_employee_code: string | null;
   department_id: string;
   payment_mode_id: string;
-  bc_payments_flag: boolean;
+  bc_claim_details_id: string | null;
   is_vendor_payment: boolean;
   assigned_l1_approver_id: string;
   assigned_l2_approver_id: string | null;
@@ -912,7 +912,7 @@ function mapPendingApprovalRows(rows: EnterpriseClaimsDashboardRow[]) {
       paymentModeName: row.type_of_claim || "Unknown Payment Mode",
       detailType: row.detail_type,
       submissionType: row.submission_type,
-      bcPaymentsFlag: row.bc_payments_flag ?? false,
+      bcClaimDetailsId: row.bc_claim_details_id ?? null,
       isVendorPayment: row.is_vendor_payment ?? false,
       onBehalfEmail: row.on_behalf_email ?? null,
       onBehalfEmployeeCode: row.on_behalf_employee_code_raw ?? null,
@@ -1738,7 +1738,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
       employeeId: string;
       departmentId: string;
       paymentModeId: string;
-      bcPaymentsFlag: boolean;
+      bcClaimDetailsId: string | null;
       isVendorPayment: boolean;
       submissionType: "Self" | "On Behalf";
       detailType: "expense" | "advance";
@@ -1805,7 +1805,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     let query = client
       .from("claims")
       .select(
-        "id, employee_id, submission_type, detail_type, on_behalf_of_id, on_behalf_email, on_behalf_employee_code, status, is_active, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, bc_payments_flag, is_vendor_payment, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(id, bill_no, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, requested_total_amount, approved_amount, vendor_name, people_involved, remarks, ai_metadata, receipt_file_path, bank_statement_file_path, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(id, purpose, requested_total_amount, approved_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
+        "id, employee_id, submission_type, detail_type, on_behalf_of_id, on_behalf_email, on_behalf_employee_code, status, is_active, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, bc_claim_details_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(id, bill_no, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, requested_total_amount, approved_amount, vendor_name, people_involved, remarks, ai_metadata, receipt_file_path, bank_statement_file_path, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(id, purpose, requested_total_amount, approved_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
       )
       .eq("id", claimId);
 
@@ -1848,8 +1848,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
         employeeId: row.employee_id,
         departmentId: row.department_id,
         paymentModeId: row.payment_mode_id,
-        bcPaymentsFlag: row.bc_payments_flag,
-        isVendorPayment: row.is_vendor_payment,
+        bcClaimDetailsId: row.bc_claim_details_id,
+        isVendorPayment: row.is_vendor_payment ?? false,
         submissionType: row.submission_type,
         detailType: row.detail_type,
         onBehalfOfId: row.on_behalf_of_id,
@@ -3029,7 +3029,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     let query = client
       .from("vw_enterprise_claims_dashboard")
       .select(
-        "claim_id, employee_id, on_behalf_email, submission_type, status, submitted_on, detail_type, amount, department_name, type_of_claim, submitted_by, on_behalf_of_id, bc_payments_flag, is_vendor_payment",
+        "claim_id, employee_id, on_behalf_email, submission_type, status, submitted_on, detail_type, amount, department_name, type_of_claim, submitted_by, on_behalf_of_id, bc_claim_details_id, is_vendor_payment",
       )
       .or(buildMyClaimsOwnershipOrFilter(userId))
       .order("submitted_on", { ascending: false })
@@ -3061,7 +3061,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
           onBehalfEmail: row.on_behalf_email ?? null,
           departmentName: row.department_name ?? null,
           paymentModeName: row.type_of_claim || "Unknown Payment Mode",
-          bcPaymentsFlag: row.bc_payments_flag ?? false,
+          bcClaimDetailsId: row.bc_claim_details_id ?? null,
           isVendorPayment: row.is_vendor_payment ?? false,
           submissionType: row.submission_type,
           status: row.status,
@@ -3091,7 +3091,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
       submittedAt: string;
       hodActionDate: string | null;
       financeActionDate: string | null;
-      bcPaymentsFlag: boolean;
+      bcClaimDetailsId: string | null;
       isVendorPayment: boolean;
       detailType: "expense" | "advance";
       submissionType: "Self" | "On Behalf";
@@ -3132,7 +3132,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     let query = client
       .from("vw_enterprise_claims_dashboard")
       .select(
-        "claim_id, employee_name, employee_id, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, bc_payments_flag, is_vendor_payment, detail_type, submission_type, on_behalf_email, on_behalf_employee_code_raw, created_at, submitter_email, hod_email, finance_email, submitter_label, category_name, purpose, receipt_file_path, bank_statement_file_path, supporting_document_path",
+        "claim_id, employee_name, employee_id, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, bc_claim_details_id, is_vendor_payment, detail_type, submission_type, on_behalf_email, on_behalf_employee_code_raw, created_at, submitter_email, hod_email, finance_email, submitter_label, category_name, purpose, receipt_file_path, bank_statement_file_path, supporting_document_path",
         { count: "exact" },
       )
       .or(buildMyClaimsOwnershipOrFilter(userId))
@@ -3186,7 +3186,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
       submittedAt: row.submitted_on,
       hodActionDate: row.hod_action_date,
       financeActionDate: row.finance_action_date,
-      bcPaymentsFlag: row.bc_payments_flag ?? false,
+      bcClaimDetailsId: row.bc_claim_details_id ?? null,
       isVendorPayment: row.is_vendor_payment ?? false,
       detailType: row.detail_type,
       submissionType: row.submission_type,
@@ -3227,7 +3227,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
       paymentModeName: string;
       detailType: "expense" | "advance";
       submissionType: "Self" | "On Behalf";
-      bcPaymentsFlag: boolean;
+      bcClaimDetailsId: string | null;
       isVendorPayment: boolean;
       onBehalfEmail: string | null;
       onBehalfEmployeeCode: string | null;
@@ -3271,7 +3271,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     let query = client
       .from("vw_enterprise_claims_dashboard")
       .select(
-        "claim_id, employee_name, employee_id, detail_type, submission_type, on_behalf_email, on_behalf_employee_code_raw, status, submitted_on, created_at, hod_action_date, finance_action_date, submitter_email, submitter_label, department_name, type_of_claim, amount, category_name, purpose, receipt_file_path, bank_statement_file_path, supporting_document_path, payment_mode_id, department_id, location_id, product_id, expense_category_id, bc_payments_flag, is_vendor_payment",
+        "claim_id, employee_name, employee_id, detail_type, submission_type, on_behalf_email, on_behalf_employee_code_raw, status, submitted_on, created_at, hod_action_date, finance_action_date, submitter_email, submitter_label, department_name, type_of_claim, amount, category_name, purpose, receipt_file_path, bank_statement_file_path, supporting_document_path, payment_mode_id, department_id, location_id, product_id, expense_category_id, bc_claim_details_id, is_vendor_payment",
         { count: "exact" },
       )
       .eq("assigned_l1_approver_id", userId)
@@ -3339,7 +3339,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
       paymentModeName: string;
       detailType: "expense" | "advance";
       submissionType: "Self" | "On Behalf";
-      bcPaymentsFlag: boolean;
+      bcClaimDetailsId: string | null;
       isVendorPayment: boolean;
       onBehalfEmail: string | null;
       onBehalfEmployeeCode: string | null;
@@ -3401,7 +3401,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     let query = client
       .from("vw_enterprise_claims_dashboard")
       .select(
-        "claim_id, employee_name, employee_id, detail_type, submission_type, on_behalf_email, on_behalf_employee_code_raw, status, submitted_on, created_at, hod_action_date, finance_action_date, submitter_email, submitter_label, department_name, type_of_claim, amount, category_name, purpose, receipt_file_path, bank_statement_file_path, supporting_document_path, assigned_l2_approver_id, payment_mode_id, department_id, location_id, product_id, expense_category_id, bc_payments_flag, is_vendor_payment",
+        "claim_id, employee_name, employee_id, detail_type, submission_type, on_behalf_email, on_behalf_employee_code_raw, status, submitted_on, created_at, hod_action_date, finance_action_date, submitter_email, submitter_label, department_name, type_of_claim, amount, category_name, purpose, receipt_file_path, bank_statement_file_path, supporting_document_path, assigned_l2_approver_id, payment_mode_id, department_id, location_id, product_id, expense_category_id, bc_claim_details_id, is_vendor_payment",
         { count: "exact" },
       )
       .or(
@@ -3472,7 +3472,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
       paymentModeName: string;
       detailType: "expense" | "advance";
       submissionType: "Self" | "On Behalf";
-      bcPaymentsFlag: boolean;
+      bcClaimDetailsId: string | null;
       isVendorPayment: boolean;
       onBehalfEmail: string | null;
       onBehalfEmployeeCode: string | null;
@@ -3524,7 +3524,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     let query = client
       .from("vw_enterprise_claims_dashboard")
       .select(
-        "claim_id, employee_name, employee_id, detail_type, submission_type, on_behalf_email, on_behalf_employee_code_raw, status, submitted_on, created_at, hod_action_date, finance_action_date, submitter_email, submitter_label, department_name, type_of_claim, amount, category_name, purpose, receipt_file_path, bank_statement_file_path, supporting_document_path, assigned_l2_approver_id, payment_mode_id, department_id, location_id, product_id, expense_category_id, bc_payments_flag, is_vendor_payment",
+        "claim_id, employee_name, employee_id, detail_type, submission_type, on_behalf_email, on_behalf_employee_code_raw, status, submitted_on, created_at, hod_action_date, finance_action_date, submitter_email, submitter_label, department_name, type_of_claim, amount, category_name, purpose, receipt_file_path, bank_statement_file_path, supporting_document_path, assigned_l2_approver_id, payment_mode_id, department_id, location_id, product_id, expense_category_id, bc_claim_details_id, is_vendor_payment",
         { count: "exact" },
       )
       .eq("status", DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS)
@@ -3628,7 +3628,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     let query = client
       .from("vw_enterprise_claims_dashboard")
       .select(
-        "claim_id, employee_name, employee_id, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, submitted_by, on_behalf_of_id, assigned_l1_approver_id, assigned_l2_approver_id, department_id, payment_mode_id, bc_payments_flag, is_vendor_payment, detail_type, submission_type, created_at",
+        "claim_id, employee_name, employee_id, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, submitted_by, on_behalf_of_id, assigned_l1_approver_id, assigned_l2_approver_id, department_id, payment_mode_id, bc_claim_details_id, is_vendor_payment, detail_type, submission_type, created_at",
       )
       .order("created_at", { ascending: false })
       .order("claim_id", { ascending: false });
@@ -3690,7 +3690,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
         submittedOn: row.submitted_on,
         hodActionDate: row.hod_action_date,
         financeActionDate: row.finance_action_date,
-        bcPaymentsFlag: row.bc_payments_flag ?? false,
+        bcClaimDetailsId: row.bc_claim_details_id ?? null,
         isVendorPayment: row.is_vendor_payment ?? false,
       })),
       errorMessage: null,
@@ -3833,7 +3833,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
       const { data, error } = await client
         .from("claims")
         .select(
-          "id, status, submission_type, detail_type, submitted_by, on_behalf_of_id, employee_id, cc_emails, on_behalf_email, on_behalf_employee_code, department_id, payment_mode_id, bc_payments_flag, is_vendor_payment, assigned_l1_approver_id, assigned_l2_approver_id, submitted_at, hod_action_at, finance_action_at, rejection_reason, is_resubmission_allowed, created_at, updated_at, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), l1_approver_user:users!claims_assigned_l1_approver_id_fkey(full_name, email), l2_finance_approver:master_finance_approvers!claims_assigned_l2_approver_id_fkey(approver_user:users!master_finance_approvers_user_id_fkey(full_name, email)), master_departments(id, name), master_payment_modes(id, name), expense_details(bill_no, transaction_id, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, requested_total_amount, approved_amount, currency_code, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(id, name), master_products(id, name), master_locations(id, name)), advance_details(requested_total_amount, approved_amount, budget_month, budget_year, expected_usage_date, purpose, product_id, location_id, remarks, supporting_document_path, master_products(id, name), master_locations(id, name))",
+          "id, status, submission_type, detail_type, submitted_by, on_behalf_of_id, employee_id, cc_emails, on_behalf_email, on_behalf_employee_code, department_id, payment_mode_id, bc_claim_details_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_at, hod_action_at, finance_action_at, rejection_reason, is_resubmission_allowed, created_at, updated_at, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), l1_approver_user:users!claims_assigned_l1_approver_id_fkey(full_name, email), l2_finance_approver:master_finance_approvers!claims_assigned_l2_approver_id_fkey(approver_user:users!master_finance_approvers_user_id_fkey(full_name, email)), master_departments(id, name), master_payment_modes(id, name), expense_details(bill_no, transaction_id, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, requested_total_amount, approved_amount, currency_code, vendor_name, people_involved, remarks, receipt_file_path, bank_statement_file_path, master_expense_categories(id, name), master_products(id, name), master_locations(id, name)), advance_details(requested_total_amount, approved_amount, budget_month, budget_year, expected_usage_date, purpose, product_id, location_id, remarks, supporting_document_path, master_products(id, name), master_locations(id, name))",
         )
         .in("id", claimIdChunk)
         .eq("is_active", true)
@@ -3914,8 +3914,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
           departmentName: department?.name ?? null,
           paymentModeId: row.payment_mode_id,
           paymentModeName: paymentMode?.name ?? null,
-          bcPaymentsFlag: row.bc_payments_flag,
-          isVendorPayment: row.is_vendor_payment,
+          bcClaimDetailsId: row.bc_claim_details_id,
+          isVendorPayment: row.is_vendor_payment ?? false,
           assignedL1ApproverId: row.assigned_l1_approver_id,
           assignedL2ApproverId: row.assigned_l2_approver_id,
           submittedAt: row.submitted_at,
@@ -4035,7 +4035,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const { data, error } = await client
       .from("claims")
       .select(
-        "id, detail_type, submission_type, on_behalf_email, employee_id, bc_payments_flag, is_vendor_payment, submitter_user:users!claims_submitted_by_fkey(full_name, email), expense_details(purpose, receipt_file_path, bank_statement_file_path, master_expense_categories(name)), advance_details(purpose, supporting_document_path)",
+        "id, detail_type, submission_type, on_behalf_email, employee_id, bc_claim_details_id, submitter_user:users!claims_submitted_by_fkey(full_name, email), expense_details(purpose, receipt_file_path, bank_statement_file_path, master_expense_categories(name)), advance_details(purpose, supporting_document_path)",
       )
       .in("id", scopedClaimIds)
       .eq("is_active", true)
@@ -4051,7 +4051,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
       submission_type: "Self" | "On Behalf";
       on_behalf_email: string | null;
       employee_id: string;
-      bc_payments_flag: boolean;
+      bc_claim_details_id: string | null;
       is_vendor_payment: boolean;
       submitter_user: ClaimSubmitterRow | ClaimSubmitterRow[] | null;
       expense_details: ClaimExpenseDetailRow | ClaimExpenseDetailRow[] | null;
@@ -4077,8 +4077,8 @@ export class SupabaseClaimRepository implements ClaimRepository {
       result[row.id] = {
         detailType: row.detail_type,
         submissionType: row.submission_type,
-        bcPaymentsFlag: row.bc_payments_flag,
-        isVendorPayment: row.is_vendor_payment,
+        bcClaimDetailsId: row.bc_claim_details_id,
+        isVendorPayment: row.is_vendor_payment ?? false,
         onBehalfEmail: row.on_behalf_email,
         submitter: submitterLabel,
         categoryName:
