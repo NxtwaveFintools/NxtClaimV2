@@ -1,0 +1,121 @@
+{
+  "info": {
+    "_postman_id": "bc-odata-reference",
+    "name": "NxtClaim-OData",
+    "description": "BC Standard OData reference data — currencies, GST groups, HSN/SAC codes.\nMirrors the `bc-reference` edge function. Each request uses `$select=Code,Description` to keep payloads small (BC's default response includes 30+ fields).\n\nVariables consumed (from the `BC Sandbox` environment):\n  tenantId / clientId / clientSecret — Azure AD\n  environment — BC sandbox name\n  companyName — BC company short name\n  bearerToken — auto-populated by the Access Token request\n",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Access Token",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "header": [],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "grant_type", "value": "client_credentials", "type": "text" },
+            {
+              "key": "scope",
+              "value": "https://api.businesscentral.dynamics.com/.default",
+              "type": "text"
+            },
+            { "key": "client_id", "value": "{{clientId}}", "type": "text" },
+            { "key": "client_secret", "value": "{{clientSecret}}", "type": "text" }
+          ]
+        },
+        "url": {
+          "raw": "https://login.microsoftonline.com/{{tenantId}}/oauth2/v2.0/token",
+          "protocol": "https",
+          "host": ["login", "microsoftonline", "com"],
+          "path": ["{{tenantId}}", "oauth2", "v2.0", "token"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GetCurrencies",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{bearerToken}}", "type": "string" }]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://api.businesscentral.dynamics.com/v2.0/{{tenantId}}/{{environment}}/ODataV4/Company('{{companyName}}')/currencies?$select=Code,Description",
+          "protocol": "https",
+          "host": ["api", "businesscentral", "dynamics", "com"],
+          "path": [
+            "v2.0",
+            "{{tenantId}}",
+            "{{environment}}",
+            "ODataV4",
+            "Company('{{companyName}}')",
+            "currencies"
+          ],
+          "query": [{ "key": "$select", "value": "Code,Description" }]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GetGSTGroupCodes",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{bearerToken}}", "type": "string" }]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://api.businesscentral.dynamics.com/v2.0/{{tenantId}}/{{environment}}/ODataV4/Company('{{companyName}}')/gstGroup?$select=Code,Description",
+          "protocol": "https",
+          "host": ["api", "businesscentral", "dynamics", "com"],
+          "path": [
+            "v2.0",
+            "{{tenantId}}",
+            "{{environment}}",
+            "ODataV4",
+            "Company('{{companyName}}')",
+            "gstGroup"
+          ],
+          "query": [{ "key": "$select", "value": "Code,Description" }]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GetHSNSACCodes",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [{ "key": "token", "value": "{{bearerToken}}", "type": "string" }]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://api.businesscentral.dynamics.com/v2.0/{{tenantId}}/{{environment}}/ODataV4/Company('{{companyName}}')/hsnSAC?$select=Code,Description",
+          "protocol": "https",
+          "host": ["api", "businesscentral", "dynamics", "com"],
+          "path": [
+            "v2.0",
+            "{{tenantId}}",
+            "{{environment}}",
+            "ODataV4",
+            "Company('{{companyName}}')",
+            "hsnSAC"
+          ],
+          "query": [{ "key": "$select", "value": "Code,Description" }]
+        }
+      },
+      "response": []
+    }
+  ]
+}
