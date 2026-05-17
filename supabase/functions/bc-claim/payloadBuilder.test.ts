@@ -1,116 +1,167 @@
-import { assertEquals, assertThrows } from "std/assert/mod.ts";
-import { buildBcLineItems } from "./payloadBuilder.ts";
+import { assertEquals, assert, assertThrows } from "std/assert/mod.ts";
+import { buildBcClaimLineItem, buildRemarks, type BuildInputs } from "./payloadBuilder.ts";
 import type { BcClaimPayloadFromDb } from "./types.ts";
 
-const baseDbPayload: BcClaimPayloadFromDb = {
-  claim_id: "CLAIM-NW0002053-20260424-462F",
-  employee_id: "NW0002053",
-  bc_payments_flag: false,
-  approved_amount: 573,
-  purpose: "Food bill for Production team - Video shoot",
-  receipt_file_path: "https://storage.example.com/receipts/abc.jpg",
-  bank_statement_file_path: "https://storage.example.com/bank/def.pdf",
-  expense_category_id: "11111111-1111-1111-1111-111111111111",
-  bc_code: "503063",
+const baseDb: BcClaimPayloadFromDb = {
+  claim_id: "CLM-000145",
+  payment_mode_name: "Reimbursement",
+  submission_type: "Self",
+  employee_id: "NW0001234",
+  on_behalf_employee_code: null,
+  employee_name: "Arjun Chander",
   program_code: "COMMON",
   sub_product_code: "COMMON",
-  responsible_department_code: "GENAI SOCIAL MEDIA",
-  beneficiary_department_code: "GENAI SOCIAL MEDIA",
+  responsible_department_code: "GENAI",
+  beneficiary_department_code: "GENAI",
   region_code: "TELUGU",
+  bill_no: "INV-2026-001",
+  transaction_date: "2026-05-10",
+  purpose: "Software subscription",
+  receipt_file_path: "https://xyz.supabase.co/storage/v1/object/public/receipts/inv.pdf",
+  bank_statement_file_path: null,
+  bc_code: "503063",
 };
 
-Deno.test("non-vendor: returns one Employee line with negative amount + bc_code", () => {
-  const lines = buildBcLineItems(baseDbPayload, { isVendorPayment: false });
-  assertEquals(lines.length, 1);
-  const [l] = lines;
-  assertEquals(l.accountType, "Employee");
-  assertEquals(l.accountNo, "NW0002053");
-  assertEquals(l.employeeTransactionType, "ADVANCE");
-  assertEquals(l.amount, -573);
-  assertEquals(l.balAccountType, "G/L Account");
-  assertEquals(l.balAccountNo, "503063");
-  assertEquals(l.claimNo, baseDbPayload.claim_id);
-  assertEquals(l.nwProgramCode, "COMMON");
-  assertEquals(l.subProductCode, "COMMON");
-  assertEquals(l.responsibleDepartment, "GENAI SOCIAL MEDIA");
-  assertEquals(l.beneficiaryDepartment, "GENAI SOCIAL MEDIA");
-  assertEquals(l.regionCode, "TELUGU");
+const vendorInputs: BuildInputs = {
+  db: baseDb,
+  isVendorPayment: true,
+  vendor: {
+    code: "V0001",
+    name: "Twilio Inc",
+    currencyCode: "INR",
+    gstGroupCode: "GST18",
+    hsnSacCode: "998314",
+  },
+};
+
+const nonVendorInputs: BuildInputs = {
+  db: baseDb,
+  isVendorPayment: false,
+};
+
+Deno.test("vendor payload has all 26 fields with vendor-only keys present", () => {
+  const line = buildBcClaimLineItem(vendorInputs);
+  assertEquals(line.documentType, "Invoice");
+  assertEquals(line.locationCode, "HBT");
+  assertEquals(line.type, "G/l");
+  assertEquals(line.quantity, 1);
+  assertEquals(line.gstCredit, "Non-Availment");
+  assertEquals(line.gstSubcategory, "Ineligible-43/44");
+  assertEquals(line.employeeTransactionType, "Advance");
+  assertEquals(line.documentDate, "2026-05-10");
+  assertEquals(line.glCode, "503063");
+  assertEquals(line.employeeId, "NW0001234");
+  assertEquals(line.employeeName, "Arjun Chander");
+  assertEquals(line.claimNo, "CLM-000145");
+  assertEquals(line.programCode, "COMMON");
+  assertEquals(line.subproductCode, "COMMON");
+  assertEquals(line.responsibleDepartment, "GENAI");
+  assertEquals(line.beneficiaryDepartment, "GENAI");
+  assertEquals(line.regionCode, "TELUGU");
+  assertEquals(line.invoiceRequired, true);
+  assertEquals(line.paymentRequired, true);
+  assertEquals(line.currencyCode, "INR");
+  assertEquals(line.vendorInvoiceNo, "INV-2026-001");
+  assertEquals(line.vendorCode, "V0001");
+  assertEquals(line.vendorName, "Twilio Inc");
+  assertEquals(line.gstGroupCode, "GST18");
+  assertEquals(line.hsnSacCode, "998314");
+  assertEquals(Object.keys(line).length, 26);
 });
 
-Deno.test("description: 3 lines when both files present", () => {
-  const [l] = buildBcLineItems(baseDbPayload, { isVendorPayment: false });
-  assertEquals(
-    l.description,
-    "CLAIM-NW0002053-20260424-462F - Food bill for Production team - Video shoot\n" +
-      "bill - https://storage.example.com/receipts/abc.jpg\n" +
-      "bank statement - https://storage.example.com/bank/def.pdf",
-  );
+Deno.test("non-vendor payload omits vendor-only keys entirely", () => {
+  const line = buildBcClaimLineItem(nonVendorInputs);
+  for (const key of [
+    "currencyCode",
+    "vendorInvoiceNo",
+    "vendorCode",
+    "vendorName",
+    "gstGroupCode",
+    "hsnSacCode",
+  ] as const) {
+    assert(!(key in line), `${key} should be absent for non-vendor payload`);
+  }
+  assertEquals(line.invoiceRequired, false);
+  assertEquals(line.paymentRequired, true);
+  assertEquals(Object.keys(line).length, 20);
 });
 
-Deno.test("description: only line 1 when files are null", () => {
-  const [l] = buildBcLineItems(
-    { ...baseDbPayload, receipt_file_path: null, bank_statement_file_path: null },
-    { isVendorPayment: false },
-  );
-  assertEquals(
-    l.description,
-    "CLAIM-NW0002053-20260424-462F - Food bill for Production team - Video shoot",
-  );
-});
-
-Deno.test("description: skips empty-string file paths", () => {
-  const [l] = buildBcLineItems(
-    { ...baseDbPayload, receipt_file_path: "", bank_statement_file_path: "" },
-    { isVendorPayment: false },
-  );
-  assertEquals(l.description.split("\n").length, 1);
-});
-
-Deno.test("vendor: returns 2 lines, both balAccountNo empty", () => {
-  const lines = buildBcLineItems(baseDbPayload, {
-    isVendorPayment: true,
-    bcVendorId: "VEN/0008992",
-    bcVendorName: "ABC Software Pvt Ltd",
+Deno.test("On_behalf submission uses on_behalf_employee_code for employeeId", () => {
+  const line = buildBcClaimLineItem({
+    db: {
+      ...baseDb,
+      submission_type: "On_behalf",
+      employee_id: "NW0001234",
+      on_behalf_employee_code: "NW0009999",
+      employee_name: "Ravi Kumar",
+    },
+    isVendorPayment: false,
   });
-  assertEquals(lines.length, 2);
-  const [emp, vendor] = lines;
-  assertEquals(emp.accountType, "Employee");
-  assertEquals(emp.amount, -573);
-  assertEquals(emp.balAccountNo, "");
-  assertEquals(emp.employeeTransactionType, "ADVANCE");
-  assertEquals(vendor.accountType, "Vendor");
-  assertEquals(vendor.accountNo, "VEN/0008992");
-  assertEquals(vendor.amount, 573);
-  assertEquals(vendor.balAccountNo, "");
-  assertEquals(vendor.employeeTransactionType, "");
-  assertEquals(vendor.description, emp.description);
+  assertEquals(line.employeeId, "NW0009999");
+  assertEquals(line.employeeName, "Ravi Kumar");
 });
 
-Deno.test("postingDate is ISO YYYY-MM-DD", () => {
-  const [l] = buildBcLineItems(baseDbPayload, { isVendorPayment: false });
-  assertEquals(/^\d{4}-\d{2}-\d{2}$/.test(l.postingDate), true);
+Deno.test("Self submission uses employee_id even if on_behalf_employee_code is set", () => {
+  const line = buildBcClaimLineItem({
+    db: {
+      ...baseDb,
+      submission_type: "Self",
+      employee_id: "NW0001234",
+      on_behalf_employee_code: "NW9999999",
+    },
+    isVendorPayment: false,
+  });
+  assertEquals(line.employeeId, "NW0001234");
 });
 
-Deno.test("throws if non-vendor and bc_code is null", () => {
+Deno.test("paymentRequired is false when payment_mode_name is not Reimbursement", () => {
+  const line = buildBcClaimLineItem({
+    db: { ...baseDb, payment_mode_name: "Vendor Direct" },
+    isVendorPayment: true,
+    vendor: vendorInputs.vendor,
+  });
+  assertEquals(line.paymentRequired, false);
+});
+
+Deno.test("vendor payload throws when vendor inputs are missing", () => {
   assertThrows(
-    () => buildBcLineItems({ ...baseDbPayload, bc_code: null }, { isVendorPayment: false }),
+    () => buildBcClaimLineItem({ db: baseDb, isVendorPayment: true }),
     Error,
-    "MISSING_BC_CODE",
+    "vendor inputs required",
   );
 });
 
-Deno.test("throws if vendor flag but no vendor id/name", () => {
-  assertThrows(
-    () => buildBcLineItems(baseDbPayload, { isVendorPayment: true }),
-    Error,
-    "MISSING_VENDOR_SELECTION",
+Deno.test("vendorInvoiceNo defaults to empty string when bill_no is null", () => {
+  const line = buildBcClaimLineItem({
+    db: { ...baseDb, bill_no: null },
+    isVendorPayment: true,
+    vendor: vendorInputs.vendor,
+  });
+  assertEquals(line.vendorInvoiceNo, "");
+});
+
+Deno.test("buildRemarks — claim+purpose+bill+statement when both files present", () => {
+  const r = buildRemarks({
+    ...baseDb,
+    receipt_file_path: "https://x.co/r.pdf",
+    bank_statement_file_path: "https://x.co/s.pdf",
+  });
+  assertEquals(
+    r,
+    "CLM-000145 - Software subscription\nbill - https://x.co/r.pdf\nbank statement - https://x.co/s.pdf",
   );
 });
 
-Deno.test("amount handles fractional approved_amount as-is", () => {
-  const [l] = buildBcLineItems(
-    { ...baseDbPayload, approved_amount: 573.5 },
-    { isVendorPayment: false },
-  );
-  assertEquals(l.amount, -573.5);
+Deno.test("buildRemarks — omits bill when receipt_file_path is null", () => {
+  const r = buildRemarks({
+    ...baseDb,
+    receipt_file_path: null,
+    bank_statement_file_path: "https://x.co/s.pdf",
+  });
+  assertEquals(r, "CLM-000145 - Software subscription\nbank statement - https://x.co/s.pdf");
+});
+
+Deno.test("buildRemarks — claim+purpose only when both files null", () => {
+  const r = buildRemarks({ ...baseDb, receipt_file_path: null, bank_statement_file_path: null });
+  assertEquals(r, "CLM-000145 - Software subscription");
 });
