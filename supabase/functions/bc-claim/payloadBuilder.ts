@@ -32,6 +32,12 @@ export interface BuildInputs {
  *      claim id itself is > 50 chars, which would be a separate data bug).
  *   2. A " - " separator.
  *   3. As much of `purpose` as fits.
+ *
+ * TODO: BC developer has agreed to extend `remarks` past 50 chars. Once the
+ * new BC schema is live, re-add the bill / bank-statement URL lines:
+ *     lines.push(`bill - ${receipt_file_path}`);
+ *     lines.push(`bank statement - ${bank_statement_file_path}`);
+ * and bump BC_REMARKS_MAX (or drop the cap entirely if BC moves to TEXT).
  */
 const BC_REMARKS_MAX = 50;
 
