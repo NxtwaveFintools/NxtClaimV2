@@ -336,6 +336,15 @@ function getFormDataJsonObject(input: FormData, key: string): Record<string, unk
   }
 }
 
+function parseForeignCurrencyCode(
+  input: FormData,
+  key: string,
+): "INR" | "USD" | "EUR" | "CHF" | null {
+  const VALID_CODES = new Set(["INR", "USD", "EUR", "CHF"]);
+  const raw = getFormDataNullableString(input, key);
+  return raw && VALID_CODES.has(raw) ? (raw as "INR" | "USD" | "EUR" | "CHF") : null;
+}
+
 function isPreHodEditableStatus(status: DbClaimStatus): boolean {
   return PRE_HOD_EDITABLE_STATUSES.some((candidate) => candidate === status);
 }
@@ -476,11 +485,7 @@ function extractSubmissionInput(input: unknown): {
       transactionDate: getFormDataString(input, "expense.transactionDate"),
       basicAmount: getFormDataNumber(input, "expense.basicAmount"),
       currencyCode: getFormDataString(input, "expense.currencyCode"),
-      foreignCurrencyCode: (() => {
-        const VALID_CODES = new Set(["INR", "USD", "EUR", "CHF"]);
-        const raw = getFormDataNullableString(input, "expense.foreignCurrencyCode");
-        return raw && VALID_CODES.has(raw) ? (raw as "INR" | "USD" | "EUR" | "CHF") : null;
-      })(),
+      foreignCurrencyCode: parseForeignCurrencyCode(input, "expense.foreignCurrencyCode"),
       foreignBasicAmount: getFormDataNumber(input, "expense.foreignBasicAmount") || null,
       foreignGstAmount: getFormDataNumber(input, "expense.foreignGstAmount") || null,
       foreignTotalAmount: getFormDataNumber(input, "expense.foreignTotalAmount") || null,
@@ -1130,11 +1135,7 @@ function buildFinanceEditPayload(formData: FormData): unknown {
       sgstAmount: getFormDataNumber(formData, "sgstAmount"),
       igstAmount: getFormDataNumber(formData, "igstAmount"),
       totalAmount: getFormDataNumber(formData, "totalAmount"),
-      foreignCurrencyCode: (() => {
-        const VALID_CODES = new Set(["INR", "USD", "EUR", "CHF"]);
-        const raw = getFormDataNullableString(formData, "foreignCurrencyCode");
-        return raw && VALID_CODES.has(raw) ? (raw as "INR" | "USD" | "EUR" | "CHF") : null;
-      })(),
+      foreignCurrencyCode: parseForeignCurrencyCode(formData, "foreignCurrencyCode"),
       foreignBasicAmount: getFormDataNumber(formData, "foreignBasicAmount") || null,
       foreignGstAmount: getFormDataNumber(formData, "foreignGstAmount") || null,
       foreignTotalAmount: getFormDataNumber(formData, "foreignTotalAmount") || null,
@@ -1185,11 +1186,7 @@ function buildOwnEditPayload(formData: FormData): unknown {
       cgstAmount: getFormDataNumber(formData, "cgstAmount"),
       sgstAmount: getFormDataNumber(formData, "sgstAmount"),
       igstAmount: getFormDataNumber(formData, "igstAmount"),
-      foreignCurrencyCode: (() => {
-        const VALID_CODES = new Set(["INR", "USD", "EUR", "CHF"]);
-        const raw = getFormDataNullableString(formData, "foreignCurrencyCode");
-        return raw && VALID_CODES.has(raw) ? (raw as "INR" | "USD" | "EUR" | "CHF") : null;
-      })(),
+      foreignCurrencyCode: parseForeignCurrencyCode(formData, "foreignCurrencyCode"),
       foreignBasicAmount: getFormDataNumber(formData, "foreignBasicAmount") || null,
       foreignGstAmount: getFormDataNumber(formData, "foreignGstAmount") || null,
       foreignTotalAmount: getFormDataNumber(formData, "foreignTotalAmount") || null,
