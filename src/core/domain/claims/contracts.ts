@@ -69,7 +69,7 @@ export type ClaimSubmissionInput = {
     aiMetadata?: ClaimExpenseAiMetadata | null;
   };
   advance?: {
-    requestedTotalAmount: number;
+    totalAmount: number;
     budgetMonth: number;
     budgetYear: number;
     expectedUsageDate: string | null;
@@ -115,8 +115,7 @@ export type PreparedClaimSubmission = {
     igstAmount: number;
     transactionDate: string;
     basicAmount: number;
-    requestedTotalAmount: number;
-    approvedAmount: number;
+    totalAmount: number;
     currencyCode: string;
     vendorName: string | null;
     receiptFilePath: string | null;
@@ -127,8 +126,7 @@ export type PreparedClaimSubmission = {
   };
   advance?: {
     claimId: string;
-    requestedTotalAmount: number;
-    approvedAmount: number;
+    totalAmount: number;
     budgetMonth: number;
     budgetYear: number;
     expectedUsageDate: string | null;
@@ -160,7 +158,7 @@ export type FinanceExpenseEditPayload = {
   remarks?: string | null;
   receiptFilePath?: string;
   bankStatementFilePath?: string;
-  approvedAmount: number;
+  totalAmount: number;
 };
 
 export type FinanceAdvanceEditPayload = {
@@ -174,7 +172,7 @@ export type FinanceAdvanceEditPayload = {
   locationId?: string | null;
   remarks?: string | null;
   supportingDocumentPath?: string;
-  approvedAmount: number;
+  totalAmount: number;
 };
 
 export type FinanceClaimEditPayload = FinanceExpenseEditPayload | FinanceAdvanceEditPayload;
@@ -193,8 +191,7 @@ export type OwnExpenseEditPayload = {
   cgstAmount: number;
   sgstAmount: number;
   igstAmount: number;
-  requestedTotalAmount: number;
-  approvedAmount: number;
+  totalAmount: number;
   purpose: string;
   productId: string | null;
   peopleInvolved: string | null;
@@ -207,8 +204,7 @@ export type OwnAdvanceEditPayload = {
   detailType: "advance";
   detailId: string;
   purpose: string;
-  requestedTotalAmount: number;
-  approvedAmount: number;
+  totalAmount: number;
   expectedUsageDate: string;
   productId: string | null;
   locationId: string | null;
@@ -333,8 +329,7 @@ export type ClaimFullExportRecord = {
   expenseCgstAmount: number | null;
   expenseSgstAmount: number | null;
   expenseIgstAmount: number | null;
-  requestedTotalAmount: number | null;
-  approvedAmount: number | null;
+  totalAmount: number | null;
   expenseCurrencyCode: string | null;
   expenseVendorName: string | null;
   expensePeopleInvolved: string | null;
@@ -500,7 +495,7 @@ export type ClaimRepository = {
   existsExpenseByCompositeKey(input: {
     billNo: string;
     transactionDate: string;
-    requestedTotalAmount: number;
+    totalAmount: number;
   }): Promise<{
     exists: boolean;
     errorMessage: string | null;

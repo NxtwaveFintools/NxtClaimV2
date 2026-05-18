@@ -4,7 +4,8 @@ const validExpensePayload = {
   detailType: "expense" as const,
   detailId: "expense-detail-1",
   editReason: "Correcting bill metadata after finance review",
-  approvedAmount: 590,
+  paymentModeId: "mode-1",
+  totalAmount: 590,
 };
 
 function createLogger() {

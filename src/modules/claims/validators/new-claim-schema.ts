@@ -104,7 +104,7 @@ const expenseDetailSchema = z.object({
 const advanceDetailSchema = z.object({
   detailType: z.literal("advance"),
   advance: z.object({
-    requestedTotalAmount: z.coerce.number().min(0, "Requested amount cannot be negative"),
+    totalAmount: z.coerce.number().min(0, "Requested amount cannot be negative"),
     budgetMonth: z.coerce
       .number()
       .int("Budget month is required")

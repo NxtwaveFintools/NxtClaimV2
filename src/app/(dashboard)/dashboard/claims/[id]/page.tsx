@@ -138,14 +138,6 @@ function formatOptionalText(value: string | null | undefined, fallback = "N/A"):
   return trimmed.length > 0 ? trimmed : fallback;
 }
 
-function amountsDiffer(left: number | null | undefined, right: number | null | undefined): boolean {
-  if (left === null || left === undefined || right === null || right === undefined) {
-    return false;
-  }
-
-  return Math.abs(left - right) >= 0.01;
-}
-
 function isPdf(path: string): boolean {
   return path.toLowerCase().endsWith(".pdf");
 }
@@ -361,8 +353,7 @@ async function FinanceEditClaimSection({
                     cgstAmount: claim.expense.cgstAmount,
                     sgstAmount: claim.expense.sgstAmount,
                     igstAmount: claim.expense.igstAmount,
-                    requestedTotalAmount: claim.expense.requestedTotalAmount,
-                    approvedAmount: claim.expense.approvedAmount,
+                    totalAmount: claim.expense.totalAmount,
                     vendorName: claim.expense.vendorName,
                     purpose: claim.expense.purpose,
                     productId: claim.expense.productId,
@@ -375,8 +366,7 @@ async function FinanceEditClaimSection({
                 ? {
                     id: claim.advance.id,
                     purpose: claim.advance.purpose,
-                    requestedTotalAmount: claim.advance.requestedTotalAmount,
-                    approvedAmount: claim.advance.approvedAmount,
+                    totalAmount: claim.advance.totalAmount,
                     expectedUsageDate: claim.advance.expectedUsageDate,
                     productId: claim.advance.productId,
                     locationId: claim.advance.locationId,
@@ -760,16 +750,8 @@ async function ClaimDetailCore({
 
     return formatCurrency(value);
   };
-  const requestedTotalAmountValue =
-    claim.expense?.requestedTotalAmount ?? claim.advance?.requestedTotalAmount ?? null;
-  const approvedAmountValue =
-    claim.expense?.approvedAmount ?? claim.advance?.approvedAmount ?? requestedTotalAmountValue;
-  const hasAmountVariance = amountsDiffer(requestedTotalAmountValue, approvedAmountValue);
+  const totalAmountValue = claim.expense?.totalAmount ?? claim.advance?.totalAmount ?? null;
   const aiMetadata = canViewAsFinance ? (claim.expense?.aiMetadata ?? null) : null;
-  const amountAdjustmentValue =
-    requestedTotalAmountValue !== null && approvedAmountValue !== null
-      ? requestedTotalAmountValue - approvedAmountValue
-      : null;
   const heroCategoryValue = claim.expense
     ? formatOptionalText(claim.expense.expenseCategoryName)
     : "N/A";
@@ -823,21 +805,10 @@ async function ClaimDetailCore({
           <section className="bg-primary/5 border border-primary/20 rounded-xl p-6 mb-8 flex flex-col gap-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="min-w-0 md:flex-1">
-                <p className="text-[10px] uppercase text-muted-foreground">Approved Amount</p>
+                <p className="text-[10px] uppercase text-muted-foreground">Total Amount</p>
                 <p className="max-w-full break-words text-3xl font-black leading-none tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-                  {formatAmountValue(approvedAmountValue)}
+                  {formatAmountValue(totalAmountValue)}
                 </p>
-                {hasAmountVariance ? (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Requested{" "}
-                    <span className="line-through">
-                      {formatAmountValue(requestedTotalAmountValue)}
-                    </span>
-                    {amountAdjustmentValue !== null
-                      ? ` · Adjustment ${formatAmountValue(amountAdjustmentValue)}`
-                      : ""}
-                  </p>
-                ) : null}
               </div>
 
               <div className="min-w-0 md:max-w-[18rem] md:flex-none">
@@ -1066,40 +1037,16 @@ async function ClaimDetailCore({
                           <AiAuditCaption aiMetadata={aiMetadata} fieldKey="gst_number" />
                         </div>
                         <DataCard
-                          label="Approved Amount"
-                          value={formatAmountValue(claim.expense.approvedAmount)}
+                          label="Total Amount"
+                          value={formatAmountValue(claim.expense.totalAmount)}
                         />
-                        {hasAmountVariance ? (
-                          <>
-                            <DataCard
-                              label="Requested Amount"
-                              value={formatAmountValue(claim.expense.requestedTotalAmount)}
-                            />
-                            <DataCard
-                              label="Adjustment"
-                              value={formatAmountValue(amountAdjustmentValue)}
-                            />
-                          </>
-                        ) : null}
                       </>
                     ) : claim.advance ? (
                       <>
                         <DataCard
-                          label="Approved Amount"
-                          value={formatAmountValue(claim.advance.approvedAmount)}
+                          label="Total Amount"
+                          value={formatAmountValue(claim.advance.totalAmount)}
                         />
-                        {hasAmountVariance ? (
-                          <>
-                            <DataCard
-                              label="Requested Amount"
-                              value={formatAmountValue(claim.advance.requestedTotalAmount)}
-                            />
-                            <DataCard
-                              label="Adjustment"
-                              value={formatAmountValue(amountAdjustmentValue)}
-                            />
-                          </>
-                        ) : null}
                       </>
                     ) : (
                       <DataCard label="Amount" value="N/A" />

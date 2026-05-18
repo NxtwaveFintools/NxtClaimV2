@@ -170,8 +170,7 @@ describe("SubmitClaimService", () => {
         cgst_amount: number;
         sgst_amount: number;
         igst_amount: number;
-        requested_total_amount: number;
-        approved_amount: number;
+        total_amount: number;
       };
     };
 
@@ -181,8 +180,7 @@ describe("SubmitClaimService", () => {
         cgst_amount: 5,
         sgst_amount: 5,
         igst_amount: 0,
-        requested_total_amount: 110,
-        approved_amount: 110,
+        total_amount: 110,
       }),
     );
   });
@@ -306,7 +304,7 @@ describe("SubmitClaimService", () => {
       ...baseInput,
       detailType: "advance",
       advance: {
-        requestedTotalAmount: 500,
+        totalAmount: 500,
         budgetMonth: 3,
         budgetYear: 2026,
         expectedUsageDate: "2026-03-25",
@@ -345,7 +343,7 @@ describe("SubmitClaimService", () => {
       onBehalfEmail: "beneficiary@nxtwave.co.in",
       onBehalfEmployeeCode: "obh-77",
       advance: {
-        requestedTotalAmount: 500,
+        totalAmount: 500,
         budgetMonth: 3,
         budgetYear: 2026,
         expectedUsageDate: "2026-03-25",
@@ -379,7 +377,7 @@ describe("SubmitClaimService", () => {
       ...baseInput,
       detailType: "advance",
       advance: {
-        requestedTotalAmount: 500,
+        totalAmount: 500,
         budgetMonth: 3,
         budgetYear: 2026,
         expectedUsageDate: "2026-03-25",

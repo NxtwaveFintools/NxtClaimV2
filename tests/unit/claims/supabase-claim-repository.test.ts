@@ -357,7 +357,8 @@ describe("SupabaseClaimRepository.updateClaimDetailsByFinance", () => {
       detailType: "expense" as const,
       detailId: "expense-detail-1",
       editReason: "Correcting expense detail data",
-      approvedAmount: 118,
+      paymentModeId: "11111111-1111-4111-8111-111111111111",
+      totalAmount: 118,
       ...overrides,
     };
   }
@@ -458,7 +459,7 @@ describe("SupabaseClaimRepository.getClaimsForFullExport", () => {
     jest.clearAllMocks();
   });
 
-  test("maps requested and approved amounts separately for expense and advance rows", async () => {
+  test("maps total amount for expense and advance rows", async () => {
     const idsBuilder = createQueryBuilder({
       data: [
         { claim_id: "claim-expense", created_at: "2026-03-24T10:00:00.000Z" },
@@ -610,14 +611,12 @@ describe("SupabaseClaimRepository.getClaimsForFullExport", () => {
       expect.objectContaining({
         claimId: "claim-expense",
         detailType: "expense",
-        requestedTotalAmount: 118,
-        approvedAmount: 110,
+        totalAmount: 118,
       }),
       expect.objectContaining({
         claimId: "claim-advance",
         detailType: "advance",
-        requestedTotalAmount: 500,
-        approvedAmount: 450,
+        totalAmount: 500,
       }),
     ]);
   });

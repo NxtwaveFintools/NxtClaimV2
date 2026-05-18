@@ -645,7 +645,7 @@ async function submitPettyCashRequest(
   page: Page,
   input: {
     employeeId: string;
-    requestedTotalAmount: number;
+    totalAmount: number;
     purpose: string;
     departmentName?: string;
     departmentId?: string;
@@ -752,7 +752,7 @@ async function submitPettyCashRequest(
   const paymentMode = page.getByLabel(/payment mode/i);
   await selectOptionByLabel(paymentMode, "Petty Cash Request");
 
-  await page.locator("#requestedTotalAmount").fill(String(input.requestedTotalAmount));
+  await page.locator("#totalAmount").fill(String(input.totalAmount));
   await page.locator("#expectedUsageDate").fill("2026-03-20");
   await expect(page.locator("#expectedUsageDate")).toHaveValue("2026-03-20");
   await page.locator("#purpose").fill(input.purpose);
@@ -1047,7 +1047,7 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
     const standardSubmission = await withActorPage(browser, ACTORS.employeeA.email, async (page) =>
       submitPettyCashRequest(page, {
         employeeId: `${ACTORS.employeeA.employeeCodePrefix}-${runTag}`,
-        requestedTotalAmount: amount,
+        totalAmount: amount,
         purpose: `STANDARD FLOW ${runTag}`,
       }),
     );
@@ -1102,7 +1102,7 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
         async (page) =>
           submitPettyCashRequest(page, {
             employeeId: `${ACTORS.employeeA.employeeCodePrefix}-${runTag}-FALLBACK`,
-            requestedTotalAmount: fallbackAmount,
+            totalAmount: fallbackAmount,
             purpose: `ON BEHALF FALLBACK ${runTag}`,
           }),
       );
@@ -1140,7 +1140,7 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
     const onBehalfSubmission = await withActorPage(browser, ACTORS.employeeA.email, async (page) =>
       submitPettyCashRequest(page, {
         employeeId: `${ACTORS.employeeA.employeeCodePrefix}-${runTag}`,
-        requestedTotalAmount: amount,
+        totalAmount: amount,
         purpose: `ON BEHALF FLOW ${runTag}`,
         onBehalfEmail: ACTORS.employeeB.email,
         onBehalfEmployeeCode: `${ACTORS.employeeB.employeeCodePrefix}-${runTag}`,
@@ -1198,7 +1198,7 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
     const submission = await withActorPage(browser, leapfrog.approver1Email, async (page) =>
       submitPettyCashRequest(page, {
         employeeId: `LF-${runTag}`,
-        requestedTotalAmount: amount,
+        totalAmount: amount,
         purpose: `LEAPFROG FLOW ${runTag}`,
         departmentName: leapfrog.departmentName,
       }),
@@ -1240,7 +1240,7 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
     const submission = await withActorPage(browser, context.submitterApprover1Email, async (page) =>
       submitPettyCashRequest(page, {
         employeeId: `XDEPT-${runTag}`,
-        requestedTotalAmount: 89.75,
+        totalAmount: 89.75,
         purpose: `XDEPT HOD ESCALATION ${runTag}`,
         departmentName: context.targetDepartmentName,
         departmentId: context.targetDepartmentId,
@@ -1279,7 +1279,7 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
     const submission = await withActorPage(browser, ACTORS.employeeA.email, async (page) =>
       submitPettyCashRequest(page, {
         employeeId: `PA2FND-${runTag}`,
-        requestedTotalAmount: 76.2,
+        totalAmount: 76.2,
         purpose: `PA TO FOUNDER ${runTag}`,
         departmentName: context.departmentName,
         onBehalfEmail: context.founderEmail,

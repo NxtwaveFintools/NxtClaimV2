@@ -73,7 +73,7 @@ export type ClaimFormDraftValues = {
     remarks: string | null;
   };
   advance: {
-    requestedTotalAmount: number;
+    totalAmount: number;
     budgetMonth: number;
     budgetYear: number;
     expectedUsageDate: string | null;
@@ -401,7 +401,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
         remarks: null,
       },
       advance: {
-        requestedTotalAmount: 0,
+        totalAmount: 0,
         budgetMonth: new Date().getMonth() + 1,
         budgetYear: new Date().getFullYear(),
         expectedUsageDate: "",
@@ -728,11 +728,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
         formData.append("bankStatementFile", bankStatementFile);
       }
     } else {
-      appendFormDataValue(
-        formData,
-        "advance.requestedTotalAmount",
-        values.advance.requestedTotalAmount,
-      );
+      appendFormDataValue(formData, "advance.totalAmount", values.advance.totalAmount);
       appendFormDataValue(formData, "advance.budgetMonth", values.advance.budgetMonth);
       appendFormDataValue(formData, "advance.budgetYear", values.advance.budgetYear);
       appendFormDataValue(formData, "advance.expectedUsageDate", values.advance.expectedUsageDate);
@@ -1795,20 +1791,18 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="grid gap-1">
                   <label
-                    htmlFor="requestedTotalAmount"
+                    htmlFor="totalAmount"
                     className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
                   >
-                    Requested Amount (₹) <span className="text-rose-600">*</span>
+                    Total Amount (₹) <span className="text-rose-600">*</span>
                   </label>
                   <CurrencyInput
-                    id="requestedTotalAmount"
+                    id="totalAmount"
                     className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
-                    {...register("advance.requestedTotalAmount", { valueAsNumber: true })}
+                    {...register("advance.totalAmount", { valueAsNumber: true })}
                   />
-                  {errors.advance?.requestedTotalAmount ? (
-                    <p className="text-xs text-rose-600">
-                      {errors.advance.requestedTotalAmount.message}
-                    </p>
+                  {errors.advance?.totalAmount ? (
+                    <p className="text-xs text-rose-600">{errors.advance.totalAmount.message}</p>
                   ) : null}
                 </div>
 

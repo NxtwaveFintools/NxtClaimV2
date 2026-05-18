@@ -62,8 +62,7 @@ type FinanceEditClaimFormProps = {
       cgstAmount: number | null;
       sgstAmount: number | null;
       igstAmount: number | null;
-      requestedTotalAmount: number | null;
-      approvedAmount: number | null;
+      totalAmount: number | null;
       vendorName: string | null;
       purpose: string | null;
       productId: string | null;
@@ -74,8 +73,7 @@ type FinanceEditClaimFormProps = {
     advance: {
       id: string;
       purpose: string;
-      requestedTotalAmount: number | null;
-      approvedAmount: number | null;
+      totalAmount: number | null;
       expectedUsageDate: string;
       productId: string | null;
       locationId: string | null;
@@ -122,12 +120,7 @@ function buildExpenseAmountState(
   expense:
     | Pick<
         NonNullable<FinanceEditClaimFormProps["claim"]["expense"]>,
-        | "basicAmount"
-        | "cgstAmount"
-        | "sgstAmount"
-        | "igstAmount"
-        | "requestedTotalAmount"
-        | "approvedAmount"
+        "basicAmount" | "cgstAmount" | "sgstAmount" | "igstAmount" | "totalAmount"
       >
     | null
     | undefined,
@@ -137,9 +130,9 @@ function buildExpenseAmountState(
   const sgstAmount = toNonNegativeCurrency(expense?.sgstAmount);
   const igstAmount = toNonNegativeCurrency(expense?.igstAmount);
   const totalAmount =
-    expense?.requestedTotalAmount === null || expense?.requestedTotalAmount === undefined
+    expense?.totalAmount === null || expense?.totalAmount === undefined
       ? calculateExpenseTotal({ basicAmount, cgstAmount, sgstAmount, igstAmount })
-      : toNonNegativeCurrency(expense.requestedTotalAmount ?? expense.approvedAmount);
+      : toNonNegativeCurrency(expense.totalAmount);
 
   return {
     basicAmount,
@@ -197,8 +190,7 @@ export function FinanceEditClaimForm({
   const expenseCgstAmount = claim.expense?.cgstAmount ?? null;
   const expenseSgstAmount = claim.expense?.sgstAmount ?? null;
   const expenseIgstAmount = claim.expense?.igstAmount ?? null;
-  const expenseTotalAmount =
-    claim.expense?.requestedTotalAmount ?? claim.expense?.approvedAmount ?? null;
+  const expenseTotalAmount = claim.expense?.totalAmount ?? null;
   const isEmbeddedPresentation = presentation === "embedded";
   const isOpen = isEmbeddedPresentation ? true : isInlineOpen;
   const isDepartmentFieldLocked = isEditMode;
@@ -222,8 +214,7 @@ export function FinanceEditClaimForm({
       cgstAmount: expenseCgstAmount,
       sgstAmount: expenseSgstAmount,
       igstAmount: expenseIgstAmount,
-      requestedTotalAmount: expenseTotalAmount,
-      approvedAmount: claim.expense?.approvedAmount ?? null,
+      totalAmount: expenseTotalAmount,
     });
 
     setExpenseAmounts(nextExpenseAmounts);
@@ -507,25 +498,11 @@ export function FinanceEditClaimForm({
                     <h4 className={groupedTitleClassName}>Finance Approval</h4>
                     <div className={groupedGridClassName}>
                       <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                        Requested Amount
+                        Total Amount
                         <CurrencyInput
-                          value={expense?.requestedTotalAmount ?? ""}
+                          value={expense?.totalAmount ?? ""}
                           disabled
                           className={lockedFieldClassName}
-                        />
-                      </label>
-
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                        Approved Amount
-                        <CurrencyInput
-                          name="approvedAmount"
-                          min="0"
-                          step="0.01"
-                          required
-                          defaultValue={
-                            expense?.approvedAmount ?? expense?.requestedTotalAmount ?? ""
-                          }
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                         />
                       </label>
 
@@ -540,7 +517,7 @@ export function FinanceEditClaimForm({
                     </div>
 
                     <p className="text-xs text-muted-foreground">
-                      Finance can correct accounting metadata before approval. Requested amount and
+                      Finance can correct accounting metadata before approval. Total amount and
                       employee-entered base amounts remain locked.
                     </p>
                   </div>
@@ -993,25 +970,11 @@ export function FinanceEditClaimForm({
                   <h4 className={groupedTitleClassName}>Finance Approval</h4>
                   <div className={groupedGridClassName}>
                     <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      Requested Amount
+                      Total Amount
                       <CurrencyInput
-                        value={advance?.requestedTotalAmount ?? ""}
+                        value={advance?.totalAmount ?? ""}
                         disabled
                         className={lockedFieldClassName}
-                      />
-                    </label>
-
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      Approved Amount
-                      <CurrencyInput
-                        name="approvedAmount"
-                        min="0"
-                        step="0.01"
-                        required
-                        defaultValue={
-                          advance?.approvedAmount ?? advance?.requestedTotalAmount ?? ""
-                        }
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                       />
                     </label>
 
@@ -1026,7 +989,7 @@ export function FinanceEditClaimForm({
                   </div>
 
                   <p className="text-xs text-muted-foreground">
-                    Finance can correct advance metadata before approval. Requested amount remains
+                    Finance can correct advance metadata before approval. Total amount remains
                     locked.
                   </p>
                 </div>
@@ -1119,13 +1082,13 @@ export function FinanceEditClaimForm({
                     </label>
 
                     <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      Requested Amount
+                      Total Amount
                       <CurrencyInput
-                        name="requestedTotalAmount"
+                        name="totalAmount"
                         min="0"
                         step="0.01"
                         required
-                        defaultValue={advance?.requestedTotalAmount ?? ""}
+                        defaultValue={advance?.totalAmount ?? ""}
                         className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                       />
                     </label>

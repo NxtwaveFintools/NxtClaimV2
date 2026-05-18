@@ -91,7 +91,7 @@ export const ownAdvanceEditSchema = z
     detailType: z.literal("advance"),
     detailId: uuidSchema,
     purpose: z.string().trim().min(1, "Purpose is required"),
-    requestedTotalAmount: z.number().positive("Requested amount must be greater than zero"),
+    totalAmount: z.number().positive("Requested amount must be greater than zero"),
     expectedUsageDate: isoDateSchema,
     productId: uuidSchema.nullable(),
     locationId: uuidSchema.nullable(),

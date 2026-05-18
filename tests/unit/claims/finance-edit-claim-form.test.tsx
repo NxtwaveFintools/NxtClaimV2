@@ -52,8 +52,7 @@ function createExpenseClaim(input?: {
       cgstAmount: input?.cgstAmount ?? 9,
       sgstAmount: input?.sgstAmount ?? 9,
       igstAmount: input?.igstAmount ?? 0,
-      requestedTotalAmount: resolvedTotalAmount,
-      approvedAmount: resolvedTotalAmount,
+      totalAmount: resolvedTotalAmount,
       vendorName: "Vendor",
       purpose: "Client visit",
       productId: "prod-1",
@@ -79,8 +78,7 @@ function createAdvanceClaim() {
     advance: {
       id: "advance-1",
       purpose: "Conference advance",
-      requestedTotalAmount: 450,
-      approvedAmount: 450,
+      totalAmount: 450,
       expectedUsageDate: "2026-04-16",
       productId: "prod-1",
       locationId: "loc-1",
@@ -131,7 +129,7 @@ function renderEmbeddedSheetForm(
 }
 
 describe("FinanceEditClaimForm amount balancing", () => {
-  test("shows finance-editable metadata while keeping requested and base amounts locked", () => {
+  test("shows finance-editable metadata while keeping total and base amounts locked", () => {
     renderEmbeddedSheetForm(async () => ({ ok: true }));
 
     expect(screen.getByRole("textbox", { name: /bill no/i })).toHaveValue("BILL-1");
@@ -141,10 +139,10 @@ describe("FinanceEditClaimForm amount balancing", () => {
       "Chennai branch",
     );
     expect(screen.getByRole("textbox", { name: /purpose/i })).toHaveValue("Client visit");
-    expect(screen.getByRole("spinbutton", { name: /requested amount/i })).toBeDisabled();
+    expect(screen.getByRole("spinbutton", { name: /total amount/i })).toBeDisabled();
     expect(screen.getByRole("spinbutton", { name: /basic amount/i })).toBeDisabled();
     expect(screen.getByRole("spinbutton", { name: /cgst amount/i })).toBeDisabled();
-    expect(screen.getByRole("spinbutton", { name: /approved amount/i })).not.toBeDisabled();
+    expect(screen.queryByRole("spinbutton", { name: /approved amount/i })).not.toBeInTheDocument();
   });
 
   test("filters payment mode options to the claim detail type", () => {
