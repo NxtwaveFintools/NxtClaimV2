@@ -80,8 +80,35 @@ export const ownExpenseEditSchema = z
     productId: uuidSchema.nullable(),
     peopleInvolved: normalizedNullableText,
     remarks: normalizedNullableText,
+    foreignCurrencyCode: z.enum(["INR", "USD", "EUR", "CHF"]).default("INR"),
+    foreignBasicAmount: z.preprocess(
+      (v) =>
+        v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v,
+      z.number().min(0).nullable().optional(),
+    ),
+    foreignGstAmount: z.preprocess(
+      (v) =>
+        v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v,
+      z.number().min(0).nullable().optional(),
+    ),
+    foreignTotalAmount: z.preprocess(
+      (v) =>
+        v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v,
+      z.number().min(0).nullable().optional(),
+    ),
     receiptFile: optionalReceiptFileSchema,
     bankStatementFile: optionalBankStatementFileSchema,
+  })
+  .superRefine((value, context) => {
+    if (value.foreignCurrencyCode !== "INR" && value.foreignCurrencyCode != null) {
+      if (!value.foreignBasicAmount || value.foreignBasicAmount <= 0) {
+        context.addIssue({
+          code: "custom",
+          message: "Foreign basic amount is required for non-INR currencies.",
+          path: ["foreignBasicAmount"],
+        });
+      }
+    }
   })
   .strict();
 

@@ -87,6 +87,22 @@ const expenseDetailSchema = z.object({
     basicAmount: z.number().min(0, "Basic amount cannot be negative"),
     totalAmount: z.number().min(0, "Total amount cannot be negative").optional(),
     currencyCode: z.string().trim().min(1).default("INR"),
+    foreignCurrencyCode: z.enum(["INR", "USD", "EUR", "CHF"]).default("INR"),
+    foreignBasicAmount: z.preprocess(
+      (v) =>
+        v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v,
+      z.number().min(0).nullable().optional(),
+    ),
+    foreignGstAmount: z.preprocess(
+      (v) =>
+        v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v,
+      z.number().min(0).nullable().optional(),
+    ),
+    foreignTotalAmount: z.preprocess(
+      (v) =>
+        v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v,
+      z.number().min(0).nullable().optional(),
+    ),
     vendorName: optionalTextToNA,
     receiptFileName: optionalTextToNA,
     receiptFileType: optionalTextToNA,
@@ -218,6 +234,20 @@ export const newClaimSubmitSchema = z
           message: "Location details are required when location type is Out Station.",
           path: ["expense", "locationDetails"],
         });
+      }
+
+      if (
+        value.detailType === "expense" &&
+        value.expense?.foreignCurrencyCode !== "INR" &&
+        value.expense?.foreignCurrencyCode != null
+      ) {
+        if (!value.expense.foreignBasicAmount || value.expense.foreignBasicAmount <= 0) {
+          context.addIssue({
+            code: "custom",
+            message: "Foreign basic amount is required for non-INR currencies.",
+            path: ["expense", "foreignBasicAmount"],
+          });
+        }
       }
     }
 

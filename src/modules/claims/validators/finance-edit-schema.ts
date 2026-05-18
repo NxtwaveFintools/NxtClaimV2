@@ -51,6 +51,22 @@ export const financeExpenseEditSchema = z
     sgstAmount: z.number().min(0, "SGST amount cannot be negative"),
     igstAmount: z.number().min(0, "IGST amount cannot be negative"),
     totalAmount: z.number().min(0, "Total amount cannot be negative"),
+    foreignCurrencyCode: z.enum(["INR", "USD", "EUR", "CHF"]).default("INR"),
+    foreignBasicAmount: z.preprocess(
+      (v) =>
+        v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v,
+      z.number().min(0).nullable().optional(),
+    ),
+    foreignGstAmount: z.preprocess(
+      (v) =>
+        v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v,
+      z.number().min(0).nullable().optional(),
+    ),
+    foreignTotalAmount: z.preprocess(
+      (v) =>
+        v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v,
+      z.number().min(0).nullable().optional(),
+    ),
   })
   .superRefine((value, context) => {
     if (value.locationType === LOCATION_TYPES.OUT_STATION && !value.locationDetails) {
@@ -59,6 +75,16 @@ export const financeExpenseEditSchema = z
         message: "Location details are required when location type is Out Station.",
         path: ["locationDetails"],
       });
+    }
+
+    if (value.foreignCurrencyCode !== "INR" && value.foreignCurrencyCode != null) {
+      if (!value.foreignBasicAmount || value.foreignBasicAmount <= 0) {
+        context.addIssue({
+          code: "custom",
+          message: "Foreign basic amount is required for non-INR currencies.",
+          path: ["foreignBasicAmount"],
+        });
+      }
     }
   })
   .strict();
