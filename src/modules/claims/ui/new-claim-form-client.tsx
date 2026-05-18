@@ -915,16 +915,11 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
         return;
       }
 
-      console.log("RAW API RESPONSE:", result);
-
       const aiData = parseAiPayload(result.data);
       if (!aiData) {
         toast.error("AI returned invalid JSON. Please fill the fields manually.", { id: toastId });
         return;
       }
-
-      console.log("AI DATA:", aiData);
-      console.log("TYPE CHECK totalAmount:", typeof aiData.totalAmount);
 
       if (toNumber(aiData.confidenceScore) < 70) {
         toast.warning("Receipt quality is low. Please verify all auto-filled fields carefully.");

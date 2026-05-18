@@ -96,13 +96,6 @@ export class GetWalletSummaryService {
       pettyCashBalance,
     };
 
-    this.logger.info("dashboard.wallet_summary.success", {
-      userId,
-      amountReceived,
-      amountSpent,
-      pettyCashBalance,
-    });
-
     return { data: summary, errorMessage: null };
   }
 

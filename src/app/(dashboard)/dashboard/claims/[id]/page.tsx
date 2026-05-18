@@ -650,17 +650,6 @@ async function ClaimDetailCore({
   const canDeleteClaim =
     currentUserId === claim.submittedBy && isSubmitterDeletableClaimStatus(claim.status);
 
-  console.log(
-    "UI Auth Check -> Current User:",
-    currentUserId,
-    " | Submitter:",
-    claim.submittedBy,
-    " | Beneficiary:",
-    claim.onBehalfOfId,
-    " | Is Beneficiary:",
-    isBeneficiary,
-  );
-
   const approveFromDetail = async () => {
     "use server";
     const result = await approveClaimAction({
