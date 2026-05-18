@@ -5,6 +5,10 @@ const validExpensePayload = {
   detailId: "expense-detail-1",
   editReason: "Correcting bill metadata after finance review",
   paymentModeId: "mode-1",
+  basicAmount: 500,
+  cgstAmount: 45,
+  sgstAmount: 45,
+  igstAmount: 0,
   totalAmount: 590,
 };
 

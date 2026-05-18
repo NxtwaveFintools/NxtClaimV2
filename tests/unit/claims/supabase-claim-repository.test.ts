@@ -362,6 +362,10 @@ describe("SupabaseClaimRepository.updateClaimDetailsByFinance", () => {
       detailId: "expense-detail-1",
       editReason: "Correcting expense detail data",
       paymentModeId: "11111111-1111-4111-8111-111111111111",
+      basicAmount: 100,
+      cgstAmount: 9,
+      sgstAmount: 9,
+      igstAmount: 0,
       totalAmount: 118,
       ...overrides,
     };

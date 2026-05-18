@@ -46,7 +46,11 @@ export const financeExpenseEditSchema = z
     remarks: normalizedNullableText,
     receiptFilePath: optionalFilePathSchema,
     bankStatementFilePath: optionalFilePathSchema,
-    totalAmount: z.number().min(0, "Approved amount cannot be negative"),
+    basicAmount: z.number().min(0, "Basic amount cannot be negative"),
+    cgstAmount: z.number().min(0, "CGST amount cannot be negative"),
+    sgstAmount: z.number().min(0, "SGST amount cannot be negative"),
+    igstAmount: z.number().min(0, "IGST amount cannot be negative"),
+    totalAmount: z.number().min(0, "Total amount cannot be negative"),
   })
   .superRefine((value, context) => {
     if (value.locationType === LOCATION_TYPES.OUT_STATION && !value.locationDetails) {

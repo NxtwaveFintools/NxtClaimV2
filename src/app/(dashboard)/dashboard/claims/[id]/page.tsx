@@ -1019,16 +1019,6 @@ async function ClaimDetailCore({
                           />
                           <AiAuditCaption aiMetadata={aiMetadata} fieldKey="igst_amount" />
                         </div>
-                        <DataCard
-                          label="GST Applicable"
-                          value={
-                            claim.expense.isGstApplicable === null
-                              ? "N/A"
-                              : claim.expense.isGstApplicable
-                                ? "Yes"
-                                : "No"
-                          }
-                        />
                         <div className="flex flex-col gap-1">
                           <DataCard
                             label="GST Number"

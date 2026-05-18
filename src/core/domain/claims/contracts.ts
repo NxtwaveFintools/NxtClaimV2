@@ -158,6 +158,10 @@ export type FinanceExpenseEditPayload = {
   remarks?: string | null;
   receiptFilePath?: string;
   bankStatementFilePath?: string;
+  basicAmount: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
   totalAmount: number;
 };
 

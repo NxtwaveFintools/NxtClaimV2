@@ -322,16 +322,6 @@ export function ClaimFullDetailsGrid({
                   </div>
                 ) : null}
                 <div className={detailCardClassName}>
-                  <p className={fieldLabelClassName}>GST Applicable</p>
-                  <p className={fieldValueClassName}>
-                    {claim.expense.isGstApplicable === null
-                      ? "N/A"
-                      : claim.expense.isGstApplicable
-                        ? "Yes"
-                        : "No"}
-                  </p>
-                </div>
-                <div className={detailCardClassName}>
                   <p className={fieldLabelClassName}>GST Number</p>
                   <p className={fieldValueClassName}>
                     {formatOptionalText(claim.expense.gstNumber)}

@@ -1117,6 +1117,10 @@ function buildFinanceEditPayload(formData: FormData): unknown {
       remarks: getFormDataNullableString(formData, "remarks"),
       ...(receiptFilePath ? { receiptFilePath } : {}),
       ...(bankStatementFilePath ? { bankStatementFilePath } : {}),
+      basicAmount: getFormDataNumber(formData, "basicAmount"),
+      cgstAmount: getFormDataNumber(formData, "cgstAmount"),
+      sgstAmount: getFormDataNumber(formData, "sgstAmount"),
+      igstAmount: getFormDataNumber(formData, "igstAmount"),
       totalAmount: getFormDataNumber(formData, "totalAmount"),
     };
   }
@@ -1452,6 +1456,10 @@ export async function updateClaimByFinanceAction(input: {
           ...(nextExpenseBankStatementPath
             ? { bankStatementFilePath: nextExpenseBankStatementPath }
             : {}),
+          basicAmount: parseResult.data.basicAmount,
+          cgstAmount: parseResult.data.cgstAmount,
+          sgstAmount: parseResult.data.sgstAmount,
+          igstAmount: parseResult.data.igstAmount,
           totalAmount: parseResult.data.totalAmount,
         }
       : {
