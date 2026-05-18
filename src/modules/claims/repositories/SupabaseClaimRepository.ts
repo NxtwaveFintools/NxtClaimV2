@@ -292,6 +292,8 @@ type ClaimDeleteSnapshotRow = {
 type ExpenseDuplicateLookupRow = {
   claim_id: string;
   total_amount: number | string | null;
+  foreign_currency_code: string | null;
+  foreign_basic_amount: number | string | null;
 };
 
 type ExportClaimUserRow = {
@@ -2415,13 +2417,15 @@ export class SupabaseClaimRepository implements ClaimRepository {
     billNo: string;
     transactionDate: string;
     totalAmount: number;
+    foreignCurrencyCode?: string | null;
+    foreignBasicAmount?: number | null;
   }): Promise<{ exists: boolean; errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
     const epsilon = 0.01;
 
     const { data, error } = await client
       .from("expense_details")
-      .select("total_amount")
+      .select("total_amount, foreign_currency_code, foreign_basic_amount")
       .eq("bill_no", input.billNo)
       .eq("transaction_date", input.transactionDate)
       .eq("is_active", true)
@@ -2433,16 +2437,40 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
     const rows = (data ?? []) as Array<{
       total_amount: number | null;
+      foreign_currency_code: string | null;
+      foreign_basic_amount: number | null;
     }>;
     const normalizedTotalAmount = Number(input.totalAmount);
+    const inputForeignCode = input.foreignCurrencyCode ?? "INR";
+    const inputForeignBasic = Number(input.foreignBasicAmount ?? 0);
+    const isInputForeign = inputForeignCode !== "INR";
 
     const exists = rows.some((row) => {
       const candidateTotalAmount = Number(row.total_amount);
+      const candidateForeignCode = row.foreign_currency_code ?? "INR";
+      const candidateForeignBasic = Number(row.foreign_basic_amount ?? 0);
+      const isCandidateForeign = candidateForeignCode !== "INR";
 
-      if (!Number.isFinite(candidateTotalAmount)) {
+      // INR vs foreign are different domains — never collide.
+      if (isInputForeign !== isCandidateForeign) {
         return false;
       }
 
+      if (isInputForeign) {
+        // Foreign claims: dedup by currency code + foreign basic amount.
+        if (candidateForeignCode !== inputForeignCode) {
+          return false;
+        }
+        if (!Number.isFinite(candidateForeignBasic)) {
+          return false;
+        }
+        return Math.abs(candidateForeignBasic - inputForeignBasic) <= epsilon;
+      }
+
+      // INR claims: original behavior — dedup by total_amount.
+      if (!Number.isFinite(candidateTotalAmount)) {
+        return false;
+      }
       return Math.abs(candidateTotalAmount - normalizedTotalAmount) <= epsilon;
     });
 
@@ -2454,13 +2482,15 @@ export class SupabaseClaimRepository implements ClaimRepository {
     transactionDate: string;
     totalAmount: number;
     excludeClaimId?: string;
+    foreignCurrencyCode?: string | null;
+    foreignBasicAmount?: number | null;
   }): Promise<{ claimId: string | null; errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
     const epsilon = 0.01;
 
     let query = client
       .from("expense_details")
-      .select("claim_id, total_amount")
+      .select("claim_id, total_amount, foreign_currency_code, foreign_basic_amount")
       .eq("bill_no", input.billNo)
       .eq("transaction_date", input.transactionDate)
       .eq("is_active", true)
@@ -2478,14 +2508,36 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
     const rows = (data ?? []) as ExpenseDuplicateLookupRow[];
     const normalizedTotalAmount = Number(input.totalAmount);
+    const inputForeignCode = input.foreignCurrencyCode ?? "INR";
+    const inputForeignBasic = Number(input.foreignBasicAmount ?? 0);
+    const isInputForeign = inputForeignCode !== "INR";
 
     const duplicateRow = rows.find((row) => {
       const candidateTotalAmount = Number(row.total_amount);
+      const candidateForeignCode = row.foreign_currency_code ?? "INR";
+      const candidateForeignBasic = Number(row.foreign_basic_amount ?? 0);
+      const isCandidateForeign = candidateForeignCode !== "INR";
 
-      if (!Number.isFinite(candidateTotalAmount)) {
+      // INR vs foreign are different domains — never collide.
+      if (isInputForeign !== isCandidateForeign) {
         return false;
       }
 
+      if (isInputForeign) {
+        // Foreign claims: dedup by currency code + foreign basic amount.
+        if (candidateForeignCode !== inputForeignCode) {
+          return false;
+        }
+        if (!Number.isFinite(candidateForeignBasic)) {
+          return false;
+        }
+        return Math.abs(candidateForeignBasic - inputForeignBasic) <= epsilon;
+      }
+
+      // INR claims: original behavior — dedup by total_amount.
+      if (!Number.isFinite(candidateTotalAmount)) {
+        return false;
+      }
       return Math.abs(candidateTotalAmount - normalizedTotalAmount) <= epsilon;
     });
 

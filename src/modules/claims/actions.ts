@@ -806,6 +806,8 @@ export async function submitClaimAction(input: unknown): Promise<{
         sgstAmount: parseResult.data.expense.sgstAmount,
         igstAmount: parseResult.data.expense.igstAmount,
       }),
+      foreignCurrencyCode: parseResult.data.expense.foreignCurrencyCode ?? null,
+      foreignBasicAmount: parseResult.data.expense.foreignBasicAmount ?? null,
     });
 
     if (duplicateTransactionResult.errorMessage) {

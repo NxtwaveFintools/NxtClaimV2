@@ -516,6 +516,8 @@ export type ClaimRepository = {
     billNo: string;
     transactionDate: string;
     totalAmount: number;
+    foreignCurrencyCode?: string | null;
+    foreignBasicAmount?: number | null;
   }): Promise<{
     exists: boolean;
     errorMessage: string | null;
