@@ -171,7 +171,7 @@ export async function ClaimsApprovalsSection({
           viewerContext,
         });
 
-  const rows = approvalsResult.data;
+  const rows = Array.from(new Map(approvalsResult.data.map((claim) => [claim.id, claim])).values());
   const approvalsSummaryText = `Showing ${rows.length} of ${approvalsResult.totalCount} claims`;
 
   return (
