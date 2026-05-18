@@ -11,7 +11,12 @@ import { FormTextarea } from "@/components/ui/form-textarea";
 import { SheetClose, useOptionalSheetContext } from "@/components/ui/sheet";
 import { AiAuditCaption } from "@/components/ui/ai-audit-caption";
 import { LOCATION_TYPE_OPTIONS } from "@/core/constants/location-types";
-import { isAdvancePaymentModeName, isExpensePaymentModeName } from "@/core/constants/payment-modes";
+import {
+  isAdvancePaymentModeName,
+  isExpensePaymentModeName,
+  normalizePaymentModeName,
+  PAYMENT_MODE_PETTY_CASH_REQUEST,
+} from "@/core/constants/payment-modes";
 import type { ClaimExpenseAiMetadata } from "@/core/domain/claims/contracts";
 
 type DropdownOption = {
@@ -184,6 +189,9 @@ export function FinanceEditClaimForm({
   const [totalAmountInputValue, setTotalAmountInputValue] = useState<string>(() =>
     toCurrencyInputValue(initialExpenseAmounts.totalAmount),
   );
+  const [advanceTotalAmount, setAdvanceTotalAmount] = useState<number>(() =>
+    toNonNegativeCurrency(claim.advance?.totalAmount),
+  );
   const expenseId = claim.expense?.id ?? null;
   const aiMetadata = isFinanceEdit ? (claim.expense?.aiMetadata ?? null) : null;
   const expenseBasicAmount = claim.expense?.basicAmount ?? null;
@@ -191,6 +199,13 @@ export function FinanceEditClaimForm({
   const expenseSgstAmount = claim.expense?.sgstAmount ?? null;
   const expenseIgstAmount = claim.expense?.igstAmount ?? null;
   const expenseTotalAmount = claim.expense?.totalAmount ?? null;
+  const advanceId = claim.advance?.id ?? null;
+  const advanceTotalAmountProp = claim.advance?.totalAmount ?? null;
+  const currentPaymentModeName =
+    paymentModes.find((pm) => pm.id === claim.paymentModeId)?.name ?? "";
+  const canEditAdvanceTotalAmount =
+    isFinanceEdit &&
+    normalizePaymentModeName(currentPaymentModeName) === PAYMENT_MODE_PETTY_CASH_REQUEST;
   const isEmbeddedPresentation = presentation === "embedded";
   const isOpen = isEmbeddedPresentation ? true : isInlineOpen;
   const isDepartmentFieldLocked = isEditMode;
@@ -227,6 +242,10 @@ export function FinanceEditClaimForm({
     expenseIgstAmount,
     expenseTotalAmount,
   ]);
+
+  useEffect(() => {
+    setAdvanceTotalAmount(toNonNegativeCurrency(advanceTotalAmountProp));
+  }, [advanceId, advanceTotalAmountProp]);
 
   const handleExpenseComponentAmountChange = (
     field: ExpenseComponentAmountField,
@@ -944,17 +963,39 @@ export function FinanceEditClaimForm({
                   <div className={groupedGridClassName}>
                     <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                       Total Amount
-                      <CurrencyInput
-                        value={advance?.totalAmount ?? ""}
-                        disabled
-                        className={lockedFieldClassName}
-                      />
+                      {canEditAdvanceTotalAmount ? (
+                        <CurrencyInput
+                          name="totalAmount"
+                          min="0"
+                          step="0.01"
+                          required
+                          value={advanceTotalAmount}
+                          onValueChange={(value) => {
+                            setAdvanceTotalAmount(toNonNegativeCurrency(value));
+                          }}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      ) : (
+                        <>
+                          <input
+                            type="hidden"
+                            name="totalAmount"
+                            value={String(advanceTotalAmount)}
+                          />
+                          <CurrencyInput
+                            value={advanceTotalAmount}
+                            disabled
+                            className={lockedFieldClassName}
+                          />
+                        </>
+                      )}
                     </label>
                   </div>
 
                   <p className="text-xs text-muted-foreground">
-                    Finance can correct advance metadata before approval. Total amount remains
-                    locked.
+                    {canEditAdvanceTotalAmount
+                      ? "Finance can edit the total amount for Petty Cash Requests before approval."
+                      : "Finance can correct advance metadata before approval. Total amount remains locked."}
                   </p>
                 </div>
 
