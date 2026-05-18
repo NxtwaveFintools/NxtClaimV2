@@ -204,7 +204,7 @@ const validExpensePayload = {
     remarks: null,
   },
   advance: {
-    requestedTotalAmount: 500,
+    totalAmount: 500,
     budgetMonth: 3,
     budgetYear: 2026,
     expectedUsageDate: "2026-03-20",
@@ -295,7 +295,6 @@ function createValidExpenseEditFormData(): FormData {
   formData.append("sgstAmount", "9");
   formData.append("igstAmount", "0");
   formData.append("totalAmount", "118");
-  formData.append("approvedAmount", "118");
   formData.append("purpose", "Updated purpose");
   formData.append("peopleInvolved", "Alice");
   formData.append("remarks", "Updated remarks");
@@ -306,7 +305,6 @@ function createValidOwnExpenseEditFormData(): FormData {
   const formData = createValidExpenseEditFormData();
   formData.delete("editReason");
   formData.delete("paymentModeId");
-  formData.delete("approvedAmount");
   return formData;
 }
 
@@ -721,7 +719,7 @@ describe("claims actions", () => {
     formData.append("departmentId", departmentId);
     formData.append("paymentModeId", "99999999-9999-4999-8999-999999999999");
     formData.append("detailType", "advance");
-    formData.append("advance.requestedTotalAmount", "500");
+    formData.append("advance.totalAmount", "500");
     formData.append("advance.budgetMonth", "3");
     formData.append("advance.budgetYear", "2026");
     formData.append("advance.expectedUsageDate", "");
@@ -1162,7 +1160,7 @@ describe("claims actions", () => {
     expect(removeCalls).not.toContainEqual(["expenses/old_receipt.pdf"]);
   });
 
-  test("updateClaimByFinanceAction forwards finance-editable metadata while excluding locked amounts", async () => {
+  test("updateClaimByFinanceAction forwards finance-editable metadata including component amounts", async () => {
     const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
 
     const formData = createValidExpenseEditFormData();
@@ -1196,16 +1194,20 @@ describe("claims actions", () => {
         remarks: "Updated remarks",
         receiptFilePath: "expenses/old_receipt.pdf",
         bankStatementFilePath: "expenses/old_bank.pdf",
-        approvedAmount: 118,
+        basicAmount: 100,
+        cgstAmount: 9,
+        sgstAmount: 9,
+        igstAmount: 0,
+        totalAmount: 118,
       },
     });
     const forwardedPayload = mockUpdateByFinanceExecute.mock.calls[0]?.[0]?.payload;
+    // Component amounts are now finance-editable (commit 8fbcc3d added GST fields
+    // to the schema; commit 2c35287 added a DB BEFORE trigger that recomputes
+    // total_amount from them). The legacy columns stay excluded.
     expect(forwardedPayload).not.toHaveProperty("departmentId");
-    expect(forwardedPayload).not.toHaveProperty("basicAmount");
-    expect(forwardedPayload).not.toHaveProperty("cgstAmount");
-    expect(forwardedPayload).not.toHaveProperty("sgstAmount");
-    expect(forwardedPayload).not.toHaveProperty("igstAmount");
     expect(forwardedPayload).not.toHaveProperty("requestedTotalAmount");
+    expect(forwardedPayload).not.toHaveProperty("approvedAmount");
     expect(forwardedPayload.bankStatementFilePath).toBe("expenses/old_bank.pdf");
   });
 

@@ -697,7 +697,7 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
     const client = getAdminSupabaseClient();
     const { data, error } = await client
       .from("expense_details")
-      .select("requested_total_amount, approved_amount")
+      .select("total_amount")
       .eq("claim_id", claimId)
       .eq("is_active", true)
       .limit(1)
@@ -705,7 +705,7 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
 
     expect(error).toBeNull();
     expect(data).not.toBeNull();
-    expect(Number(data!.approved_amount)).toBe(450);
+    expect(Number(data!.total_amount)).toBe(450);
   });
 
   test("FIN-2: NIAT claim detail shows location type and out-station details", async ({

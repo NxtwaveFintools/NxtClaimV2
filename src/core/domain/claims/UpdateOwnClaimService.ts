@@ -62,8 +62,7 @@ export class UpdateOwnClaimService {
 
     return {
       ...payload,
-      requestedTotalAmount,
-      approvedAmount: requestedTotalAmount,
+      totalAmount: requestedTotalAmount,
     };
   }
 

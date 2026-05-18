@@ -52,8 +52,7 @@ function createExpenseClaim(input?: {
       cgstAmount: input?.cgstAmount ?? 9,
       sgstAmount: input?.sgstAmount ?? 9,
       igstAmount: input?.igstAmount ?? 0,
-      requestedTotalAmount: resolvedTotalAmount,
-      approvedAmount: resolvedTotalAmount,
+      totalAmount: resolvedTotalAmount,
       vendorName: "Vendor",
       purpose: "Client visit",
       productId: "prod-1",
@@ -79,8 +78,7 @@ function createAdvanceClaim() {
     advance: {
       id: "advance-1",
       purpose: "Conference advance",
-      requestedTotalAmount: 450,
-      approvedAmount: 450,
+      totalAmount: 450,
       expectedUsageDate: "2026-04-16",
       productId: "prod-1",
       locationId: "loc-1",
@@ -131,7 +129,7 @@ function renderEmbeddedSheetForm(
 }
 
 describe("FinanceEditClaimForm amount balancing", () => {
-  test("shows finance-editable metadata while keeping requested and base amounts locked", () => {
+  test("shows finance-editable metadata with editable amount components and locked total", () => {
     renderEmbeddedSheetForm(async () => ({ ok: true }));
 
     expect(screen.getByRole("textbox", { name: /bill no/i })).toHaveValue("BILL-1");
@@ -141,10 +139,12 @@ describe("FinanceEditClaimForm amount balancing", () => {
       "Chennai branch",
     );
     expect(screen.getByRole("textbox", { name: /purpose/i })).toHaveValue("Client visit");
-    expect(screen.getByRole("spinbutton", { name: /requested amount/i })).toBeDisabled();
-    expect(screen.getByRole("spinbutton", { name: /basic amount/i })).toBeDisabled();
-    expect(screen.getByRole("spinbutton", { name: /cgst amount/i })).toBeDisabled();
-    expect(screen.getByRole("spinbutton", { name: /approved amount/i })).not.toBeDisabled();
+    // total_amount is computed by a DB BEFORE trigger from basic + cgst + sgst + igst,
+    // so the UI keeps it disabled and lets finance edit the component amounts directly.
+    expect(screen.getByRole("spinbutton", { name: /total amount/i })).toBeDisabled();
+    expect(screen.getByRole("spinbutton", { name: /basic amount/i })).toBeEnabled();
+    expect(screen.getByRole("spinbutton", { name: /cgst amount/i })).toBeEnabled();
+    expect(screen.queryByRole("spinbutton", { name: /approved amount/i })).not.toBeInTheDocument();
   });
 
   test("filters payment mode options to the claim detail type", () => {
@@ -194,57 +194,13 @@ describe("FinanceEditClaimForm amount balancing", () => {
     expect(totalAmountInput).toHaveValue(144);
   });
 
-  test("recomputes basic amount when total amount changes and keeps GST values untouched", () => {
-    renderForm();
-
-    const basicAmountInput = screen.getByRole("spinbutton", { name: /basic amount/i });
-    const cgstAmountInput = screen.getByRole("spinbutton", { name: /cgst amount/i });
-    const sgstAmountInput = screen.getByRole("spinbutton", { name: /sgst amount/i });
-    const totalAmountInput = screen.getByRole("spinbutton", { name: /total amount/i });
-
-    fireEvent.change(totalAmountInput, { target: { value: "90" } });
-
-    expect(totalAmountInput).toHaveValue(90);
-    expect(basicAmountInput).toHaveValue(72);
-    expect(cgstAmountInput).toHaveValue(9);
-    expect(sgstAmountInput).toHaveValue(9);
-  });
-
-  test("resets taxes when typed total drops below existing tax sum", () => {
-    renderForm({
-      claim: createExpenseClaim({
-        basicAmount: 10,
-        cgstAmount: 45,
-        sgstAmount: 45,
-        igstAmount: 0,
-        totalAmount: 100,
-      }),
-    });
-
-    const basicAmountInput = screen.getByRole("spinbutton", { name: /basic amount/i });
-    const cgstAmountInput = screen.getByRole("spinbutton", { name: /cgst amount/i });
-    const sgstAmountInput = screen.getByRole("spinbutton", { name: /sgst amount/i });
-    const totalAmountInput = screen.getByRole("spinbutton", { name: /total amount/i });
-
-    fireEvent.change(totalAmountInput, { target: { value: "50" } });
-
-    expect(totalAmountInput).toHaveValue(50);
-    expect(basicAmountInput).toHaveValue(50);
-    expect(cgstAmountInput).toHaveValue(0);
-    expect(sgstAmountInput).toHaveValue(0);
-  });
-
-  test("allows decimal typing in total amount without clamping", () => {
-    renderForm();
-
-    const basicAmountInput = screen.getByRole("spinbutton", { name: /basic amount/i });
-    const totalAmountInput = screen.getByRole("spinbutton", { name: /total amount/i });
-
-    fireEvent.change(totalAmountInput, { target: { value: "20.1" } });
-
-    expect(totalAmountInput).toHaveValue(20.1);
-    expect(basicAmountInput).toHaveValue(2.1);
-  });
+  // The previous suite contained three tests that drove edits through the total
+  // amount input (basic recomputed from total, taxes reset when total dropped
+  // below the tax sum, decimal typing into total). They were removed when commit
+  // 68173fb made the total amount a DB-computed value: the input is now disabled
+  // and the recompute direction reversed (basic + GST → total). The "recomputes
+  // total amount when basic or GST fields change" test above covers the new
+  // direction and replaces those three.
 
   test("closes the embedded sheet after a successful save", async () => {
     const action = jest.fn(async () => ({ ok: true }));
