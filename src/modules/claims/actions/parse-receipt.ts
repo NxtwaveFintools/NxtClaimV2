@@ -207,12 +207,35 @@ RULE 5 — IDENTIFIERS:
 
 ---
 
-RULE 6 — CATEGORY:
+RULE 6 — CATEGORY (AUTO-MATCH FROM PROVIDED LIST):
 ${categoryInstructionBlock}
 
-- MUST match EXACT string from the list above.
-- Use vendor name + line items to reason.
-- If unsure → null.
+MATCHING LOGIC:
+1. Read the provided ALLOWED EXPENSE CATEGORY NAMES list above (exact strings only).
+2. Analyze the document:
+   - Scan vendor name (e.g., "Marriott Hotels" → lodging category)
+   - Scan line items and descriptions for keywords
+   - Scan any explicit category hints in the document itself
+3. Score each allowed category by semantic relevance:
+   - Hotel brands (Marriott, Hyatt, ITC, Hilton, etc.) → lodging/accommodation
+   - Ride apps (Uber, Ola, Lyft, Taxi) → travel/transportation
+   - Flight tickets → travel/flights
+   - Meal receipts (restaurants, cafes, food delivery) → meals/dining
+   - Gas stations, parking, tolls → fuel/travel
+   - Office supplies, stationery → office/supplies
+   - Training, conferences → training/development
+4. Select the category name that BEST matches the expense type.
+5. MUST be an EXACT string from the allowed list. NO paraphrasing. NO substring matches.
+6. If multiple categories could match, pick the MOST specific one.
+7. If NO strong match (confidence < 60% for that category), return null.
+
+EXAMPLES (do NOT hardcode these; use for reasoning only):
+- "Amazon office supplies purchase" + allowed list has "Office Supplies" → select "Office Supplies"
+- "Marriott Hotel, Delhi" + allowed list has "Lodging", "Travel", "Hotel" → select "Lodging" (most specific)
+- "Grocery items for team lunch" + allowed list has "Meals", "Office Expenses" → select "Meals"
+- Ambiguous receipt, allowed list has "Miscellaneous", others unclear → select "Miscellaneous" or null
+
+If unsure → null.
 
 ---
 
