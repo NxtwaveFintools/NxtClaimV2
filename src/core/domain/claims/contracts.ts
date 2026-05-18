@@ -61,6 +61,10 @@ export type ClaimSubmissionInput = {
     transactionDate: string;
     basicAmount: number;
     currencyCode: string;
+    foreignCurrencyCode?: "INR" | "USD" | "EUR" | "CHF" | null;
+    foreignBasicAmount?: number | null;
+    foreignGstAmount?: number | null;
+    foreignTotalAmount?: number | null;
     vendorName: string | null;
     receiptFilePath: string | null;
     bankStatementFilePath: string | null;
@@ -117,6 +121,10 @@ export type PreparedClaimSubmission = {
     basicAmount: number;
     totalAmount: number;
     currencyCode: string;
+    foreignCurrencyCode?: "INR" | "USD" | "EUR" | "CHF" | null;
+    foreignBasicAmount?: number | null;
+    foreignGstAmount?: number | null;
+    foreignTotalAmount?: number | null;
     vendorName: string | null;
     receiptFilePath: string | null;
     bankStatementFilePath: string | null;
@@ -163,6 +171,10 @@ export type FinanceExpenseEditPayload = {
   sgstAmount: number;
   igstAmount: number;
   totalAmount: number;
+  foreignCurrencyCode?: "INR" | "USD" | "EUR" | "CHF" | null;
+  foreignBasicAmount?: number | null;
+  foreignGstAmount?: number | null;
+  foreignTotalAmount?: number | null;
 };
 
 export type FinanceAdvanceEditPayload = {
@@ -196,6 +208,10 @@ export type OwnExpenseEditPayload = {
   sgstAmount: number;
   igstAmount: number;
   totalAmount: number;
+  foreignCurrencyCode?: "INR" | "USD" | "EUR" | "CHF" | null;
+  foreignBasicAmount?: number | null;
+  foreignGstAmount?: number | null;
+  foreignTotalAmount?: number | null;
   purpose: string;
   productId: string | null;
   peopleInvolved: string | null;
