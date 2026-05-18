@@ -6,7 +6,6 @@ import {
   resolveLatestActiveExpenseClaimByBillNo,
   resolveRuntimeClaimData,
   setClaimToFinancePending,
-  submitExpenseClaim,
   withActorPage,
   selectOptionByLabel,
 } from "../support/claims-e2e-runtime";

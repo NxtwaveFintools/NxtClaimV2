@@ -239,31 +239,6 @@ async function canLoginWithDefaultPassword(email: string): Promise<boolean> {
   return canLogin;
 }
 
-async function resolveDepartmentForApprover1User(approver1Id: string): Promise<Department> {
-  const client = getAdminSupabaseClient();
-  const { data, error } = await client
-    .from("master_departments")
-    .select("id, name, approver1_id, approver2_id")
-    .eq("is_active", true)
-    .eq("approver1_id", approver1Id)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (error || !data?.id || !data?.name || !data?.approver1_id || !data?.approver2_id) {
-    throw new Error(
-      error?.message ?? `Unable to resolve active department for Approver 1 user ${approver1Id}.`,
-    );
-  }
-
-  return {
-    id: data.id as string,
-    name: data.name as string,
-    approver1Id: data.approver1_id as string,
-    approver2Id: data.approver2_id as string,
-  };
-}
-
 async function resolveLoginCapableL1Department(): Promise<{
   hod: ActiveUser;
   department: Department;
