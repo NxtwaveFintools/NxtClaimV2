@@ -8,6 +8,12 @@ import { logger } from "@/core/infra/logging/logger";
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const CONFIDENCE_THRESHOLD = 80;
 const EXPENSE_CATEGORY_NAMES_FORM_KEY = "expenseCategoryNames";
+const BANK_STATEMENT_MATCH_VENDOR_FORM_KEY = "bankStatementMatchVendorName";
+const BANK_STATEMENT_MATCH_DATE_FORM_KEY = "bankStatementMatchTransactionDate";
+const BANK_STATEMENT_MATCH_BILL_NO_FORM_KEY = "bankStatementMatchBillNo";
+const BANK_STATEMENT_MATCH_FOREIGN_CURRENCY_FORM_KEY = "bankStatementMatchForeignCurrencyCode";
+const BANK_STATEMENT_MATCH_FOREIGN_TOTAL_FORM_KEY = "bankStatementMatchForeignTotalAmount";
+const BANK_STATEMENT_MATCH_CATEGORY_FORM_KEY = "bankStatementMatchCategoryName";
 const GENERIC_PARSE_FALLBACK_MESSAGE =
   "AI could not read the text formatting in this document. Please fill the details manually.";
 const GEMINI_QUOTA_FALLBACK_PREFIX =
@@ -112,6 +118,52 @@ function extractAllowedCategoryNames(input: FormData): string[] {
   }
 
   return uniqueNames;
+}
+
+type BankStatementMatchContext = {
+  vendorName: string | null;
+  transactionDate: string | null;
+  billNo: string | null;
+  foreignCurrencyCode: string | null;
+  foreignTotalAmount: number | null;
+  categoryName: string | null;
+};
+
+function getFormDataNullableString(input: FormData, key: string): string | null {
+  const value = input.get(key);
+  return sanitizeCategoryName(value);
+}
+
+function getFormDataNullableNumber(input: FormData, key: string): number | null {
+  const value = input.get(key);
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim().replace(/,/g, "");
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function extractBankStatementMatchContext(input: FormData): BankStatementMatchContext {
+  return {
+    vendorName: getFormDataNullableString(input, BANK_STATEMENT_MATCH_VENDOR_FORM_KEY),
+    transactionDate: getFormDataNullableString(input, BANK_STATEMENT_MATCH_DATE_FORM_KEY),
+    billNo: getFormDataNullableString(input, BANK_STATEMENT_MATCH_BILL_NO_FORM_KEY),
+    foreignCurrencyCode: getFormDataNullableString(
+      input,
+      BANK_STATEMENT_MATCH_FOREIGN_CURRENCY_FORM_KEY,
+    ),
+    foreignTotalAmount: getFormDataNullableNumber(
+      input,
+      BANK_STATEMENT_MATCH_FOREIGN_TOTAL_FORM_KEY,
+    ),
+    categoryName: getFormDataNullableString(input, BANK_STATEMENT_MATCH_CATEGORY_FORM_KEY),
+  };
 }
 
 function buildInvoiceSystemInstruction(allowedCategoryNames: string[]): string {
@@ -376,13 +428,62 @@ If the invoice IS in INR, set foreign_currency_code = null, all foreign amounts 
 `;
 }
 
-function buildBankStatementSystemInstruction(): string {
+function buildBankStatementSystemInstruction(matchContext: BankStatementMatchContext): string {
+  const contextLines = [
+    matchContext.vendorName ? `- Expected vendor or merchant: ${matchContext.vendorName}` : null,
+    matchContext.transactionDate
+      ? `- Expected invoice/transaction date: ${matchContext.transactionDate}`
+      : null,
+    matchContext.billNo ? `- Expected bill or reference number: ${matchContext.billNo}` : null,
+    matchContext.categoryName ? `- Expected expense category: ${matchContext.categoryName}` : null,
+    matchContext.foreignCurrencyCode && matchContext.foreignTotalAmount !== null
+      ? `- Foreign invoice total for reference only: ${matchContext.foreignCurrencyCode} ${matchContext.foreignTotalAmount.toFixed(2)}`
+      : null,
+  ].filter((line): line is string => line !== null);
+
+  const matchContextBlock =
+    contextLines.length > 0
+      ? contextLines.join("\n")
+      : "- No external match hints were provided. Use the statement content only.";
+
   return `
-You are parsing a bank statement to find a settled payment deduction.
-Find the debit/deduction amount in INR for the relevant transaction.
-Return ONLY the settled INR deduction as basicAmount. Set all other fields to 0 or null.
-Set foreign_currency_code to null, foreign_basic_amount to 0, foreign_gst_amount to 0, foreign_total_amount to 0.
-Return the result in the exact JSON format specified below. Most fields will be 0 or null.
+ROLE:
+You are a financial document parser specializing in bank statements.
+
+GOAL:
+Find the single settled INR debit/deduction that best matches the expense claim.
+
+MATCH HINTS:
+${matchContextBlock}
+
+SELECTION RULES:
+- Search for debit, withdrawal, card charge, UPI spend, or spent amount rows only.
+- Never choose credits, refunds, reversals, chargebacks, cashback, deposits, opening balance, closing balance, or pending authorization holds.
+- If many INR amounts appear, rank candidates using ALL available evidence:
+  1. vendor or merchant descriptor similarity
+  2. transaction date proximity to the expected invoice date
+  3. bill/reference/order identifier similarity if any token is visible
+  4. line narration relevance to the merchant or expense category
+  5. reasonableness of the INR amount for the provided foreign total, if present, allowing normal FX variance and bank fees
+- Prefer the final settled debit over duplicate pending lines.
+- If both an authorization hold and a later settled debit exist, choose the settled debit.
+- If several candidates are still plausible, choose the best overall match and reduce confidenceScore.
+
+OUTPUT RULES:
+- Return the actual INR amount charged from the statement as basicAmount.
+- Return the matched statement date as transactionDate if visible.
+- Return the matched merchant descriptor as vendorName if clear.
+- Set totalAmount = 0.
+- Set cgst_amount = 0, sgst_amount = 0, igst_amount = 0.
+- Set category_name = null.
+- Set foreign_currency_code = null, foreign_basic_amount = 0, foreign_gst_amount = 0, foreign_total_amount = 0.
+- Keep billNo null unless the statement line contains a clear transaction/reference identifier.
+- Confidence should be high only when the match is clear; reduce it when multiple similar debits remain or key hints are missing.
+
+STRICT OUTPUT RULES:
+- Return EXACTLY ONE JSON object.
+- Return ONLY raw, valid JSON. No markdown, no backticks, no explanation.
+- Never leave numeric fields undefined.
 
 SCHEMA:
 {
@@ -703,11 +804,23 @@ function createGeminiModel(
 
 export async function parseReceiptAction(input: FormData): Promise<ParseReceiptActionResult> {
   const fileEntry = input.get("receiptFile");
-  const documentType = (input.get("documentType") as string | null) ?? "invoice";
-  const allowedCategoryNames = extractAllowedCategoryNames(input);
+  const documentType =
+    input.get("documentType") === "bank_statement" ? "bank_statement" : "invoice";
+  const allowedCategoryNames = documentType === "invoice" ? extractAllowedCategoryNames(input) : [];
+  const bankStatementMatchContext =
+    documentType === "bank_statement" ? extractBankStatementMatchContext(input) : null;
   const geminiInstruction =
     documentType === "bank_statement"
-      ? buildBankStatementSystemInstruction()
+      ? buildBankStatementSystemInstruction(
+          bankStatementMatchContext ?? {
+            vendorName: null,
+            transactionDate: null,
+            billNo: null,
+            foreignCurrencyCode: null,
+            foreignTotalAmount: null,
+            categoryName: null,
+          },
+        )
       : buildInvoiceSystemInstruction(allowedCategoryNames);
 
   try {
@@ -823,14 +936,21 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
     const normalized = normalizeGeminiResult(parsedSchemaResult.data);
 
     const hasPartialData =
-      normalized.vendorName !== null ||
-      normalized.totalAmount > 0 ||
-      normalized.transactionDate !== null ||
-      normalized.billNo !== null;
+      documentType === "bank_statement"
+        ? normalized.basicAmount > 0 ||
+          normalized.vendorName !== null ||
+          normalized.transactionDate !== null ||
+          normalized.billNo !== null
+        : normalized.vendorName !== null ||
+          normalized.totalAmount > 0 ||
+          normalized.transactionDate !== null ||
+          normalized.billNo !== null;
     const hasMissingCriticalFields =
-      normalized.totalAmount === 0 ||
-      normalized.transactionDate === null ||
-      normalized.billNo === null;
+      documentType === "bank_statement"
+        ? normalized.basicAmount === 0
+        : normalized.totalAmount === 0 ||
+          normalized.transactionDate === null ||
+          normalized.billNo === null;
 
     let autoFillAllowed: boolean;
     let message: string | null;

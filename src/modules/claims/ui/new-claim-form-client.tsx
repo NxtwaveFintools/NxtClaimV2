@@ -451,6 +451,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     register,
     control,
     setValue,
+    getValues,
     handleSubmit,
     formState: { errors },
   } = form;
@@ -1005,6 +1006,88 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     }
   };
 
+  const appendBankStatementMatchHints = (formData: FormData): void => {
+    const expenseValues = getValues("expense");
+    const selectedCategoryName =
+      options.expenseCategories.find((category) => category.id === expenseValues.expenseCategoryId)
+        ?.name ?? null;
+
+    appendFormDataValue(formData, "bankStatementMatchVendorName", expenseValues.vendorName);
+    appendFormDataValue(
+      formData,
+      "bankStatementMatchTransactionDate",
+      expenseValues.transactionDate,
+    );
+    appendFormDataValue(formData, "bankStatementMatchBillNo", expenseValues.billNo);
+    appendFormDataValue(
+      formData,
+      "bankStatementMatchForeignCurrencyCode",
+      expenseValues.foreignCurrencyCode,
+    );
+    appendFormDataValue(
+      formData,
+      "bankStatementMatchForeignTotalAmount",
+      expenseValues.foreignTotalAmount,
+    );
+    appendFormDataValue(formData, "bankStatementMatchCategoryName", selectedCategoryName);
+  };
+
+  const applyParsedBankStatementToForm = (parsed: Record<string, unknown>): void => {
+    const matchedAmount = toNumber(parsed.basicAmount ?? parsed.basic_amount);
+    const matchedDate = toNullableString(parsed.transactionDate ?? parsed.transaction_date);
+    const matchedVendorName = toNullableString(parsed.vendorName ?? parsed.vendor_name);
+    const expenseValues = getValues("expense");
+    const isForeignExpense =
+      expenseValues.foreignCurrencyCode !== "INR" ||
+      toNumber(expenseValues.foreignBasicAmount) > 0 ||
+      toNumber(expenseValues.foreignTotalAmount) > 0;
+
+    setValue("expense.basicAmount", matchedAmount, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+
+    if (isForeignExpense) {
+      setValue("expense.cgstAmount", 0, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+      setValue("expense.sgstAmount", 0, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+      setValue("expense.igstAmount", 0, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+      setValue("expense.totalAmount", matchedAmount, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+    }
+
+    if (!expenseValues.vendorName && matchedVendorName) {
+      setValue("expense.vendorName", matchedVendorName, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+    }
+
+    if (!expenseValues.transactionDate && matchedDate) {
+      setValue("expense.transactionDate", matchedDate, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+    }
+  };
+
   const runReceiptExtraction = async (
     receiptFile: File,
     toastId: string | number,
@@ -1050,6 +1133,52 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     }
   };
 
+  const runBankStatementExtraction = async (
+    statementFile: File,
+    toastId: string | number,
+  ): Promise<void> => {
+    setIsAiParsing(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("receiptFile", statementFile);
+      formData.append("documentType", "bank_statement");
+      appendBankStatementMatchHints(formData);
+
+      const result = await parseReceiptAction(formData);
+      if (!result.ok || !result.data) {
+        toast.error(result.message ?? "Failed to match bank statement amount.", { id: toastId });
+        return;
+      }
+
+      if (!result.autoFillAllowed) {
+        toast.error(result.message ?? "Failed to match bank statement amount.", { id: toastId });
+        return;
+      }
+
+      const aiData = parseAiPayload(result.data);
+      if (!aiData) {
+        toast.error("AI returned invalid bank statement data. Please fill the amount manually.", {
+          id: toastId,
+        });
+        return;
+      }
+
+      if (toNumber(aiData.confidenceScore) < 70) {
+        toast.warning(
+          "Bank statement match is low confidence. Please verify the selected INR amount carefully.",
+        );
+      }
+
+      applyParsedBankStatementToForm(aiData);
+      toast.success("Matched INR amount from bank statement.", { id: toastId });
+    } catch {
+      toast.error("Failed to match bank statement amount.", { id: toastId });
+    } finally {
+      setIsAiParsing(false);
+    }
+  };
+
   const handleReceiptUploadSuccess = async (selectedFile: File | null): Promise<void> => {
     setInvoiceFile(selectedFile);
     setValue("expense.receiptFileName", selectedFile ? selectedFile.name : "", {
@@ -1079,6 +1208,43 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     setFileError(null);
     const toastId = toast.loading("Fetching AI details...");
     await runReceiptExtraction(selectedFile, toastId);
+  };
+
+  const handleBankStatementUploadSuccess = async (selectedFile: File | null): Promise<void> => {
+    setBankStatementFile(selectedFile);
+    setBankStatementError(null);
+    setValue("expense.bankStatementFileName", selectedFile ? selectedFile.name : null, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue(
+      "expense.bankStatementFileType",
+      selectedFile ? selectedFile.type || "application/octet-stream" : null,
+      {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      },
+    );
+
+    if (!selectedFile) {
+      return;
+    }
+
+    const bankValidationError = validateUploadFile(selectedFile, "Bank statement file");
+    if (bankValidationError) {
+      setBankStatementError(bankValidationError);
+      toast.error(bankValidationError);
+      return;
+    }
+
+    if (isAiParsing) {
+      return;
+    }
+
+    const toastId = toast.loading("AI is fetching bank statement details...");
+    await runBankStatementExtraction(selectedFile, toastId);
   };
 
   const handleAutoFillWithAI = async () => {
@@ -1471,26 +1637,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     className="hidden"
                     onChange={(event) => {
                       const selectedFile = event.target.files?.[0] ?? null;
-                      setBankStatementFile(selectedFile);
-                      setBankStatementError(null);
-                      setValue(
-                        "expense.bankStatementFileName",
-                        selectedFile ? selectedFile.name : null,
-                        {
-                          shouldDirty: true,
-                          shouldTouch: true,
-                          shouldValidate: true,
-                        },
-                      );
-                      setValue(
-                        "expense.bankStatementFileType",
-                        selectedFile ? selectedFile.type || "application/octet-stream" : null,
-                        {
-                          shouldDirty: true,
-                          shouldTouch: true,
-                          shouldValidate: true,
-                        },
-                      );
+                      void handleBankStatementUploadSuccess(selectedFile);
                     }}
                   />
                   <label
