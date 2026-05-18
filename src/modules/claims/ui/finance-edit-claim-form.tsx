@@ -429,7 +429,7 @@ export function FinanceEditClaimForm({
 
                 <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                   Payment Mode
-                  {isPaymentModeFieldLocked ? (
+                  {isFinanceEdit && isPaymentModeFieldLocked ? (
                     <input type="hidden" name="paymentModeId" value={claim.paymentModeId} />
                   ) : null}
                   <FormSelect
