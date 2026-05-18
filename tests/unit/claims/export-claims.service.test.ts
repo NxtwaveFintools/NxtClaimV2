@@ -18,7 +18,7 @@ function createBaseRecord(overrides?: Partial<ClaimFullExportRecord>): ClaimFull
     departmentName: "Engineering",
     paymentModeId: "pm-1",
     paymentModeName: "Reimbursement",
-    bcPaymentsFlag: false,
+    bcClaimDetailsId: null,
     isVendorPayment: false,
     assignedL1ApproverId: "l1-1",
     assignedL2ApproverId: "l2-1",
