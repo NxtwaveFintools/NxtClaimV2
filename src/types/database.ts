@@ -42,7 +42,6 @@ export type Database = {
       };
       advance_details: {
         Row: {
-          approved_amount: number;
           budget_month: number;
           budget_year: number;
           claim_id: string;
@@ -54,12 +53,11 @@ export type Database = {
           product_id: string | null;
           purpose: string;
           remarks: string | null;
-          requested_total_amount: number;
           supporting_document_path: string | null;
+          total_amount: number;
           updated_at: string;
         };
         Insert: {
-          approved_amount: number;
           budget_month: number;
           budget_year: number;
           claim_id: string;
@@ -71,12 +69,11 @@ export type Database = {
           product_id?: string | null;
           purpose: string;
           remarks?: string | null;
-          requested_total_amount: number;
           supporting_document_path?: string | null;
+          total_amount: number;
           updated_at?: string;
         };
         Update: {
-          approved_amount?: number;
           budget_month?: number;
           budget_year?: number;
           claim_id?: string;
@@ -88,8 +85,8 @@ export type Database = {
           product_id?: string | null;
           purpose?: string;
           remarks?: string | null;
-          requested_total_amount?: number;
           supporting_document_path?: string | null;
+          total_amount?: number;
           updated_at?: string;
         };
         Relationships: [
@@ -700,7 +697,6 @@ export type Database = {
       expense_details: {
         Row: {
           ai_metadata: Json | null;
-          approved_amount: number;
           bank_statement_file_path: string | null;
           basic_amount: number;
           bill_no: string;
@@ -722,8 +718,8 @@ export type Database = {
           purpose: string;
           receipt_file_path: string | null;
           remarks: string | null;
-          requested_total_amount: number;
           sgst_amount: number;
+          total_amount: number;
           transaction_date: string;
           transaction_id: string | null;
           updated_at: string;
@@ -731,7 +727,6 @@ export type Database = {
         };
         Insert: {
           ai_metadata?: Json | null;
-          approved_amount: number;
           bank_statement_file_path?: string | null;
           basic_amount: number;
           bill_no: string;
@@ -753,8 +748,8 @@ export type Database = {
           purpose?: string;
           receipt_file_path?: string | null;
           remarks?: string | null;
-          requested_total_amount: number;
           sgst_amount?: number;
+          total_amount: number;
           transaction_date: string;
           transaction_id?: string | null;
           updated_at?: string;
@@ -762,7 +757,6 @@ export type Database = {
         };
         Update: {
           ai_metadata?: Json | null;
-          approved_amount?: number;
           bank_statement_file_path?: string | null;
           basic_amount?: number;
           bill_no?: string;
@@ -784,8 +778,8 @@ export type Database = {
           purpose?: string;
           receipt_file_path?: string | null;
           remarks?: string | null;
-          requested_total_amount?: number;
           sgst_amount?: number;
+          total_amount?: number;
           transaction_date?: string;
           transaction_id?: string | null;
           updated_at?: string;
