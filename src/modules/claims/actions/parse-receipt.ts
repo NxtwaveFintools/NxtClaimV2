@@ -76,7 +76,7 @@ const geminiParseResultSchema = z.object({
   totalAmount: looseNumber.optional(),
   category_name: looseNullableString,
   confidenceScore: looseNumber,
-  foreign_currency_code: z.enum(["INR", "USD", "EUR", "CHF"]).nullable().optional(),
+  foreign_currency_code: z.enum(["INR", "USD", "EUR", "CHF"]).nullable().optional().catch(null),
   foreign_basic_amount: looseNumber.optional(),
   foreign_gst_amount: looseNumber.optional(),
   foreign_total_amount: looseNumber.optional(),
@@ -359,7 +359,26 @@ You are parsing a bank statement to find a settled payment deduction.
 Find the debit/deduction amount in INR for the relevant transaction.
 Return ONLY the settled INR deduction as basicAmount. Set all other fields to 0 or null.
 Set foreign_currency_code to null, foreign_basic_amount to 0, foreign_gst_amount to 0, foreign_total_amount to 0.
-Return the result in the exact JSON format specified.
+Return the result in the exact JSON format specified below. Most fields will be 0 or null.
+
+SCHEMA:
+{
+  "billNo": string | null,
+  "transactionDate": string | null,
+  "vendorName": string | null,
+  "basicAmount": number,
+  "gst_number": string | null,
+  "cgst_amount": number,
+  "sgst_amount": number,
+  "igst_amount": number,
+  "totalAmount": number,
+  "category_name": string | null,
+  "confidenceScore": number,
+  "foreign_currency_code": "INR" | "USD" | "EUR" | "CHF" | null,
+  "foreign_basic_amount": number,
+  "foreign_gst_amount": number,
+  "foreign_total_amount": number
+}
 `;
 }
 
