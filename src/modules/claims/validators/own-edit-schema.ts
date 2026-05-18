@@ -75,7 +75,7 @@ export const ownExpenseEditSchema = z
     isGstApplicable: z.boolean(),
     gstNumber: normalizedNullableText,
     vendorName: normalizedNullableText,
-    basicAmount: z.number().positive("Basic amount must be greater than zero"),
+    basicAmount: z.number().min(0, "Basic amount cannot be negative"),
     cgstAmount: optionalTaxAmountSchema,
     sgstAmount: optionalTaxAmountSchema,
     igstAmount: optionalTaxAmountSchema,
@@ -100,7 +100,9 @@ export const ownExpenseEditSchema = z
     bankStatementFile: optionalBankStatementFileSchema,
   })
   .superRefine((value, context) => {
-    if (value.foreignCurrencyCode !== "INR" && value.foreignCurrencyCode != null) {
+    const isForeign = value.foreignCurrencyCode !== "INR" && value.foreignCurrencyCode != null;
+
+    if (isForeign) {
       if (!value.foreignBasicAmount || value.foreignBasicAmount <= 0) {
         context.addIssue({
           code: "custom",
@@ -108,6 +110,12 @@ export const ownExpenseEditSchema = z
           path: ["foreignBasicAmount"],
         });
       }
+    } else if (value.basicAmount <= 0) {
+      context.addIssue({
+        code: "custom",
+        message: "Basic amount must be greater than zero",
+        path: ["basicAmount"],
+      });
     }
   })
   .strict();
