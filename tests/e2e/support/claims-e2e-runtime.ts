@@ -517,7 +517,7 @@ export async function submitPettyCashRequestClaim(
     departmentName: string;
     paymentModeName: string;
     employeeId: string;
-    requestedTotalAmount: number;
+    totalAmount: number;
     purpose: string;
     expectedUsageDate: string;
     budgetMonth: string;
@@ -530,7 +530,7 @@ export async function submitPettyCashRequestClaim(
   await selectOptionByLabel(page, /Payment Mode/i, input.paymentModeName);
 
   await fillTextboxIfEditable(page, /^Employee ID \*/i, input.employeeId);
-  await page.locator("#requestedTotalAmount").fill(String(input.requestedTotalAmount));
+  await page.locator("#totalAmount").fill(String(input.totalAmount));
   await page.locator("#expectedUsageDate").fill(input.expectedUsageDate);
   await page.locator("#budgetMonth").selectOption(input.budgetMonth);
   await page.locator("#budgetYear").selectOption(input.budgetYear);
@@ -762,7 +762,7 @@ export async function openSubmissionsPage(page: Page, claimId?: string): Promise
 
   await gotoWithRetry(page, `/dashboard/my-claims?${params.toString()}`);
   await expect(page.locator(".animate-pulse")).not.toBeVisible({ timeout: 15000 });
-  await expect(page.getByRole("heading", { name: /my claims/i })).toBeVisible({ timeout: 20000 });
+  await expect(page.getByRole("heading", { name: /^claims$/i })).toBeVisible({ timeout: 20000 });
 }
 
 export function claimRow(page: Page, claimId: string): Locator {

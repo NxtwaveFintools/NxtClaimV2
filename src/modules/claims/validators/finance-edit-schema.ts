@@ -9,6 +9,7 @@ const isoDateSchema = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format. Use YYYY-MM-DD");
 
 const editReasonSchema = z.string().trim().min(5, "An edit reason is required for the audit log.");
+const optionalFilePathSchema = z.string().trim().min(1).optional();
 
 const normalizedNullableText = z.preprocess((value) => {
   if (typeof value !== "string") {
@@ -29,7 +30,7 @@ export const financeExpenseEditSchema = z
     detailType: z.literal("expense"),
     detailId: uuidSchema,
     editReason: editReasonSchema,
-    paymentModeId: uuidSchema.nullable().optional(),
+    paymentModeId: uuidSchema,
     billNo: z.string().trim().min(1, "Bill number is required"),
     expenseCategoryId: uuidSchema,
     productId: uuidSchema.nullable(),
@@ -43,7 +44,13 @@ export const financeExpenseEditSchema = z
     vendorName: normalizedNullableText,
     peopleInvolved: normalizedNullableText,
     remarks: normalizedNullableText,
-    approvedAmount: z.number().min(0, "Approved amount cannot be negative"),
+    receiptFilePath: optionalFilePathSchema,
+    bankStatementFilePath: optionalFilePathSchema,
+    basicAmount: z.number().min(0, "Basic amount cannot be negative"),
+    cgstAmount: z.number().min(0, "CGST amount cannot be negative"),
+    sgstAmount: z.number().min(0, "SGST amount cannot be negative"),
+    igstAmount: z.number().min(0, "IGST amount cannot be negative"),
+    totalAmount: z.number().min(0, "Total amount cannot be negative"),
   })
   .superRefine((value, context) => {
     if (value.locationType === LOCATION_TYPES.OUT_STATION && !value.locationDetails) {
@@ -61,13 +68,14 @@ export const financeAdvanceEditSchema = z
     detailType: z.literal("advance"),
     detailId: uuidSchema,
     editReason: editReasonSchema,
-    paymentModeId: uuidSchema.nullable().optional(),
+    paymentModeId: uuidSchema,
     purpose: z.string().trim().min(1, "Purpose is required"),
     expectedUsageDate: isoDateSchema,
     productId: uuidSchema.nullable(),
     locationId: uuidSchema.nullable(),
     remarks: normalizedNullableText,
-    approvedAmount: z.number().min(0, "Approved amount cannot be negative"),
+    supportingDocumentPath: optionalFilePathSchema,
+    totalAmount: z.number().min(0, "Approved amount cannot be negative"),
   })
   .strict();
 

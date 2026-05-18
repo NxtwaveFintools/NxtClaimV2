@@ -68,7 +68,7 @@ function validateAdvanceIntegrity(input: ClaimSubmissionInput): void {
     throw new ClaimIntegrityError("Data integrity failure: Missing advance payload");
   }
 
-  assertNonNegativeMoney(input.advance.requestedTotalAmount, "advance.requested_total_amount");
+  assertNonNegativeMoney(input.advance.totalAmount, "advance.total_amount");
 }
 
 function normalizeModeName(name: string): string {
@@ -217,17 +217,32 @@ export class SubmitClaimService {
       const departmentApprover1Id = departmentApproversResult.data.approver1Id;
       const departmentApprover2Id = departmentApproversResult.data.approver2Id;
       const isBeneficiaryDepartmentApprover1 = actualBeneficiaryId === departmentApprover1Id;
-      const assignedL1ApproverId = isBeneficiaryDepartmentApprover1
-        ? departmentApprover2Id
-        : departmentApprover1Id;
+      const isBeneficiaryDepartmentApprover2 = actualBeneficiaryId === departmentApprover2Id;
+
+      // Check if beneficiary is a HOD (approver1) in any department (including cross-department)
+      let isBeneficiaryApprover1InAnyDept = isBeneficiaryDepartmentApprover1;
+      if (!isBeneficiaryApprover1InAnyDept && input.submissionType === "On Behalf") {
+        const approver1CheckResult =
+          await this.repository.isUserApprover1InAnyDepartment(actualBeneficiaryId);
+        if (!approver1CheckResult.errorMessage && approver1CheckResult.isApprover1) {
+          isBeneficiaryApprover1InAnyDept = true;
+        }
+      }
+
+      // Route to approver 2 if beneficiary is an HOD in any department OR if beneficiary is approver 2
+      const assignedL1ApproverId =
+        isBeneficiaryApprover1InAnyDept || isBeneficiaryDepartmentApprover2
+          ? departmentApprover2Id
+          : departmentApprover1Id;
 
       if (!assignedL1ApproverId) {
         return {
           preparedSubmission: null,
           errorCode: "DEPARTMENT_ROUTING_MISSING",
-          errorMessage: isBeneficiaryDepartmentApprover1
-            ? "Escalation approver (Founder) is not configured for this department."
-            : "Department approver routing is not configured.",
+          errorMessage:
+            isBeneficiaryApprover1InAnyDept || isBeneficiaryDepartmentApprover2
+              ? "Escalation approver (Founder) is not configured for this department."
+              : "Department approver routing is not configured.",
         };
       }
 
@@ -282,8 +297,7 @@ export class SubmitClaimService {
                   igstAmount: input.expense.igstAmount,
                   transactionDate: input.expense.transactionDate,
                   basicAmount: input.expense.basicAmount,
-                  requestedTotalAmount: expenseRequestedTotalAmount ?? 0,
-                  approvedAmount: expenseRequestedTotalAmount ?? 0,
+                  totalAmount: expenseRequestedTotalAmount ?? 0,
                   currencyCode: input.expense.currencyCode,
                   vendorName: input.expense.vendorName,
                   receiptFilePath: input.expense.receiptFilePath,
@@ -297,8 +311,7 @@ export class SubmitClaimService {
             input.detailType === "advance" && input.advance
               ? {
                   claimId,
-                  requestedTotalAmount: input.advance.requestedTotalAmount,
-                  approvedAmount: input.advance.requestedTotalAmount,
+                  totalAmount: input.advance.totalAmount,
                   budgetMonth: input.advance.budgetMonth,
                   budgetYear: input.advance.budgetYear,
                   expectedUsageDate: input.advance.expectedUsageDate,
@@ -414,8 +427,7 @@ export class SubmitClaimService {
         igst_amount: preparedSubmission.expense.igstAmount,
         transaction_date: preparedSubmission.expense.transactionDate,
         basic_amount: preparedSubmission.expense.basicAmount,
-        requested_total_amount: preparedSubmission.expense.requestedTotalAmount,
-        approved_amount: preparedSubmission.expense.approvedAmount,
+        total_amount: preparedSubmission.expense.totalAmount,
         currency_code: preparedSubmission.expense.currencyCode,
         vendor_name: preparedSubmission.expense.vendorName,
         receipt_file_path: preparedSubmission.expense.receiptFilePath,
@@ -428,8 +440,7 @@ export class SubmitClaimService {
 
     if (preparedSubmission.advance) {
       payload.advance = {
-        requested_total_amount: preparedSubmission.advance.requestedTotalAmount,
-        approved_amount: preparedSubmission.advance.approvedAmount,
+        total_amount: preparedSubmission.advance.totalAmount,
         budget_month: preparedSubmission.advance.budgetMonth,
         budget_year: preparedSubmission.advance.budgetYear,
         expected_usage_date: preparedSubmission.advance.expectedUsageDate,

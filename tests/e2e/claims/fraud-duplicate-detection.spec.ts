@@ -87,7 +87,7 @@ test.describe("Fraud Prevention - Duplicate Expense Detection Uses Requested Tot
       .select("id", { count: "exact", head: true })
       .eq("bill_no", billNo)
       .eq("transaction_date", transactionDate)
-      .eq("requested_total_amount", requestedAmount)
+      .eq("total_amount", requestedAmount)
       .eq("is_active", true);
 
     if (beforeDuplicateAttemptCountQuery.error) {
@@ -124,7 +124,7 @@ test.describe("Fraud Prevention - Duplicate Expense Detection Uses Requested Tot
             .select("id", { count: "exact", head: true })
             .eq("bill_no", billNo)
             .eq("transaction_date", transactionDate)
-            .eq("requested_total_amount", requestedAmount)
+            .eq("total_amount", requestedAmount)
             .eq("is_active", true);
 
           if (result.error) {
@@ -142,15 +142,14 @@ test.describe("Fraud Prevention - Duplicate Expense Detection Uses Requested Tot
 
     const { data: originalExpense, error: originalExpenseError } = await client
       .from("expense_details")
-      .select("requested_total_amount, approved_amount")
+      .select("total_amount")
       .eq("claim_id", originalClaim.claimId)
       .eq("is_active", true)
       .limit(1)
       .maybeSingle();
 
     expect(originalExpenseError).toBeNull();
-    expect(Number(originalExpense?.requested_total_amount)).toBe(requestedAmount);
-    expect(Number(originalExpense?.approved_amount)).toBe(800);
+    expect(Number(originalExpense?.total_amount)).toBe(requestedAmount);
 
     await withActorPage(browser, runtime.submitterEmail, async (page) => {
       await page.goto(

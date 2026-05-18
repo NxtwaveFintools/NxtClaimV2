@@ -670,33 +670,11 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
       const formHeading = page.getByRole("heading", { name: /^Edit Claim$/i });
       await expect(formHeading).toBeVisible({ timeout: 10000 });
 
-      // Update basic amount
-      const basicAmountInput = page.locator('input[name="basicAmount"]');
-      await expect(basicAmountInput).toBeVisible();
-      await basicAmountInput.clear();
-      await basicAmountInput.fill("750");
-
-      // Toggle GST to "Yes"
-      const gstSelect = page.locator('select[name="isGstApplicable"]');
-      await expect(gstSelect).toBeVisible();
-      await gstSelect.selectOption({ value: "true" });
-
-      // Fill GST amounts
-      const cgstInput = page.locator('input[name="cgstAmount"]');
-      await expect(cgstInput).toBeVisible();
-      await cgstInput.clear();
-      await cgstInput.fill("67.50");
-
-      const sgstInput = page.locator('input[name="sgstAmount"]');
-      await expect(sgstInput).toBeVisible();
-      await sgstInput.clear();
-      await sgstInput.fill("67.50");
-
-      // Update total amount
-      const totalAmountInput = page.locator('input[name="totalAmount"]');
-      await expect(totalAmountInput).toBeVisible();
-      await totalAmountInput.clear();
-      await totalAmountInput.fill("885");
+      // Update approved amount (finance can only set the approved amount; base components are locked)
+      const approvedAmountInput = page.locator('input[name="approvedAmount"]');
+      await expect(approvedAmountInput).toBeVisible();
+      await approvedAmountInput.clear();
+      await approvedAmountInput.fill("450");
 
       // Submit the finance edit form
       const saveButton = page.getByRole("button", { name: /save claim edits/i });
@@ -711,16 +689,15 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
         timeout: 10000,
       });
 
-      // Verify the updated amounts are reflected on the detail page
-      // The total amount should now show ₹885.00 on the page
-      await expect(page.getByText(/^₹885\.00$/).first()).toBeVisible({ timeout: 10000 });
+      // Verify the updated approved amount is reflected on the detail page
+      await expect(page.getByText(/^₹450\.00$/).first()).toBeVisible({ timeout: 10000 });
     });
 
     // Verify the DB was updated correctly
     const client = getAdminSupabaseClient();
     const { data, error } = await client
       .from("expense_details")
-      .select("basic_amount, cgst_amount, sgst_amount, total_amount")
+      .select("total_amount")
       .eq("claim_id", claimId)
       .eq("is_active", true)
       .limit(1)
@@ -728,10 +705,7 @@ test.describe("Navigation Filter Stability & Finance Edit", () => {
 
     expect(error).toBeNull();
     expect(data).not.toBeNull();
-    expect(Number(data!.basic_amount)).toBe(750);
-    expect(Number(data!.cgst_amount)).toBe(67.5);
-    expect(Number(data!.sgst_amount)).toBe(67.5);
-    expect(Number(data!.total_amount)).toBe(885);
+    expect(Number(data!.total_amount)).toBe(450);
   });
 
   test("FIN-2: NIAT claim detail shows location type and out-station details", async ({

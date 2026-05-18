@@ -896,8 +896,8 @@ async function submitPettyCashRequestClaim(
   await page.locator("#departmentId").selectOption({ value: input.departmentId });
 
   await page.locator("#employeeId").fill(employeeCode);
-  await expect(page.locator("#requestedTotalAmount")).toBeVisible({ timeout: 15000 });
-  await page.locator("#requestedTotalAmount").fill(String(input.amount));
+  await expect(page.locator("#totalAmount")).toBeVisible({ timeout: 15000 });
+  await page.locator("#totalAmount").fill(String(input.amount));
   await expect(page.locator("#expectedUsageDate")).toBeVisible({ timeout: 15000 });
   await page.locator("#expectedUsageDate").fill("2026-03-24");
   await page.locator("#budgetMonth").selectOption(budgetMonth);
@@ -1847,7 +1847,7 @@ test.describe("Claims Workflow Multi-Role E2E", () => {
       waitUntil: "domcontentloaded",
     });
 
-    await expect(submitterPage.getByRole("heading", { name: submitted.claimId })).toBeVisible({
+    await expect(submitterPage.getByText(`Audit & Review · ${submitted.claimId}`)).toBeVisible({
       timeout: 30000,
     });
 

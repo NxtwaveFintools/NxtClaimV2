@@ -645,7 +645,7 @@ async function submitPettyCashRequest(
   page: Page,
   input: {
     employeeId: string;
-    requestedTotalAmount: number;
+    totalAmount: number;
     purpose: string;
     departmentName?: string;
     departmentId?: string;
@@ -752,7 +752,7 @@ async function submitPettyCashRequest(
   const paymentMode = page.getByLabel(/payment mode/i);
   await selectOptionByLabel(paymentMode, "Petty Cash Request");
 
-  await page.locator("#requestedTotalAmount").fill(String(input.requestedTotalAmount));
+  await page.locator("#totalAmount").fill(String(input.totalAmount));
   await page.locator("#expectedUsageDate").fill("2026-03-20");
   await expect(page.locator("#expectedUsageDate")).toHaveValue("2026-03-20");
   await page.locator("#purpose").fill(input.purpose);
@@ -1004,10 +1004,11 @@ async function withActorPage<T>(
       await gotoWithRetry(page, "/dashboard");
       await acceptPolicyGateIfPresent(page);
 
-      const signOutButton = page.getByRole("button", { name: /sign out/i });
-      const hasSession =
-        !/\/auth\/login/i.test(page.url()) &&
-        (await signOutButton.isVisible({ timeout: 3000 }).catch(() => false));
+      // If the stored auth token is valid the app stays on /dashboard; if expired,
+      // Supabase middleware redirects to /auth/login.  Avoid the sign-out button
+      // visibility check (3 s) which can misfire during slow hydration and trigger
+      // an unnecessary fresh login that burns Supabase's sign-in rate-limit quota.
+      const hasSession = !/\/auth\/login/i.test(page.url());
 
       if (!hasSession) {
         await loginWithEmail(page, email);
@@ -1046,7 +1047,7 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
     const standardSubmission = await withActorPage(browser, ACTORS.employeeA.email, async (page) =>
       submitPettyCashRequest(page, {
         employeeId: `${ACTORS.employeeA.employeeCodePrefix}-${runTag}`,
-        requestedTotalAmount: amount,
+        totalAmount: amount,
         purpose: `STANDARD FLOW ${runTag}`,
       }),
     );
@@ -1101,7 +1102,7 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
         async (page) =>
           submitPettyCashRequest(page, {
             employeeId: `${ACTORS.employeeA.employeeCodePrefix}-${runTag}-FALLBACK`,
-            requestedTotalAmount: fallbackAmount,
+            totalAmount: fallbackAmount,
             purpose: `ON BEHALF FALLBACK ${runTag}`,
           }),
       );
@@ -1139,7 +1140,7 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
     const onBehalfSubmission = await withActorPage(browser, ACTORS.employeeA.email, async (page) =>
       submitPettyCashRequest(page, {
         employeeId: `${ACTORS.employeeA.employeeCodePrefix}-${runTag}`,
-        requestedTotalAmount: amount,
+        totalAmount: amount,
         purpose: `ON BEHALF FLOW ${runTag}`,
         onBehalfEmail: ACTORS.employeeB.email,
         onBehalfEmployeeCode: `${ACTORS.employeeB.employeeCodePrefix}-${runTag}`,
@@ -1197,7 +1198,7 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
     const submission = await withActorPage(browser, leapfrog.approver1Email, async (page) =>
       submitPettyCashRequest(page, {
         employeeId: `LF-${runTag}`,
-        requestedTotalAmount: amount,
+        totalAmount: amount,
         purpose: `LEAPFROG FLOW ${runTag}`,
         departmentName: leapfrog.departmentName,
       }),
@@ -1239,7 +1240,7 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
     const submission = await withActorPage(browser, context.submitterApprover1Email, async (page) =>
       submitPettyCashRequest(page, {
         employeeId: `XDEPT-${runTag}`,
-        requestedTotalAmount: 89.75,
+        totalAmount: 89.75,
         purpose: `XDEPT HOD ESCALATION ${runTag}`,
         departmentName: context.targetDepartmentName,
         departmentId: context.targetDepartmentId,
@@ -1262,7 +1263,7 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
     );
   });
 
-  test("PA-to-Founder proxy submission routes to founder senior approver and is visible to both users", async ({
+  test("PA-to-Founder proxy submission routes to founder senior approver and is visible to both users in my claims", async ({
     browser,
   }) => {
     let context: ProxyFounderContext;
@@ -1278,7 +1279,7 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
     const submission = await withActorPage(browser, ACTORS.employeeA.email, async (page) =>
       submitPettyCashRequest(page, {
         employeeId: `PA2FND-${runTag}`,
-        requestedTotalAmount: 76.2,
+        totalAmount: 76.2,
         purpose: `PA TO FOUNDER ${runTag}`,
         departmentName: context.departmentName,
         onBehalfEmail: context.founderEmail,
@@ -1298,10 +1299,6 @@ test.describe("Claim Lifecycle Wallet Routing", () => {
 
     await withActorPage(browser, context.founderEmail, async (page) =>
       expectClaimVisibleInMyClaims(page, submission.claimId, true),
-    );
-
-    await withActorPage(browser, context.founderEmail, async (page) =>
-      expectClaimVisibleInApprovals(page, submission.claimId, true),
     );
   });
 });

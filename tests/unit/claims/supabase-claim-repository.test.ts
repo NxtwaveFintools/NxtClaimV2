@@ -361,7 +361,12 @@ describe("SupabaseClaimRepository.updateClaimDetailsByFinance", () => {
       detailType: "expense" as const,
       detailId: "expense-detail-1",
       editReason: "Correcting expense detail data",
-      approvedAmount: 118,
+      paymentModeId: "11111111-1111-4111-8111-111111111111",
+      basicAmount: 100,
+      cgstAmount: 9,
+      sgstAmount: 9,
+      igstAmount: 0,
+      totalAmount: 118,
       ...overrides,
     };
   }
@@ -462,7 +467,7 @@ describe("SupabaseClaimRepository.getClaimsForFullExport", () => {
     jest.clearAllMocks();
   });
 
-  test("maps requested and approved amounts separately for expense and advance rows", async () => {
+  test("maps total amount for expense and advance rows", async () => {
     const idsBuilder = createQueryBuilder({
       data: [
         { claim_id: "claim-expense", created_at: "2026-03-24T10:00:00.000Z" },
@@ -516,8 +521,7 @@ describe("SupabaseClaimRepository.getClaimsForFullExport", () => {
             cgst_amount: "9",
             sgst_amount: "9",
             igst_amount: "0",
-            requested_total_amount: "118",
-            approved_amount: "110",
+            total_amount: "118",
             currency_code: "INR",
             vendor_name: "Vendor A",
             people_involved: "Alice",
@@ -560,8 +564,7 @@ describe("SupabaseClaimRepository.getClaimsForFullExport", () => {
           master_payment_modes: { id: "pm-2", name: "Petty Cash Request" },
           expense_details: null,
           advance_details: {
-            requested_total_amount: "500",
-            approved_amount: "450",
+            total_amount: "500",
             budget_month: 3,
             budget_year: 2026,
             expected_usage_date: "2026-03-29",
@@ -614,14 +617,12 @@ describe("SupabaseClaimRepository.getClaimsForFullExport", () => {
       expect.objectContaining({
         claimId: "claim-expense",
         detailType: "expense",
-        requestedTotalAmount: 118,
-        approvedAmount: 110,
+        totalAmount: 118,
       }),
       expect.objectContaining({
         claimId: "claim-advance",
         detailType: "advance",
-        requestedTotalAmount: 500,
-        approvedAmount: 450,
+        totalAmount: 500,
       }),
     ]);
   });

@@ -10,7 +10,11 @@ jest.mock("sonner", () => ({
 }));
 
 const departments = [{ id: "dep-1", name: "Operations" }];
-const paymentModes = [{ id: "mode-1", name: "Corporate Card" }];
+const paymentModes = [
+  { id: "mode-1", name: "Corporate Card" },
+  { id: "mode-2", name: "Reimbursement" },
+  { id: "mode-3", name: "Petty Cash Request" },
+];
 const expenseCategories = [{ id: "cat-1", name: "Travel" }];
 const products = [{ id: "prod-1", name: "NxtWave" }];
 const locations = [{ id: "loc-1", name: "Hyderabad" }];
@@ -48,8 +52,7 @@ function createExpenseClaim(input?: {
       cgstAmount: input?.cgstAmount ?? 9,
       sgstAmount: input?.sgstAmount ?? 9,
       igstAmount: input?.igstAmount ?? 0,
-      requestedTotalAmount: resolvedTotalAmount,
-      approvedAmount: resolvedTotalAmount,
+      totalAmount: resolvedTotalAmount,
       vendorName: "Vendor",
       purpose: "Client visit",
       productId: "prod-1",
@@ -57,6 +60,30 @@ function createExpenseClaim(input?: {
       remarks: null,
     },
     advance: null,
+  };
+}
+
+function createAdvanceClaim() {
+  return {
+    id: "CLAIM-2",
+    employeeName: "Jane Doe",
+    employeeEmail: "jane@example.com",
+    submissionType: "Self" as const,
+    onBehalfEmail: null,
+    onBehalfEmployeeCode: null,
+    detailType: "advance" as const,
+    departmentId: "dep-1",
+    paymentModeId: "mode-3",
+    expense: null,
+    advance: {
+      id: "advance-1",
+      purpose: "Conference advance",
+      totalAmount: 450,
+      expectedUsageDate: "2026-04-16",
+      productId: "prod-1",
+      locationId: "loc-1",
+      remarks: "Need upfront cash",
+    },
   };
 }
 
@@ -77,13 +104,16 @@ function renderForm(input?: { claim?: ReturnType<typeof createExpenseClaim> }) {
   );
 }
 
-function renderEmbeddedSheetForm(action: () => Promise<{ ok: boolean; error?: string }>) {
+function renderEmbeddedSheetForm(
+  action: () => Promise<{ ok: boolean; error?: string }>,
+  input?: { claim?: ReturnType<typeof createExpenseClaim> | ReturnType<typeof createAdvanceClaim> },
+) {
   return render(
     <Sheet defaultOpen>
       <SheetContent side="right" hideDefaultCloseButton>
         <FinanceEditClaimForm
           editFlow="finance"
-          claim={createExpenseClaim()}
+          claim={input?.claim ?? createExpenseClaim()}
           departments={departments}
           paymentModes={paymentModes}
           expenseCategories={expenseCategories}
@@ -99,7 +129,7 @@ function renderEmbeddedSheetForm(action: () => Promise<{ ok: boolean; error?: st
 }
 
 describe("FinanceEditClaimForm amount balancing", () => {
-  test("shows finance-editable metadata while keeping requested and base amounts locked", () => {
+  test("shows finance-editable metadata while keeping total and base amounts locked", () => {
     renderEmbeddedSheetForm(async () => ({ ok: true }));
 
     expect(screen.getByRole("textbox", { name: /bill no/i })).toHaveValue("BILL-1");
@@ -109,10 +139,39 @@ describe("FinanceEditClaimForm amount balancing", () => {
       "Chennai branch",
     );
     expect(screen.getByRole("textbox", { name: /purpose/i })).toHaveValue("Client visit");
-    expect(screen.getByRole("spinbutton", { name: /requested amount/i })).toBeDisabled();
+    expect(screen.getByRole("spinbutton", { name: /total amount/i })).toBeDisabled();
     expect(screen.getByRole("spinbutton", { name: /basic amount/i })).toBeDisabled();
     expect(screen.getByRole("spinbutton", { name: /cgst amount/i })).toBeDisabled();
-    expect(screen.getByRole("spinbutton", { name: /approved amount/i })).not.toBeDisabled();
+    expect(screen.queryByRole("spinbutton", { name: /approved amount/i })).not.toBeInTheDocument();
+  });
+
+  test("filters payment mode options to the claim detail type", () => {
+    renderEmbeddedSheetForm(async () => ({ ok: true }));
+
+    const paymentModeSelect = screen.getByRole("combobox", { name: /payment mode/i });
+    expect(paymentModeSelect).toHaveValue("mode-1");
+    expect(screen.getByRole("option", { name: /corporate card/i })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /reimbursement/i })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /petty cash request/i })).not.toBeInTheDocument();
+  });
+
+  test("shows finance attachment inputs for expense claims", () => {
+    renderEmbeddedSheetForm(async () => ({ ok: true }));
+
+    expect(screen.getByLabelText(/replace receipt file/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/replace bank statement file/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/replace supporting document/i)).not.toBeInTheDocument();
+  });
+
+  test("shows advance payment mode options and supporting document input", () => {
+    renderEmbeddedSheetForm(async () => ({ ok: true }), { claim: createAdvanceClaim() });
+
+    const paymentModeSelect = screen.getByRole("combobox", { name: /payment mode/i });
+    expect(paymentModeSelect).toHaveValue("mode-3");
+    expect(screen.getByRole("option", { name: /petty cash request/i })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /corporate card/i })).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/replace supporting document/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/replace bank statement file/i)).not.toBeInTheDocument();
   });
 
   test("recomputes total amount when basic or GST fields change", () => {
