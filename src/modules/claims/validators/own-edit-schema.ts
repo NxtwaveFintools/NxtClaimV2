@@ -45,6 +45,9 @@ const optionalBankStatementFileSchema = z
   .nullable()
   .optional();
 
+const toNullableNumber = (v: unknown) =>
+  v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v;
+
 const optionalTaxAmountSchema = z.preprocess(
   (value) => {
     if (value === "" || value === null || value === undefined) {
@@ -82,19 +85,16 @@ export const ownExpenseEditSchema = z
     remarks: normalizedNullableText,
     foreignCurrencyCode: z.enum(["INR", "USD", "EUR", "CHF"]).default("INR"),
     foreignBasicAmount: z.preprocess(
-      (v) =>
-        v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v,
-      z.number().min(0).nullable().optional(),
+      toNullableNumber,
+      z.number().min(0, "Foreign basic amount cannot be negative").nullable().optional(),
     ),
     foreignGstAmount: z.preprocess(
-      (v) =>
-        v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v,
-      z.number().min(0).nullable().optional(),
+      toNullableNumber,
+      z.number().min(0, "Foreign GST amount cannot be negative").nullable().optional(),
     ),
     foreignTotalAmount: z.preprocess(
-      (v) =>
-        v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v,
-      z.number().min(0).nullable().optional(),
+      toNullableNumber,
+      z.number().min(0, "Foreign total amount cannot be negative").nullable().optional(),
     ),
     receiptFile: optionalReceiptFileSchema,
     bankStatementFile: optionalBankStatementFileSchema,

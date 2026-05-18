@@ -37,6 +37,9 @@ const optionalTaxAmountSchema = z.preprocess(
   z.number().min(0, "Tax amount cannot be negative"),
 );
 
+const toNullableNumber = (v: unknown) =>
+  v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v;
+
 const aiOriginalValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 
 const aiMetadataSchema = z.object({
@@ -89,19 +92,16 @@ const expenseDetailSchema = z.object({
     currencyCode: z.string().trim().min(1).default("INR"),
     foreignCurrencyCode: z.enum(["INR", "USD", "EUR", "CHF"]).default("INR"),
     foreignBasicAmount: z.preprocess(
-      (v) =>
-        v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v,
-      z.number().min(0).nullable().optional(),
+      toNullableNumber,
+      z.number().min(0, "Foreign basic amount cannot be negative").nullable().optional(),
     ),
     foreignGstAmount: z.preprocess(
-      (v) =>
-        v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v,
-      z.number().min(0).nullable().optional(),
+      toNullableNumber,
+      z.number().min(0, "Foreign GST amount cannot be negative").nullable().optional(),
     ),
     foreignTotalAmount: z.preprocess(
-      (v) =>
-        v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v,
-      z.number().min(0).nullable().optional(),
+      toNullableNumber,
+      z.number().min(0, "Foreign total amount cannot be negative").nullable().optional(),
     ),
     vendorName: optionalTextToNA,
     receiptFileName: optionalTextToNA,
@@ -237,7 +237,6 @@ export const newClaimSubmitSchema = z
       }
 
       if (
-        value.detailType === "expense" &&
         value.expense?.foreignCurrencyCode !== "INR" &&
         value.expense?.foreignCurrencyCode != null
       ) {

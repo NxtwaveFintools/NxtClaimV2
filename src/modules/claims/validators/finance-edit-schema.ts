@@ -20,6 +20,9 @@ const normalizedNullableText = z.preprocess((value) => {
   return trimmed.length > 0 ? trimmed : null;
 }, z.string().nullable());
 
+const toNullableNumber = (v: unknown) =>
+  v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v;
+
 const locationTypeSchema = z.preprocess(
   (value) => (value === null || value === undefined || value === "" ? null : value),
   z.enum([LOCATION_TYPES.BASE, LOCATION_TYPES.OUT_STATION]).nullable(),
@@ -53,19 +56,16 @@ export const financeExpenseEditSchema = z
     totalAmount: z.number().min(0, "Total amount cannot be negative"),
     foreignCurrencyCode: z.enum(["INR", "USD", "EUR", "CHF"]).default("INR"),
     foreignBasicAmount: z.preprocess(
-      (v) =>
-        v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v,
-      z.number().min(0).nullable().optional(),
+      toNullableNumber,
+      z.number().min(0, "Foreign basic amount cannot be negative").nullable().optional(),
     ),
     foreignGstAmount: z.preprocess(
-      (v) =>
-        v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v,
-      z.number().min(0).nullable().optional(),
+      toNullableNumber,
+      z.number().min(0, "Foreign GST amount cannot be negative").nullable().optional(),
     ),
     foreignTotalAmount: z.preprocess(
-      (v) =>
-        v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v,
-      z.number().min(0).nullable().optional(),
+      toNullableNumber,
+      z.number().min(0, "Foreign total amount cannot be negative").nullable().optional(),
     ),
   })
   .superRefine((value, context) => {
