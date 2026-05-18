@@ -38,7 +38,7 @@ const validExpensePayload = {
     remarks: null,
   },
   advance: {
-    requestedTotalAmount: 500,
+    totalAmount: 500,
     budgetMonth: 3,
     budgetYear: 2026,
     expectedUsageDate: "2026-03-20",

@@ -695,7 +695,7 @@ async function submitPettyCashRequestWithContext(
     onBehalf: input.onBehalf,
   });
 
-  await page.locator("#requestedTotalAmount").fill(String(input.amount));
+  await page.locator("#totalAmount").fill(String(input.amount));
   await page.locator("#expectedUsageDate").fill("2026-04-10");
   await page.locator("#budgetMonth").selectOption("4");
   await page.locator("#budgetYear").selectOption("2026");

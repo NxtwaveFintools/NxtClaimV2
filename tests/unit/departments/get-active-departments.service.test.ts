@@ -68,7 +68,7 @@ describe("GetActiveDepartmentsService (seeded integration)", () => {
 
     const financeDepartment = result.departments.find((item) => item.name === "Finance");
     expect(financeDepartment).toBeDefined();
-    expect(financeDepartment?.approver1.email).toBe("akhilesh.jhawar@nxtwave.in");
+    expect(financeDepartment?.approver1.email).toBe("akhilesh.jhawar@nxtwave.co.in");
     expect(financeDepartment?.approver2.email).toBe("rahul@nxtwave.co.in");
   });
 

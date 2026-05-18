@@ -1,6 +1,33 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"D:\\\\nxtclaim\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(ls *)",
+      "Bash(find D:\\\\\\\\nxtclaim\\\\\\\\src *)",
+      "Bash(grep -r \"expenseCategories\\\\|Expense.*Category\" \"D:\\\\\\\\nxtclaim\\\\\\\\src\" --include=\"*.ts\" --include=\"*.tsx\")",
+      "Bash(find \"D:\\\\\\\\nxtclaim\\\\\\\\src\" -type f -name \"*action*\" -o -name \"*repository*\")",
+      "Bash(grep -r \"expense.*categor\" \"D:\\\\\\\\nxtclaim\\\\\\\\src\" --include=\"*.ts\" --include=\"*.tsx\" -i)",
+      "Bash(find \"D:\\\\\\\\nxtclaim\\\\\\\\supabase\" -type f -name \"*.sql\")",
+      "Bash(grep -A 50 \"master_expense_categories\" \"D:\\\\\\\\nxtclaim\\\\\\\\supabase\\\\\\\\migrations\\\\\\\\20260422073117_remote_schema.sql\")",
+      "Bash(grep *)",
+      "mcp__filesystem__list_directory",
+      "Bash(npx tsc *)",
+      "mcp__supabase__execute_sql",
+      "Bash(Get-ChildItem \"D:\\\\nxtclaim\\\\supabase\\\\migrations\\\\\" -File | Select-Object Name | Sort-Object Name *)",
+      "PowerShell($json = Get-Content \"C:\\\\Users\\\\DELL\\\\.claude\\\\projects\\\\D--nxtclaim\\\\627a9c30-14e6-4d5e-b7b6-91f52df206b7\\\\tool-results\\\\toolu_01SYWZHcieZPVnusCyDKxLA7.json\" -Raw | ConvertFrom-Json; $json | ForEach-Object { $_.routine_name })",
+      "PowerShell($raw = Get-Content \"C:\\\\Users\\\\DELL\\\\.claude\\\\projects\\\\D--nxtclaim\\\\627a9c30-14e6-4d5e-b7b6-91f52df206b7\\\\tool-results\\\\toolu_01SYWZHcieZPVnusCyDKxLA7.json\" -Raw; Write-Host $raw.Substring\\(0, 200\\))",
+      "PowerShell(ConvertFrom-Json *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\nxtclaim\\\\src\" -Recurse -Filter \"*.ts\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Select-String \"Repository\")"
+    ]
+  },
   "enabledMcpjsonServers": ["filesystem", "supabase"],
   "enabledPlugins": {
     "context-mode@context-mode": true
+  },
+  "permissions": {
+    "allow": ["mcp__plugin_context-mode_context-mode__ctx_execute"]
   }
 }

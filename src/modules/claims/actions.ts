@@ -41,6 +41,7 @@ import { newClaimSubmitSchema } from "@/modules/claims/validators/new-claim-sche
 import { financeEditSchema } from "@/modules/claims/validators/finance-edit-schema";
 import { ownEditSchema } from "@/modules/claims/validators/own-edit-schema";
 import { sanitizeDashboardReturnToPath } from "@/lib/pagination-helpers";
+import { BANK_STATEMENT_REQUIRED_CATEGORIES } from "@/core/constants/bank-statement-categories";
 import { z } from "zod";
 
 const repository = new SupabaseClaimRepository();
@@ -491,7 +492,7 @@ function extractSubmissionInput(input: unknown): {
       aiMetadata: getFormDataJsonObject(input, "expense.aiMetadata"),
     },
     advance: {
-      requestedTotalAmount: getFormDataNumber(input, "advance.requestedTotalAmount"),
+      totalAmount: getFormDataNumber(input, "advance.totalAmount"),
       budgetMonth: getFormDataNumber(input, "advance.budgetMonth"),
       budgetYear: getFormDataNumber(input, "advance.budgetYear"),
       expectedUsageDate: getFormDataNullableString(input, "advance.expectedUsageDate"),
@@ -772,10 +773,25 @@ export async function submitClaimAction(input: unknown): Promise<{
       };
     }
 
+    const submittedExpenseCategoryId = parseResult.data.expense?.expenseCategoryId;
+    if (submittedExpenseCategoryId) {
+      const categoriesResult = await repository.getActiveExpenseCategories();
+      const selectedCategory = categoriesResult.data.find(
+        (c) => c.id === submittedExpenseCategoryId,
+      );
+      if (
+        selectedCategory &&
+        BANK_STATEMENT_REQUIRED_CATEGORIES.has(selectedCategory.name) &&
+        !bankStatementFile
+      ) {
+        return { ok: false, message: "Please upload bank statement" };
+      }
+    }
+
     const duplicateTransactionResult = await repository.existsExpenseByCompositeKey({
       billNo: parseResult.data.expense.billNo,
       transactionDate: parseResult.data.expense.transactionDate,
-      requestedTotalAmount: computeExpenseTotalAmount({
+      totalAmount: computeExpenseTotalAmount({
         basicAmount: parseResult.data.expense.basicAmount,
         cgstAmount: parseResult.data.expense.cgstAmount,
         sgstAmount: parseResult.data.expense.sgstAmount,
@@ -871,7 +887,7 @@ export async function submitClaimAction(input: unknown): Promise<{
     advance:
       parseResult.data.detailType === "advance"
         ? {
-            requestedTotalAmount: parseResult.data.advance.requestedTotalAmount,
+            totalAmount: parseResult.data.advance.totalAmount,
             budgetMonth: parseResult.data.advance.budgetMonth,
             budgetYear: parseResult.data.advance.budgetYear,
             expectedUsageDate: parseResult.data.advance.expectedUsageDate ?? null,
@@ -1101,7 +1117,11 @@ function buildFinanceEditPayload(formData: FormData): unknown {
       remarks: getFormDataNullableString(formData, "remarks"),
       ...(receiptFilePath ? { receiptFilePath } : {}),
       ...(bankStatementFilePath ? { bankStatementFilePath } : {}),
-      approvedAmount: getFormDataNumber(formData, "approvedAmount"),
+      basicAmount: getFormDataNumber(formData, "basicAmount"),
+      cgstAmount: getFormDataNumber(formData, "cgstAmount"),
+      sgstAmount: getFormDataNumber(formData, "sgstAmount"),
+      igstAmount: getFormDataNumber(formData, "igstAmount"),
+      totalAmount: getFormDataNumber(formData, "totalAmount"),
     };
   }
 
@@ -1116,7 +1136,7 @@ function buildFinanceEditPayload(formData: FormData): unknown {
     locationId: getFormDataNullableString(formData, "locationId"),
     remarks: getFormDataNullableString(formData, "remarks"),
     ...(supportingDocumentPath ? { supportingDocumentPath } : {}),
-    approvedAmount: getFormDataNumber(formData, "approvedAmount"),
+    totalAmount: getFormDataNumber(formData, "totalAmount"),
   };
 }
 
@@ -1149,7 +1169,6 @@ function buildOwnEditPayload(formData: FormData): unknown {
       cgstAmount: getFormDataNumber(formData, "cgstAmount"),
       sgstAmount: getFormDataNumber(formData, "sgstAmount"),
       igstAmount: getFormDataNumber(formData, "igstAmount"),
-      totalAmount: getFormDataNumber(formData, "totalAmount"),
       purpose: getFormDataString(formData, "purpose"),
       productId,
       peopleInvolved: getFormDataNullableString(formData, "peopleInvolved"),
@@ -1163,7 +1182,6 @@ function buildOwnEditPayload(formData: FormData): unknown {
     detailType,
     detailId,
     purpose: getFormDataString(formData, "purpose"),
-    requestedTotalAmount: getFormDataNumber(formData, "requestedTotalAmount"),
     expectedUsageDate: getFormDataString(formData, "expectedUsageDate"),
     productId,
     locationId,
@@ -1436,7 +1454,11 @@ export async function updateClaimByFinanceAction(input: {
           ...(nextExpenseBankStatementPath
             ? { bankStatementFilePath: nextExpenseBankStatementPath }
             : {}),
-          approvedAmount: parseResult.data.approvedAmount,
+          basicAmount: parseResult.data.basicAmount,
+          cgstAmount: parseResult.data.cgstAmount,
+          sgstAmount: parseResult.data.sgstAmount,
+          igstAmount: parseResult.data.igstAmount,
+          totalAmount: parseResult.data.totalAmount,
         }
       : {
           detailType: "advance",
@@ -1449,7 +1471,7 @@ export async function updateClaimByFinanceAction(input: {
           locationId: parseResult.data.locationId,
           remarks: parseResult.data.remarks,
           ...(nextAdvanceDocumentPath ? { supportingDocumentPath: nextAdvanceDocumentPath } : {}),
-          approvedAmount: parseResult.data.approvedAmount,
+          totalAmount: parseResult.data.totalAmount,
         };
 
   try {
@@ -1689,8 +1711,7 @@ export async function updateOwnClaimAction(input: {
       cgstAmount: parseResult.data.cgstAmount,
       sgstAmount: parseResult.data.sgstAmount,
       igstAmount: parseResult.data.igstAmount,
-      requestedTotalAmount: computedExpenseAmount,
-      approvedAmount: computedExpenseAmount,
+      totalAmount: computedExpenseAmount,
       purpose: parseResult.data.purpose,
       productId: parseResult.data.productId,
       peopleInvolved: parseResult.data.peopleInvolved,
@@ -1703,8 +1724,7 @@ export async function updateOwnClaimAction(input: {
       detailType: "advance",
       detailId: parseResult.data.detailId,
       purpose: parseResult.data.purpose,
-      requestedTotalAmount: parseResult.data.requestedTotalAmount,
-      approvedAmount: parseResult.data.requestedTotalAmount,
+      totalAmount: claimSnapshotResult.data.advanceTotalAmount,
       expectedUsageDate: parseResult.data.expectedUsageDate,
       productId: parseResult.data.productId,
       locationId: parseResult.data.locationId,

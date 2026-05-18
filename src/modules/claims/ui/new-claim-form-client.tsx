@@ -27,6 +27,7 @@ import {
   NIAT_OFFLINE_LEAD_GEN_DEPARTMENT,
 } from "@/core/constants/location-types";
 import { AIDisclaimer } from "@/components/ui/ai-disclaimer";
+import { BANK_STATEMENT_REQUIRED_CATEGORIES } from "@/core/constants/bank-statement-categories";
 
 type NewClaimFormClientProps = {
   currentUser: CurrentUserHydration;
@@ -72,7 +73,7 @@ export type ClaimFormDraftValues = {
     remarks: string | null;
   };
   advance: {
-    requestedTotalAmount: number;
+    totalAmount: number;
     budgetMonth: number;
     budgetYear: number;
     expectedUsageDate: string | null;
@@ -349,6 +350,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   const router = useRouter();
   const [, startNavTransition] = useTransition();
   const [fileError, setFileError] = useState<string | null>(null);
+  const [bankStatementError, setBankStatementError] = useState<string | null>(null);
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [bankStatementFile, setBankStatementFile] = useState<File | null>(null);
   const [advanceSupportingFile, setAdvanceSupportingFile] = useState<File | null>(null);
@@ -399,7 +401,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
         remarks: null,
       },
       advance: {
-        requestedTotalAmount: 0,
+        totalAmount: 0,
         budgetMonth: new Date().getMonth() + 1,
         budgetYear: new Date().getFullYear(),
         expectedUsageDate: "",
@@ -427,10 +429,16 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   const detailType = useWatch({ control, name: "detailType" });
   const departmentId = useWatch({ control, name: "departmentId" });
   const locationType = useWatch({ control, name: "expense.locationType" });
+  const expenseCategoryId = useWatch({ control, name: "expense.expenseCategoryId" });
   const basicAmount = useWatch({ control, name: "expense.basicAmount" });
   const cgstAmount = useWatch({ control, name: "expense.cgstAmount" });
   const sgstAmount = useWatch({ control, name: "expense.sgstAmount" });
   const igstAmount = useWatch({ control, name: "expense.igstAmount" });
+
+  const isBankStatementRequired = useMemo(() => {
+    const category = options.expenseCategories.find((c) => c.id === expenseCategoryId);
+    return category ? BANK_STATEMENT_REQUIRED_CATEGORIES.has(category.name) : false;
+  }, [expenseCategoryId, options.expenseCategories]);
 
   const { hydrated, wasAutoFilled, clearDefaults } = useClaimFormAutofill(form, {
     departments: options.departments,
@@ -614,6 +622,13 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
         return;
       }
 
+      if (isBankStatementRequired && !bankStatementFile) {
+        setIsSubmitting(false);
+        setBankStatementError("Please upload bank statement");
+        toast.error("Please upload bank statement");
+        return;
+      }
+
       if (bankStatementFile) {
         const bankValidationError = validateUploadFile(bankStatementFile, "Bank statement file");
         if (bankValidationError) {
@@ -713,11 +728,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
         formData.append("bankStatementFile", bankStatementFile);
       }
     } else {
-      appendFormDataValue(
-        formData,
-        "advance.requestedTotalAmount",
-        values.advance.requestedTotalAmount,
-      );
+      appendFormDataValue(formData, "advance.totalAmount", values.advance.totalAmount);
       appendFormDataValue(formData, "advance.budgetMonth", values.advance.budgetMonth);
       appendFormDataValue(formData, "advance.budgetYear", values.advance.budgetYear);
       appendFormDataValue(formData, "advance.expectedUsageDate", values.advance.expectedUsageDate);
@@ -1335,7 +1346,12 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     htmlFor="bankStatementFile"
                     className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
                   >
-                    Bank Statement (Optional)
+                    Bank Statement{" "}
+                    {isBankStatementRequired ? (
+                      <span className="text-rose-600">*</span>
+                    ) : (
+                      <span className="text-zinc-400">(Optional)</span>
+                    )}
                   </label>
                   <input
                     id="bankStatementFile"
@@ -1346,6 +1362,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     onChange={(event) => {
                       const selectedFile = event.target.files?.[0] ?? null;
                       setBankStatementFile(selectedFile);
+                      setBankStatementError(null);
                       setValue(
                         "expense.bankStatementFileName",
                         selectedFile ? selectedFile.name : null,
@@ -1378,6 +1395,9 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     </span>
                   </p>
                   <p className="text-[10px] text-zinc-500">PDF, JPG, PNG, WEBP. Max: 25MB.</p>
+                  {bankStatementError ? (
+                    <p className="text-xs text-rose-600">{bankStatementError}</p>
+                  ) : null}
                 </div>
               </div>
 
@@ -1771,20 +1791,18 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="grid gap-1">
                   <label
-                    htmlFor="requestedTotalAmount"
+                    htmlFor="totalAmount"
                     className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
                   >
-                    Requested Amount (₹) <span className="text-rose-600">*</span>
+                    Total Amount (₹) <span className="text-rose-600">*</span>
                   </label>
                   <CurrencyInput
-                    id="requestedTotalAmount"
+                    id="totalAmount"
                     className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
-                    {...register("advance.requestedTotalAmount", { valueAsNumber: true })}
+                    {...register("advance.totalAmount", { valueAsNumber: true })}
                   />
-                  {errors.advance?.requestedTotalAmount ? (
-                    <p className="text-xs text-rose-600">
-                      {errors.advance.requestedTotalAmount.message}
-                    </p>
+                  {errors.advance?.totalAmount ? (
+                    <p className="text-xs text-rose-600">{errors.advance.totalAmount.message}</p>
                   ) : null}
                 </div>
 

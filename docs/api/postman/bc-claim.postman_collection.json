@@ -1,0 +1,97 @@
+{
+  "info": {
+    "_postman_id": "a53212cd-ed63-4478-9ed2-6f7fbca545bd",
+    "name": "bc-claim",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "20962451"
+  },
+  "item": [
+    {
+      "name": "Access Token",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "GET",
+        "header": [],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "grant_type",
+              "value": "client_credentials",
+              "type": "text"
+            },
+            {
+              "key": "scope",
+              "value": "https://api.businesscentral.dynamics.com/.default",
+              "type": "text"
+            },
+            {
+              "key": "client_id",
+              "value": "{{clientId}}",
+              "type": "text"
+            },
+            {
+              "key": "client_secret",
+              "value": "{{clientSecret}}",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "https://login.microsoftonline.com/{{tenantId}}/oauth2/v2.0/token",
+          "protocol": "https",
+          "host": ["login", "microsoftonline", "com"],
+          "path": ["{{tenantId}}", "oauth2", "v2.0", "token"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "bc-claim",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    // \"postingDate\": \"2026-01-13\",\r\n    // \"accountType\": \"Employee\",\r\n    // \"accountNo\": \"NW0000002\",\r\n    // \"claimAmount\": 2000,\r\n    // \"approvedAmount\": 2000,\r\n    // \"balAccountType\": \"G/L Account\",\r\n    // \"balAccountNo\": \"DIGITAL_AFFILIATE\",\r\n    // \"claimNo\": \"CLM_000001\",\r\n    // \"previousClaimNo\": \"\",\r\n    // \"remarks\": \"Approved Claim\",\r\n    // \"nwProductCode\": \"ADMISSION_FEE\",\r\n    // \"nwProgramCode\": \"INTENSIVE 3.0\",\r\n    // \"responsibleDepartment\":\"BRANDING\"\r\n\r\n  \"documentType\": \"Invoice\",\r\n  \"locationCode\": \"CHENNAI\",\r\n  \"currencyCode\": \"INR\",\r\n  \"vendorInvoiceNo\": \"INV-2026-001\",\r\n  \"documentDate\": \"2026-05-15\",\r\n  \"type\": \"G/L Account\",\r\n  \"quantity\": 1,\r\n  \"gstGroupCode\": \"GST18\",\r\n  \"gstCredit\": \"Availment\",\r\n  \"hsnSacCode\": \"998314\",\r\n  \"gstSubcategory\": \"SERVICES\",\r\n  \"employeeId\": \"EMP0001\",\r\n  \"employeeName\": \"Ajay Kaul\",\r\n  \"vendorCode\": \"V0001\",\r\n  \"vendorName\": \"Twilio Inc\",\r\n  \"glCode\": \"60100\",\r\n  \"employeeTransactionType\": \"Software Expense\",\r\n  \"remarks\": \"Twilio prepaid recharge for AI calling usage\",\r\n  \"claimNo\": \"CLM000145\",\r\n  \"programCode\": \"PRG001\",\r\n  \"subproductCode\": \"SUB001\",\r\n  \"responsibleDepartment\": \"FINANCE\",\r\n  \"beneficiaryDepartment\": \"OPERATIONS\",\r\n  \"regionCode\": \"SOUTH\",\r\n  \"invoiceRequired\": true,\r\n  \"paymentRequired\": true\r\n\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://api.businesscentral.dynamics.com/v2.0/{{environment}}/api/Alletec/Claim/v1.0/companies({{companyId}})/Claims",
+          "protocol": "https",
+          "host": ["api", "businesscentral", "dynamics", "com"],
+          "path": [
+            "v2.0",
+            "{{environment}}",
+            "api",
+            "Alletec",
+            "Claim",
+            "v1.0",
+            "companies({{companyId}})",
+            "Claims"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

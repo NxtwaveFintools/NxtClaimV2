@@ -14,8 +14,7 @@ const validExpensePayload = {
   cgstAmount: 45,
   sgstAmount: 45,
   igstAmount: 0,
-  requestedTotalAmount: 590,
-  approvedAmount: 590,
+  totalAmount: 590,
   purpose: "Updated purpose",
   productId: "prod-1",
   peopleInvolved: "Alice,Bob",
@@ -58,7 +57,7 @@ function createRepository(
 }
 
 describe("UpdateOwnClaimService", () => {
-  test("recomputes requested/approved expense totals from basic + taxes and ignores hacked client totals", async () => {
+  test("recomputes expense total from basic + taxes and ignores hacked client totals", async () => {
     const repository = createRepository();
     const service = new UpdateOwnClaimService({ repository, logger: createLogger() });
 
@@ -71,8 +70,7 @@ describe("UpdateOwnClaimService", () => {
         cgstAmount: 5,
         sgstAmount: 5,
         igstAmount: 0,
-        requestedTotalAmount: 50000,
-        approvedAmount: 50000,
+        totalAmount: 50000,
       },
     });
 
@@ -86,8 +84,7 @@ describe("UpdateOwnClaimService", () => {
         cgstAmount: 5,
         sgstAmount: 5,
         igstAmount: 0,
-        requestedTotalAmount: 110,
-        approvedAmount: 110,
+        totalAmount: 110,
       }),
     );
   });

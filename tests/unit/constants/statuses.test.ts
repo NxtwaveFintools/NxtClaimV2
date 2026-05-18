@@ -65,13 +65,17 @@ describe("claim statuses mapping", () => {
       "Payment Done - Closed",
     ]);
 
-    expect(DB_FINANCE_REJECTED_VISIBLE_STATUSES).toEqual(["Rejected - Resubmission Not Allowed"]);
+    expect(DB_FINANCE_REJECTED_VISIBLE_STATUSES).toEqual([
+      "Rejected - Resubmission Not Allowed",
+      "Rejected - Resubmission Allowed",
+    ]);
 
     expect(DB_FINANCE_VISIBLE_STATUSES).toEqual([
       "HOD approved - Awaiting finance approval",
       "Finance Approved - Payment under process",
       "Payment Done - Closed",
       "Rejected - Resubmission Not Allowed",
+      "Rejected - Resubmission Allowed",
     ]);
 
     expect(DB_FINANCE_ACTIONABLE_STATUSES).toEqual([
@@ -81,7 +85,6 @@ describe("claim statuses mapping", () => {
 
     expect(DB_FINANCE_EXCLUDED_QUEUE_AND_HISTORY_STATUSES).toEqual([
       "Submitted - Awaiting HOD approval",
-      "Rejected - Resubmission Allowed",
     ]);
   });
 });

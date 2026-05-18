@@ -4,6 +4,8 @@ import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ClaimDecisionSubmitButton } from "@/modules/claims/ui/claim-decision-submit-button";
+import { BcClaimModal } from "@/modules/claims/ui/bc-claim-modal";
+import { isExpensePaymentModeName } from "@/core/constants/payment-modes";
 
 type ClaimDecisionActionFormProps = {
   action: (formData: FormData) => Promise<void>;
@@ -14,6 +16,8 @@ type ClaimDecisionActionFormProps = {
   successMessage: string;
   errorMessage: string;
   redirectToHref?: string;
+  claimId?: string;
+  paymentModeName?: string | null;
 };
 
 export function ClaimDecisionActionForm({
@@ -25,11 +29,17 @@ export function ClaimDecisionActionForm({
   successMessage,
   errorMessage,
   redirectToHref,
+  claimId,
+  paymentModeName,
 }: ClaimDecisionActionFormProps) {
   const router = useRouter();
   const [isNavigating, startTransition] = useTransition();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bcModalOpen, setBcModalOpen] = useState(false);
   const isPending = isSubmitting || isNavigating;
+
+  const isExpenseModeApprove =
+    decision === "approve" && claimId !== undefined && isExpensePaymentModeName(paymentModeName);
 
   if (isSubmitter) {
     return null;
@@ -39,6 +49,11 @@ export function ClaimDecisionActionForm({
     event.preventDefault();
 
     if (isPending) {
+      return;
+    }
+
+    if (isExpenseModeApprove) {
+      setBcModalOpen(true);
       return;
     }
 
@@ -62,9 +77,29 @@ export function ClaimDecisionActionForm({
     }
   };
 
+  const handleBcSuccess = () => {
+    if (redirectToHref) {
+      startTransition(() => {
+        router.push(redirectToHref, { scroll: false });
+      });
+      return;
+    }
+    router.refresh();
+  };
+
   return (
-    <form onSubmit={handleSubmit}>
-      <ClaimDecisionSubmitButton decision={decision} compact={compact} pending={isPending} />
-    </form>
+    <>
+      <form onSubmit={handleSubmit}>
+        <ClaimDecisionSubmitButton decision={decision} compact={compact} pending={isPending} />
+      </form>
+      {isExpenseModeApprove && claimId ? (
+        <BcClaimModal
+          open={bcModalOpen}
+          onOpenChange={setBcModalOpen}
+          claimId={claimId}
+          onSuccess={handleBcSuccess}
+        />
+      ) : null}
+    </>
   );
 }
