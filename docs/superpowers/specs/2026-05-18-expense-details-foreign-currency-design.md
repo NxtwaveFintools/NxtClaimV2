@@ -1,7 +1,7 @@
 # Expense Details — Foreign Currency Support
 
 **Date:** 2026-05-18
-**Status:** Approved — ready to implement (DB-only scope)
+**Status:** DB phase implemented on 2026-05-18 (migration `20260518123552_expense_details_foreign_currency`, applied to NxtClaimTest project; 4336 historical rows backfilled). Code phase pending separate plan.
 **Scope:** Database schema change to `expense_details` to capture original-currency amounts alongside existing INR amounts. Additive only — no column renames. **This phase is DB-only:** schema + one-time backfill of existing rows. No application code changes, no RPC recreations. New claims created after this migration will have `foreign_*` columns at their default values (`0`, `0`, `'INR'`) until a future phase updates the write paths.
 
 ---
