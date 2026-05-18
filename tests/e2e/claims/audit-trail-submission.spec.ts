@@ -102,15 +102,14 @@ test.describe("Claim Audit Trail Submission + Finance Edit", () => {
     const client = getAdminSupabaseClient();
     const { data: amountRow, error: amountError } = await client
       .from("expense_details")
-      .select("requested_total_amount, approved_amount")
+      .select("total_amount")
       .eq("claim_id", submittedClaim.claimId)
       .eq("is_active", true)
       .limit(1)
       .maybeSingle();
 
     expect(amountError).toBeNull();
-    expect(Number(amountRow?.requested_total_amount)).toBe(expectedRequestedTotal);
-    expect(Number(amountRow?.approved_amount)).toBe(expectedRequestedTotal);
+    expect(Number(amountRow?.total_amount)).toBe(expectedRequestedTotal);
 
     await setClaimToFinancePending(submittedClaim.claimId, runtime.financeApproverId);
 

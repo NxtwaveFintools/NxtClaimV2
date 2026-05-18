@@ -17,7 +17,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../../../compone
 import { ROUTES } from "@/core/config/route-registry";
 import {
   DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
-  DB_CLAIM_STATUSES,
   DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
   DB_REJECTED_STATUSES,
   DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
@@ -40,6 +39,7 @@ import { ClaimDecisionActionForm } from "@/modules/claims/ui/claim-decision-acti
 import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
 import { ClaimAuditTimeline } from "@/modules/claims/ui/claim-audit-timeline";
 import { CopyableDataCard as DataCard } from "../../../../../modules/claims/ui/copyable-data-card";
+import { AiAuditCaption } from "@/components/ui/ai-audit-caption";
 import { DeleteClaimButton } from "@/modules/claims/ui/delete-claim-button";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
@@ -136,14 +136,6 @@ function formatOptionalText(value: string | null | undefined, fallback = "N/A"):
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : fallback;
-}
-
-function amountsDiffer(left: number | null | undefined, right: number | null | undefined): boolean {
-  if (left === null || left === undefined || right === null || right === undefined) {
-    return false;
-  }
-
-  return Math.abs(left - right) >= 0.01;
 }
 
 function isPdf(path: string): boolean {
@@ -361,21 +353,20 @@ async function FinanceEditClaimSection({
                     cgstAmount: claim.expense.cgstAmount,
                     sgstAmount: claim.expense.sgstAmount,
                     igstAmount: claim.expense.igstAmount,
-                    requestedTotalAmount: claim.expense.requestedTotalAmount,
-                    approvedAmount: claim.expense.approvedAmount,
+                    totalAmount: claim.expense.totalAmount,
                     vendorName: claim.expense.vendorName,
                     purpose: claim.expense.purpose,
                     productId: claim.expense.productId,
                     peopleInvolved: claim.expense.peopleInvolved,
                     remarks: claim.expense.remarks,
+                    aiMetadata: claim.expense.aiMetadata,
                   }
                 : null,
               advance: claim.advance
                 ? {
                     id: claim.advance.id,
                     purpose: claim.advance.purpose,
-                    requestedTotalAmount: claim.advance.requestedTotalAmount,
-                    approvedAmount: claim.advance.approvedAmount,
+                    totalAmount: claim.advance.totalAmount,
                     expectedUsageDate: claim.advance.expectedUsageDate,
                     productId: claim.advance.productId,
                     locationId: claim.advance.locationId,
@@ -608,7 +599,7 @@ async function ClaimDetailCore({
   const isAssignedL2Approver = currentUserId === claim.assignedL2ApproverId;
   const isDepartmentViewerForClaim =
     claim.departmentId != null && viewerDeptIds.includes(claim.departmentId);
-  const canViewAsFinance = isFinanceActor && claim.status !== DB_CLAIM_STATUSES[0];
+  const canViewAsFinance = isFinanceActor;
   const canView =
     currentUserId === claim.submittedBy ||
     currentUserId === claim.onBehalfOfId ||
@@ -658,17 +649,6 @@ async function ClaimDetailCore({
   const showBottomActionBar = canTakeDecision || canEditClaim;
   const canDeleteClaim =
     currentUserId === claim.submittedBy && isSubmitterDeletableClaimStatus(claim.status);
-
-  console.log(
-    "UI Auth Check -> Current User:",
-    currentUserId,
-    " | Submitter:",
-    claim.submittedBy,
-    " | Beneficiary:",
-    claim.onBehalfOfId,
-    " | Is Beneficiary:",
-    isBeneficiary,
-  );
 
   const approveFromDetail = async () => {
     "use server";
@@ -759,15 +739,8 @@ async function ClaimDetailCore({
 
     return formatCurrency(value);
   };
-  const requestedTotalAmountValue =
-    claim.expense?.requestedTotalAmount ?? claim.advance?.requestedTotalAmount ?? null;
-  const approvedAmountValue =
-    claim.expense?.approvedAmount ?? claim.advance?.approvedAmount ?? requestedTotalAmountValue;
-  const hasAmountVariance = amountsDiffer(requestedTotalAmountValue, approvedAmountValue);
-  const amountAdjustmentValue =
-    requestedTotalAmountValue !== null && approvedAmountValue !== null
-      ? requestedTotalAmountValue - approvedAmountValue
-      : null;
+  const totalAmountValue = claim.expense?.totalAmount ?? claim.advance?.totalAmount ?? null;
+  const aiMetadata = canViewAsFinance ? (claim.expense?.aiMetadata ?? null) : null;
   const heroCategoryValue = claim.expense
     ? formatOptionalText(claim.expense.expenseCategoryName)
     : "N/A";
@@ -821,21 +794,10 @@ async function ClaimDetailCore({
           <section className="bg-primary/5 border border-primary/20 rounded-xl p-6 mb-8 flex flex-col gap-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="min-w-0 md:flex-1">
-                <p className="text-[10px] uppercase text-muted-foreground">Approved Amount</p>
+                <p className="text-[10px] uppercase text-muted-foreground">Total Amount</p>
                 <p className="max-w-full break-words text-3xl font-black leading-none tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-                  {formatAmountValue(approvedAmountValue)}
+                  {formatAmountValue(totalAmountValue)}
                 </p>
-                {hasAmountVariance ? (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Requested{" "}
-                    <span className="line-through">
-                      {formatAmountValue(requestedTotalAmountValue)}
-                    </span>
-                    {amountAdjustmentValue !== null
-                      ? ` · Adjustment ${formatAmountValue(amountAdjustmentValue)}`
-                      : ""}
-                  </p>
-                ) : null}
               </div>
 
               <div className="min-w-0 md:max-w-[18rem] md:flex-none">
@@ -878,19 +840,24 @@ async function ClaimDetailCore({
                   <div className={microGridClassName}>
                     {claim.expense ? (
                       <>
-                        <DataCard
-                          label="Bill No"
-                          value={formatOptionalText(claim.expense.billNo, "-")}
-                          className="col-span-2 2xl:col-span-2"
-                        />
+                        <div className="col-span-2 2xl:col-span-2 flex flex-col gap-1">
+                          <DataCard
+                            label="Bill No"
+                            value={formatOptionalText(claim.expense.billNo, "-")}
+                          />
+                          <AiAuditCaption aiMetadata={aiMetadata} fieldKey="bill_no" />
+                        </div>
                         <DataCard
                           label="Product"
                           value={formatOptionalText(claim.expense.productName)}
                         />
-                        <DataCard
-                          label="Transaction Date"
-                          value={formatDate(claim.expense.transactionDate)}
-                        />
+                        <div className="flex flex-col gap-1">
+                          <DataCard
+                            label="Transaction Date"
+                            value={formatDate(claim.expense.transactionDate)}
+                          />
+                          <AiAuditCaption aiMetadata={aiMetadata} fieldKey="transaction_date" />
+                        </div>
                         <DataCard
                           label="Location"
                           value={formatOptionalText(claim.expense.locationName)}
@@ -908,10 +875,13 @@ async function ClaimDetailCore({
                             className="col-span-2 2xl:col-span-3"
                           />
                         ) : null}
-                        <DataCard
-                          label="Vendor"
-                          value={formatOptionalText(claim.expense.vendorName)}
-                        />
+                        <div className="flex flex-col gap-1">
+                          <DataCard
+                            label="Vendor"
+                            value={formatOptionalText(claim.expense.vendorName)}
+                          />
+                          <AiAuditCaption aiMetadata={aiMetadata} fieldKey="vendor_name" />
+                        </div>
                         {claim.expense.remarks ? (
                           <DataCard
                             label="Remarks"
@@ -1010,71 +980,52 @@ async function ClaimDetailCore({
                   <div className={microGridClassName}>
                     {claim.expense ? (
                       <>
+                        <div className="flex flex-col gap-1">
+                          <DataCard
+                            label="Basic Amount"
+                            value={formatAmountValue(claim.expense.basicAmount)}
+                          />
+                          <AiAuditCaption aiMetadata={aiMetadata} fieldKey="basic_amount" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <DataCard
+                            label="CGST Amount"
+                            value={formatAmountValue(claim.expense.cgstAmount)}
+                          />
+                          <AiAuditCaption aiMetadata={aiMetadata} fieldKey="cgst_amount" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <DataCard
+                            label="SGST Amount"
+                            value={formatAmountValue(claim.expense.sgstAmount)}
+                          />
+                          <AiAuditCaption aiMetadata={aiMetadata} fieldKey="sgst_amount" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <DataCard
+                            label="IGST Amount"
+                            value={formatAmountValue(claim.expense.igstAmount)}
+                          />
+                          <AiAuditCaption aiMetadata={aiMetadata} fieldKey="igst_amount" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <DataCard
+                            label="GST Number"
+                            value={formatOptionalText(claim.expense.gstNumber)}
+                          />
+                          <AiAuditCaption aiMetadata={aiMetadata} fieldKey="gst_number" />
+                        </div>
                         <DataCard
-                          label="Basic Amount"
-                          value={formatAmountValue(claim.expense.basicAmount)}
+                          label="Total Amount"
+                          value={formatAmountValue(claim.expense.totalAmount)}
                         />
-                        <DataCard
-                          label="CGST Amount"
-                          value={formatAmountValue(claim.expense.cgstAmount)}
-                        />
-                        <DataCard
-                          label="SGST Amount"
-                          value={formatAmountValue(claim.expense.sgstAmount)}
-                        />
-                        <DataCard
-                          label="IGST Amount"
-                          value={formatAmountValue(claim.expense.igstAmount)}
-                        />
-                        <DataCard
-                          label="GST Applicable"
-                          value={
-                            claim.expense.isGstApplicable === null
-                              ? "N/A"
-                              : claim.expense.isGstApplicable
-                                ? "Yes"
-                                : "No"
-                          }
-                        />
-                        <DataCard
-                          label="GST Number"
-                          value={formatOptionalText(claim.expense.gstNumber)}
-                        />
-                        <DataCard
-                          label="Approved Amount"
-                          value={formatAmountValue(claim.expense.approvedAmount)}
-                        />
-                        {hasAmountVariance ? (
-                          <>
-                            <DataCard
-                              label="Requested Amount"
-                              value={formatAmountValue(claim.expense.requestedTotalAmount)}
-                            />
-                            <DataCard
-                              label="Adjustment"
-                              value={formatAmountValue(amountAdjustmentValue)}
-                            />
-                          </>
-                        ) : null}
                       </>
                     ) : claim.advance ? (
                       <>
                         <DataCard
-                          label="Approved Amount"
-                          value={formatAmountValue(claim.advance.approvedAmount)}
+                          label="Total Amount"
+                          value={formatAmountValue(claim.advance.totalAmount)}
                         />
-                        {hasAmountVariance ? (
-                          <>
-                            <DataCard
-                              label="Requested Amount"
-                              value={formatAmountValue(claim.advance.requestedTotalAmount)}
-                            />
-                            <DataCard
-                              label="Adjustment"
-                              value={formatAmountValue(amountAdjustmentValue)}
-                            />
-                          </>
-                        ) : null}
                       </>
                     ) : (
                       <DataCard label="Amount" value="N/A" />

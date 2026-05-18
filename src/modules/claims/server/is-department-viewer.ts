@@ -126,11 +126,6 @@ async function queryDepartmentViewerMembershipFromDatabase(userId: string): Prom
   }
 
   const result = (count ?? 0) > 0;
-  logger.debug("department_viewer.is_department_viewer.check_complete", {
-    userId,
-    count,
-    result,
-  });
   return result;
 }
 

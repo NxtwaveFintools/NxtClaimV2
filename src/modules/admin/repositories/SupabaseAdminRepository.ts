@@ -228,20 +228,20 @@ function pickClaimAmount(input: {
 
   const activeExpense = expenseRows.find((row) => row.is_active === true);
   if (activeExpense) {
-    return normalizeAmount(activeExpense.approved_amount ?? activeExpense.requested_total_amount);
+    return normalizeAmount(activeExpense.total_amount);
   }
 
   const activeAdvance = advanceRows.find((row) => row.is_active === true);
   if (activeAdvance) {
-    return normalizeAmount(activeAdvance.approved_amount ?? activeAdvance.requested_total_amount);
+    return normalizeAmount(activeAdvance.total_amount);
   }
 
   if (expenseRows[0]) {
-    return normalizeAmount(expenseRows[0].approved_amount ?? expenseRows[0].requested_total_amount);
+    return normalizeAmount(expenseRows[0].total_amount);
   }
 
   if (advanceRows[0]) {
-    return normalizeAmount(advanceRows[0].approved_amount ?? advanceRows[0].requested_total_amount);
+    return normalizeAmount(advanceRows[0].total_amount);
   }
 
   return 0;
@@ -335,14 +335,12 @@ type DepartmentInsertRow = {
 };
 
 type ClaimOverrideExpenseRow = {
-  requested_total_amount: number | string | null;
-  approved_amount: number | string | null;
+  total_amount: number | string | null;
   is_active: boolean | null;
 };
 
 type ClaimOverrideAdvanceRow = {
-  requested_total_amount: number | string | null;
-  approved_amount: number | string | null;
+  total_amount: number | string | null;
   is_active: boolean | null;
 };
 
@@ -645,7 +643,7 @@ export class SupabaseAdminRepository implements AdminRepository {
       const { data, error } = await this.client
         .from("claims")
         .select(
-          "id, status, is_active, assigned_l2_approver_id, hod_action_at, finance_action_at, rejection_reason, is_resubmission_allowed, submitter_user:users!claims_submitted_by_fkey(full_name, email), master_departments(name), expense_details(requested_total_amount, approved_amount, is_active), advance_details(requested_total_amount, approved_amount, is_active)",
+          "id, status, is_active, assigned_l2_approver_id, hod_action_at, finance_action_at, rejection_reason, is_resubmission_allowed, submitter_user:users!claims_submitted_by_fkey(full_name, email), master_departments(name), expense_details(total_amount, is_active), advance_details(total_amount, is_active)",
         )
         .eq("id", candidate)
         .maybeSingle();

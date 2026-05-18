@@ -32,7 +32,7 @@ test.describe("Petty Cash Request EA Flow", () => {
         departmentName: runtime.submitterDepartmentName,
         paymentModeName: runtime.pettyCashRequestPaymentModeName,
         employeeId: `EA-EMP-${RUN_TAG}`,
-        requestedTotalAmount: 720,
+        totalAmount: 720,
         purpose,
         expectedUsageDate,
         budgetMonth: "3",
