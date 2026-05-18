@@ -2145,10 +2145,10 @@ export class SupabaseClaimRepository implements ClaimRepository {
           remarks: payload.remarks,
           receipt_file_path: payload.receiptFilePath,
           bank_statement_file_path: payload.bankStatementFilePath,
-          foreign_currency_code: payload.foreignCurrencyCode ?? null,
-          foreign_basic_amount: payload.foreignBasicAmount ?? null,
-          foreign_gst_amount: payload.foreignGstAmount ?? null,
-          foreign_total_amount: payload.foreignTotalAmount ?? null,
+          foreign_currency_code: payload.foreignCurrencyCode ?? "INR",
+          foreign_basic_amount: payload.foreignBasicAmount ?? 0,
+          foreign_gst_amount: payload.foreignGstAmount ?? 0,
+          // foreign_total_amount is a GENERATED STORED column — do not write it
           updated_at: new Date().toISOString(),
         })
         .eq("id", payload.detailId)
@@ -2690,10 +2690,10 @@ export class SupabaseClaimRepository implements ClaimRepository {
         people_involved: prepared.expense.peopleInvolved,
         remarks: prepared.expense.remarks,
         ai_metadata: prepared.expense.aiMetadata ?? {},
-        foreign_currency_code: prepared.expense.foreignCurrencyCode ?? null,
-        foreign_basic_amount: prepared.expense.foreignBasicAmount ?? null,
-        foreign_gst_amount: prepared.expense.foreignGstAmount ?? null,
-        foreign_total_amount: prepared.expense.foreignTotalAmount ?? null,
+        foreign_currency_code: prepared.expense.foreignCurrencyCode ?? "INR",
+        foreign_basic_amount: prepared.expense.foreignBasicAmount ?? 0,
+        foreign_gst_amount: prepared.expense.foreignGstAmount ?? 0,
+        // foreign_total_amount is a GENERATED STORED column — do not write it
       })
       .select("id")
       .single();
