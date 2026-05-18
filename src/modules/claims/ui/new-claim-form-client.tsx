@@ -62,6 +62,10 @@ export type ClaimFormDraftValues = {
     basicAmount: number;
     totalAmount: number;
     currencyCode: string;
+    foreignCurrencyCode: "INR" | "USD" | "EUR" | "CHF";
+    foreignBasicAmount: number | null;
+    foreignGstAmount: number | null;
+    foreignTotalAmount: number | null;
     vendorName: string | null;
     receiptFileName: string;
     receiptFileType: string;
@@ -132,6 +136,15 @@ function toNumber(val: unknown): number {
 
 function toNumberOrZero(value: unknown): number {
   return toNumber(value);
+}
+
+function clientToNullableNumber(value: unknown): number | null {
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+
+  const n = typeof value === "string" ? Number(value) : Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
 function toNullableString(value: unknown): string | null {
@@ -264,6 +277,10 @@ type AiExpenseSnapshot = {
   sgst_amount: number;
   igst_amount: number;
   total_amount: number;
+  foreign_currency_code: string | null;
+  foreign_basic_amount: number | null;
+  foreign_gst_amount: number | null;
+  foreign_total_amount: number | null;
 };
 
 function normalizeOptionalText(value: string | null | undefined): string | null {
@@ -313,6 +330,10 @@ function buildExpenseAiMetadata(
     { key: "sgst_amount", currentValue: expense.sgstAmount },
     { key: "igst_amount", currentValue: expense.igstAmount },
     { key: "total_amount", currentValue: currentTotalAmount },
+    { key: "foreign_currency_code", currentValue: expense.foreignCurrencyCode },
+    { key: "foreign_basic_amount", currentValue: expense.foreignBasicAmount },
+    { key: "foreign_gst_amount", currentValue: expense.foreignGstAmount },
+    { key: "foreign_total_amount", currentValue: expense.foreignTotalAmount },
   ];
 
   for (const comparison of comparisons) {
@@ -390,6 +411,10 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
         basicAmount: 0,
         totalAmount: 0,
         currencyCode: "INR",
+        foreignCurrencyCode: "INR",
+        foreignBasicAmount: null,
+        foreignGstAmount: null,
+        foreignTotalAmount: null,
         vendorName: null,
         receiptFileName: "",
         receiptFileType: "",
@@ -434,6 +459,8 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   const cgstAmount = useWatch({ control, name: "expense.cgstAmount" });
   const sgstAmount = useWatch({ control, name: "expense.sgstAmount" });
   const igstAmount = useWatch({ control, name: "expense.igstAmount" });
+  const watchedForeignBasic = useWatch({ control, name: "expense.foreignBasicAmount" });
+  const watchedForeignGst = useWatch({ control, name: "expense.foreignGstAmount" });
 
   const isBankStatementRequired = useMemo(() => {
     const category = options.expenseCategories.find((c) => c.id === expenseCategoryId);
@@ -469,12 +496,21 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     });
   }, [basicAmount, cgstAmount, igstAmount, setValue, sgstAmount]);
 
+  useEffect(() => {
+    const basic = Number(watchedForeignBasic) || 0;
+    const gst = Number(watchedForeignGst) || 0;
+    setValue("expense.foreignTotalAmount", basic + gst, { shouldValidate: false });
+  }, [watchedForeignBasic, watchedForeignGst, setValue]);
+
   const calculatedTotalAmount = calculateExpenseTotal(
     basicAmount,
     cgstAmount,
     sgstAmount,
     igstAmount,
   );
+
+  const calculatedForeignTotalAmount =
+    (Number(watchedForeignBasic) || 0) + (Number(watchedForeignGst) || 0);
 
   const selectedDepartment = useMemo(
     () => options.departmentRouting.find((department) => department.id === departmentId) ?? null,
@@ -706,6 +742,22 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       appendFormDataValue(formData, "expense.transactionDate", values.expense.transactionDate);
       appendFormDataValue(formData, "expense.basicAmount", values.expense.basicAmount);
       appendFormDataValue(formData, "expense.currencyCode", values.expense.currencyCode);
+      appendFormDataValue(
+        formData,
+        "expense.foreignCurrencyCode",
+        values.expense.foreignCurrencyCode,
+      );
+      appendFormDataValue(
+        formData,
+        "expense.foreignBasicAmount",
+        values.expense.foreignBasicAmount,
+      );
+      appendFormDataValue(formData, "expense.foreignGstAmount", values.expense.foreignGstAmount);
+      appendFormDataValue(
+        formData,
+        "expense.foreignTotalAmount",
+        values.expense.foreignTotalAmount,
+      );
       appendFormDataValue(formData, "expense.vendorName", values.expense.vendorName);
       appendFormDataValue(formData, "expense.peopleInvolved", values.expense.peopleInvolved);
       appendFormDataValue(formData, "expense.remarks", values.expense.remarks);
@@ -826,6 +878,25 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       options.expenseCategories,
     );
 
+    const foreignCurrencyCode = toNullableString(parsed.foreignCurrencyCode) as
+      | "INR"
+      | "USD"
+      | "EUR"
+      | "CHF"
+      | null;
+    const foreignBasicAmount =
+      parsed.foreignBasicAmount !== null && parsed.foreignBasicAmount !== undefined
+        ? toNumber(parsed.foreignBasicAmount)
+        : null;
+    const foreignGstAmount =
+      parsed.foreignGstAmount !== null && parsed.foreignGstAmount !== undefined
+        ? toNumber(parsed.foreignGstAmount)
+        : null;
+    const foreignTotalAmount =
+      parsed.foreignTotalAmount !== null && parsed.foreignTotalAmount !== undefined
+        ? toNumber(parsed.foreignTotalAmount)
+        : null;
+
     originalAiExpenseSnapshotRef.current = {
       bill_no: normalizeOptionalText(billNo),
       transaction_date: normalizeOptionalText(transactionDate),
@@ -837,6 +908,10 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       sgst_amount: sgstAmount,
       igst_amount: igstAmount,
       total_amount: normalizedTotalAmount,
+      foreign_currency_code: foreignCurrencyCode,
+      foreign_basic_amount: foreignBasicAmount,
+      foreign_gst_amount: foreignGstAmount,
+      foreign_total_amount: foreignTotalAmount,
     };
 
     setValue("expense.billNo", billNo, {
@@ -889,6 +964,25 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       shouldTouch: true,
       shouldValidate: true,
     });
+
+    if (foreignCurrencyCode && foreignCurrencyCode !== "INR") {
+      setValue("expense.foreignCurrencyCode", foreignCurrencyCode, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+      setValue("expense.foreignBasicAmount", foreignBasicAmount ?? null, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+      setValue("expense.foreignGstAmount", foreignGstAmount ?? null, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+      // foreignTotalAmount is derived via useEffect
+    }
   };
 
   const runReceiptExtraction = async (
@@ -900,6 +994,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     try {
       const formData = new FormData();
       formData.append("receiptFile", receiptFile);
+      formData.append("documentType", "invoice");
       for (const category of options.expenseCategories) {
         formData.append("expenseCategoryNames", category.name);
       }
@@ -1696,6 +1791,88 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     {errors.expense?.totalAmount ? (
                       <p className="text-xs text-rose-600">{errors.expense.totalAmount.message}</p>
                     ) : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-3 rounded-xl border border-zinc-200/80 bg-zinc-100/30 p-3 dark:border-zinc-700 dark:bg-zinc-800/20">
+                <p className="text-[11px] font-medium tracking-wide text-zinc-500 dark:text-zinc-400">
+                  Foreign Expense Details
+                </p>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor="foreignCurrencyCode"
+                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    >
+                      Foreign Currency
+                    </label>
+                    <FormSelect
+                      id="foreignCurrencyCode"
+                      className="h-9 w-full rounded-lg border border-zinc-300 px-3 text-sm"
+                      {...register("expense.foreignCurrencyCode")}
+                    >
+                      <option value="INR">INR</option>
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                      <option value="CHF">CHF</option>
+                    </FormSelect>
+                  </div>
+
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor="foreignBasicAmount"
+                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    >
+                      Foreign Basic Amount
+                    </label>
+                    <CurrencyInput
+                      id="foreignBasicAmount"
+                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                      {...register("expense.foreignBasicAmount", {
+                        setValueAs: clientToNullableNumber,
+                      })}
+                    />
+                    {errors.expense?.foreignBasicAmount ? (
+                      <p className="text-xs text-rose-600">
+                        {errors.expense.foreignBasicAmount.message}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor="foreignGstAmount"
+                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    >
+                      Foreign GST Amount
+                    </label>
+                    <CurrencyInput
+                      id="foreignGstAmount"
+                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                      {...register("expense.foreignGstAmount", {
+                        setValueAs: clientToNullableNumber,
+                      })}
+                    />
+                  </div>
+
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor="foreignTotalAmount"
+                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    >
+                      Foreign Total Amount
+                    </label>
+                    <CurrencyInput
+                      id="foreignTotalAmount"
+                      readOnly
+                      disabled
+                      className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
+                      value={calculatedForeignTotalAmount.toFixed(2)}
+                    />
                   </div>
                 </div>
               </div>
