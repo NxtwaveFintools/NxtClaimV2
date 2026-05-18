@@ -76,6 +76,10 @@ const geminiParseResultSchema = z.object({
   totalAmount: looseNumber.optional(),
   category_name: looseNullableString,
   confidenceScore: looseNumber,
+  foreign_currency_code: z.enum(["INR", "USD", "EUR", "CHF"]).nullable().optional(),
+  foreign_basic_amount: looseNumber.optional(),
+  foreign_gst_amount: looseNumber.optional(),
+  foreign_total_amount: looseNumber.optional(),
 });
 
 function sanitizeCategoryName(value: unknown): string | null {
@@ -110,7 +114,7 @@ function extractAllowedCategoryNames(input: FormData): string[] {
   return uniqueNames;
 }
 
-function buildGeminiSystemInstruction(allowedCategoryNames: string[]): string {
+function buildInvoiceSystemInstruction(allowedCategoryNames: string[]): string {
   const categoryInstructionBlock =
     allowedCategoryNames.length > 0
       ? `ALLOWED EXPENSE CATEGORY NAMES (EXACT VALUES ONLY):\n${allowedCategoryNames.map((name) => `- ${name}`).join("\n")}`
@@ -245,7 +249,11 @@ SCHEMA:
   "igst_amount": number,
   "totalAmount": number,
   "category_name": string | null,
-  "confidenceScore": number
+  "confidenceScore": number,
+  "foreign_currency_code": "INR" | "USD" | "EUR" | "CHF" | null,
+  "foreign_basic_amount": number,
+  "foreign_gst_amount": number,
+  "foreign_total_amount": number
 }
 
 ---
@@ -318,8 +326,40 @@ Example 4 — Ride app receipt with Bill ID and Ride ID:
     "igst_amount": 0,
     "totalAmount": 512,
     "category_name": null,
-    "confidenceScore": 90
+    "confidenceScore": 90,
+    "foreign_currency_code": null,
+    "foreign_basic_amount": 0,
+    "foreign_gst_amount": 0,
+    "foreign_total_amount": 0
   }
+
+---
+
+RULE 8 — FOREIGN CURRENCY INVOICES:
+
+If the invoice currency is NOT Indian Rupees (INR):
+- Set foreign_currency_code to one of: INR, USD, EUR, CHF. Snap strictly to this enum — do not invent values.
+  - US Dollar / $ → USD
+  - Euro / € → EUR
+  - Swiss Franc / CHF / Fr. → CHF
+  - If currency is unrecognised or cannot be mapped → null
+- Set foreign_basic_amount = invoice base cost in the foreign currency
+- Set foreign_gst_amount = tax amount in the foreign currency (0 if none)
+- Set foreign_total_amount = foreign_basic_amount + foreign_gst_amount
+- Set local basicAmount, cgst_amount, sgst_amount, igst_amount to 0
+- Set local totalAmount to 0
+
+If the invoice IS in INR, set foreign_currency_code = null, all foreign amounts = 0, and populate local fields normally.
+`;
+}
+
+function buildBankStatementSystemInstruction(): string {
+  return `
+You are parsing a bank statement to find a settled payment deduction.
+Find the debit/deduction amount in INR for the relevant transaction.
+Return ONLY the settled INR deduction as basicAmount. Set all other fields to 0 or null.
+Set foreign_currency_code to null, foreign_basic_amount to 0, foreign_gst_amount to 0, foreign_total_amount to 0.
+Return the result in the exact JSON format specified.
 `;
 }
 
@@ -335,6 +375,10 @@ export type ParsedReceiptResult = {
   totalAmount: number;
   category_name: string | null;
   confidenceScore: number;
+  foreignCurrencyCode: "INR" | "USD" | "EUR" | "CHF" | null;
+  foreignBasicAmount: number;
+  foreignGstAmount: number;
+  foreignTotalAmount: number;
 };
 
 export type ParseReceiptActionResult = {
@@ -357,6 +401,10 @@ function toParsedReceiptResult(data: ParsedReceiptResult): ParsedReceiptResult {
     totalAmount: data.totalAmount,
     category_name: data.category_name,
     confidenceScore: data.confidenceScore,
+    foreignCurrencyCode: data.foreignCurrencyCode,
+    foreignBasicAmount: data.foreignBasicAmount,
+    foreignGstAmount: data.foreignGstAmount,
+    foreignTotalAmount: data.foreignTotalAmount,
   };
 }
 
@@ -590,6 +638,10 @@ function normalizeGeminiResult(raw: z.infer<typeof geminiParseResultSchema>): Pa
     totalAmount,
     category_name: normalizeNullableText(raw.category_name),
     confidenceScore: normalizedConfidence,
+    foreignCurrencyCode: raw.foreign_currency_code ?? null,
+    foreignBasicAmount: normalizeAmount(raw.foreign_basic_amount ?? 0),
+    foreignGstAmount: normalizeAmount(raw.foreign_gst_amount ?? 0),
+    foreignTotalAmount: normalizeAmount(raw.foreign_total_amount ?? 0),
   };
 }
 
@@ -609,8 +661,12 @@ function createGeminiModel(
 
 export async function parseReceiptAction(input: FormData): Promise<ParseReceiptActionResult> {
   const fileEntry = input.get("receiptFile");
+  const documentType = (input.get("documentType") as string | null) ?? "invoice";
   const allowedCategoryNames = extractAllowedCategoryNames(input);
-  const geminiInstruction = buildGeminiSystemInstruction(allowedCategoryNames);
+  const geminiInstruction =
+    documentType === "bank_statement"
+      ? buildBankStatementSystemInstruction()
+      : buildInvoiceSystemInstruction(allowedCategoryNames);
 
   try {
     const receiptFile = fileEntry instanceof File && fileEntry.size > 0 ? fileEntry : null;
