@@ -22,6 +22,10 @@ describe("financeEditSchema", () => {
       remarks: null,
       receiptFilePath: "expenses/user/new-receipt.pdf",
       bankStatementFilePath: "expenses/user/new-bank.pdf",
+      basicAmount: 100,
+      cgstAmount: 10,
+      sgstAmount: 10,
+      igstAmount: 0,
       totalAmount: 120,
     });
 
@@ -72,6 +76,10 @@ describe("financeEditSchema", () => {
       purpose: "Client travel",
       peopleInvolved: null,
       remarks: null,
+      basicAmount: 100,
+      cgstAmount: 10,
+      sgstAmount: 10,
+      igstAmount: 0,
       totalAmount: 120,
     });
 

@@ -10,6 +10,7 @@ const mockGetServiceRoleSupabaseClient = jest.fn();
 const mockServiceRoleFrom = jest.fn();
 const mockLoggerWarn = jest.fn();
 const mockLoggerDebug = jest.fn();
+const mockIsAllowedEmailDomainInDb = jest.fn();
 
 jest.mock("next/headers", () => ({
   cookies: (...args: unknown[]) => mockCookies(...args),
@@ -40,6 +41,10 @@ jest.mock("@/core/infra/logging/logger", () => ({
   },
 }));
 
+jest.mock("@/core/infra/auth/allowed-auth-domains", () => ({
+  isAllowedEmailDomainInDb: (...args: unknown[]) => mockIsAllowedEmailDomainInDb(...args),
+}));
+
 jest.mock("next/cache", () => ({
   unstable_cache:
     (fn: (...args: unknown[]) => unknown) =>
@@ -66,6 +71,9 @@ describe("isAdmin", () => {
     mockGetServiceRoleSupabaseClient.mockReturnValue({
       from: mockServiceRoleFrom,
     });
+    // getCachedRequestAuthUser now requires user.email and a domain check.
+    // Tests below set mock user accordingly; the domain check defaults to allowed.
+    mockIsAllowedEmailDomainInDb.mockResolvedValue({ isAllowed: true, errorMessage: null });
   });
 
   test("returns false when auth user is unavailable", async () => {
@@ -80,7 +88,7 @@ describe("isAdmin", () => {
 
   test("returns false and logs warning when admins table query fails", async () => {
     mockGetUser.mockResolvedValue({
-      data: { user: { id: "user-1" } },
+      data: { user: { id: "user-1", email: "user-1@nxtwave.co.in" } },
       error: null,
     });
 
@@ -103,7 +111,7 @@ describe("isAdmin", () => {
 
   test("returns true when admin count is positive", async () => {
     mockGetUser.mockResolvedValue({
-      data: { user: { id: "user-1" } },
+      data: { user: { id: "user-1", email: "user-1@nxtwave.co.in" } },
       error: null,
     });
 
@@ -116,12 +124,8 @@ describe("isAdmin", () => {
 
     const { isAdmin } = await import("@/modules/admin/server/is-admin");
     await expect(isAdmin()).resolves.toBe(true);
-
-    expect(mockLoggerDebug).toHaveBeenCalledWith("admin.is_admin.check_complete", {
-      userId: "user-1",
-      count: 1,
-      result: true,
-    });
+    // The "check_complete" debug log was intentionally removed in commit 6be1351
+    // (feat: remove debug logging from various services and components).
   });
 
   test("returns false when an unexpected exception occurs", async () => {
