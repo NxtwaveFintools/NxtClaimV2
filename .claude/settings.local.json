@@ -20,7 +20,8 @@
       "PowerShell(ConvertFrom-Json *)",
       "Bash(Get-ChildItem -Path \"D:\\\\nxtclaim\\\\src\" -Recurse -Filter \"*.ts\")",
       "Bash(Select-Object -ExpandProperty FullName)",
-      "Bash(Select-String \"Repository\")"
+      "Bash(Select-String \"Repository\")",
+      "Bash(not exist *)"
     ]
   },
   "enabledMcpjsonServers": ["filesystem", "supabase"],

@@ -13,11 +13,7 @@ import {
   DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
   type DbClaimStatus,
 } from "@/core/constants/statuses";
-import {
-  isAdvancePaymentModeName,
-  isCorporateCardPaymentModeName,
-  isExpensePaymentModeName,
-} from "@/core/constants/payment-modes";
+import { isAdvancePaymentModeName, isExpensePaymentModeName } from "@/core/constants/payment-modes";
 import { getServiceRoleSupabaseClient } from "@/core/infra/supabase/server-client";
 import { SubmitClaimService } from "@/core/domain/claims/SubmitClaimService";
 import { ProcessL1ClaimDecisionService } from "@/core/domain/claims/ProcessL1ClaimDecisionService";

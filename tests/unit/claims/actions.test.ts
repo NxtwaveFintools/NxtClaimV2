@@ -1160,7 +1160,7 @@ describe("claims actions", () => {
     expect(removeCalls).not.toContainEqual(["expenses/old_receipt.pdf"]);
   });
 
-  test("updateClaimByFinanceAction forwards finance-editable metadata while excluding locked amounts", async () => {
+  test("updateClaimByFinanceAction forwards finance-editable metadata including component amounts", async () => {
     const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
 
     const formData = createValidExpenseEditFormData();
@@ -1194,15 +1194,18 @@ describe("claims actions", () => {
         remarks: "Updated remarks",
         receiptFilePath: "expenses/old_receipt.pdf",
         bankStatementFilePath: "expenses/old_bank.pdf",
+        basicAmount: 100,
+        cgstAmount: 9,
+        sgstAmount: 9,
+        igstAmount: 0,
         totalAmount: 118,
       },
     });
     const forwardedPayload = mockUpdateByFinanceExecute.mock.calls[0]?.[0]?.payload;
+    // Component amounts are now finance-editable (commit 8fbcc3d added GST fields
+    // to the schema; commit 2c35287 added a DB BEFORE trigger that recomputes
+    // total_amount from them). The legacy columns stay excluded.
     expect(forwardedPayload).not.toHaveProperty("departmentId");
-    expect(forwardedPayload).not.toHaveProperty("basicAmount");
-    expect(forwardedPayload).not.toHaveProperty("cgstAmount");
-    expect(forwardedPayload).not.toHaveProperty("sgstAmount");
-    expect(forwardedPayload).not.toHaveProperty("igstAmount");
     expect(forwardedPayload).not.toHaveProperty("requestedTotalAmount");
     expect(forwardedPayload).not.toHaveProperty("approvedAmount");
     expect(forwardedPayload.bankStatementFilePath).toBe("expenses/old_bank.pdf");

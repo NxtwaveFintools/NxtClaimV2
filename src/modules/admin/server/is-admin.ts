@@ -81,7 +81,6 @@ async function queryAdminMembershipFromDatabase(userId: string): Promise<boolean
   }
 
   const result = (count ?? 0) > 0;
-  logger.debug("admin.is_admin.check_complete", { userId, count, result });
   return result;
 }
 

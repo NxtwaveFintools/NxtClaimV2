@@ -50,10 +50,6 @@ export class GetActiveDepartmentsService {
       return hasRoutingUsers;
     });
 
-    this.logger.info("departments.active.fetch_success", {
-      totalCount: validDepartments.length,
-    });
-
     return {
       departments: validDepartments,
       errorCode: null,

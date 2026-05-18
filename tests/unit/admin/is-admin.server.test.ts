@@ -97,12 +97,8 @@ describe("isAdmin", () => {
 
     const { isAdmin } = await import("@/modules/admin/server/is-admin");
     await expect(isAdmin()).resolves.toBe(true);
-
-    expect(mockLoggerDebug).toHaveBeenCalledWith("admin.is_admin.check_complete", {
-      userId: "user-1",
-      count: 1,
-      result: true,
-    });
+    // The "check_complete" debug log was intentionally removed in commit 6be1351
+    // (feat: remove debug logging from various services and components).
   });
 
   test("returns false when an unexpected exception occurs", async () => {

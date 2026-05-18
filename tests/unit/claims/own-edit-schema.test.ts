@@ -16,7 +16,6 @@ describe("ownEditSchema", () => {
       cgstAmount: 9,
       sgstAmount: 9,
       igstAmount: 0,
-      totalAmount: 118,
       purpose: "Client meeting",
       productId: "55555555-5555-4555-8555-555555555555",
       peopleInvolved: "Alice",

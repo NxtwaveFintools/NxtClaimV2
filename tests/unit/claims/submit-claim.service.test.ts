@@ -148,8 +148,6 @@ describe("SubmitClaimService", () => {
     const logger = createLogger();
     const service = new SubmitClaimService({ repository, logger });
 
-    const hackedClientTotal = 50000;
-
     const result = await service.execute({
       ...baseInput,
       expense: {

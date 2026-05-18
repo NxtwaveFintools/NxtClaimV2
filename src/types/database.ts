@@ -703,8 +703,12 @@ export type Database = {
           cgst_amount: number;
           claim_id: string;
           created_at: string;
-          currency_code: string;
+          currency_code: Database["public"]["Enums"]["local_currency_code"];
           expense_category_id: string;
+          foreign_basic_amount: number;
+          foreign_currency_code: Database["public"]["Enums"]["foreign_currency_code"];
+          foreign_gst_amount: number;
+          foreign_total_amount: number | null;
           gst_number: string | null;
           id: string;
           igst_amount: number;
@@ -733,8 +737,12 @@ export type Database = {
           cgst_amount?: number;
           claim_id: string;
           created_at?: string;
-          currency_code?: string;
+          currency_code?: Database["public"]["Enums"]["local_currency_code"];
           expense_category_id: string;
+          foreign_basic_amount?: number;
+          foreign_currency_code?: Database["public"]["Enums"]["foreign_currency_code"];
+          foreign_gst_amount?: number;
+          foreign_total_amount?: number | null;
           gst_number?: string | null;
           id?: string;
           igst_amount?: number;
@@ -763,8 +771,12 @@ export type Database = {
           cgst_amount?: number;
           claim_id?: string;
           created_at?: string;
-          currency_code?: string;
+          currency_code?: Database["public"]["Enums"]["local_currency_code"];
           expense_category_id?: string;
+          foreign_basic_amount?: number;
+          foreign_currency_code?: Database["public"]["Enums"]["foreign_currency_code"];
+          foreign_gst_amount?: number;
+          foreign_total_amount?: number | null;
           gst_number?: string | null;
           id?: string;
           igst_amount?: number;
@@ -1627,6 +1639,8 @@ export type Database = {
         | "Payment Done - Closed"
         | "Rejected - Resubmission Not Allowed"
         | "Rejected - Resubmission Allowed";
+      foreign_currency_code: "INR" | "USD" | "EUR" | "CHF";
+      local_currency_code: "INR";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -1761,6 +1775,8 @@ export const Constants = {
         "Rejected - Resubmission Not Allowed",
         "Rejected - Resubmission Allowed",
       ],
+      foreign_currency_code: ["INR", "USD", "EUR", "CHF"],
+      local_currency_code: ["INR"],
     },
   },
 } as const;
