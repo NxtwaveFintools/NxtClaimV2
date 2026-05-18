@@ -476,6 +476,14 @@ function extractSubmissionInput(input: unknown): {
       transactionDate: getFormDataString(input, "expense.transactionDate"),
       basicAmount: getFormDataNumber(input, "expense.basicAmount"),
       currencyCode: getFormDataString(input, "expense.currencyCode"),
+      foreignCurrencyCode: (() => {
+        const VALID_CODES = new Set(["INR", "USD", "EUR", "CHF"]);
+        const raw = getFormDataNullableString(input, "expense.foreignCurrencyCode");
+        return raw && VALID_CODES.has(raw) ? (raw as "INR" | "USD" | "EUR" | "CHF") : null;
+      })(),
+      foreignBasicAmount: getFormDataNumber(input, "expense.foreignBasicAmount") || null,
+      foreignGstAmount: getFormDataNumber(input, "expense.foreignGstAmount") || null,
+      foreignTotalAmount: getFormDataNumber(input, "expense.foreignTotalAmount") || null,
       vendorName: getFormDataNullableString(input, "expense.vendorName"),
       receiptFileName: getFormDataNullableString(input, "expense.receiptFileName"),
       receiptFileType: getFormDataNullableString(input, "expense.receiptFileType"),
@@ -872,6 +880,10 @@ export async function submitClaimAction(input: unknown): Promise<{
             transactionDate: parseResult.data.expense.transactionDate,
             basicAmount: parseResult.data.expense.basicAmount,
             currencyCode: parseResult.data.expense.currencyCode,
+            foreignCurrencyCode: parseResult.data.expense.foreignCurrencyCode ?? null,
+            foreignBasicAmount: parseResult.data.expense.foreignBasicAmount ?? null,
+            foreignGstAmount: parseResult.data.expense.foreignGstAmount ?? null,
+            foreignTotalAmount: parseResult.data.expense.foreignTotalAmount ?? null,
             vendorName: parseResult.data.expense.vendorName,
             receiptFilePath: null,
             bankStatementFilePath: null,
@@ -1118,6 +1130,14 @@ function buildFinanceEditPayload(formData: FormData): unknown {
       sgstAmount: getFormDataNumber(formData, "sgstAmount"),
       igstAmount: getFormDataNumber(formData, "igstAmount"),
       totalAmount: getFormDataNumber(formData, "totalAmount"),
+      foreignCurrencyCode: (() => {
+        const VALID_CODES = new Set(["INR", "USD", "EUR", "CHF"]);
+        const raw = getFormDataNullableString(formData, "foreignCurrencyCode");
+        return raw && VALID_CODES.has(raw) ? (raw as "INR" | "USD" | "EUR" | "CHF") : null;
+      })(),
+      foreignBasicAmount: getFormDataNumber(formData, "foreignBasicAmount") || null,
+      foreignGstAmount: getFormDataNumber(formData, "foreignGstAmount") || null,
+      foreignTotalAmount: getFormDataNumber(formData, "foreignTotalAmount") || null,
     };
   }
 
@@ -1165,6 +1185,14 @@ function buildOwnEditPayload(formData: FormData): unknown {
       cgstAmount: getFormDataNumber(formData, "cgstAmount"),
       sgstAmount: getFormDataNumber(formData, "sgstAmount"),
       igstAmount: getFormDataNumber(formData, "igstAmount"),
+      foreignCurrencyCode: (() => {
+        const VALID_CODES = new Set(["INR", "USD", "EUR", "CHF"]);
+        const raw = getFormDataNullableString(formData, "foreignCurrencyCode");
+        return raw && VALID_CODES.has(raw) ? (raw as "INR" | "USD" | "EUR" | "CHF") : null;
+      })(),
+      foreignBasicAmount: getFormDataNumber(formData, "foreignBasicAmount") || null,
+      foreignGstAmount: getFormDataNumber(formData, "foreignGstAmount") || null,
+      foreignTotalAmount: getFormDataNumber(formData, "foreignTotalAmount") || null,
       purpose: getFormDataString(formData, "purpose"),
       productId,
       peopleInvolved: getFormDataNullableString(formData, "peopleInvolved"),
@@ -1455,6 +1483,10 @@ export async function updateClaimByFinanceAction(input: {
           sgstAmount: parseResult.data.sgstAmount,
           igstAmount: parseResult.data.igstAmount,
           totalAmount: parseResult.data.totalAmount,
+          foreignCurrencyCode: parseResult.data.foreignCurrencyCode ?? null,
+          foreignBasicAmount: parseResult.data.foreignBasicAmount ?? null,
+          foreignGstAmount: parseResult.data.foreignGstAmount ?? null,
+          foreignTotalAmount: parseResult.data.foreignTotalAmount ?? null,
         }
       : {
           detailType: "advance",
@@ -1708,6 +1740,10 @@ export async function updateOwnClaimAction(input: {
       sgstAmount: parseResult.data.sgstAmount,
       igstAmount: parseResult.data.igstAmount,
       totalAmount: computedExpenseAmount,
+      foreignCurrencyCode: parseResult.data.foreignCurrencyCode ?? null,
+      foreignBasicAmount: parseResult.data.foreignBasicAmount ?? null,
+      foreignGstAmount: parseResult.data.foreignGstAmount ?? null,
+      foreignTotalAmount: parseResult.data.foreignTotalAmount ?? null,
       purpose: parseResult.data.purpose,
       productId: parseResult.data.productId,
       peopleInvolved: parseResult.data.peopleInvolved,

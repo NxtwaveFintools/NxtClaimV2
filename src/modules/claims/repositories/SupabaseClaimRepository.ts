@@ -202,6 +202,10 @@ type ClaimDetailExpenseRow = {
   ai_metadata: Record<string, unknown> | null;
   receipt_file_path: string | null;
   bank_statement_file_path: string | null;
+  foreign_currency_code: string | null;
+  foreign_basic_amount: number | string | null;
+  foreign_gst_amount: number | string | null;
+  foreign_total_amount: number | string | null;
   master_expense_categories: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
   master_products: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
   master_locations: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
@@ -1776,6 +1780,10 @@ export class SupabaseClaimRepository implements ClaimRepository {
         aiMetadata: ClaimExpenseAiMetadata | null;
         receiptFilePath: string | null;
         bankStatementFilePath: string | null;
+        foreignCurrencyCode: string | null;
+        foreignBasicAmount: number | null;
+        foreignGstAmount: number | null;
+        foreignTotalAmount: number | null;
       } | null;
       advance: {
         id: string;
@@ -1794,7 +1802,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     let query = client
       .from("claims")
       .select(
-        "id, employee_id, submission_type, detail_type, on_behalf_of_id, on_behalf_email, on_behalf_employee_code, status, is_active, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, bc_claim_details_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(id, bill_no, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, ai_metadata, receipt_file_path, bank_statement_file_path, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(id, purpose, total_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
+        "id, employee_id, submission_type, detail_type, on_behalf_of_id, on_behalf_email, on_behalf_employee_code, status, is_active, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, bc_claim_details_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(id, bill_no, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, ai_metadata, receipt_file_path, bank_statement_file_path, foreign_currency_code, foreign_basic_amount, foreign_gst_amount, foreign_total_amount, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(id, purpose, total_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
       )
       .eq("id", claimId);
 
@@ -1885,6 +1893,10 @@ export class SupabaseClaimRepository implements ClaimRepository {
               aiMetadata: parseClaimExpenseAiMetadata(expense.ai_metadata),
               receiptFilePath: expense.receipt_file_path,
               bankStatementFilePath: expense.bank_statement_file_path,
+              foreignCurrencyCode: expense.foreign_currency_code ?? null,
+              foreignBasicAmount: toNumber(expense.foreign_basic_amount),
+              foreignGstAmount: toNumber(expense.foreign_gst_amount),
+              foreignTotalAmount: toNumber(expense.foreign_total_amount),
             }
           : null,
         advance: advance
@@ -2133,6 +2145,10 @@ export class SupabaseClaimRepository implements ClaimRepository {
           remarks: payload.remarks,
           receipt_file_path: payload.receiptFilePath,
           bank_statement_file_path: payload.bankStatementFilePath,
+          foreign_currency_code: payload.foreignCurrencyCode ?? null,
+          foreign_basic_amount: payload.foreignBasicAmount ?? null,
+          foreign_gst_amount: payload.foreignGstAmount ?? null,
+          foreign_total_amount: payload.foreignTotalAmount ?? null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", payload.detailId)
@@ -2674,6 +2690,10 @@ export class SupabaseClaimRepository implements ClaimRepository {
         people_involved: prepared.expense.peopleInvolved,
         remarks: prepared.expense.remarks,
         ai_metadata: prepared.expense.aiMetadata ?? {},
+        foreign_currency_code: prepared.expense.foreignCurrencyCode ?? null,
+        foreign_basic_amount: prepared.expense.foreignBasicAmount ?? null,
+        foreign_gst_amount: prepared.expense.foreignGstAmount ?? null,
+        foreign_total_amount: prepared.expense.foreignTotalAmount ?? null,
       })
       .select("id")
       .single();
