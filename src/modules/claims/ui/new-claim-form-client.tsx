@@ -143,7 +143,7 @@ function clientToNullableNumber(value: unknown): number | null {
     return null;
   }
 
-  const n = typeof value === "string" ? Number(value) : Number(value);
+  const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
 
@@ -340,6 +340,13 @@ function buildExpenseAiMetadata(
     const originalValue = snapshot[comparison.key];
     const currentValue = comparison.currentValue;
 
+    if (typeof originalValue === "number" && currentValue === null) {
+      if (originalValue !== 0) {
+        editedFields[comparison.key] = { original: originalValue };
+      }
+      continue;
+    }
+
     if (typeof originalValue === "number" && typeof currentValue === "number") {
       if (!equalsRoundedAmount(originalValue, currentValue)) {
         editedFields[comparison.key] = { original: originalValue };
@@ -461,6 +468,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   const igstAmount = useWatch({ control, name: "expense.igstAmount" });
   const watchedForeignBasic = useWatch({ control, name: "expense.foreignBasicAmount" });
   const watchedForeignGst = useWatch({ control, name: "expense.foreignGstAmount" });
+  const watchedForeignCode = useWatch({ control, name: "expense.foreignCurrencyCode" });
 
   const isBankStatementRequired = useMemo(() => {
     const category = options.expenseCategories.find((c) => c.id === expenseCategoryId);
@@ -497,10 +505,16 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   }, [basicAmount, cgstAmount, igstAmount, setValue, sgstAmount]);
 
   useEffect(() => {
+    if (!watchedForeignCode || watchedForeignCode === "INR") {
+      setValue("expense.foreignTotalAmount", null, { shouldValidate: false });
+      return;
+    }
     const basic = Number(watchedForeignBasic) || 0;
     const gst = Number(watchedForeignGst) || 0;
-    setValue("expense.foreignTotalAmount", basic + gst, { shouldValidate: false });
-  }, [watchedForeignBasic, watchedForeignGst, setValue]);
+    setValue("expense.foreignTotalAmount", Math.round((basic + gst) * 100) / 100, {
+      shouldValidate: false,
+    });
+  }, [watchedForeignCode, watchedForeignBasic, watchedForeignGst, setValue]);
 
   const calculatedTotalAmount = calculateExpenseTotal(
     basicAmount,
@@ -510,7 +524,10 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   );
 
   const calculatedForeignTotalAmount =
-    (Number(watchedForeignBasic) || 0) + (Number(watchedForeignGst) || 0);
+    watchedForeignCode && watchedForeignCode !== "INR"
+      ? Math.round(((Number(watchedForeignBasic) || 0) + (Number(watchedForeignGst) || 0)) * 100) /
+        100
+      : null;
 
   const selectedDepartment = useMemo(
     () => options.departmentRouting.find((department) => department.id === departmentId) ?? null,
@@ -878,12 +895,15 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       options.expenseCategories,
     );
 
-    const foreignCurrencyCode = toNullableString(parsed.foreignCurrencyCode) as
-      | "INR"
-      | "USD"
-      | "EUR"
-      | "CHF"
-      | null;
+    const VALID_FOREIGN_CODES = new Set(["INR", "USD", "EUR", "CHF"] as const);
+    const rawCode =
+      typeof parsed.foreignCurrencyCode === "string"
+        ? parsed.foreignCurrencyCode.toUpperCase()
+        : null;
+    const foreignCurrencyCode =
+      rawCode && VALID_FOREIGN_CODES.has(rawCode as "INR" | "USD" | "EUR" | "CHF")
+        ? (rawCode as "INR" | "USD" | "EUR" | "CHF")
+        : null;
     const foreignBasicAmount =
       parsed.foreignBasicAmount !== null && parsed.foreignBasicAmount !== undefined
         ? toNumber(parsed.foreignBasicAmount)
@@ -1871,7 +1891,11 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                       readOnly
                       disabled
                       className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
-                      value={calculatedForeignTotalAmount.toFixed(2)}
+                      value={
+                        calculatedForeignTotalAmount !== null
+                          ? calculatedForeignTotalAmount.toFixed(2)
+                          : ""
+                      }
                     />
                   </div>
                 </div>
