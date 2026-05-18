@@ -26,6 +26,10 @@ type ClaimExpenseDetail = {
   peopleInvolved: string | null;
   remarks: string | null;
   aiMetadata?: ClaimExpenseAiMetadata | null;
+  foreignCurrencyCode?: string | null;
+  foreignBasicAmount?: number | null;
+  foreignGstAmount?: number | null;
+  foreignTotalAmount?: number | null;
 };
 
 type ClaimAdvanceDetail = {
@@ -83,6 +87,15 @@ function formatOptionalText(value: string | null | undefined, fallback = "N/A"):
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : fallback;
+}
+
+function formatForeignAmount(amount: number | null | undefined, currencyCode: string): string {
+  if (amount == null) return "—";
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: currencyCode,
+    minimumFractionDigits: 2,
+  }).format(amount);
 }
 
 export function ClaimFullDetailsGrid({
@@ -382,6 +395,49 @@ export function ClaimFullDetailsGrid({
                 </div>
               </>
             )}
+          </div>
+        </section>
+      ) : null}
+
+      {includeExpenseDetail &&
+      claim.expense &&
+      claim.expense.foreignCurrencyCode !== null &&
+      claim.expense.foreignCurrencyCode !== undefined &&
+      claim.expense.foreignCurrencyCode !== "INR" ? (
+        <section className={detailSectionClassName}>
+          <h2 className={detailHeadingClassName}>Foreign Expense Details</h2>
+          <div className={detailGridClassName}>
+            <div className={detailCardClassName}>
+              <p className={fieldLabelClassName}>Currency</p>
+              <p className={fieldValueClassName}>{claim.expense.foreignCurrencyCode}</p>
+            </div>
+            <div className={detailCardClassName}>
+              <p className={fieldLabelClassName}>Foreign Basic Amount</p>
+              <p className={fieldValueClassName}>
+                {formatForeignAmount(
+                  claim.expense.foreignBasicAmount,
+                  claim.expense.foreignCurrencyCode,
+                )}
+              </p>
+            </div>
+            <div className={detailCardClassName}>
+              <p className={fieldLabelClassName}>Foreign GST Amount</p>
+              <p className={fieldValueClassName}>
+                {formatForeignAmount(
+                  claim.expense.foreignGstAmount,
+                  claim.expense.foreignCurrencyCode,
+                )}
+              </p>
+            </div>
+            <div className={detailCardClassName}>
+              <p className={fieldLabelClassName}>Foreign Total Amount</p>
+              <p className={emphasizedValueClassName}>
+                {formatForeignAmount(
+                  claim.expense.foreignTotalAmount,
+                  claim.expense.foreignCurrencyCode,
+                )}
+              </p>
+            </div>
           </div>
         </section>
       ) : null}
