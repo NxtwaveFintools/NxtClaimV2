@@ -248,44 +248,6 @@ export function FinanceEditClaimForm({
     });
   };
 
-  const handleExpenseTotalAmountChange = (value: number | null) => {
-    setExpenseAmounts((current) => {
-      const enteredTotalAmount = toNonNegativeCurrency(value);
-      const taxAmount = roundCurrency(current.cgstAmount + current.sgstAmount + current.igstAmount);
-
-      if (enteredTotalAmount < taxAmount) {
-        return {
-          basicAmount: enteredTotalAmount,
-          cgstAmount: 0,
-          sgstAmount: 0,
-          igstAmount: 0,
-          totalAmount: enteredTotalAmount,
-        };
-      }
-
-      return {
-        ...current,
-        basicAmount: roundCurrency(Math.max(0, enteredTotalAmount - taxAmount)),
-        totalAmount: enteredTotalAmount,
-      };
-    });
-  };
-
-  const handleTotalAmountInputChange = (nextValue: string) => {
-    setTotalAmountInputValue(nextValue);
-
-    if (nextValue.trim().length === 0) {
-      return;
-    }
-
-    const parsedValue = Number(nextValue);
-    if (!Number.isFinite(parsedValue)) {
-      return;
-    }
-
-    handleExpenseTotalAmountChange(parsedValue);
-  };
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -966,15 +928,9 @@ export function FinanceEditClaimForm({
                       <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                         Total Amount
                         <CurrencyInput
-                          name="totalAmount"
-                          min="0"
-                          step="0.01"
-                          required
                           value={totalAmountInputValue}
-                          onChange={(event) => {
-                            handleTotalAmountInputChange(event.currentTarget.value);
-                          }}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          disabled
+                          className={lockedFieldClassName}
                         />
                       </label>
                     </div>
@@ -1092,12 +1048,9 @@ export function FinanceEditClaimForm({
                     <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                       Total Amount
                       <CurrencyInput
-                        name="totalAmount"
-                        min="0"
-                        step="0.01"
-                        required
-                        defaultValue={advance?.totalAmount ?? ""}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        value={advance?.totalAmount ?? ""}
+                        disabled
+                        className={lockedFieldClassName}
                       />
                     </label>
 

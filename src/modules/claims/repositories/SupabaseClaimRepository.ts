@@ -265,6 +265,7 @@ type ClaimFinanceEditExpenseRow = {
 
 type ClaimFinanceEditAdvanceRow = {
   supporting_document_path: string | null;
+  total_amount: number | string | null;
 };
 
 type ClaimFinanceEditRow = {
@@ -1914,6 +1915,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
       expenseReceiptFilePath: string | null;
       expenseBankStatementFilePath: string | null;
       advanceSupportingDocumentPath: string | null;
+      advanceTotalAmount: number;
     } | null;
     errorMessage: string | null;
   }> {
@@ -1921,7 +1923,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const { data, error } = await client
       .from("claims")
       .select(
-        "id, detail_type, status, submitted_by, assigned_l1_approver_id, payment_mode_id, expense_details(receipt_file_path, bank_statement_file_path), advance_details(supporting_document_path)",
+        "id, detail_type, status, submitted_by, assigned_l1_approver_id, payment_mode_id, expense_details(receipt_file_path, bank_statement_file_path), advance_details(supporting_document_path, total_amount)",
       )
       .eq("id", claimId)
       .eq("is_active", true)
@@ -1950,6 +1952,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
         expenseReceiptFilePath: expense?.receipt_file_path ?? null,
         expenseBankStatementFilePath: expense?.bank_statement_file_path ?? null,
         advanceSupportingDocumentPath: advance?.supporting_document_path ?? null,
+        advanceTotalAmount: toNumber(advance?.total_amount) ?? 0,
       },
       errorMessage: null,
     };
