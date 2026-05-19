@@ -26,6 +26,7 @@ function rowMatchesInput(
   if (isInputForeign !== isCandidateForeign) return false;
   if (isInputForeign) {
     if (candidateForeignCode !== inputForeignCode) return false;
+    if (input.foreignBasicAmount == null || row.foreign_basic_amount == null) return false;
     if (!Number.isFinite(candidateForeignBasic)) return false;
     return Math.abs(candidateForeignBasic - inputForeignBasic) <= epsilon;
   }
@@ -57,5 +58,23 @@ describe("expense dedup composite key — foreign claims", () => {
     const row = { total_amount: 100.005, foreign_currency_code: "INR", foreign_basic_amount: 0 };
     const input = { totalAmount: 100.01, foreignCurrencyCode: "INR", foreignBasicAmount: 0 };
     expect(rowMatchesInput(row, input)).toBe(true);
+  });
+
+  it("two foreign claims both with null foreign_basic_amount do not collide", () => {
+    const rowA = { total_amount: 0, foreign_currency_code: "USD", foreign_basic_amount: null };
+    const inputB = { totalAmount: 0, foreignCurrencyCode: "USD", foreignBasicAmount: null };
+    expect(rowMatchesInput(rowA, inputB)).toBe(false);
+  });
+
+  it("foreign input with null foreignBasicAmount does not collide with a candidate that has a value", () => {
+    const row = { total_amount: 0, foreign_currency_code: "USD", foreign_basic_amount: 100 };
+    const input = { totalAmount: 0, foreignCurrencyCode: "USD", foreignBasicAmount: null };
+    expect(rowMatchesInput(row, input)).toBe(false);
+  });
+
+  it("foreign candidate with null foreign_basic_amount does not collide with a valued input", () => {
+    const row = { total_amount: 0, foreign_currency_code: "USD", foreign_basic_amount: null };
+    const input = { totalAmount: 0, foreignCurrencyCode: "USD", foreignBasicAmount: 100 };
+    expect(rowMatchesInput(row, input)).toBe(false);
   });
 });

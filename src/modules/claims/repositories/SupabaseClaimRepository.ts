@@ -2458,7 +2458,11 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
       if (isInputForeign) {
         // Foreign claims: dedup by currency code + foreign basic amount.
+        // Short-circuit if either side has null foreign_basic_amount — incomplete data should not dedup.
         if (candidateForeignCode !== inputForeignCode) {
+          return false;
+        }
+        if (input.foreignBasicAmount == null || row.foreign_basic_amount == null) {
           return false;
         }
         if (!Number.isFinite(candidateForeignBasic)) {
@@ -2525,7 +2529,11 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
       if (isInputForeign) {
         // Foreign claims: dedup by currency code + foreign basic amount.
+        // Short-circuit if either side has null foreign_basic_amount — incomplete data should not dedup.
         if (candidateForeignCode !== inputForeignCode) {
+          return false;
+        }
+        if (input.foreignBasicAmount == null || row.foreign_basic_amount == null) {
           return false;
         }
         if (!Number.isFinite(candidateForeignBasic)) {
