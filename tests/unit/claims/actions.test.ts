@@ -295,6 +295,7 @@ function createValidExpenseEditFormData(): FormData {
   formData.append("sgstAmount", "9");
   formData.append("igstAmount", "0");
   formData.append("totalAmount", "118");
+  formData.append("foreignCurrencyCode", "INR");
   formData.append("purpose", "Updated purpose");
   formData.append("peopleInvolved", "Alice");
   formData.append("remarks", "Updated remarks");
@@ -1199,6 +1200,10 @@ describe("claims actions", () => {
         sgstAmount: 9,
         igstAmount: 0,
         totalAmount: 118,
+        foreignCurrencyCode: "INR",
+        foreignBasicAmount: null,
+        foreignGstAmount: null,
+        foreignTotalAmount: null,
       },
     });
     const forwardedPayload = mockUpdateByFinanceExecute.mock.calls[0]?.[0]?.payload;
