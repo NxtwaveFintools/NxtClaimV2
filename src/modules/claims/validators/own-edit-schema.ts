@@ -45,6 +45,9 @@ const optionalBankStatementFileSchema = z
   .nullable()
   .optional();
 
+const toNullableNumber = (v: unknown) =>
+  v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v;
+
 const optionalTaxAmountSchema = z.preprocess(
   (value) => {
     if (value === "" || value === null || value === undefined) {
@@ -72,7 +75,7 @@ export const ownExpenseEditSchema = z
     isGstApplicable: z.boolean(),
     gstNumber: normalizedNullableText,
     vendorName: normalizedNullableText,
-    basicAmount: z.number().positive("Basic amount must be greater than zero"),
+    basicAmount: z.number().min(0, "Basic amount cannot be negative"),
     cgstAmount: optionalTaxAmountSchema,
     sgstAmount: optionalTaxAmountSchema,
     igstAmount: optionalTaxAmountSchema,
@@ -80,8 +83,40 @@ export const ownExpenseEditSchema = z
     productId: uuidSchema.nullable(),
     peopleInvolved: normalizedNullableText,
     remarks: normalizedNullableText,
+    foreignCurrencyCode: z.enum(["INR", "USD", "EUR", "CHF"]).default("INR"),
+    foreignBasicAmount: z.preprocess(
+      toNullableNumber,
+      z.number().min(0, "Foreign basic amount cannot be negative").nullable().optional(),
+    ),
+    foreignGstAmount: z.preprocess(
+      toNullableNumber,
+      z.number().min(0, "Foreign GST amount cannot be negative").nullable().optional(),
+    ),
+    foreignTotalAmount: z.preprocess(
+      toNullableNumber,
+      z.number().min(0, "Foreign total amount cannot be negative").nullable().optional(),
+    ),
     receiptFile: optionalReceiptFileSchema,
     bankStatementFile: optionalBankStatementFileSchema,
+  })
+  .superRefine((value, context) => {
+    const isForeign = value.foreignCurrencyCode !== "INR" && value.foreignCurrencyCode != null;
+
+    if (isForeign) {
+      if (!value.foreignBasicAmount || value.foreignBasicAmount <= 0) {
+        context.addIssue({
+          code: "custom",
+          message: "Foreign basic amount is required for non-INR currencies.",
+          path: ["foreignBasicAmount"],
+        });
+      }
+    } else if (value.basicAmount <= 0) {
+      context.addIssue({
+        code: "custom",
+        message: "Basic amount must be greater than zero",
+        path: ["basicAmount"],
+      });
+    }
   })
   .strict();
 

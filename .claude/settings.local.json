@@ -21,7 +21,14 @@
       "Bash(Get-ChildItem -Path \"D:\\\\nxtclaim\\\\src\" -Recurse -Filter \"*.ts\")",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(Select-String \"Repository\")",
-      "Bash(not exist *)"
+      "Bash(not exist *)",
+      "Bash(New-Item -ItemType Directory -Force \"D:\\\\nxtclaim\\\\docs\\\\superpowers\\\\specs\")",
+      "Bash(Out-Null)",
+      "Bash(Write-Output \"OK\")",
+      "PowerShell(New-Item *)",
+      "Skill(superpowers:using-superpowers)",
+      "Bash(git *)",
+      "Bash(npx *)"
     ]
   },
   "enabledMcpjsonServers": ["filesystem", "supabase"],

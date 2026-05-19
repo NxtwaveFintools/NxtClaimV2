@@ -202,6 +202,10 @@ type ClaimDetailExpenseRow = {
   ai_metadata: Record<string, unknown> | null;
   receipt_file_path: string | null;
   bank_statement_file_path: string | null;
+  foreign_currency_code: string | null;
+  foreign_basic_amount: number | string | null;
+  foreign_gst_amount: number | string | null;
+  foreign_total_amount: number | string | null;
   master_expense_categories: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
   master_products: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
   master_locations: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
@@ -288,6 +292,8 @@ type ClaimDeleteSnapshotRow = {
 type ExpenseDuplicateLookupRow = {
   claim_id: string;
   total_amount: number | string | null;
+  foreign_currency_code: string | null;
+  foreign_basic_amount: number | string | null;
 };
 
 type ExportClaimUserRow = {
@@ -542,6 +548,46 @@ function isDuplicateExpenseBillConstraintError(error: {
   return [error.message, error.details, error.hint, error.constraint].some((value) =>
     containsDuplicateExpenseBillConstraint(value),
   );
+}
+
+function buildSubmitterEditPayload(payload: OwnClaimEditPayload): Record<string, unknown> {
+  if (payload.detailType === "expense") {
+    return {
+      detailType: "expense",
+      detailId: payload.detailId,
+      billNo: payload.billNo,
+      expenseCategoryId: payload.expenseCategoryId,
+      productId: payload.productId,
+      locationId: payload.locationId,
+      transactionDate: payload.transactionDate,
+      isGstApplicable: payload.isGstApplicable,
+      gstNumber: payload.gstNumber,
+      basicAmount: payload.basicAmount,
+      cgstAmount: payload.cgstAmount,
+      sgstAmount: payload.sgstAmount,
+      igstAmount: payload.igstAmount,
+      vendorName: payload.vendorName,
+      purpose: payload.purpose,
+      peopleInvolved: payload.peopleInvolved,
+      remarks: payload.remarks,
+      receiptFilePath: payload.receiptFilePath,
+      bankStatementFilePath: payload.bankStatementFilePath,
+      foreignCurrencyCode: payload.foreignCurrencyCode ?? "INR",
+      foreignBasicAmount: payload.foreignBasicAmount ?? 0,
+      foreignGstAmount: payload.foreignGstAmount ?? 0,
+    };
+  }
+  return {
+    detailType: "advance",
+    detailId: payload.detailId,
+    purpose: payload.purpose,
+    totalAmount: payload.totalAmount,
+    expectedUsageDate: payload.expectedUsageDate,
+    productId: payload.productId,
+    locationId: payload.locationId,
+    remarks: payload.remarks,
+    supportingDocumentPath: payload.supportingDocumentPath,
+  };
 }
 
 function normalizeStatusFilter(status: GetMyClaimsFilters["status"]): DbClaimStatus[] {
@@ -1776,6 +1822,10 @@ export class SupabaseClaimRepository implements ClaimRepository {
         aiMetadata: ClaimExpenseAiMetadata | null;
         receiptFilePath: string | null;
         bankStatementFilePath: string | null;
+        foreignCurrencyCode: string | null;
+        foreignBasicAmount: number | null;
+        foreignGstAmount: number | null;
+        foreignTotalAmount: number | null;
       } | null;
       advance: {
         id: string;
@@ -1794,7 +1844,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     let query = client
       .from("claims")
       .select(
-        "id, employee_id, submission_type, detail_type, on_behalf_of_id, on_behalf_email, on_behalf_employee_code, status, is_active, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, bc_claim_details_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(id, bill_no, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, ai_metadata, receipt_file_path, bank_statement_file_path, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(id, purpose, total_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
+        "id, employee_id, submission_type, detail_type, on_behalf_of_id, on_behalf_email, on_behalf_employee_code, status, is_active, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, bc_claim_details_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(id, bill_no, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, ai_metadata, receipt_file_path, bank_statement_file_path, foreign_currency_code, foreign_basic_amount, foreign_gst_amount, foreign_total_amount, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(id, purpose, total_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
       )
       .eq("id", claimId);
 
@@ -1885,6 +1935,10 @@ export class SupabaseClaimRepository implements ClaimRepository {
               aiMetadata: parseClaimExpenseAiMetadata(expense.ai_metadata),
               receiptFilePath: expense.receipt_file_path,
               bankStatementFilePath: expense.bank_statement_file_path,
+              foreignCurrencyCode: expense.foreign_currency_code ?? null,
+              foreignBasicAmount: toNumber(expense.foreign_basic_amount),
+              foreignGstAmount: toNumber(expense.foreign_gst_amount),
+              foreignTotalAmount: toNumber(expense.foreign_total_amount),
             }
           : null,
         advance: advance
@@ -2092,108 +2146,19 @@ export class SupabaseClaimRepository implements ClaimRepository {
     payload: OwnClaimEditPayload,
   ): Promise<{ errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
+    const rpcPayload = buildSubmitterEditPayload(payload);
 
-    const { data: updatedClaim, error: claimError } = await client
-      .from("claims")
-      .update({
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", claimId)
-      .eq("is_active", true)
-      .select("id")
-      .maybeSingle();
-
-    if (claimError) {
-      return { errorMessage: claimError.message };
-    }
-
-    if (!updatedClaim) {
-      return { errorMessage: "Claim not found or inactive." };
-    }
-
-    if (payload.detailType === "expense") {
-      const { data: updatedExpenseDetail, error: expenseError } = await client
-        .from("expense_details")
-        .update({
-          bill_no: payload.billNo,
-          expense_category_id: payload.expenseCategoryId,
-          product_id: payload.productId,
-          location_id: payload.locationId,
-          transaction_date: payload.transactionDate,
-          is_gst_applicable: payload.isGstApplicable,
-          gst_number: payload.gstNumber,
-          basic_amount: payload.basicAmount,
-          cgst_amount: payload.cgstAmount,
-          sgst_amount: payload.sgstAmount,
-          igst_amount: payload.igstAmount,
-          total_amount: payload.totalAmount,
-          vendor_name: payload.vendorName,
-          purpose: payload.purpose,
-          people_involved: payload.peopleInvolved,
-          remarks: payload.remarks,
-          receipt_file_path: payload.receiptFilePath,
-          bank_statement_file_path: payload.bankStatementFilePath,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", payload.detailId)
-        .eq("claim_id", claimId)
-        .eq("is_active", true)
-        .select("id")
-        .maybeSingle();
-
-      if (expenseError) {
-        if (isDuplicateExpenseBillConstraintError(expenseError)) {
-          throw expenseError;
-        }
-
-        return { errorMessage: expenseError.message };
-      }
-
-      if (!updatedExpenseDetail) {
-        return {
-          errorMessage: "Cannot edit: Expense details missing or soft-deleted.",
-        };
-      }
-    } else {
-      const { data: updatedAdvanceDetail, error: advanceError } = await client
-        .from("advance_details")
-        .update({
-          purpose: payload.purpose,
-          total_amount: payload.totalAmount,
-          expected_usage_date: payload.expectedUsageDate,
-          product_id: payload.productId,
-          location_id: payload.locationId,
-          remarks: payload.remarks,
-          supporting_document_path: payload.supportingDocumentPath,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", payload.detailId)
-        .eq("claim_id", claimId)
-        .eq("is_active", true)
-        .select("id")
-        .maybeSingle();
-
-      if (advanceError) {
-        return { errorMessage: advanceError.message };
-      }
-
-      if (!updatedAdvanceDetail) {
-        return {
-          errorMessage: "Cannot edit: Advance details missing or soft-deleted.",
-        };
-      }
-    }
-
-    const auditResult = await this.createClaimAuditLog({
-      claimId,
-      actorId: actorUserId,
-      actionType: "UPDATED",
-      assignedToId: null,
-      remarks: "Claim details updated before finance review.",
+    const { error } = await client.rpc("update_claim_by_submitter", {
+      p_claim_id: claimId,
+      p_actor_id: actorUserId,
+      p_payload: rpcPayload,
     });
 
-    if (auditResult.errorMessage) {
-      return { errorMessage: auditResult.errorMessage };
+    if (error) {
+      if (payload.detailType === "expense" && isDuplicateExpenseBillConstraintError(error)) {
+        throw error;
+      }
+      return { errorMessage: error.message };
     }
 
     return { errorMessage: null };
@@ -2399,13 +2364,15 @@ export class SupabaseClaimRepository implements ClaimRepository {
     billNo: string;
     transactionDate: string;
     totalAmount: number;
+    foreignCurrencyCode?: string | null;
+    foreignBasicAmount?: number | null;
   }): Promise<{ exists: boolean; errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
     const epsilon = 0.01;
 
     const { data, error } = await client
       .from("expense_details")
-      .select("total_amount")
+      .select("total_amount, foreign_currency_code, foreign_basic_amount")
       .eq("bill_no", input.billNo)
       .eq("transaction_date", input.transactionDate)
       .eq("is_active", true)
@@ -2417,16 +2384,44 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
     const rows = (data ?? []) as Array<{
       total_amount: number | null;
+      foreign_currency_code: string | null;
+      foreign_basic_amount: number | null;
     }>;
     const normalizedTotalAmount = Number(input.totalAmount);
+    const inputForeignCode = input.foreignCurrencyCode ?? "INR";
+    const inputForeignBasic = Number(input.foreignBasicAmount ?? 0);
+    const isInputForeign = inputForeignCode !== "INR";
 
     const exists = rows.some((row) => {
       const candidateTotalAmount = Number(row.total_amount);
+      const candidateForeignCode = row.foreign_currency_code ?? "INR";
+      const candidateForeignBasic = Number(row.foreign_basic_amount ?? 0);
+      const isCandidateForeign = candidateForeignCode !== "INR";
 
-      if (!Number.isFinite(candidateTotalAmount)) {
+      // INR vs foreign are different domains — never collide.
+      if (isInputForeign !== isCandidateForeign) {
         return false;
       }
 
+      if (isInputForeign) {
+        // Foreign claims: dedup by currency code + foreign basic amount.
+        // Short-circuit if either side has null foreign_basic_amount — incomplete data should not dedup.
+        if (candidateForeignCode !== inputForeignCode) {
+          return false;
+        }
+        if (input.foreignBasicAmount == null || row.foreign_basic_amount == null) {
+          return false;
+        }
+        if (!Number.isFinite(candidateForeignBasic)) {
+          return false;
+        }
+        return Math.abs(candidateForeignBasic - inputForeignBasic) <= epsilon;
+      }
+
+      // INR claims: original behavior — dedup by total_amount.
+      if (!Number.isFinite(candidateTotalAmount)) {
+        return false;
+      }
       return Math.abs(candidateTotalAmount - normalizedTotalAmount) <= epsilon;
     });
 
@@ -2438,13 +2433,15 @@ export class SupabaseClaimRepository implements ClaimRepository {
     transactionDate: string;
     totalAmount: number;
     excludeClaimId?: string;
+    foreignCurrencyCode?: string | null;
+    foreignBasicAmount?: number | null;
   }): Promise<{ claimId: string | null; errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
     const epsilon = 0.01;
 
     let query = client
       .from("expense_details")
-      .select("claim_id, total_amount")
+      .select("claim_id, total_amount, foreign_currency_code, foreign_basic_amount")
       .eq("bill_no", input.billNo)
       .eq("transaction_date", input.transactionDate)
       .eq("is_active", true)
@@ -2462,14 +2459,40 @@ export class SupabaseClaimRepository implements ClaimRepository {
 
     const rows = (data ?? []) as ExpenseDuplicateLookupRow[];
     const normalizedTotalAmount = Number(input.totalAmount);
+    const inputForeignCode = input.foreignCurrencyCode ?? "INR";
+    const inputForeignBasic = Number(input.foreignBasicAmount ?? 0);
+    const isInputForeign = inputForeignCode !== "INR";
 
     const duplicateRow = rows.find((row) => {
       const candidateTotalAmount = Number(row.total_amount);
+      const candidateForeignCode = row.foreign_currency_code ?? "INR";
+      const candidateForeignBasic = Number(row.foreign_basic_amount ?? 0);
+      const isCandidateForeign = candidateForeignCode !== "INR";
 
-      if (!Number.isFinite(candidateTotalAmount)) {
+      // INR vs foreign are different domains — never collide.
+      if (isInputForeign !== isCandidateForeign) {
         return false;
       }
 
+      if (isInputForeign) {
+        // Foreign claims: dedup by currency code + foreign basic amount.
+        // Short-circuit if either side has null foreign_basic_amount — incomplete data should not dedup.
+        if (candidateForeignCode !== inputForeignCode) {
+          return false;
+        }
+        if (input.foreignBasicAmount == null || row.foreign_basic_amount == null) {
+          return false;
+        }
+        if (!Number.isFinite(candidateForeignBasic)) {
+          return false;
+        }
+        return Math.abs(candidateForeignBasic - inputForeignBasic) <= epsilon;
+      }
+
+      // INR claims: original behavior — dedup by total_amount.
+      if (!Number.isFinite(candidateTotalAmount)) {
+        return false;
+      }
       return Math.abs(candidateTotalAmount - normalizedTotalAmount) <= epsilon;
     });
 
@@ -2674,6 +2697,10 @@ export class SupabaseClaimRepository implements ClaimRepository {
         people_involved: prepared.expense.peopleInvolved,
         remarks: prepared.expense.remarks,
         ai_metadata: prepared.expense.aiMetadata ?? {},
+        foreign_currency_code: prepared.expense.foreignCurrencyCode ?? "INR",
+        foreign_basic_amount: prepared.expense.foreignBasicAmount ?? 0,
+        foreign_gst_amount: prepared.expense.foreignGstAmount ?? 0,
+        // foreign_total_amount is a GENERATED STORED column — do not write it
       })
       .select("id")
       .single();

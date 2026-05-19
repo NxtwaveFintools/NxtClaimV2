@@ -230,6 +230,54 @@ describe("SubmitClaimService", () => {
     });
   });
 
+  test("preserves foreign expense fields through preparation and payload mapping", async () => {
+    const repository = createRepository();
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    const input = {
+      ...baseInput,
+      expense: {
+        ...baseInput.expense,
+        foreignCurrencyCode: "USD" as const,
+        foreignBasicAmount: 120.5,
+        foreignGstAmount: 12.75,
+        foreignTotalAmount: 133.25,
+      },
+    };
+
+    const preparedResult = await service.prepareSubmission(input);
+
+    expect(preparedResult.errorCode).toBeNull();
+    expect(preparedResult.preparedSubmission?.expense).toEqual(
+      expect.objectContaining({
+        foreignCurrencyCode: "USD",
+        foreignBasicAmount: 120.5,
+        foreignGstAmount: 12.75,
+        foreignTotalAmount: 133.25,
+      }),
+    );
+
+    await service.execute(input);
+
+    const createClaimPayload = (repository.createClaimWithDetail as jest.Mock).mock
+      .calls[0]?.[0] as {
+      expense?: {
+        foreign_currency_code?: string | null;
+        foreign_basic_amount?: number | null;
+        foreign_gst_amount?: number | null;
+      };
+    };
+
+    expect(createClaimPayload.expense).toEqual(
+      expect.objectContaining({
+        foreign_currency_code: "USD",
+        foreign_basic_amount: 120.5,
+        foreign_gst_amount: 12.75,
+      }),
+    );
+  });
+
   test("accepts petty cash payment mode as expense", async () => {
     const repository = createRepository({
       getPaymentModeById: jest.fn(async () => ({

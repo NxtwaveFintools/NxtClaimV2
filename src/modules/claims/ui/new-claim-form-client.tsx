@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type BaseSyntheticEvent,
+} from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch, type FieldErrors } from "react-hook-form";
 import { useRouter } from "next/navigation";
@@ -20,6 +27,7 @@ import {
 } from "@/modules/claims/actions";
 import { parseReceiptAction } from "@/modules/claims/actions/parse-receipt";
 import { newClaimSubmitSchema } from "@/modules/claims/validators/new-claim-schema";
+import { computeForeignTotal, computeInrTotal } from "@/modules/claims/utils/compute-totals";
 import { useClaimFormAutofill } from "@/hooks/use-claim-form-autofill";
 import {
   LOCATION_TYPES,
@@ -62,6 +70,10 @@ export type ClaimFormDraftValues = {
     basicAmount: number;
     totalAmount: number;
     currencyCode: string;
+    foreignCurrencyCode: "INR" | "USD" | "EUR" | "CHF";
+    foreignBasicAmount: number | null;
+    foreignGstAmount: number | null;
+    foreignTotalAmount: number | null;
     vendorName: string | null;
     receiptFileName: string;
     receiptFileType: string;
@@ -132,6 +144,15 @@ function toNumber(val: unknown): number {
 
 function toNumberOrZero(value: unknown): number {
   return toNumber(value);
+}
+
+function clientToNullableNumber(value: unknown): number | null {
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
 function toNullableString(value: unknown): string | null {
@@ -222,14 +243,12 @@ function calculateExpenseTotal(
   sgstAmountValue: number,
   igstAmountValue: number,
 ): number {
-  const safeBasicAmount = Number.isFinite(basicAmountValue) ? basicAmountValue : 0;
-  const safeCgstAmount = Number.isFinite(cgstAmountValue) ? cgstAmountValue : 0;
-  const safeSgstAmount = Number.isFinite(sgstAmountValue) ? sgstAmountValue : 0;
-  const safeIgstAmount = Number.isFinite(igstAmountValue) ? igstAmountValue : 0;
-
-  return (
-    Math.round((safeBasicAmount + safeCgstAmount + safeSgstAmount + safeIgstAmount) * 100) / 100
-  );
+  return computeInrTotal({
+    basicAmount: Number.isFinite(basicAmountValue) ? basicAmountValue : 0,
+    cgstAmount: Number.isFinite(cgstAmountValue) ? cgstAmountValue : 0,
+    sgstAmount: Number.isFinite(sgstAmountValue) ? sgstAmountValue : 0,
+    igstAmount: Number.isFinite(igstAmountValue) ? igstAmountValue : 0,
+  });
 }
 
 function appendFormDataValue(
@@ -264,6 +283,10 @@ type AiExpenseSnapshot = {
   sgst_amount: number;
   igst_amount: number;
   total_amount: number;
+  foreign_currency_code: string | null;
+  foreign_basic_amount: number | null;
+  foreign_gst_amount: number | null;
+  foreign_total_amount: number | null;
 };
 
 function normalizeOptionalText(value: string | null | undefined): string | null {
@@ -313,11 +336,22 @@ function buildExpenseAiMetadata(
     { key: "sgst_amount", currentValue: expense.sgstAmount },
     { key: "igst_amount", currentValue: expense.igstAmount },
     { key: "total_amount", currentValue: currentTotalAmount },
+    { key: "foreign_currency_code", currentValue: expense.foreignCurrencyCode },
+    { key: "foreign_basic_amount", currentValue: expense.foreignBasicAmount },
+    { key: "foreign_gst_amount", currentValue: expense.foreignGstAmount },
+    { key: "foreign_total_amount", currentValue: expense.foreignTotalAmount },
   ];
 
   for (const comparison of comparisons) {
     const originalValue = snapshot[comparison.key];
     const currentValue = comparison.currentValue;
+
+    if (typeof originalValue === "number" && currentValue === null) {
+      if (originalValue !== 0) {
+        editedFields[comparison.key] = { original: originalValue };
+      }
+      continue;
+    }
 
     if (typeof originalValue === "number" && typeof currentValue === "number") {
       if (!equalsRoundedAmount(originalValue, currentValue)) {
@@ -390,6 +424,10 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
         basicAmount: 0,
         totalAmount: 0,
         currencyCode: "INR",
+        foreignCurrencyCode: "INR",
+        foreignBasicAmount: null,
+        foreignGstAmount: null,
+        foreignTotalAmount: null,
         vendorName: null,
         receiptFileName: "",
         receiptFileType: "",
@@ -419,6 +457,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     register,
     control,
     setValue,
+    getValues,
     handleSubmit,
     formState: { errors },
   } = form;
@@ -434,6 +473,15 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   const cgstAmount = useWatch({ control, name: "expense.cgstAmount" });
   const sgstAmount = useWatch({ control, name: "expense.sgstAmount" });
   const igstAmount = useWatch({ control, name: "expense.igstAmount" });
+  const watchedForeignBasic = useWatch({ control, name: "expense.foreignBasicAmount" });
+  const watchedForeignGst = useWatch({ control, name: "expense.foreignGstAmount" });
+  const watchedForeignCode = useWatch({ control, name: "expense.foreignCurrencyCode" });
+  const watchedTotalAmount = useWatch({ control, name: "expense.totalAmount" }) as
+    | number
+    | undefined;
+  const watchedForeignTotalAmount = useWatch({ control, name: "expense.foreignTotalAmount" }) as
+    | number
+    | undefined;
 
   const isBankStatementRequired = useMemo(() => {
     const category = options.expenseCategories.find((c) => c.id === expenseCategoryId);
@@ -469,12 +517,35 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     });
   }, [basicAmount, cgstAmount, igstAmount, setValue, sgstAmount]);
 
+  useEffect(() => {
+    if (!watchedForeignCode || watchedForeignCode === "INR") {
+      setValue("expense.foreignTotalAmount", null, { shouldValidate: false });
+      return;
+    }
+    setValue(
+      "expense.foreignTotalAmount",
+      computeForeignTotal({
+        basicAmount: Number(watchedForeignBasic) || 0,
+        gstAmount: Number(watchedForeignGst) || 0,
+      }),
+      { shouldValidate: false },
+    );
+  }, [watchedForeignCode, watchedForeignBasic, watchedForeignGst, setValue]);
+
   const calculatedTotalAmount = calculateExpenseTotal(
     basicAmount,
     cgstAmount,
     sgstAmount,
     igstAmount,
   );
+
+  const calculatedForeignTotalAmount =
+    watchedForeignCode && watchedForeignCode !== "INR"
+      ? computeForeignTotal({
+          basicAmount: Number(watchedForeignBasic) || 0,
+          gstAmount: Number(watchedForeignGst) || 0,
+        })
+      : null;
 
   const selectedDepartment = useMemo(
     () => options.departmentRouting.find((department) => department.id === departmentId) ?? null,
@@ -706,6 +777,22 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       appendFormDataValue(formData, "expense.transactionDate", values.expense.transactionDate);
       appendFormDataValue(formData, "expense.basicAmount", values.expense.basicAmount);
       appendFormDataValue(formData, "expense.currencyCode", values.expense.currencyCode);
+      appendFormDataValue(
+        formData,
+        "expense.foreignCurrencyCode",
+        values.expense.foreignCurrencyCode,
+      );
+      appendFormDataValue(
+        formData,
+        "expense.foreignBasicAmount",
+        values.expense.foreignBasicAmount,
+      );
+      appendFormDataValue(formData, "expense.foreignGstAmount", values.expense.foreignGstAmount);
+      appendFormDataValue(
+        formData,
+        "expense.foreignTotalAmount",
+        values.expense.foreignTotalAmount,
+      );
       appendFormDataValue(formData, "expense.vendorName", values.expense.vendorName);
       appendFormDataValue(formData, "expense.peopleInvolved", values.expense.peopleInvolved);
       appendFormDataValue(formData, "expense.remarks", values.expense.remarks);
@@ -787,7 +874,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     toast.error(firstError);
   };
 
-  const handleFormSubmit: React.FormEventHandler<HTMLFormElement> = (event) => {
+  const handleFormSubmit = (event: BaseSyntheticEvent) => {
     if (isSubmitting) {
       return;
     }
@@ -826,6 +913,28 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       options.expenseCategories,
     );
 
+    const VALID_FOREIGN_CODES = new Set(["INR", "USD", "EUR", "CHF"] as const);
+    const rawCode =
+      typeof parsed.foreignCurrencyCode === "string"
+        ? parsed.foreignCurrencyCode.toUpperCase()
+        : null;
+    const foreignCurrencyCode =
+      rawCode && VALID_FOREIGN_CODES.has(rawCode as "INR" | "USD" | "EUR" | "CHF")
+        ? (rawCode as "INR" | "USD" | "EUR" | "CHF")
+        : null;
+    const foreignBasicAmount =
+      parsed.foreignBasicAmount !== null && parsed.foreignBasicAmount !== undefined
+        ? toNumber(parsed.foreignBasicAmount)
+        : null;
+    const foreignGstAmount =
+      parsed.foreignGstAmount !== null && parsed.foreignGstAmount !== undefined
+        ? toNumber(parsed.foreignGstAmount)
+        : null;
+    const foreignTotalAmount =
+      parsed.foreignTotalAmount !== null && parsed.foreignTotalAmount !== undefined
+        ? toNumber(parsed.foreignTotalAmount)
+        : null;
+
     originalAiExpenseSnapshotRef.current = {
       bill_no: normalizeOptionalText(billNo),
       transaction_date: normalizeOptionalText(transactionDate),
@@ -837,6 +946,10 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       sgst_amount: sgstAmount,
       igst_amount: igstAmount,
       total_amount: normalizedTotalAmount,
+      foreign_currency_code: foreignCurrencyCode,
+      foreign_basic_amount: foreignBasicAmount,
+      foreign_gst_amount: foreignGstAmount,
+      foreign_total_amount: foreignTotalAmount,
     };
 
     setValue("expense.billNo", billNo, {
@@ -889,6 +1002,107 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       shouldTouch: true,
       shouldValidate: true,
     });
+
+    if (foreignCurrencyCode && foreignCurrencyCode !== "INR") {
+      setValue("expense.foreignCurrencyCode", foreignCurrencyCode, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+      setValue("expense.foreignBasicAmount", foreignBasicAmount ?? null, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+      setValue("expense.foreignGstAmount", foreignGstAmount ?? null, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+      // foreignTotalAmount is derived via useEffect
+    }
+  };
+
+  const appendBankStatementMatchHints = (formData: FormData): void => {
+    const expenseValues = getValues("expense");
+    const selectedCategoryName =
+      options.expenseCategories.find((category) => category.id === expenseValues.expenseCategoryId)
+        ?.name ?? null;
+
+    appendFormDataValue(formData, "bankStatementMatchVendorName", expenseValues.vendorName);
+    appendFormDataValue(
+      formData,
+      "bankStatementMatchTransactionDate",
+      expenseValues.transactionDate,
+    );
+    appendFormDataValue(formData, "bankStatementMatchBillNo", expenseValues.billNo);
+    appendFormDataValue(
+      formData,
+      "bankStatementMatchForeignCurrencyCode",
+      expenseValues.foreignCurrencyCode,
+    );
+    appendFormDataValue(
+      formData,
+      "bankStatementMatchForeignTotalAmount",
+      expenseValues.foreignTotalAmount,
+    );
+    appendFormDataValue(formData, "bankStatementMatchCategoryName", selectedCategoryName);
+  };
+
+  const applyParsedBankStatementToForm = (parsed: Record<string, unknown>): void => {
+    const matchedAmount = toNumber(parsed.basicAmount ?? parsed.basic_amount);
+    const matchedDate = toNullableString(parsed.transactionDate ?? parsed.transaction_date);
+    const matchedVendorName = toNullableString(parsed.vendorName ?? parsed.vendor_name);
+    const expenseValues = getValues("expense");
+    const isForeignExpense =
+      expenseValues.foreignCurrencyCode !== "INR" ||
+      toNumber(expenseValues.foreignBasicAmount) > 0 ||
+      toNumber(expenseValues.foreignTotalAmount) > 0;
+
+    setValue("expense.basicAmount", matchedAmount, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+
+    if (isForeignExpense) {
+      setValue("expense.cgstAmount", 0, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+      setValue("expense.sgstAmount", 0, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+      setValue("expense.igstAmount", 0, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+      setValue("expense.totalAmount", matchedAmount, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+    }
+
+    if (!expenseValues.vendorName && matchedVendorName) {
+      setValue("expense.vendorName", matchedVendorName, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+    }
+
+    if (!expenseValues.transactionDate && matchedDate) {
+      setValue("expense.transactionDate", matchedDate, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+    }
   };
 
   const runReceiptExtraction = async (
@@ -900,6 +1114,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     try {
       const formData = new FormData();
       formData.append("receiptFile", receiptFile);
+      formData.append("documentType", "invoice");
       for (const category of options.expenseCategories) {
         formData.append("expenseCategoryNames", category.name);
       }
@@ -935,6 +1150,52 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     }
   };
 
+  const runBankStatementExtraction = async (
+    statementFile: File,
+    toastId: string | number,
+  ): Promise<void> => {
+    setIsAiParsing(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("receiptFile", statementFile);
+      formData.append("documentType", "bank_statement");
+      appendBankStatementMatchHints(formData);
+
+      const result = await parseReceiptAction(formData);
+      if (!result.ok || !result.data) {
+        toast.error(result.message ?? "Failed to match bank statement amount.", { id: toastId });
+        return;
+      }
+
+      if (!result.autoFillAllowed) {
+        toast.error(result.message ?? "Failed to match bank statement amount.", { id: toastId });
+        return;
+      }
+
+      const aiData = parseAiPayload(result.data);
+      if (!aiData) {
+        toast.error("AI returned invalid bank statement data. Please fill the amount manually.", {
+          id: toastId,
+        });
+        return;
+      }
+
+      if (toNumber(aiData.confidenceScore) < 70) {
+        toast.warning(
+          "Bank statement match is low confidence. Please verify the selected INR amount carefully.",
+        );
+      }
+
+      applyParsedBankStatementToForm(aiData);
+      toast.success("Matched INR amount from bank statement.", { id: toastId });
+    } catch {
+      toast.error("Failed to match bank statement amount.", { id: toastId });
+    } finally {
+      setIsAiParsing(false);
+    }
+  };
+
   const handleReceiptUploadSuccess = async (selectedFile: File | null): Promise<void> => {
     setInvoiceFile(selectedFile);
     setValue("expense.receiptFileName", selectedFile ? selectedFile.name : "", {
@@ -964,6 +1225,43 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     setFileError(null);
     const toastId = toast.loading("Fetching AI details...");
     await runReceiptExtraction(selectedFile, toastId);
+  };
+
+  const handleBankStatementUploadSuccess = async (selectedFile: File | null): Promise<void> => {
+    setBankStatementFile(selectedFile);
+    setBankStatementError(null);
+    setValue("expense.bankStatementFileName", selectedFile ? selectedFile.name : null, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue(
+      "expense.bankStatementFileType",
+      selectedFile ? selectedFile.type || "application/octet-stream" : null,
+      {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      },
+    );
+
+    if (!selectedFile) {
+      return;
+    }
+
+    const bankValidationError = validateUploadFile(selectedFile, "Bank statement file");
+    if (bankValidationError) {
+      setBankStatementError(bankValidationError);
+      toast.error(bankValidationError);
+      return;
+    }
+
+    if (isAiParsing) {
+      return;
+    }
+
+    const toastId = toast.loading("AI is fetching bank statement details...");
+    await runBankStatementExtraction(selectedFile, toastId);
   };
 
   const handleAutoFillWithAI = async () => {
@@ -1356,26 +1654,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     className="hidden"
                     onChange={(event) => {
                       const selectedFile = event.target.files?.[0] ?? null;
-                      setBankStatementFile(selectedFile);
-                      setBankStatementError(null);
-                      setValue(
-                        "expense.bankStatementFileName",
-                        selectedFile ? selectedFile.name : null,
-                        {
-                          shouldDirty: true,
-                          shouldTouch: true,
-                          shouldValidate: true,
-                        },
-                      );
-                      setValue(
-                        "expense.bankStatementFileType",
-                        selectedFile ? selectedFile.type || "application/octet-stream" : null,
-                        {
-                          shouldDirty: true,
-                          shouldTouch: true,
-                          shouldValidate: true,
-                        },
-                      );
+                      void handleBankStatementUploadSuccess(selectedFile);
                     }}
                   />
                   <label
@@ -1691,11 +1970,99 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                       readOnly
                       disabled
                       className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
-                      value={calculatedTotalAmount.toFixed(2)}
+                      value={Number(watchedTotalAmount ?? calculatedTotalAmount).toFixed(2)}
                     />
                     {errors.expense?.totalAmount ? (
                       <p className="text-xs text-rose-600">{errors.expense.totalAmount.message}</p>
                     ) : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-3 rounded-xl border border-zinc-200/80 bg-zinc-100/30 p-3 dark:border-zinc-700 dark:bg-zinc-800/20">
+                <p className="text-[11px] font-medium tracking-wide text-zinc-500 dark:text-zinc-400">
+                  Foreign Expense Details
+                </p>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor="foreignCurrencyCode"
+                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    >
+                      Foreign Currency
+                    </label>
+                    <FormSelect
+                      id="foreignCurrencyCode"
+                      className="h-9 w-full rounded-lg border border-zinc-300 px-3 text-sm"
+                      {...register("expense.foreignCurrencyCode")}
+                    >
+                      <option value="INR">INR</option>
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                      <option value="CHF">CHF</option>
+                    </FormSelect>
+                  </div>
+
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor="foreignBasicAmount"
+                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    >
+                      Foreign Basic Amount
+                    </label>
+                    <CurrencyInput
+                      id="foreignBasicAmount"
+                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                      {...register("expense.foreignBasicAmount", {
+                        setValueAs: clientToNullableNumber,
+                      })}
+                    />
+                    {errors.expense?.foreignBasicAmount ? (
+                      <p className="text-xs text-rose-600">
+                        {errors.expense.foreignBasicAmount.message}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor="foreignGstAmount"
+                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    >
+                      Foreign GST Amount
+                    </label>
+                    <CurrencyInput
+                      id="foreignGstAmount"
+                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                      {...register("expense.foreignGstAmount", {
+                        setValueAs: clientToNullableNumber,
+                      })}
+                    />
+                  </div>
+
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor="foreignTotalAmount"
+                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    >
+                      Foreign Total Amount
+                    </label>
+                    <CurrencyInput
+                      id="foreignTotalAmount"
+                      readOnly
+                      disabled
+                      className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
+                      value={
+                        calculatedForeignTotalAmount !== null
+                          ? Number(
+                              watchedForeignTotalAmount ?? calculatedForeignTotalAmount,
+                            ).toFixed(2)
+                          : ""
+                      }
+                    />
                   </div>
                 </div>
               </div>
