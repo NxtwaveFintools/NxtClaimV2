@@ -47,6 +47,11 @@ export interface BcClaimLineItem {
   regionCode: string;
   invoiceRequired: boolean;
   paymentRequired: boolean;
+  // Amount in local currency (INR). Vendor → basic_amount; non-vendor → total_amount.
+  amountLc: number;
+  // Amount in foreign currency. Vendor → foreign_basic_amount;
+  // non-vendor → foreign_total_amount, falling back to total_amount when foreign is 0.
+  amount: number;
   // Vendor-only — OMIT ENTIRELY (do not send null/empty) for non-vendor claims.
   currencyCode?: string;
   vendorInvoiceNo?: string;
@@ -78,6 +83,10 @@ export interface BcClaimPayloadFromDb {
   receipt_file_path: string | null;
   bank_statement_file_path: string | null;
   bc_code: string;
+  basic_amount: number;
+  total_amount: number;
+  foreign_basic_amount: number;
+  foreign_total_amount: number;
 }
 
 /** Structured errors returned to the modal. */

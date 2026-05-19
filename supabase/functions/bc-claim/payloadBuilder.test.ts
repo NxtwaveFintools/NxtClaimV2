@@ -20,6 +20,10 @@ const baseDb: BcClaimPayloadFromDb = {
   receipt_file_path: "https://xyz.supabase.co/storage/v1/object/public/receipts/inv.pdf",
   bank_statement_file_path: null,
   bc_code: "503063",
+  basic_amount: 1000,
+  total_amount: 1180,
+  foreign_basic_amount: 12,
+  foreign_total_amount: 14,
 };
 
 const vendorInputs: BuildInputs = {
@@ -39,7 +43,7 @@ const nonVendorInputs: BuildInputs = {
   isVendorPayment: false,
 };
 
-Deno.test("vendor payload has all 26 fields with vendor-only keys present", () => {
+Deno.test("vendor payload has all 28 fields with vendor-only keys present", () => {
   const line = buildBcClaimLineItem(vendorInputs);
   assertEquals(line.documentType, "Invoice");
   assertEquals(line.locationCode, "HBT");
@@ -60,13 +64,15 @@ Deno.test("vendor payload has all 26 fields with vendor-only keys present", () =
   assertEquals(line.regionCode, "TELUGU");
   assertEquals(line.invoiceRequired, true);
   assertEquals(line.paymentRequired, true);
+  assertEquals(line.amountLc, 1000);
+  assertEquals(line.amount, 12);
   assertEquals(line.currencyCode, "INR");
   assertEquals(line.vendorInvoiceNo, "INV-2026-001");
   assertEquals(line.vendorCode, "V0001");
   assertEquals(line.vendorName, "Twilio Inc");
   assertEquals(line.gstGroupCode, "GST18");
   assertEquals(line.hsnSacCode, "998314");
-  assertEquals(Object.keys(line).length, 26);
+  assertEquals(Object.keys(line).length, 28);
 });
 
 Deno.test("non-vendor payload omits vendor-only keys entirely", () => {
@@ -83,7 +89,7 @@ Deno.test("non-vendor payload omits vendor-only keys entirely", () => {
   }
   assertEquals(line.invoiceRequired, false);
   assertEquals(line.paymentRequired, true);
-  assertEquals(Object.keys(line).length, 20);
+  assertEquals(Object.keys(line).length, 22);
 });
 
 Deno.test("On_behalf submission uses on_behalf_employee_code for employeeId", () => {
@@ -131,25 +137,20 @@ Deno.test("vendor payload throws when vendor inputs are missing", () => {
   );
 });
 
-Deno.test(
-  "claimNo is truncated to BC's 20-char limit (full id stays on bc_claim_details.claim_id)",
-  () => {
-    const line = buildBcClaimLineItem({
-      db: { ...baseDb, claim_id: "CLAIM-NW3341311-20260516-B324" },
-      isVendorPayment: false,
-    });
-    assertEquals(line.claimNo, "CLAIM-NW3341311-2026");
-    assertEquals(line.claimNo.length, 20);
-  },
-);
+Deno.test("claimNo is sent in full (BC widened the No. columns past 20 chars)", () => {
+  const line = buildBcClaimLineItem({
+    db: { ...baseDb, claim_id: "CLAIM-NW3341311-20260516-B324" },
+    isVendorPayment: false,
+  });
+  assertEquals(line.claimNo, "CLAIM-NW3341311-20260516-B324");
+});
 
-Deno.test("employeeId is truncated to BC's 20-char limit", () => {
+Deno.test("employeeId is sent in full (BC widened the No. columns past 20 chars)", () => {
   const line = buildBcClaimLineItem({
     db: { ...baseDb, employee_id: "EMP-AUDIT-1778736715128" },
     isVendorPayment: false,
   });
-  assertEquals(line.employeeId, "EMP-AUDIT-1778736715");
-  assertEquals(line.employeeId.length, 20);
+  assertEquals(line.employeeId, "EMP-AUDIT-1778736715128");
 });
 
 Deno.test("vendorInvoiceNo defaults to empty string when bill_no is null", () => {
@@ -161,36 +162,69 @@ Deno.test("vendorInvoiceNo defaults to empty string when bill_no is null", () =>
   assertEquals(line.vendorInvoiceNo, "");
 });
 
-Deno.test("buildRemarks — short claim_id + short purpose fits within 50 chars", () => {
-  const r = buildRemarks({ ...baseDb, claim_id: "CLM-100", purpose: "Software" });
-  assertEquals(r, "CLM-100 - Software");
-  assert(r.length <= 50);
+Deno.test("vendor amounts: amountLc=basic_amount, amount=foreign_basic_amount", () => {
+  const line = buildBcClaimLineItem({
+    db: {
+      ...baseDb,
+      basic_amount: 5000,
+      total_amount: 5900,
+      foreign_basic_amount: 60,
+      foreign_total_amount: 71,
+    },
+    isVendorPayment: true,
+    vendor: vendorInputs.vendor,
+  });
+  assertEquals(line.amountLc, 5000);
+  assertEquals(line.amount, 60);
 });
 
-Deno.test("buildRemarks — long purpose is truncated to 50 chars total", () => {
-  const r = buildRemarks({
-    ...baseDb,
-    claim_id: "CLAIM-NW3341311-20260516-B324",
-    purpose: "Lorem ipsum dolor sit amet consectetur adipiscing elit",
+Deno.test("non-vendor amounts: amountLc=total_amount, amount=foreign_total_amount", () => {
+  const line = buildBcClaimLineItem({
+    db: {
+      ...baseDb,
+      basic_amount: 5000,
+      total_amount: 5900,
+      foreign_basic_amount: 60,
+      foreign_total_amount: 71,
+    },
+    isVendorPayment: false,
   });
-  // 29-char claim id + " - " leaves 18 chars for purpose. Length must equal 50.
-  assertEquals(r.length, 50);
-  assertEquals(r, "CLAIM-NW3341311-20260516-B324 - Lorem ipsum dolor ");
+  assertEquals(line.amountLc, 5900);
+  assertEquals(line.amount, 71);
+});
+
+Deno.test("non-vendor amount falls back to total_amount when foreign_total_amount is 0", () => {
+  const line = buildBcClaimLineItem({
+    db: {
+      ...baseDb,
+      basic_amount: 5000,
+      total_amount: 5900,
+      foreign_basic_amount: 0,
+      foreign_total_amount: 0,
+    },
+    isVendorPayment: false,
+  });
+  assertEquals(line.amountLc, 5900);
+  assertEquals(line.amount, 5900);
+});
+
+Deno.test("buildRemarks — short claim_id + short purpose are not truncated", () => {
+  const r = buildRemarks({ ...baseDb, claim_id: "CLM-100", purpose: "Software" });
+  assertEquals(r, "CLM-100 - Software");
 });
 
 Deno.test(
-  "buildRemarks — file paths are ignored (BC remarks is 50 chars, too short for URLs)",
+  "buildRemarks — long claim_id + long purpose pass through in full (BC widened remarks)",
   () => {
     const r = buildRemarks({
       ...baseDb,
-      claim_id: "CLM-100",
-      purpose: "Software",
-      receipt_file_path: "https://x.co/very/long/url/that/will/not/fit/r.pdf",
-      bank_statement_file_path: "https://x.co/very/long/url/that/will/not/fit/s.pdf",
+      claim_id: "CLAIM-NW3341311-20260516-B324",
+      purpose: "Lorem ipsum dolor sit amet consectetur adipiscing elit",
     });
-    assertEquals(r, "CLM-100 - Software");
-    assert(!r.includes("bill"));
-    assert(!r.includes("bank statement"));
+    assertEquals(
+      r,
+      "CLAIM-NW3341311-20260516-B324 - Lorem ipsum dolor sit amet consectetur adipiscing elit",
+    );
   },
 );
 
