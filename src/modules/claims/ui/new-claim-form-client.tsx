@@ -469,6 +469,12 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   const watchedForeignBasic = useWatch({ control, name: "expense.foreignBasicAmount" });
   const watchedForeignGst = useWatch({ control, name: "expense.foreignGstAmount" });
   const watchedForeignCode = useWatch({ control, name: "expense.foreignCurrencyCode" });
+  const watchedTotalAmount = useWatch({ control, name: "expense.totalAmount" }) as
+    | number
+    | undefined;
+  const watchedForeignTotalAmount = useWatch({ control, name: "expense.foreignTotalAmount" }) as
+    | number
+    | undefined;
 
   const isBankStatementRequired = useMemo(() => {
     const category = options.expenseCategories.find((c) => c.id === expenseCategoryId);
@@ -1957,7 +1963,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                       readOnly
                       disabled
                       className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
-                      value={calculatedTotalAmount.toFixed(2)}
+                      value={Number(watchedTotalAmount ?? calculatedTotalAmount).toFixed(2)}
                     />
                     {errors.expense?.totalAmount ? (
                       <p className="text-xs text-rose-600">{errors.expense.totalAmount.message}</p>
@@ -2044,7 +2050,9 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                       className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
                       value={
                         calculatedForeignTotalAmount !== null
-                          ? calculatedForeignTotalAmount.toFixed(2)
+                          ? Number(
+                              watchedForeignTotalAmount ?? calculatedForeignTotalAmount,
+                            ).toFixed(2)
                           : ""
                       }
                     />
