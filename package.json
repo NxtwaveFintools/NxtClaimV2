@@ -10,7 +10,7 @@
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
     "test": "npm run test:unit",
-    "test:unit": "jest --passWithNoTests",
+    "test:unit": "jest --passWithNoTests --runInBand",
     "test:unit:watch": "jest --watch",
     "test:e2e": "playwright test --pass-with-no-tests",
     "test:e2e:ui": "playwright test --ui",
