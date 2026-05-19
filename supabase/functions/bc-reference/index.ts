@@ -75,13 +75,39 @@ export async function handler(req: Request): Promise<Response> {
     );
   }
 
-  const cached = cache.get(type);
+  // HSN/SAC alone supports an optional ?query= for search-as-you-type, since
+  // BC can hold 10k+ codes; currencies (~150) and GST groups (~30) always
+  // return the full list (small + rarely changes + worth caching in full).
+  const query = type === "hsnSacCodes" ? (url.searchParams.get("query") ?? "").trim() : "";
+
+  // Cache key includes the query so different searches don't poison each other.
+  const cacheKey = type === "hsnSacCodes" ? `${type}::${query}` : type;
+  const cached = cache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
-    log("bc-reference", "info", "cache_hit", { type });
+    log("bc-reference", "info", "cache_hit", { type, query: query || undefined });
     return json(cors.headers, cached.body, 200);
   }
 
-  const path = `/${entity}?$select=Code,Description`;
+  let path = `/${entity}?$select=Code,Description`;
+  if (type === "hsnSacCodes") {
+    path += "&$top=20";
+    if (query) {
+      // BC's contains(tolower(field), value) is unreliable; OR across case
+      // variants instead (same workaround as bc-vendor-search).
+      const variants = Array.from(
+        new Set([
+          query,
+          query.toLowerCase(),
+          query.toUpperCase(),
+          query.charAt(0).toUpperCase() + query.slice(1).toLowerCase(),
+        ]),
+      ).map((v) => v.replace(/'/g, "''"));
+      const filter = variants
+        .map((v) => `(contains(Code,'${v}') or contains(Description,'${v}'))`)
+        .join(" or ");
+      path += `&$filter=${encodeURIComponent(filter)}`;
+    }
+  }
   let result;
   try {
     result = await bcFetch("odata", "GET", path);
@@ -123,7 +149,7 @@ export async function handler(req: Request): Promise<Response> {
     bc_status: result.status,
     count: mapped.value.length,
   });
-  cache.set(type, { body: mapped, expiresAt: Date.now() + CACHE_TTL_MS });
+  cache.set(cacheKey, { body: mapped, expiresAt: Date.now() + CACHE_TTL_MS });
   return json(cors.headers, mapped, 200);
 }
 
