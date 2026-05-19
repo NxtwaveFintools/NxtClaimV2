@@ -38,9 +38,9 @@ export function buildRemarks(db: BcClaimPayloadFromDb): string {
  * Builds the single flat BcClaimLineItem object posted to BC.
  * Vendor-only fields are spread-omitted (NOT null/empty) when isVendorPayment is false.
  *
- * Amount fields:
- *   vendor     → amountLc = basic_amount,  amount = foreign_basic_amount
- *   non-vendor → amountLc = total_amount,  amount = foreign_total_amount
+ * Amount fields (BC's exact key names — typos and casing match BC's spec):
+ *   vendor     → ammountLCY = basic_amount,  Ammount = foreign_basic_amount
+ *   non-vendor → ammountLCY = total_amount,  Ammount = foreign_total_amount
  *                (falls back to total_amount when foreign_total_amount is 0,
  *                 since most non-vendor claims have no foreign amount entered)
  *
@@ -57,8 +57,8 @@ export function buildBcClaimLineItem(inputs: BuildInputs): BcClaimLineItem {
       ? db.on_behalf_employee_code
       : db.employee_id;
 
-  const amountLc = isVendorPayment ? db.basic_amount : db.total_amount;
-  const amount = isVendorPayment
+  const ammountLCY = isVendorPayment ? db.basic_amount : db.total_amount;
+  const Ammount = isVendorPayment
     ? db.foreign_basic_amount
     : db.foreign_total_amount > 0
       ? db.foreign_total_amount
@@ -85,8 +85,10 @@ export function buildBcClaimLineItem(inputs: BuildInputs): BcClaimLineItem {
     regionCode: db.region_code,
     invoiceRequired: isVendorPayment,
     paymentRequired: db.payment_mode_name === "Reimbursement",
-    amountLc,
-    amount,
+    ammountLCY,
+    Ammount,
+    // Non-vendor claims are always INR; vendor path overrides via spread below.
+    currencyCode: "INR",
   };
 
   if (!isVendorPayment) {

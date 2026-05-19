@@ -47,11 +47,12 @@ export interface BcClaimLineItem {
   regionCode: string;
   invoiceRequired: boolean;
   paymentRequired: boolean;
-  // Amount in local currency (INR). Vendor → basic_amount; non-vendor → total_amount.
-  amountLc: number;
-  // Amount in foreign currency. Vendor → foreign_basic_amount;
-  // non-vendor → foreign_total_amount, falling back to total_amount when foreign is 0.
-  amount: number;
+  // BC's exact JSON property names (typos and casing match BC's spec):
+  //   ammountLCY = local-currency amount. Vendor → basic_amount; non-vendor → total_amount.
+  //   Ammount    = foreign-currency amount. Vendor → foreign_basic_amount;
+  //                non-vendor → foreign_total_amount, falling back to total_amount when foreign is 0.
+  ammountLCY: number;
+  Ammount: number;
   // Vendor-only — OMIT ENTIRELY (do not send null/empty) for non-vendor claims.
   currencyCode?: string;
   vendorInvoiceNo?: string;

@@ -64,8 +64,8 @@ Deno.test("vendor payload has all 28 fields with vendor-only keys present", () =
   assertEquals(line.regionCode, "TELUGU");
   assertEquals(line.invoiceRequired, true);
   assertEquals(line.paymentRequired, true);
-  assertEquals(line.amountLc, 1000);
-  assertEquals(line.amount, 12);
+  assertEquals(line.ammountLCY, 1000);
+  assertEquals(line.Ammount, 12);
   assertEquals(line.currencyCode, "INR");
   assertEquals(line.vendorInvoiceNo, "INV-2026-001");
   assertEquals(line.vendorCode, "V0001");
@@ -75,10 +75,9 @@ Deno.test("vendor payload has all 28 fields with vendor-only keys present", () =
   assertEquals(Object.keys(line).length, 28);
 });
 
-Deno.test("non-vendor payload omits vendor-only keys entirely", () => {
+Deno.test("non-vendor payload omits vendor-only keys but always sends currencyCode=INR", () => {
   const line = buildBcClaimLineItem(nonVendorInputs);
   for (const key of [
-    "currencyCode",
     "vendorInvoiceNo",
     "vendorCode",
     "vendorName",
@@ -87,9 +86,19 @@ Deno.test("non-vendor payload omits vendor-only keys entirely", () => {
   ] as const) {
     assert(!(key in line), `${key} should be absent for non-vendor payload`);
   }
+  assertEquals(line.currencyCode, "INR");
   assertEquals(line.invoiceRequired, false);
   assertEquals(line.paymentRequired, true);
-  assertEquals(Object.keys(line).length, 22);
+  assertEquals(Object.keys(line).length, 23);
+});
+
+Deno.test("vendor payload uses vendor's currencyCode (overrides INR default)", () => {
+  const line = buildBcClaimLineItem({
+    db: baseDb,
+    isVendorPayment: true,
+    vendor: { ...vendorInputs.vendor!, currencyCode: "USD" },
+  });
+  assertEquals(line.currencyCode, "USD");
 });
 
 Deno.test("On_behalf submission uses on_behalf_employee_code for employeeId", () => {
@@ -162,7 +171,7 @@ Deno.test("vendorInvoiceNo defaults to empty string when bill_no is null", () =>
   assertEquals(line.vendorInvoiceNo, "");
 });
 
-Deno.test("vendor amounts: amountLc=basic_amount, amount=foreign_basic_amount", () => {
+Deno.test("vendor amounts: ammountLCY=basic_amount, Ammount=foreign_basic_amount", () => {
   const line = buildBcClaimLineItem({
     db: {
       ...baseDb,
@@ -174,11 +183,11 @@ Deno.test("vendor amounts: amountLc=basic_amount, amount=foreign_basic_amount", 
     isVendorPayment: true,
     vendor: vendorInputs.vendor,
   });
-  assertEquals(line.amountLc, 5000);
-  assertEquals(line.amount, 60);
+  assertEquals(line.ammountLCY, 5000);
+  assertEquals(line.Ammount, 60);
 });
 
-Deno.test("non-vendor amounts: amountLc=total_amount, amount=foreign_total_amount", () => {
+Deno.test("non-vendor amounts: ammountLCY=total_amount, Ammount=foreign_total_amount", () => {
   const line = buildBcClaimLineItem({
     db: {
       ...baseDb,
@@ -189,11 +198,11 @@ Deno.test("non-vendor amounts: amountLc=total_amount, amount=foreign_total_amoun
     },
     isVendorPayment: false,
   });
-  assertEquals(line.amountLc, 5900);
-  assertEquals(line.amount, 71);
+  assertEquals(line.ammountLCY, 5900);
+  assertEquals(line.Ammount, 71);
 });
 
-Deno.test("non-vendor amount falls back to total_amount when foreign_total_amount is 0", () => {
+Deno.test("non-vendor Ammount falls back to total_amount when foreign_total_amount is 0", () => {
   const line = buildBcClaimLineItem({
     db: {
       ...baseDb,
@@ -204,8 +213,8 @@ Deno.test("non-vendor amount falls back to total_amount when foreign_total_amoun
     },
     isVendorPayment: false,
   });
-  assertEquals(line.amountLc, 5900);
-  assertEquals(line.amount, 5900);
+  assertEquals(line.ammountLCY, 5900);
+  assertEquals(line.Ammount, 5900);
 });
 
 Deno.test("buildRemarks — short claim_id + short purpose are not truncated", () => {
