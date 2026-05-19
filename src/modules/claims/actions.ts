@@ -649,7 +649,7 @@ export async function submitClaimAction(input: unknown): Promise<{
     return {
       ok: false,
       message: "Validation failed.",
-      fieldErrors: parseResult.error.flatten().fieldErrors,
+      fieldErrors: z.flattenError(parseResult.error).fieldErrors,
     };
   }
 

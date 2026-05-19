@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type BaseSyntheticEvent,
+} from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch, type FieldErrors } from "react-hook-form";
 import { useRouter } from "next/navigation";
@@ -867,7 +874,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     toast.error(firstError);
   };
 
-  const handleFormSubmit: React.FormEventHandler<HTMLFormElement> = (event) => {
+  const handleFormSubmit = (event: BaseSyntheticEvent) => {
     if (isSubmitting) {
       return;
     }
