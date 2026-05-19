@@ -56,7 +56,7 @@ export function buildRemarks(db: BcClaimPayloadFromDb, urls: FileUrls): string {
  *                 since most non-vendor claims have no foreign amount entered)
  *
  * employeeId / employeeName resolution:
- *   - On_behalf → on_behalf_employee_code + on_behalf_of_id's full_name
+ *   - On Behalf → on_behalf_employee_code + on_behalf_of_id's full_name
  *   - Self      → employee_id + submitted_by's full_name
  *   Both resolved server-side by get_bc_claim_payload; we just trust db.
  */
@@ -68,7 +68,7 @@ export function buildBcClaimLineItem(inputs: BuildInputs): BcClaimLineItem {
   const { db, isVendorPayment, vendor, fileUrls = {} } = inputs;
 
   const employeeId =
-    db.submission_type === "On_behalf" && db.on_behalf_employee_code
+    db.submission_type === "On Behalf" && db.on_behalf_employee_code
       ? db.on_behalf_employee_code
       : db.employee_id;
 

@@ -101,11 +101,11 @@ Deno.test("vendor payload uses vendor's currencyCode (overrides INR default)", (
   assertEquals(line.currencyCode, "USD");
 });
 
-Deno.test("On_behalf submission uses on_behalf_employee_code for employeeId", () => {
+Deno.test("On Behalf submission uses on_behalf_employee_code for employeeId", () => {
   const line = buildBcClaimLineItem({
     db: {
       ...baseDb,
-      submission_type: "On_behalf",
+      submission_type: "On Behalf",
       employee_id: "NW0001234",
       on_behalf_employee_code: "NW0009999",
       employee_name: "Ravi Kumar",
@@ -303,4 +303,19 @@ Deno.test("buildBcClaimLineItem — vendor path also includes URLs in remarks", 
     fileUrls: { billUrl: "https://x.co/r.pdf?t=abc" },
   });
   assertEquals(line.remarks, "CLM-000145 - Software subscription\nbill - https://x.co/r.pdf?t=abc");
+});
+
+Deno.test("On Behalf submission sends beneficiary employee_id, not submitter's", () => {
+  const line = buildBcClaimLineItem({
+    db: {
+      ...baseDb,
+      submission_type: "On Behalf",
+      employee_id: "NW0001234", // submitter
+      on_behalf_employee_code: "NW0009999", // beneficiary
+      employee_name: "Beneficiary Person",
+    },
+    isVendorPayment: false,
+  });
+  assertEquals(line.employeeId, "NW0009999");
+  assertEquals(line.employeeName, "Beneficiary Person");
 });

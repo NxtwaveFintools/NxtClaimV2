@@ -69,7 +69,7 @@ export interface BcClaimLineItem {
 export interface BcClaimPayloadFromDb {
   claim_id: string;
   payment_mode_name: string;
-  submission_type: "Self" | "On_behalf";
+  submission_type: "Self" | "On Behalf";
   employee_id: string;
   on_behalf_employee_code: string | null;
   employee_name: string;
