@@ -13,6 +13,7 @@
     "test:unit": "jest --passWithNoTests --runInBand",
     "test:unit:watch": "jest --watch",
     "test:e2e": "playwright test --pass-with-no-tests",
+    "test:integration": "jest --testPathPatterns=tests/integration --testMatch='**/*.test.(ts|tsx)' --testPathIgnorePatterns=/node_modules/ --passWithNoTests --runInBand",
     "test:e2e:ui": "playwright test --ui",
     "seed:master-routing": "node scripts/seed-master-routing.js",
     "seed:master-routing:apply": "node scripts/seed-master-routing.js --apply",
