@@ -146,20 +146,25 @@ Deno.test("vendor payload throws when vendor inputs are missing", () => {
   );
 });
 
-Deno.test("claimNo is sent in full (BC widened the No. columns past 20 chars)", () => {
+Deno.test("claimNo passes through in full (any length — BC rejects loudly if too long)", () => {
   const line = buildBcClaimLineItem({
-    db: { ...baseDb, claim_id: "CLAIM-NW3341311-20260516-B324" },
+    db: {
+      ...baseDb,
+      claim_id: "CLAIM-EMPSUBMIT17791073235641779107326937-20260518-1D00",
+    },
     isVendorPayment: false,
   });
-  assertEquals(line.claimNo, "CLAIM-NW3341311-20260516-B324");
+  assertEquals(line.claimNo, "CLAIM-EMPSUBMIT17791073235641779107326937-20260518-1D00");
+  assertEquals(line.claimNo.length, 55);
 });
 
-Deno.test("employeeId is sent in full (BC widened the No. columns past 20 chars)", () => {
+Deno.test("employeeId passes through in full (any length — BC rejects loudly if too long)", () => {
   const line = buildBcClaimLineItem({
-    db: { ...baseDb, employee_id: "EMP-AUDIT-1778736715128" },
+    db: { ...baseDb, employee_id: "EMP-SUBMIT-1779107323564-1779107326937" },
     isVendorPayment: false,
   });
-  assertEquals(line.employeeId, "EMP-AUDIT-1778736715128");
+  assertEquals(line.employeeId, "EMP-SUBMIT-1779107323564-1779107326937");
+  assertEquals(line.employeeId.length, 38);
 });
 
 Deno.test("vendorInvoiceNo defaults to empty string when bill_no is null", () => {
@@ -217,19 +222,52 @@ Deno.test("non-vendor Ammount falls back to total_amount when foreign_total_amou
   assertEquals(line.Ammount, 5900);
 });
 
-Deno.test("buildRemarks — short claim_id + short purpose are not truncated", () => {
-  const r = buildRemarks({ ...baseDb, claim_id: "CLM-100", purpose: "Software" });
+Deno.test("buildRemarks — short claim_id + short purpose, no URLs", () => {
+  const r = buildRemarks({ ...baseDb, claim_id: "CLM-100", purpose: "Software" }, {});
   assertEquals(r, "CLM-100 - Software");
+});
+
+Deno.test("buildRemarks — appends bill URL when provided", () => {
+  const r = buildRemarks(
+    { ...baseDb, claim_id: "CLM-100", purpose: "Software" },
+    { billUrl: "https://x.co/r.pdf?t=abc" },
+  );
+  assertEquals(r, "CLM-100 - Software\nbill - https://x.co/r.pdf?t=abc");
+});
+
+Deno.test("buildRemarks — appends bank statement URL when provided", () => {
+  const r = buildRemarks(
+    { ...baseDb, claim_id: "CLM-100", purpose: "Software" },
+    { bankStatementUrl: "https://x.co/b.jpg?t=xyz" },
+  );
+  assertEquals(r, "CLM-100 - Software\nbank statement - https://x.co/b.jpg?t=xyz");
+});
+
+Deno.test("buildRemarks — appends both URLs in fixed order (bill then bank statement)", () => {
+  const r = buildRemarks(
+    { ...baseDb, claim_id: "CLM-100", purpose: "Software" },
+    {
+      billUrl: "https://x.co/r.pdf?t=abc",
+      bankStatementUrl: "https://x.co/b.jpg?t=xyz",
+    },
+  );
+  assertEquals(
+    r,
+    "CLM-100 - Software\nbill - https://x.co/r.pdf?t=abc\nbank statement - https://x.co/b.jpg?t=xyz",
+  );
 });
 
 Deno.test(
   "buildRemarks — long claim_id + long purpose pass through in full (BC widened remarks)",
   () => {
-    const r = buildRemarks({
-      ...baseDb,
-      claim_id: "CLAIM-NW3341311-20260516-B324",
-      purpose: "Lorem ipsum dolor sit amet consectetur adipiscing elit",
-    });
+    const r = buildRemarks(
+      {
+        ...baseDb,
+        claim_id: "CLAIM-NW3341311-20260516-B324",
+        purpose: "Lorem ipsum dolor sit amet consectetur adipiscing elit",
+      },
+      {},
+    );
     assertEquals(
       r,
       "CLAIM-NW3341311-20260516-B324 - Lorem ipsum dolor sit amet consectetur adipiscing elit",
@@ -238,6 +276,31 @@ Deno.test(
 );
 
 Deno.test("buildRemarks — empty purpose falls back to '{claim_id} - '", () => {
-  const r = buildRemarks({ ...baseDb, claim_id: "CLM-100", purpose: "" });
+  const r = buildRemarks({ ...baseDb, claim_id: "CLM-100", purpose: "" }, {});
   assertEquals(r, "CLM-100 - ");
+});
+
+Deno.test("buildBcClaimLineItem — remarks include bill + bank statement URLs when supplied", () => {
+  const line = buildBcClaimLineItem({
+    db: baseDb,
+    isVendorPayment: false,
+    fileUrls: {
+      billUrl: "https://x.co/r.pdf?t=abc",
+      bankStatementUrl: "https://x.co/b.jpg?t=xyz",
+    },
+  });
+  assertEquals(
+    line.remarks,
+    "CLM-000145 - Software subscription\nbill - https://x.co/r.pdf?t=abc\nbank statement - https://x.co/b.jpg?t=xyz",
+  );
+});
+
+Deno.test("buildBcClaimLineItem — vendor path also includes URLs in remarks", () => {
+  const line = buildBcClaimLineItem({
+    db: baseDb,
+    isVendorPayment: true,
+    vendor: vendorInputs.vendor,
+    fileUrls: { billUrl: "https://x.co/r.pdf?t=abc" },
+  });
+  assertEquals(line.remarks, "CLM-000145 - Software subscription\nbill - https://x.co/r.pdf?t=abc");
 });

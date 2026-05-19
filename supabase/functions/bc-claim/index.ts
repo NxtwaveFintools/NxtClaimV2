@@ -135,6 +135,32 @@ Deno.serve(async (req) => {
     is_vendor_payment: input.isVendorPayment,
   });
 
+  // Step 3b — sign bill / bank-statement URLs (private "claims" bucket).
+  // 10 years — matches the in-app expiry so a URL works the same whether the user
+  // got it from the app or from BC remarks. Trade-off: a leaked URL exposes the
+  // file for 10 years; acceptable since these URLs only render behind BC's auth
+  // or our own authenticated routes.
+  const SIGNED_URL_EXPIRY_SECONDS = 60 * 60 * 24 * 365 * 10;
+  const signPath = async (path: string | null): Promise<string | null> => {
+    if (!path) return null;
+    const { data, error } = await admin.storage
+      .from("claims")
+      .createSignedUrl(path, SIGNED_URL_EXPIRY_SECONDS);
+    if (error) {
+      log("bc-claim", "warn", "sign_url_failed", {
+        claim_id: input.claimId,
+        path,
+        detail: error.message,
+      });
+      return null;
+    }
+    return data.signedUrl;
+  };
+  const [billUrl, bankStatementUrl] = await Promise.all([
+    signPath(db.receipt_file_path),
+    signPath(db.bank_statement_file_path),
+  ]);
+
   // Step 4 — build BC payload.
   const linePayload = buildBcClaimLineItem({
     db,
@@ -148,6 +174,7 @@ Deno.serve(async (req) => {
           hsnSacCode: input.hsnSacCode!,
         }
       : undefined,
+    fileUrls: { billUrl, bankStatementUrl },
   });
 
   // Step 5 — claim the in-flight slot.
