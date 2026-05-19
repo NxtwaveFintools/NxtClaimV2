@@ -433,7 +433,7 @@ export class ExportClaimsService {
     const signedUrlMap: Record<string, string> = {};
     let cursor: { createdAt: string; claimId: string } | undefined;
 
-    const SIGNED_URL_EXPIRY_SECONDS = 2592000; // 30 days
+    const SIGNED_URL_EXPIRY_SECONDS = 60 * 60 * 24 * 365 * 10; // 10 years — matches in-app + BC remarks
 
     while (true) {
       const batchResult = await this.repository.getClaimsForFullExport({
