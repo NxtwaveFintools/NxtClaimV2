@@ -20,6 +20,7 @@ import {
 } from "@/modules/claims/actions";
 import { parseReceiptAction } from "@/modules/claims/actions/parse-receipt";
 import { newClaimSubmitSchema } from "@/modules/claims/validators/new-claim-schema";
+import { computeForeignTotal, computeInrTotal } from "@/modules/claims/utils/compute-totals";
 import { useClaimFormAutofill } from "@/hooks/use-claim-form-autofill";
 import {
   LOCATION_TYPES,
@@ -235,14 +236,12 @@ function calculateExpenseTotal(
   sgstAmountValue: number,
   igstAmountValue: number,
 ): number {
-  const safeBasicAmount = Number.isFinite(basicAmountValue) ? basicAmountValue : 0;
-  const safeCgstAmount = Number.isFinite(cgstAmountValue) ? cgstAmountValue : 0;
-  const safeSgstAmount = Number.isFinite(sgstAmountValue) ? sgstAmountValue : 0;
-  const safeIgstAmount = Number.isFinite(igstAmountValue) ? igstAmountValue : 0;
-
-  return (
-    Math.round((safeBasicAmount + safeCgstAmount + safeSgstAmount + safeIgstAmount) * 100) / 100
-  );
+  return computeInrTotal({
+    basicAmount: Number.isFinite(basicAmountValue) ? basicAmountValue : 0,
+    cgstAmount: Number.isFinite(cgstAmountValue) ? cgstAmountValue : 0,
+    sgstAmount: Number.isFinite(sgstAmountValue) ? sgstAmountValue : 0,
+    igstAmount: Number.isFinite(igstAmountValue) ? igstAmountValue : 0,
+  });
 }
 
 function appendFormDataValue(
@@ -510,11 +509,14 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       setValue("expense.foreignTotalAmount", null, { shouldValidate: false });
       return;
     }
-    const basic = Number(watchedForeignBasic) || 0;
-    const gst = Number(watchedForeignGst) || 0;
-    setValue("expense.foreignTotalAmount", Math.round((basic + gst) * 100) / 100, {
-      shouldValidate: false,
-    });
+    setValue(
+      "expense.foreignTotalAmount",
+      computeForeignTotal({
+        basicAmount: Number(watchedForeignBasic) || 0,
+        gstAmount: Number(watchedForeignGst) || 0,
+      }),
+      { shouldValidate: false },
+    );
   }, [watchedForeignCode, watchedForeignBasic, watchedForeignGst, setValue]);
 
   const calculatedTotalAmount = calculateExpenseTotal(
@@ -526,8 +528,10 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
   const calculatedForeignTotalAmount =
     watchedForeignCode && watchedForeignCode !== "INR"
-      ? Math.round(((Number(watchedForeignBasic) || 0) + (Number(watchedForeignGst) || 0)) * 100) /
-        100
+      ? computeForeignTotal({
+          basicAmount: Number(watchedForeignBasic) || 0,
+          gstAmount: Number(watchedForeignGst) || 0,
+        })
       : null;
 
   const selectedDepartment = useMemo(

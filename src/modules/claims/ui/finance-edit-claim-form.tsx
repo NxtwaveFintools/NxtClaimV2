@@ -18,6 +18,7 @@ import {
   PAYMENT_MODE_PETTY_CASH_REQUEST,
 } from "@/core/constants/payment-modes";
 import type { ClaimExpenseAiMetadata } from "@/core/domain/claims/contracts";
+import { computeForeignTotal } from "@/modules/claims/utils/compute-totals";
 
 type DropdownOption = {
   id: string;
@@ -172,7 +173,10 @@ function buildForeignAmountState(expense: {
     foreignCurrencyCode: expense.foreignCurrencyCode ?? "INR",
     foreignBasicAmount,
     foreignGstAmount,
-    foreignTotalAmount: roundCurrency(foreignBasicAmount + foreignGstAmount),
+    foreignTotalAmount: computeForeignTotal({
+      basicAmount: foreignBasicAmount,
+      gstAmount: foreignGstAmount,
+    }),
   };
 }
 
@@ -323,7 +327,10 @@ export function FinanceEditClaimForm({
       const updated = { ...prev, [field]: toNonNegativeCurrency(value) };
       return {
         ...updated,
-        foreignTotalAmount: roundCurrency(updated.foreignBasicAmount + updated.foreignGstAmount),
+        foreignTotalAmount: computeForeignTotal({
+          basicAmount: updated.foreignBasicAmount,
+          gstAmount: updated.foreignGstAmount,
+        }),
       };
     });
   };

@@ -36,6 +36,7 @@ import { SupabaseDepartmentRepository } from "@/modules/departments/repositories
 import { newClaimSubmitSchema } from "@/modules/claims/validators/new-claim-schema";
 import { financeEditSchema } from "@/modules/claims/validators/finance-edit-schema";
 import { ownEditSchema } from "@/modules/claims/validators/own-edit-schema";
+import { computeInrTotal } from "@/modules/claims/utils/compute-totals";
 import { sanitizeDashboardReturnToPath } from "@/lib/pagination-helpers";
 import { BANK_STATEMENT_REQUIRED_CATEGORIES } from "@/core/constants/bank-statement-categories";
 import { z } from "zod";
@@ -301,17 +302,7 @@ function getFormDataNumber(input: FormData, key: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function computeExpenseTotalAmount(input: {
-  basicAmount: number;
-  cgstAmount: number;
-  sgstAmount: number;
-  igstAmount: number;
-}): number {
-  return (
-    Math.round((input.basicAmount + input.cgstAmount + input.sgstAmount + input.igstAmount) * 100) /
-    100
-  );
-}
+const computeExpenseTotalAmount = computeInrTotal;
 
 function getFormDataBoolean(input: FormData, key: string): boolean {
   const value = getFormDataString(input, key);
