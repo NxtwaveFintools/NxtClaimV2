@@ -153,4 +153,4 @@ export async function handler(req: Request): Promise<Response> {
   return json(cors.headers, mapped, 200);
 }
 
-Deno.serve(handler);
+if (import.meta.main) Deno.serve(handler);
