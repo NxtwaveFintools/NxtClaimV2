@@ -410,7 +410,7 @@ Example 4 — Ride app receipt with Bill ID and Ride ID:
 
 ---
 
-RULE 8 — FOREIGN CURRENCY INVOICES:
+RULE 8 — FOREIGN CURRENCY INVOICES (matches example in RULE 7: INR receipts use null currency + zero foreign amounts):
 
 If the invoice currency is NOT Indian Rupees (INR):
 - Set foreign_currency_code to one of: INR, USD, EUR, CHF. Snap strictly to this enum — do not invent values.
