@@ -89,8 +89,8 @@ async function fillRequiredExpenseFields(user: ReturnType<typeof userEvent.setup
   await user.type(screen.getByLabelText(/Employee ID/i), "EMP-100");
   await user.type(screen.getByLabelText(/Bill No/i), "BILL-100");
   await user.type(screen.getByLabelText(/Purpose/i), "Client visit");
-  await user.clear(screen.getByLabelText(/Basic Amount/i));
-  await user.type(screen.getByLabelText(/Basic Amount/i), "100");
+  await user.clear(screen.getByLabelText(/^Basic Amount/i));
+  await user.type(screen.getByLabelText(/^Basic Amount/i), "100");
   await user.type(screen.getByLabelText(/Transaction Date/i), "2026-03-14");
   await user.upload(
     screen.getByLabelText(/Invoice\/Bill/i),
@@ -170,7 +170,7 @@ describe("NewClaimFormClient", () => {
     const user = userEvent.setup();
     render(<NewClaimFormClient currentUser={currentUser} options={options} />);
 
-    const basicAmountInput = screen.getByLabelText(/Basic Amount/i);
+    const basicAmountInput = screen.getByLabelText(/^Basic Amount/i);
     const cgstInput = screen.getByLabelText(/CGST Amount/i);
     const sgstInput = screen.getByLabelText(/SGST Amount/i);
     const igstInput = screen.getByLabelText(/IGST Amount/i);
@@ -185,7 +185,7 @@ describe("NewClaimFormClient", () => {
     await user.type(igstInput, "0");
 
     await waitFor(() => {
-      const totalAmountInput = screen.getByLabelText(/Total Amount/i) as HTMLInputElement;
+      const totalAmountInput = screen.getByLabelText(/^Total Amount/i) as HTMLInputElement;
       expect(totalAmountInput.value).toBe("118.00");
     });
   });

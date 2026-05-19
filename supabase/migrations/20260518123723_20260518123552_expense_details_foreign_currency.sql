@@ -23,10 +23,20 @@ END
 $$;
 
 -- ─────────────────────────────────────────────────────────────
--- Step 2: Create enums.
+-- Step 2: Create enums (idempotent — fresh installs may already have them
+--         from prior partial runs; remote already has them applied).
 -- ─────────────────────────────────────────────────────────────
-CREATE TYPE public.local_currency_code   AS ENUM ('INR');
-CREATE TYPE public.foreign_currency_code AS ENUM ('INR', 'USD', 'EUR', 'CHF');
+DO $$
+BEGIN
+  CREATE TYPE public.local_currency_code AS ENUM ('INR');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  CREATE TYPE public.foreign_currency_code AS ENUM ('INR', 'USD', 'EUR', 'CHF');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ─────────────────────────────────────────────────────────────
 -- Step 3: Tighten existing currency_code TEXT → local_currency_code enum.

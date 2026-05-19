@@ -360,6 +360,12 @@ async function FinanceEditClaimSection({
                     peopleInvolved: claim.expense.peopleInvolved,
                     remarks: claim.expense.remarks,
                     aiMetadata: claim.expense.aiMetadata,
+                    foreignCurrencyCode:
+                      (claim.expense.foreignCurrencyCode as "INR" | "USD" | "EUR" | "CHF" | null) ??
+                      null,
+                    foreignBasicAmount: claim.expense.foreignBasicAmount,
+                    foreignGstAmount: claim.expense.foreignGstAmount,
+                    foreignTotalAmount: claim.expense.foreignTotalAmount,
                   }
                 : null,
               advance: claim.advance
@@ -739,8 +745,25 @@ async function ClaimDetailCore({
 
     return formatCurrency(value);
   };
+  const formatForeignAmountValue = (
+    value: number | null | undefined,
+    currencyCode: string | null | undefined,
+  ) => {
+    if (value === null || value === undefined || !currencyCode) {
+      return "N/A";
+    }
+
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: currencyCode,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  };
   const totalAmountValue = claim.expense?.totalAmount ?? claim.advance?.totalAmount ?? null;
   const aiMetadata = canViewAsFinance ? (claim.expense?.aiMetadata ?? null) : null;
+  const shouldShowForeignFinancials =
+    claim.expense?.foreignCurrencyCode != null && claim.expense.foreignCurrencyCode !== "INR";
   const heroCategoryValue = claim.expense
     ? formatOptionalText(claim.expense.expenseCategoryName)
     : "N/A";
@@ -1019,6 +1042,35 @@ async function ClaimDetailCore({
                           label="Total Amount"
                           value={formatAmountValue(claim.expense.totalAmount)}
                         />
+                        {shouldShowForeignFinancials ? (
+                          <>
+                            <DataCard
+                              label="Foreign Currency"
+                              value={claim.expense.foreignCurrencyCode ?? "N/A"}
+                            />
+                            <DataCard
+                              label="Foreign Basic Amount"
+                              value={formatForeignAmountValue(
+                                claim.expense.foreignBasicAmount,
+                                claim.expense.foreignCurrencyCode,
+                              )}
+                            />
+                            <DataCard
+                              label="Foreign GST Amount"
+                              value={formatForeignAmountValue(
+                                claim.expense.foreignGstAmount,
+                                claim.expense.foreignCurrencyCode,
+                              )}
+                            />
+                            <DataCard
+                              label="Foreign Total Amount"
+                              value={formatForeignAmountValue(
+                                claim.expense.foreignTotalAmount,
+                                claim.expense.foreignCurrencyCode,
+                              )}
+                            />
+                          </>
+                        ) : null}
                       </>
                     ) : claim.advance ? (
                       <>

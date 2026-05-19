@@ -141,9 +141,9 @@ describe("FinanceEditClaimForm amount balancing", () => {
     expect(screen.getByRole("textbox", { name: /purpose/i })).toHaveValue("Client visit");
     // total_amount is computed by a DB BEFORE trigger from basic + cgst + sgst + igst,
     // so the UI keeps it disabled and lets finance edit the component amounts directly.
-    expect(screen.getByRole("spinbutton", { name: /total amount/i })).toBeDisabled();
-    expect(screen.getByRole("spinbutton", { name: /basic amount/i })).toBeEnabled();
-    expect(screen.getByRole("spinbutton", { name: /cgst amount/i })).toBeEnabled();
+    expect(screen.getByRole("spinbutton", { name: /^total amount/i })).toBeDisabled();
+    expect(screen.getByRole("spinbutton", { name: /^basic amount/i })).toBeEnabled();
+    expect(screen.getByRole("spinbutton", { name: /^cgst amount/i })).toBeEnabled();
     expect(screen.queryByRole("spinbutton", { name: /approved amount/i })).not.toBeInTheDocument();
   });
 
@@ -179,10 +179,10 @@ describe("FinanceEditClaimForm amount balancing", () => {
   test("recomputes total amount when basic or GST fields change", () => {
     renderForm();
 
-    const basicAmountInput = screen.getByRole("spinbutton", { name: /basic amount/i });
-    const cgstAmountInput = screen.getByRole("spinbutton", { name: /cgst amount/i });
-    const igstAmountInput = screen.getByRole("spinbutton", { name: /igst amount/i });
-    const totalAmountInput = screen.getByRole("spinbutton", { name: /total amount/i });
+    const basicAmountInput = screen.getByRole("spinbutton", { name: /^basic amount/i });
+    const cgstAmountInput = screen.getByRole("spinbutton", { name: /^cgst amount/i });
+    const igstAmountInput = screen.getByRole("spinbutton", { name: /^igst amount/i });
+    const totalAmountInput = screen.getByRole("spinbutton", { name: /^total amount/i });
 
     fireEvent.change(basicAmountInput, { target: { value: "120" } });
     expect(totalAmountInput).toHaveValue(138);

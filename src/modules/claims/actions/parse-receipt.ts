@@ -8,6 +8,12 @@ import { logger } from "@/core/infra/logging/logger";
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const CONFIDENCE_THRESHOLD = 80;
 const EXPENSE_CATEGORY_NAMES_FORM_KEY = "expenseCategoryNames";
+const BANK_STATEMENT_MATCH_VENDOR_FORM_KEY = "bankStatementMatchVendorName";
+const BANK_STATEMENT_MATCH_DATE_FORM_KEY = "bankStatementMatchTransactionDate";
+const BANK_STATEMENT_MATCH_BILL_NO_FORM_KEY = "bankStatementMatchBillNo";
+const BANK_STATEMENT_MATCH_FOREIGN_CURRENCY_FORM_KEY = "bankStatementMatchForeignCurrencyCode";
+const BANK_STATEMENT_MATCH_FOREIGN_TOTAL_FORM_KEY = "bankStatementMatchForeignTotalAmount";
+const BANK_STATEMENT_MATCH_CATEGORY_FORM_KEY = "bankStatementMatchCategoryName";
 const GENERIC_PARSE_FALLBACK_MESSAGE =
   "AI could not read the text formatting in this document. Please fill the details manually.";
 const GEMINI_QUOTA_FALLBACK_PREFIX =
@@ -76,6 +82,10 @@ const geminiParseResultSchema = z.object({
   totalAmount: looseNumber.optional(),
   category_name: looseNullableString,
   confidenceScore: looseNumber,
+  foreign_currency_code: z.enum(["INR", "USD", "EUR", "CHF"]).nullable().optional().catch(null),
+  foreign_basic_amount: looseNumber.optional(),
+  foreign_gst_amount: looseNumber.optional(),
+  foreign_total_amount: looseNumber.optional(),
 });
 
 function sanitizeCategoryName(value: unknown): string | null {
@@ -110,7 +120,53 @@ function extractAllowedCategoryNames(input: FormData): string[] {
   return uniqueNames;
 }
 
-function buildGeminiSystemInstruction(allowedCategoryNames: string[]): string {
+type BankStatementMatchContext = {
+  vendorName: string | null;
+  transactionDate: string | null;
+  billNo: string | null;
+  foreignCurrencyCode: string | null;
+  foreignTotalAmount: number | null;
+  categoryName: string | null;
+};
+
+function getFormDataNullableString(input: FormData, key: string): string | null {
+  const value = input.get(key);
+  return sanitizeCategoryName(value);
+}
+
+function getFormDataNullableNumber(input: FormData, key: string): number | null {
+  const value = input.get(key);
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim().replace(/,/g, "");
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function extractBankStatementMatchContext(input: FormData): BankStatementMatchContext {
+  return {
+    vendorName: getFormDataNullableString(input, BANK_STATEMENT_MATCH_VENDOR_FORM_KEY),
+    transactionDate: getFormDataNullableString(input, BANK_STATEMENT_MATCH_DATE_FORM_KEY),
+    billNo: getFormDataNullableString(input, BANK_STATEMENT_MATCH_BILL_NO_FORM_KEY),
+    foreignCurrencyCode: getFormDataNullableString(
+      input,
+      BANK_STATEMENT_MATCH_FOREIGN_CURRENCY_FORM_KEY,
+    ),
+    foreignTotalAmount: getFormDataNullableNumber(
+      input,
+      BANK_STATEMENT_MATCH_FOREIGN_TOTAL_FORM_KEY,
+    ),
+    categoryName: getFormDataNullableString(input, BANK_STATEMENT_MATCH_CATEGORY_FORM_KEY),
+  };
+}
+
+function buildInvoiceSystemInstruction(allowedCategoryNames: string[]): string {
   const categoryInstructionBlock =
     allowedCategoryNames.length > 0
       ? `ALLOWED EXPENSE CATEGORY NAMES (EXACT VALUES ONLY):\n${allowedCategoryNames.map((name) => `- ${name}`).join("\n")}`
@@ -203,12 +259,35 @@ RULE 5 — IDENTIFIERS:
 
 ---
 
-RULE 6 — CATEGORY:
+RULE 6 — CATEGORY (AUTO-MATCH FROM PROVIDED LIST):
 ${categoryInstructionBlock}
 
-- MUST match EXACT string from the list above.
-- Use vendor name + line items to reason.
-- If unsure → null.
+MATCHING LOGIC:
+1. Read the provided ALLOWED EXPENSE CATEGORY NAMES list above (exact strings only).
+2. Analyze the document:
+   - Scan vendor name (e.g., "Marriott Hotels" → lodging category)
+   - Scan line items and descriptions for keywords
+   - Scan any explicit category hints in the document itself
+3. Score each allowed category by semantic relevance:
+   - Hotel brands (Marriott, Hyatt, ITC, Hilton, etc.) → lodging/accommodation
+   - Ride apps (Uber, Ola, Lyft, Taxi) → travel/transportation
+   - Flight tickets → travel/flights
+   - Meal receipts (restaurants, cafes, food delivery) → meals/dining
+   - Gas stations, parking, tolls → fuel/travel
+   - Office supplies, stationery → office/supplies
+   - Training, conferences → training/development
+4. Select the category name that BEST matches the expense type.
+5. MUST be an EXACT string from the allowed list. NO paraphrasing. NO substring matches.
+6. If multiple categories could match, pick the MOST specific one.
+7. If NO strong match (confidence < 60% for that category), return null.
+
+EXAMPLES (do NOT hardcode these; use for reasoning only):
+- "Amazon office supplies purchase" + allowed list has "Office Supplies" → select "Office Supplies"
+- "Marriott Hotel, Delhi" + allowed list has "Lodging", "Travel", "Hotel" → select "Lodging" (most specific)
+- "Grocery items for team lunch" + allowed list has "Meals", "Office Expenses" → select "Meals"
+- Ambiguous receipt, allowed list has "Miscellaneous", others unclear → select "Miscellaneous" or null
+
+If unsure → null.
 
 ---
 
@@ -245,7 +324,11 @@ SCHEMA:
   "igst_amount": number,
   "totalAmount": number,
   "category_name": string | null,
-  "confidenceScore": number
+  "confidenceScore": number,
+  "foreign_currency_code": "INR" | "USD" | "EUR" | "CHF" | null,
+  "foreign_basic_amount": number,
+  "foreign_gst_amount": number,
+  "foreign_total_amount": number
 }
 
 ---
@@ -318,8 +401,108 @@ Example 4 — Ride app receipt with Bill ID and Ride ID:
     "igst_amount": 0,
     "totalAmount": 512,
     "category_name": null,
-    "confidenceScore": 90
+    "confidenceScore": 90,
+    "foreign_currency_code": null,
+    "foreign_basic_amount": 0,
+    "foreign_gst_amount": 0,
+    "foreign_total_amount": 0
   }
+
+---
+
+RULE 8 — FOREIGN CURRENCY INVOICES (matches example in RULE 7: INR receipts use null currency + zero foreign amounts):
+
+If the invoice currency is NOT Indian Rupees (INR):
+- Set foreign_currency_code to one of: INR, USD, EUR, CHF. Snap strictly to this enum — do not invent values.
+  - US Dollar / $ → USD
+  - Euro / € → EUR
+  - Swiss Franc / CHF / Fr. → CHF
+  - If currency is unrecognised or cannot be mapped → null
+- Set foreign_basic_amount = invoice base cost in the foreign currency
+- Set foreign_gst_amount = tax amount in the foreign currency (0 if none)
+- Set foreign_total_amount = foreign_basic_amount + foreign_gst_amount
+- Set local basicAmount, cgst_amount, sgst_amount, igst_amount to 0
+- Set local totalAmount to 0
+
+If the invoice IS in INR, set foreign_currency_code = null, all foreign amounts = 0, and populate local fields normally.
+`;
+}
+
+function buildBankStatementSystemInstruction(matchContext: BankStatementMatchContext): string {
+  const contextLines = [
+    matchContext.vendorName ? `- Expected vendor or merchant: ${matchContext.vendorName}` : null,
+    matchContext.transactionDate
+      ? `- Expected invoice/transaction date: ${matchContext.transactionDate}`
+      : null,
+    matchContext.billNo ? `- Expected bill or reference number: ${matchContext.billNo}` : null,
+    matchContext.categoryName ? `- Expected expense category: ${matchContext.categoryName}` : null,
+    matchContext.foreignCurrencyCode && matchContext.foreignTotalAmount !== null
+      ? `- Foreign invoice total for reference only: ${matchContext.foreignCurrencyCode} ${matchContext.foreignTotalAmount.toFixed(2)}`
+      : null,
+  ].filter((line): line is string => line !== null);
+
+  const matchContextBlock =
+    contextLines.length > 0
+      ? contextLines.join("\n")
+      : "- No external match hints were provided. Use the statement content only.";
+
+  return `
+ROLE:
+You are a financial document parser specializing in bank statements.
+
+GOAL:
+Find the single settled INR debit/deduction that best matches the expense claim.
+
+MATCH HINTS:
+${matchContextBlock}
+
+SELECTION RULES:
+- Search for debit, withdrawal, card charge, UPI spend, or spent amount rows only.
+- Never choose credits, refunds, reversals, chargebacks, cashback, deposits, opening balance, closing balance, or pending authorization holds.
+- If many INR amounts appear, rank candidates using ALL available evidence:
+  1. vendor or merchant descriptor similarity
+  2. transaction date proximity to the expected invoice date
+  3. bill/reference/order identifier similarity if any token is visible
+  4. line narration relevance to the merchant or expense category
+  5. reasonableness of the INR amount for the provided foreign total, if present, allowing normal FX variance and bank fees
+- Prefer the final settled debit over duplicate pending lines.
+- If both an authorization hold and a later settled debit exist, choose the settled debit.
+- If several candidates are still plausible, choose the best overall match and reduce confidenceScore.
+
+OUTPUT RULES:
+- Return the actual INR amount charged from the statement as basicAmount.
+- Return the matched statement date as transactionDate if visible.
+- Return the matched merchant descriptor as vendorName if clear.
+- Set totalAmount = 0.
+- Set cgst_amount = 0, sgst_amount = 0, igst_amount = 0.
+- Set category_name = null.
+- Set foreign_currency_code = null, foreign_basic_amount = 0, foreign_gst_amount = 0, foreign_total_amount = 0.
+- Keep billNo null unless the statement line contains a clear transaction/reference identifier.
+- Confidence should be high only when the match is clear; reduce it when multiple similar debits remain or key hints are missing.
+
+STRICT OUTPUT RULES:
+- Return EXACTLY ONE JSON object.
+- Return ONLY raw, valid JSON. No markdown, no backticks, no explanation.
+- Never leave numeric fields undefined.
+
+SCHEMA:
+{
+  "billNo": string | null,
+  "transactionDate": string | null,
+  "vendorName": string | null,
+  "basicAmount": number,
+  "gst_number": string | null,
+  "cgst_amount": number,
+  "sgst_amount": number,
+  "igst_amount": number,
+  "totalAmount": number,
+  "category_name": string | null,
+  "confidenceScore": number,
+  "foreign_currency_code": "INR" | "USD" | "EUR" | "CHF" | null,
+  "foreign_basic_amount": number,
+  "foreign_gst_amount": number,
+  "foreign_total_amount": number
+}
 `;
 }
 
@@ -335,6 +518,10 @@ export type ParsedReceiptResult = {
   totalAmount: number;
   category_name: string | null;
   confidenceScore: number;
+  foreignCurrencyCode: "INR" | "USD" | "EUR" | "CHF" | null;
+  foreignBasicAmount: number;
+  foreignGstAmount: number;
+  foreignTotalAmount: number;
 };
 
 export type ParseReceiptActionResult = {
@@ -357,6 +544,10 @@ function toParsedReceiptResult(data: ParsedReceiptResult): ParsedReceiptResult {
     totalAmount: data.totalAmount,
     category_name: data.category_name,
     confidenceScore: data.confidenceScore,
+    foreignCurrencyCode: data.foreignCurrencyCode,
+    foreignBasicAmount: data.foreignBasicAmount,
+    foreignGstAmount: data.foreignGstAmount,
+    foreignTotalAmount: data.foreignTotalAmount,
   };
 }
 
@@ -590,6 +781,10 @@ function normalizeGeminiResult(raw: z.infer<typeof geminiParseResultSchema>): Pa
     totalAmount,
     category_name: normalizeNullableText(raw.category_name),
     confidenceScore: normalizedConfidence,
+    foreignCurrencyCode: raw.foreign_currency_code ?? null,
+    foreignBasicAmount: normalizeAmount(raw.foreign_basic_amount ?? 0),
+    foreignGstAmount: normalizeAmount(raw.foreign_gst_amount ?? 0),
+    foreignTotalAmount: normalizeAmount(raw.foreign_total_amount ?? 0),
   };
 }
 
@@ -609,8 +804,24 @@ function createGeminiModel(
 
 export async function parseReceiptAction(input: FormData): Promise<ParseReceiptActionResult> {
   const fileEntry = input.get("receiptFile");
-  const allowedCategoryNames = extractAllowedCategoryNames(input);
-  const geminiInstruction = buildGeminiSystemInstruction(allowedCategoryNames);
+  const documentType =
+    input.get("documentType") === "bank_statement" ? "bank_statement" : "invoice";
+  const allowedCategoryNames = documentType === "invoice" ? extractAllowedCategoryNames(input) : [];
+  const bankStatementMatchContext =
+    documentType === "bank_statement" ? extractBankStatementMatchContext(input) : null;
+  const geminiInstruction =
+    documentType === "bank_statement"
+      ? buildBankStatementSystemInstruction(
+          bankStatementMatchContext ?? {
+            vendorName: null,
+            transactionDate: null,
+            billNo: null,
+            foreignCurrencyCode: null,
+            foreignTotalAmount: null,
+            categoryName: null,
+          },
+        )
+      : buildInvoiceSystemInstruction(allowedCategoryNames);
 
   try {
     const receiptFile = fileEntry instanceof File && fileEntry.size > 0 ? fileEntry : null;
@@ -725,14 +936,21 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
     const normalized = normalizeGeminiResult(parsedSchemaResult.data);
 
     const hasPartialData =
-      normalized.vendorName !== null ||
-      normalized.totalAmount > 0 ||
-      normalized.transactionDate !== null ||
-      normalized.billNo !== null;
+      documentType === "bank_statement"
+        ? normalized.basicAmount > 0 ||
+          normalized.vendorName !== null ||
+          normalized.transactionDate !== null ||
+          normalized.billNo !== null
+        : normalized.vendorName !== null ||
+          normalized.totalAmount > 0 ||
+          normalized.transactionDate !== null ||
+          normalized.billNo !== null;
     const hasMissingCriticalFields =
-      normalized.totalAmount === 0 ||
-      normalized.transactionDate === null ||
-      normalized.billNo === null;
+      documentType === "bank_statement"
+        ? normalized.basicAmount === 0
+        : normalized.totalAmount === 0 ||
+          normalized.transactionDate === null ||
+          normalized.billNo === null;
 
     let autoFillAllowed: boolean;
     let message: string | null;

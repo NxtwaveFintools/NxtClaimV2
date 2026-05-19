@@ -20,6 +20,9 @@ const normalizedNullableText = z.preprocess((value) => {
   return trimmed.length > 0 ? trimmed : null;
 }, z.string().nullable());
 
+const toNullableNumber = (v: unknown) =>
+  v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v;
+
 const locationTypeSchema = z.preprocess(
   (value) => (value === null || value === undefined || value === "" ? null : value),
   z.enum([LOCATION_TYPES.BASE, LOCATION_TYPES.OUT_STATION]).nullable(),
@@ -51,6 +54,19 @@ export const financeExpenseEditSchema = z
     sgstAmount: z.number().min(0, "SGST amount cannot be negative"),
     igstAmount: z.number().min(0, "IGST amount cannot be negative"),
     totalAmount: z.number().min(0, "Total amount cannot be negative"),
+    foreignCurrencyCode: z.enum(["INR", "USD", "EUR", "CHF"]).default("INR"),
+    foreignBasicAmount: z.preprocess(
+      toNullableNumber,
+      z.number().min(0, "Foreign basic amount cannot be negative").nullable().optional(),
+    ),
+    foreignGstAmount: z.preprocess(
+      toNullableNumber,
+      z.number().min(0, "Foreign GST amount cannot be negative").nullable().optional(),
+    ),
+    foreignTotalAmount: z.preprocess(
+      toNullableNumber,
+      z.number().min(0, "Foreign total amount cannot be negative").nullable().optional(),
+    ),
   })
   .superRefine((value, context) => {
     if (value.locationType === LOCATION_TYPES.OUT_STATION && !value.locationDetails) {
@@ -59,6 +75,16 @@ export const financeExpenseEditSchema = z
         message: "Location details are required when location type is Out Station.",
         path: ["locationDetails"],
       });
+    }
+
+    if (value.foreignCurrencyCode !== "INR" && value.foreignCurrencyCode != null) {
+      if (!value.foreignBasicAmount || value.foreignBasicAmount <= 0) {
+        context.addIssue({
+          code: "custom",
+          message: "Foreign basic amount is required for non-INR currencies.",
+          path: ["foreignBasicAmount"],
+        });
+      }
     }
   })
   .strict();

@@ -18,6 +18,7 @@ import {
   PAYMENT_MODE_PETTY_CASH_REQUEST,
 } from "@/core/constants/payment-modes";
 import type { ClaimExpenseAiMetadata } from "@/core/domain/claims/contracts";
+import { computeForeignTotal } from "@/modules/claims/utils/compute-totals";
 
 type DropdownOption = {
   id: string;
@@ -39,6 +40,15 @@ type ExpenseAmountState = {
   sgstAmount: number;
   igstAmount: number;
   totalAmount: number;
+};
+
+type ForeignCurrencyCode = "INR" | "USD" | "EUR" | "CHF";
+
+type ForeignAmountState = {
+  foreignCurrencyCode: ForeignCurrencyCode;
+  foreignBasicAmount: number;
+  foreignGstAmount: number;
+  foreignTotalAmount: number;
 };
 
 type FinanceEditClaimFormProps = {
@@ -74,6 +84,10 @@ type FinanceEditClaimFormProps = {
       peopleInvolved: string | null;
       remarks: string | null;
       aiMetadata?: ClaimExpenseAiMetadata | null;
+      foreignCurrencyCode?: ForeignCurrencyCode | null;
+      foreignBasicAmount?: number | null;
+      foreignGstAmount?: number | null;
+      foreignTotalAmount?: number | null;
     } | null;
     advance: {
       id: string;
@@ -148,6 +162,24 @@ function buildExpenseAmountState(
   };
 }
 
+function buildForeignAmountState(expense: {
+  foreignCurrencyCode?: ForeignCurrencyCode | null;
+  foreignBasicAmount?: number | null;
+  foreignGstAmount?: number | null;
+}): ForeignAmountState {
+  const foreignBasicAmount = toNonNegativeCurrency(expense.foreignBasicAmount);
+  const foreignGstAmount = toNonNegativeCurrency(expense.foreignGstAmount);
+  return {
+    foreignCurrencyCode: expense.foreignCurrencyCode ?? "INR",
+    foreignBasicAmount,
+    foreignGstAmount,
+    foreignTotalAmount: computeForeignTotal({
+      basicAmount: foreignBasicAmount,
+      gstAmount: foreignGstAmount,
+    }),
+  };
+}
+
 function toCurrencyInputValue(value: number): string {
   return Number.isFinite(value) ? String(value) : "";
 }
@@ -192,6 +224,9 @@ export function FinanceEditClaimForm({
   const [advanceTotalAmount, setAdvanceTotalAmount] = useState<number>(() =>
     toNonNegativeCurrency(claim.advance?.totalAmount),
   );
+  const [foreignAmounts, setForeignAmounts] = useState<ForeignAmountState>(() =>
+    buildForeignAmountState(claim.expense ?? {}),
+  );
   const expenseId = claim.expense?.id ?? null;
   const aiMetadata = isFinanceEdit ? (claim.expense?.aiMetadata ?? null) : null;
   const expenseBasicAmount = claim.expense?.basicAmount ?? null;
@@ -199,6 +234,9 @@ export function FinanceEditClaimForm({
   const expenseSgstAmount = claim.expense?.sgstAmount ?? null;
   const expenseIgstAmount = claim.expense?.igstAmount ?? null;
   const expenseTotalAmount = claim.expense?.totalAmount ?? null;
+  const expenseForeignCurrencyCode = claim.expense?.foreignCurrencyCode ?? null;
+  const expenseForeignBasicAmount = claim.expense?.foreignBasicAmount ?? null;
+  const expenseForeignGstAmount = claim.expense?.foreignGstAmount ?? null;
   const advanceId = claim.advance?.id ?? null;
   const advanceTotalAmountProp = claim.advance?.totalAmount ?? null;
   const currentPaymentModeName =
@@ -247,6 +285,16 @@ export function FinanceEditClaimForm({
     setAdvanceTotalAmount(toNonNegativeCurrency(advanceTotalAmountProp));
   }, [advanceId, advanceTotalAmountProp]);
 
+  useEffect(() => {
+    setForeignAmounts(
+      buildForeignAmountState({
+        foreignCurrencyCode: expenseForeignCurrencyCode,
+        foreignBasicAmount: expenseForeignBasicAmount,
+        foreignGstAmount: expenseForeignGstAmount,
+      }),
+    );
+  }, [expenseId, expenseForeignCurrencyCode, expenseForeignBasicAmount, expenseForeignGstAmount]);
+
   const handleExpenseComponentAmountChange = (
     field: ExpenseComponentAmountField,
     value: number | null,
@@ -263,6 +311,26 @@ export function FinanceEditClaimForm({
       return {
         ...next,
         totalAmount: nextTotalAmount,
+      };
+    });
+  };
+
+  const handleForeignCurrencyCodeChange = (code: ForeignCurrencyCode) => {
+    setForeignAmounts((prev) => ({ ...prev, foreignCurrencyCode: code }));
+  };
+
+  const handleForeignAmountChange = (
+    field: "foreignBasicAmount" | "foreignGstAmount",
+    value: number | null,
+  ) => {
+    setForeignAmounts((prev) => {
+      const updated = { ...prev, [field]: toNonNegativeCurrency(value) };
+      return {
+        ...updated,
+        foreignTotalAmount: computeForeignTotal({
+          basicAmount: updated.foreignBasicAmount,
+          gstAmount: updated.foreignGstAmount,
+        }),
       };
     });
   };
@@ -337,6 +405,14 @@ export function FinanceEditClaimForm({
           name="detailId"
           value={claim.detailType === "expense" ? (expense?.id ?? "") : (advance?.id ?? "")}
         />
+        <input
+          type="hidden"
+          name="foreignCurrencyCode"
+          value={foreignAmounts.foreignCurrencyCode}
+        />
+        <input type="hidden" name="foreignBasicAmount" value={foreignAmounts.foreignBasicAmount} />
+        <input type="hidden" name="foreignGstAmount" value={foreignAmounts.foreignGstAmount} />
+        <input type="hidden" name="foreignTotalAmount" value={foreignAmounts.foreignTotalAmount} />
 
         <fieldset
           disabled={isSubmitting}
@@ -737,6 +813,63 @@ export function FinanceEditClaimForm({
                       </label>
                     </div>
                   </div>
+
+                  <div className={groupedWrapperClassName}>
+                    <h4 className={groupedTitleClassName}>Foreign Expense Details</h4>
+                    <div className={groupedGridClassName}>
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Foreign Currency
+                        <FormSelect
+                          value={foreignAmounts.foreignCurrencyCode}
+                          onChange={(e) => {
+                            handleForeignCurrencyCodeChange(e.target.value as ForeignCurrencyCode);
+                          }}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        >
+                          <option value="INR">INR</option>
+                          <option value="USD">USD</option>
+                          <option value="EUR">EUR</option>
+                          <option value="CHF">CHF</option>
+                        </FormSelect>
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Foreign Basic Amount
+                        <CurrencyInput
+                          min="0"
+                          step="0.01"
+                          value={foreignAmounts.foreignBasicAmount}
+                          onValueChange={(value) => {
+                            handleForeignAmountChange("foreignBasicAmount", value);
+                          }}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Foreign GST Amount
+                        <CurrencyInput
+                          min="0"
+                          step="0.01"
+                          value={foreignAmounts.foreignGstAmount}
+                          onValueChange={(value) => {
+                            handleForeignAmountChange("foreignGstAmount", value);
+                          }}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Foreign Total Amount
+                        <CurrencyInput
+                          value={foreignAmounts.foreignTotalAmount}
+                          disabled
+                          readOnly
+                          className={lockedFieldClassName}
+                        />
+                      </label>
+                    </div>
+                  </div>
                 </>
               ) : (
                 <>
@@ -949,6 +1082,63 @@ export function FinanceEditClaimForm({
                         <CurrencyInput
                           value={totalAmountInputValue}
                           disabled
+                          className={lockedFieldClassName}
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className={groupedWrapperClassName}>
+                    <h4 className={groupedTitleClassName}>Foreign Expense Details</h4>
+                    <div className={groupedGridClassName}>
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Foreign Currency
+                        <FormSelect
+                          value={foreignAmounts.foreignCurrencyCode}
+                          onChange={(e) => {
+                            handleForeignCurrencyCodeChange(e.target.value as ForeignCurrencyCode);
+                          }}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        >
+                          <option value="INR">INR</option>
+                          <option value="USD">USD</option>
+                          <option value="EUR">EUR</option>
+                          <option value="CHF">CHF</option>
+                        </FormSelect>
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Foreign Basic Amount
+                        <CurrencyInput
+                          min="0"
+                          step="0.01"
+                          value={foreignAmounts.foreignBasicAmount}
+                          onValueChange={(value) => {
+                            handleForeignAmountChange("foreignBasicAmount", value);
+                          }}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Foreign GST Amount
+                        <CurrencyInput
+                          min="0"
+                          step="0.01"
+                          value={foreignAmounts.foreignGstAmount}
+                          onValueChange={(value) => {
+                            handleForeignAmountChange("foreignGstAmount", value);
+                          }}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Foreign Total Amount
+                        <CurrencyInput
+                          value={foreignAmounts.foreignTotalAmount}
+                          disabled
+                          readOnly
                           className={lockedFieldClassName}
                         />
                       </label>

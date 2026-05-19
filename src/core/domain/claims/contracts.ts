@@ -61,6 +61,10 @@ export type ClaimSubmissionInput = {
     transactionDate: string;
     basicAmount: number;
     currencyCode: string;
+    foreignCurrencyCode?: "INR" | "USD" | "EUR" | "CHF" | null;
+    foreignBasicAmount?: number | null;
+    foreignGstAmount?: number | null;
+    foreignTotalAmount?: number | null;
     vendorName: string | null;
     receiptFilePath: string | null;
     bankStatementFilePath: string | null;
@@ -81,6 +85,11 @@ export type ClaimSubmissionInput = {
   };
 };
 
+// Invariant: expense_details.currency_code is always 'INR' (the local_currency_code
+// enum only permits 'INR'). Non-INR settlements are encoded via foreign_currency_code
+// + foreign_basic_amount + foreign_gst_amount. The INR-side amounts (basic_amount,
+// cgst/sgst/igst_amount, total_amount) represent the INR settlement, which is 0 for
+// a foreign-only invoice until reconciled from a bank statement.
 export type PreparedClaimSubmission = {
   claim: {
     id: string;
@@ -117,6 +126,10 @@ export type PreparedClaimSubmission = {
     basicAmount: number;
     totalAmount: number;
     currencyCode: string;
+    foreignCurrencyCode?: "INR" | "USD" | "EUR" | "CHF" | null;
+    foreignBasicAmount?: number | null;
+    foreignGstAmount?: number | null;
+    foreignTotalAmount?: number | null;
     vendorName: string | null;
     receiptFilePath: string | null;
     bankStatementFilePath: string | null;
@@ -163,6 +176,10 @@ export type FinanceExpenseEditPayload = {
   sgstAmount: number;
   igstAmount: number;
   totalAmount: number;
+  foreignCurrencyCode?: "INR" | "USD" | "EUR" | "CHF" | null;
+  foreignBasicAmount?: number | null;
+  foreignGstAmount?: number | null;
+  foreignTotalAmount?: number | null;
 };
 
 export type FinanceAdvanceEditPayload = {
@@ -196,6 +213,10 @@ export type OwnExpenseEditPayload = {
   sgstAmount: number;
   igstAmount: number;
   totalAmount: number;
+  foreignCurrencyCode?: "INR" | "USD" | "EUR" | "CHF" | null;
+  foreignBasicAmount?: number | null;
+  foreignGstAmount?: number | null;
+  foreignTotalAmount?: number | null;
   purpose: string;
   productId: string | null;
   peopleInvolved: string | null;
@@ -500,6 +521,8 @@ export type ClaimRepository = {
     billNo: string;
     transactionDate: string;
     totalAmount: number;
+    foreignCurrencyCode?: string | null;
+    foreignBasicAmount?: number | null;
   }): Promise<{
     exists: boolean;
     errorMessage: string | null;
