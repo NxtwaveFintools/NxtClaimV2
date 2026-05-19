@@ -76,6 +76,10 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
   const [gstGroups, setGstGroups] = useState<ReferenceState>({ status: "idle" });
   const [hsnSacs, setHsnSacs] = useState<ReferenceState>({ status: "idle" });
 
+  // HSN/SAC search-as-you-type state.
+  const [hsnQuery, setHsnQuery] = useState("");
+  const debouncedHsnQuery = useDebouncedValue(hsnQuery, 300);
+
   // Selected reference values.
   const [currencyCode, setCurrencyCode] = useState("");
   const [gstGroupCode, setGstGroupCode] = useState("");
@@ -94,12 +98,17 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
   // the codebase uses for GET-style edge calls.
 
   const fetchReference = useCallback(
-    async (type: ReferenceType, setter: (s: ReferenceState) => void) => {
+    async (
+      type: ReferenceType,
+      setter: (s: ReferenceState) => void,
+      params?: Record<string, string>,
+    ) => {
       setter({ status: "loading" });
       try {
         const session = (await supabase.auth.getSession()).data.session;
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-        const url = `${supabaseUrl}/functions/v1/bc-reference?type=${type}`;
+        const search = new URLSearchParams({ ...(params ?? {}), type }).toString();
+        const url = `${supabaseUrl}/functions/v1/bc-reference?${search}`;
         const res = await fetch(url, {
           method: "GET",
           headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
@@ -126,12 +135,12 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
   );
 
   // Lazy-load reference data the first time Vendor is toggled on.
+  // HSN/SAC is excluded — it uses debounced search-as-you-type instead.
   useEffect(() => {
     if (paymentType !== "vendor") return;
     if (currencies.status === "idle") void fetchReference("currencies", setCurrencies);
     if (gstGroups.status === "idle") void fetchReference("gstGroupCodes", setGstGroups);
-    if (hsnSacs.status === "idle") void fetchReference("hsnSacCodes", setHsnSacs);
-  }, [paymentType, currencies.status, gstGroups.status, hsnSacs.status, fetchReference]);
+  }, [paymentType, currencies.status, gstGroups.status, fetchReference]);
 
   // ─── Vendor search ─────────────────────────────────────────────────────
 
@@ -164,6 +173,26 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
     };
   }, [debouncedQuery, shouldSearch, supabase]);
 
+  // ─── HSN/SAC debounced search ──────────────────────────────────────────
+
+  useEffect(() => {
+    if (paymentType !== "vendor") return;
+    const q = debouncedHsnQuery.trim();
+    if (q.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setHsnSacs({ status: "idle" });
+      return;
+    }
+    let cancelled = false;
+    const guardedSetter = (s: ReferenceState) => {
+      if (!cancelled) setHsnSacs(s);
+    };
+    void fetchReference("hsnSacCodes", guardedSetter, { query: q });
+    return () => {
+      cancelled = true;
+    };
+  }, [paymentType, debouncedHsnQuery, fetchReference]);
+
   // ─── Reset state on close ─────────────────────────────────────────────
 
   function resetState() {
@@ -176,6 +205,7 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
     setCurrencies({ status: "idle" });
     setGstGroups({ status: "idle" });
     setHsnSacs({ status: "idle" });
+    setHsnQuery("");
     setCurrencyCode("");
     setGstGroupCode("");
     setHsnSacCode("");
@@ -202,14 +232,14 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
 
   const canSubmit = !submitting && !catastrophic && paymentType !== null && vendorComplete;
 
-  // Aggregate reference loading: true only when *all three* are pre-loaded or in-flight.
-  // When one finishes earlier than the others we fall back to per-field loaders so
-  // the user can interact with what's ready.
-  const allRefsLoading = [hsnSacs, gstGroups, currencies].every(
+  // Aggregate reference loading: true only when currencies + gstGroups are both in-flight.
+  // HSN/SAC is excluded — it's search-driven and never pre-fetched.
+  const allRefsLoading = [gstGroups, currencies].every(
     (s) => s.status === "loading" || s.status === "idle",
   );
 
   // Count how many reference fetches failed — drives the "Retry all" affordance.
+  // HSN is included so search errors also surface the banner.
   const erroredRefCount = [hsnSacs, gstGroups, currencies].filter(
     (s) => s.status === "error",
   ).length;
@@ -360,7 +390,11 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
                       onClick={() => {
                         fetchReference("currencies", setCurrencies);
                         fetchReference("gstGroupCodes", setGstGroups);
-                        fetchReference("hsnSacCodes", setHsnSacs);
+                        if (debouncedHsnQuery.trim().length > 0) {
+                          fetchReference("hsnSacCodes", setHsnSacs, {
+                            query: debouncedHsnQuery,
+                          });
+                        }
                       }}
                       disabled={submitting || catastrophic}
                       className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-medium text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50 dark:text-rose-200 dark:hover:bg-rose-900/40"
@@ -386,8 +420,17 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
                       state={hsnSacs}
                       value={hsnSacCode}
                       onChange={setHsnSacCode}
-                      onRetry={() => fetchReference("hsnSacCodes", setHsnSacs)}
+                      onRetry={() =>
+                        debouncedHsnQuery.trim().length > 0
+                          ? fetchReference("hsnSacCodes", setHsnSacs, {
+                              query: debouncedHsnQuery,
+                            })
+                          : undefined
+                      }
                       disabled={submitting || catastrophic}
+                      searchQuery={hsnQuery}
+                      onSearchQueryChange={setHsnQuery}
+                      idleText="Type to search HSN/SAC codes"
                     />
                     <ReferenceField
                       label="GST Group"
@@ -676,6 +719,9 @@ function ReferenceField({
   onChange,
   onRetry,
   disabled,
+  searchQuery,
+  onSearchQueryChange,
+  idleText,
 }: {
   label: string;
   required?: boolean;
@@ -684,7 +730,12 @@ function ReferenceField({
   onChange: (v: string) => void;
   onRetry: () => void;
   disabled: boolean;
+  searchQuery?: string;
+  onSearchQueryChange?: (v: string) => void;
+  idleText?: string;
 }) {
+  const isSearchable = onSearchQueryChange !== undefined;
+
   return (
     <div className="space-y-2">
       <label className="block font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
@@ -699,7 +750,29 @@ function ReferenceField({
         )}
       </label>
 
-      {state.status === "loading" && (
+      {isSearchable && (
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400 dark:text-zinc-500" />
+          <FormInput
+            type="text"
+            placeholder={idleText ?? `Search ${label.toLowerCase()}…`}
+            value={searchQuery ?? ""}
+            onChange={(e) => onSearchQueryChange?.(e.target.value)}
+            disabled={disabled}
+            autoComplete="off"
+            className="h-10 pl-10 text-sm"
+          />
+          {state.status === "loading" && (
+            <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-zinc-400 dark:text-zinc-500" />
+          )}
+        </div>
+      )}
+
+      {isSearchable && state.status === "idle" && !searchQuery && idleText && (
+        <p className="text-sm text-muted-foreground">{idleText}</p>
+      )}
+
+      {!isSearchable && state.status === "loading" && (
         <div className="flex h-10 w-full items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50/50 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400">
           <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
           Loading {label.toLowerCase()}…
@@ -729,7 +802,7 @@ function ReferenceField({
         />
       )}
 
-      {state.status === "idle" && (
+      {state.status === "idle" && !isSearchable && (
         <div className="flex h-10 w-full items-center justify-center rounded-lg border border-dashed border-zinc-200 text-xs text-zinc-400 dark:border-zinc-800 dark:text-zinc-500">
           Not loaded
         </div>
