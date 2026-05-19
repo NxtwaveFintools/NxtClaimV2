@@ -5,7 +5,11 @@ import { useMemo, useState, type FormEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { TableEmptyState } from "@/components/ui/table-empty-state";
-import { DB_CLAIM_STATUSES, type DbClaimStatus } from "@/core/constants/statuses";
+import {
+  DB_CLAIM_STATUSES,
+  DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
+  type DbClaimStatus,
+} from "@/core/constants/statuses";
 import { ROUTES } from "@/core/config/route-registry";
 import { appendReturnToParam, buildPathWithSearchParams } from "@/lib/pagination-helpers";
 import {
@@ -90,7 +94,14 @@ export function FinanceApprovalsBulkTable({
     () => buildPathWithSearchParams(pathname, searchParams.toString()),
     [pathname, searchParams],
   );
-  const actionFilters = normalizeFilters(filters) as Parameters<typeof bulkApprove>[0]["filters"];
+  const normalizedFilters = normalizeFilters(filters);
+  const actionFilters = normalizedFilters as Parameters<typeof bulkApprove>[0]["filters"];
+  const isBulkActionHidden =
+    !normalizedFilters.status ||
+    (normalizedFilters.status as DbClaimStatus[]).length === 0 ||
+    (normalizedFilters.status as DbClaimStatus[]).includes(
+      DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
+    );
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isGlobalSelect, setIsGlobalSelect] = useState(false);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
@@ -358,13 +369,13 @@ export function FinanceApprovalsBulkTable({
             >
               Approvals History
             </p>
-            {!readOnly && selectedCount > 0 ? (
+            {!readOnly && !isBulkActionHidden && selectedCount > 0 ? (
               <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
                 {selectedCount} selected
               </span>
             ) : null}
           </div>
-          {!readOnly ? (
+          {!readOnly && !isBulkActionHidden ? (
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
@@ -459,6 +470,7 @@ export function FinanceApprovalsBulkTable({
       </div>
 
       {!readOnly &&
+      !isBulkActionHidden &&
       isPageFullySelected &&
       !isGlobalSelect &&
       totalSelectableCount > actionableIds.length ? (
@@ -476,7 +488,7 @@ export function FinanceApprovalsBulkTable({
         </div>
       ) : null}
 
-      {!readOnly && isGlobalSelect ? (
+      {!readOnly && !isBulkActionHidden && isGlobalSelect ? (
         <div className="mx-5 mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300">
           All {totalSelectableCount} matching claims are selected.
           <button
@@ -496,7 +508,7 @@ export function FinanceApprovalsBulkTable({
         <table className="min-w-430 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
           <thead className="bg-zinc-50/80 text-[11px] uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
             <tr>
-              {!readOnly ? (
+              {!readOnly && !isBulkActionHidden ? (
                 <th className="px-3 py-2.5">
                   <input
                     type="checkbox"
@@ -549,7 +561,7 @@ export function FinanceApprovalsBulkTable({
                   key={claim.id}
                   className="group transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
                 >
-                  {!readOnly ? (
+                  {!readOnly && !isBulkActionHidden ? (
                     <td className="px-3 py-2">
                       {isActionable ? (
                         <input
@@ -627,7 +639,7 @@ export function FinanceApprovalsBulkTable({
         </table>
       </div>
 
-      {!readOnly && isRejectModalOpen ? (
+      {!readOnly && !isBulkActionHidden && isRejectModalOpen ? (
         <div className="fixed inset-0 z-50">
           <button
             type="button"
