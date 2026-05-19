@@ -550,6 +550,46 @@ function isDuplicateExpenseBillConstraintError(error: {
   );
 }
 
+function buildSubmitterEditPayload(payload: OwnClaimEditPayload): Record<string, unknown> {
+  if (payload.detailType === "expense") {
+    return {
+      detailType: "expense",
+      detailId: payload.detailId,
+      billNo: payload.billNo,
+      expenseCategoryId: payload.expenseCategoryId,
+      productId: payload.productId,
+      locationId: payload.locationId,
+      transactionDate: payload.transactionDate,
+      isGstApplicable: payload.isGstApplicable,
+      gstNumber: payload.gstNumber,
+      basicAmount: payload.basicAmount,
+      cgstAmount: payload.cgstAmount,
+      sgstAmount: payload.sgstAmount,
+      igstAmount: payload.igstAmount,
+      vendorName: payload.vendorName,
+      purpose: payload.purpose,
+      peopleInvolved: payload.peopleInvolved,
+      remarks: payload.remarks,
+      receiptFilePath: payload.receiptFilePath,
+      bankStatementFilePath: payload.bankStatementFilePath,
+      foreignCurrencyCode: payload.foreignCurrencyCode ?? "INR",
+      foreignBasicAmount: payload.foreignBasicAmount ?? 0,
+      foreignGstAmount: payload.foreignGstAmount ?? 0,
+    };
+  }
+  return {
+    detailType: "advance",
+    detailId: payload.detailId,
+    purpose: payload.purpose,
+    totalAmount: payload.totalAmount,
+    expectedUsageDate: payload.expectedUsageDate,
+    productId: payload.productId,
+    locationId: payload.locationId,
+    remarks: payload.remarks,
+    supportingDocumentPath: payload.supportingDocumentPath,
+  };
+}
+
 function normalizeStatusFilter(status: GetMyClaimsFilters["status"]): DbClaimStatus[] {
   if (!status) {
     return [];
@@ -2106,112 +2146,19 @@ export class SupabaseClaimRepository implements ClaimRepository {
     payload: OwnClaimEditPayload,
   ): Promise<{ errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
+    const rpcPayload = buildSubmitterEditPayload(payload);
 
-    const { data: updatedClaim, error: claimError } = await client
-      .from("claims")
-      .update({
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", claimId)
-      .eq("is_active", true)
-      .select("id")
-      .maybeSingle();
-
-    if (claimError) {
-      return { errorMessage: claimError.message };
-    }
-
-    if (!updatedClaim) {
-      return { errorMessage: "Claim not found or inactive." };
-    }
-
-    if (payload.detailType === "expense") {
-      const { data: updatedExpenseDetail, error: expenseError } = await client
-        .from("expense_details")
-        .update({
-          bill_no: payload.billNo,
-          expense_category_id: payload.expenseCategoryId,
-          product_id: payload.productId,
-          location_id: payload.locationId,
-          transaction_date: payload.transactionDate,
-          is_gst_applicable: payload.isGstApplicable,
-          gst_number: payload.gstNumber,
-          basic_amount: payload.basicAmount,
-          cgst_amount: payload.cgstAmount,
-          sgst_amount: payload.sgstAmount,
-          igst_amount: payload.igstAmount,
-          total_amount: payload.totalAmount,
-          vendor_name: payload.vendorName,
-          purpose: payload.purpose,
-          people_involved: payload.peopleInvolved,
-          remarks: payload.remarks,
-          receipt_file_path: payload.receiptFilePath,
-          bank_statement_file_path: payload.bankStatementFilePath,
-          foreign_currency_code: payload.foreignCurrencyCode ?? "INR",
-          foreign_basic_amount: payload.foreignBasicAmount ?? 0,
-          foreign_gst_amount: payload.foreignGstAmount ?? 0,
-          // foreign_total_amount is a GENERATED STORED column — do not write it
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", payload.detailId)
-        .eq("claim_id", claimId)
-        .eq("is_active", true)
-        .select("id")
-        .maybeSingle();
-
-      if (expenseError) {
-        if (isDuplicateExpenseBillConstraintError(expenseError)) {
-          throw expenseError;
-        }
-
-        return { errorMessage: expenseError.message };
-      }
-
-      if (!updatedExpenseDetail) {
-        return {
-          errorMessage: "Cannot edit: Expense details missing or soft-deleted.",
-        };
-      }
-    } else {
-      const { data: updatedAdvanceDetail, error: advanceError } = await client
-        .from("advance_details")
-        .update({
-          purpose: payload.purpose,
-          total_amount: payload.totalAmount,
-          expected_usage_date: payload.expectedUsageDate,
-          product_id: payload.productId,
-          location_id: payload.locationId,
-          remarks: payload.remarks,
-          supporting_document_path: payload.supportingDocumentPath,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", payload.detailId)
-        .eq("claim_id", claimId)
-        .eq("is_active", true)
-        .select("id")
-        .maybeSingle();
-
-      if (advanceError) {
-        return { errorMessage: advanceError.message };
-      }
-
-      if (!updatedAdvanceDetail) {
-        return {
-          errorMessage: "Cannot edit: Advance details missing or soft-deleted.",
-        };
-      }
-    }
-
-    const auditResult = await this.createClaimAuditLog({
-      claimId,
-      actorId: actorUserId,
-      actionType: "UPDATED",
-      assignedToId: null,
-      remarks: "Claim details updated before finance review.",
+    const { error } = await client.rpc("update_claim_by_submitter", {
+      p_claim_id: claimId,
+      p_actor_id: actorUserId,
+      p_payload: rpcPayload,
     });
 
-    if (auditResult.errorMessage) {
-      return { errorMessage: auditResult.errorMessage };
+    if (error) {
+      if (payload.detailType === "expense" && isDuplicateExpenseBillConstraintError(error)) {
+        throw error;
+      }
+      return { errorMessage: error.message };
     }
 
     return { errorMessage: null };
