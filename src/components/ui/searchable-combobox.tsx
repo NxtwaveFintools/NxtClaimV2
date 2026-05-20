@@ -8,18 +8,17 @@ import { cn } from "@/lib/cn";
  * A small, dependency-free searchable combobox.
  *
  * Why hand-rolled: the repo doesn't carry cmdk or @radix-ui/react-popover.
- * The use-case driving this is the BC HSN/SAC dropdown which returns 16k+
- * items from Business Central — a native <select> would render every option,
- * tanking modal open time. This component:
- *   - filters case-insensitively against `code` AND `description`,
- *   - virtualises the visible list to MAX_VISIBLE matches (default 50),
+ * This component:
+ *   - filters small, fully-loaded option lists case-insensitively against
+ *     `code` AND `description`,
+ *   - caps the visible list to maxVisible matches (default 50),
  *   - supports keyboard navigation (↑ ↓ Enter Esc),
  *   - closes on outside click,
  *   - keeps the modal aesthetic (rounded-xl, indigo focus, zinc borders).
  *
- * For small lists (Currency, GST Group) it behaves like a polished select.
- * For large lists (HSN/SAC) it stays responsive because we never render more
- * than MAX_VISIBLE rows at a time — typing narrows the slice.
+ * Callers that perform server-side search (e.g. the BC HSN/SAC field) should
+ * pass `enableSearch={false}` to render a plain selectable list without the
+ * internal search input — the parent manages filtering externally.
  */
 
 export interface ComboboxOption {
@@ -32,10 +31,11 @@ interface Props {
   value: string;
   onChange: (code: string) => void;
   placeholder?: string;
-  emptyText?: string;
   disabled?: boolean;
   /** Cap the visible match list. Above this, the dropdown asks the user to keep typing. */
   maxVisible?: number;
+  /** Show the internal search input. Set to false when the caller handles filtering externally (e.g. server-side search). Defaults to true. */
+  enableSearch?: boolean;
 }
 
 const DEFAULT_MAX = 50;
@@ -45,9 +45,9 @@ export function SearchableCombobox({
   value,
   onChange,
   placeholder = "Select…",
-  emptyText = "No matches",
   disabled = false,
   maxVisible = DEFAULT_MAX,
+  enableSearch = true,
 }: Props) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -102,10 +102,15 @@ export function SearchableCombobox({
     return () => document.removeEventListener("mousedown", onClick);
   }, [open]);
 
-  // Focus the search input whenever we open.
+  // Focus the search input (or the list when search is disabled) whenever we open.
   useEffect(() => {
-    if (open) inputRef.current?.focus();
-  }, [open]);
+    if (!open) return;
+    if (enableSearch) {
+      inputRef.current?.focus();
+    } else {
+      listRef.current?.focus();
+    }
+  }, [open, enableSearch]);
 
   // Reset activeIndex when the filtered slice changes. We intentionally
   // setState in this effect because activeIndex must follow user-driven
@@ -129,7 +134,7 @@ export function SearchableCombobox({
     triggerRef.current?.focus();
   }
 
-  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+  function onKeyDown(e: KeyboardEvent<HTMLElement>) {
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setActiveIndex((i) => Math.min(i + 1, filtered.length - 1));
@@ -195,24 +200,28 @@ export function SearchableCombobox({
           ref={panelRef}
           className="absolute left-0 right-0 z-50 mt-1.5 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl shadow-zinc-900/10 ring-1 ring-zinc-950/[0.03] dark:border-zinc-700 dark:bg-zinc-900 dark:shadow-black/40"
         >
-          <div className="relative border-b border-zinc-100 bg-zinc-50/50 px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/50">
-            <Search className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-            <input
-              ref={inputRef}
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={onKeyDown}
-              placeholder={`Search ${options.length.toLocaleString()} options…`}
-              className="h-8 w-full rounded-md border-0 bg-transparent pl-8 pr-2 text-sm text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-0 dark:text-zinc-100 dark:placeholder:text-zinc-500"
-              aria-controls={`${id}-listbox`}
-              aria-activedescendant={filtered[activeIndex] ? `${id}-opt-${activeIndex}` : undefined}
-            />
-          </div>
+          {enableSearch && (
+            <div className="relative border-b border-zinc-100 bg-zinc-50/50 px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-900/50">
+              <Search className="pointer-events-none absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={onKeyDown}
+                placeholder={`Search ${options.length.toLocaleString()} options…`}
+                className="h-8 w-full rounded-md border-0 bg-transparent pl-8 pr-2 text-sm text-zinc-800 placeholder:text-zinc-400 focus:outline-none focus:ring-0 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+                aria-controls={`${id}-listbox`}
+                aria-activedescendant={
+                  filtered[activeIndex] ? `${id}-opt-${activeIndex}` : undefined
+                }
+              />
+            </div>
+          )}
 
           {filtered.length === 0 ? (
             <div className="px-3 py-10 text-center">
-              <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">{emptyText}</p>
+              <p className="text-sm font-medium text-zinc-600 dark:text-zinc-300">No matches</p>
               {query && (
                 <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
                   for &ldquo;{query}&rdquo;
@@ -226,6 +235,8 @@ export function SearchableCombobox({
                 id={`${id}-listbox`}
                 role="listbox"
                 className="max-h-64 overflow-auto py-1.5"
+                tabIndex={enableSearch ? undefined : 0}
+                onKeyDown={enableSearch ? undefined : onKeyDown}
               >
                 {filtered.map((opt, i) => {
                   const isSelected = opt.code === value;
