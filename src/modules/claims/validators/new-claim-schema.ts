@@ -4,6 +4,8 @@ import { LOCATION_TYPES } from "@/core/constants/location-types";
 const uuidSchema = z.uuid("Invalid UUID value");
 const emailSchema = z.email("Enter a valid on-behalf email");
 
+export const ON_BEHALF_EMAIL_DOMAIN = "@nxtwave.co.in";
+
 const optionalTextToNA = z.preprocess(
   (value) => (value === null ? undefined : value),
   z
@@ -169,6 +171,12 @@ export const newClaimSubmitSchema = z
         context.addIssue({
           code: "custom",
           message: "Enter a valid on-behalf email.",
+          path: ["onBehalfEmail"],
+        });
+      } else if (!value.onBehalfEmail.toLowerCase().endsWith(ON_BEHALF_EMAIL_DOMAIN)) {
+        context.addIssue({
+          code: "custom",
+          message: `Only ${ON_BEHALF_EMAIL_DOMAIN} emails are allowed for On Behalf submissions.`,
           path: ["onBehalfEmail"],
         });
       }
