@@ -9,7 +9,7 @@ const InputSchema = z.object({
   query: z.string().trim().min(1).max(60),
 });
 
-Deno.serve(async (req) => {
+export async function handler(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
     return corsPreflightResponse(req);
   }
@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
   const noData = byNo.body as { value?: Array<{ No: string; Name: string }> };
 
   const merged = new Map<string, { no: string; name: string }>();
-  for (const v of [...(nameData.value ?? []), ...(noData.value ?? [])]) {
+  for (const v of [...(noData.value ?? []), ...(nameData.value ?? [])]) {
     if (!merged.has(v.No)) merged.set(v.No, { no: v.No, name: v.Name });
     if (merged.size >= 20) break;
   }
@@ -105,7 +105,9 @@ Deno.serve(async (req) => {
     result_count: merged.size,
   });
   return json(cors.headers, { vendors: Array.from(merged.values()) });
-});
+}
+
+if (import.meta.main) Deno.serve(handler);
 
 function json(corsHeaders: Record<string, string>, payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
