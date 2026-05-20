@@ -1,12 +1,16 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { describe, expect, it, beforeAll } from "@jest/globals";
+import { expect, it, beforeAll } from "@jest/globals";
+import { describeRequiringTestEnv } from "./_support/require-test-env";
 
 const projectUrl = process.env.SUPABASE_TEST_URL;
 const serviceKey = process.env.SUPABASE_TEST_SERVICE_ROLE_KEY;
 
-const skip = !projectUrl || !serviceKey;
+const describeIf = describeRequiringTestEnv([
+  { label: "SUPABASE_TEST_URL", value: projectUrl },
+  { label: "SUPABASE_TEST_SERVICE_ROLE_KEY", value: serviceKey },
+]);
 
-(skip ? describe.skip : describe)("get_bc_claim_payload (integration)", () => {
+describeIf("get_bc_claim_payload (integration)", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let client: SupabaseClient<any>;
 

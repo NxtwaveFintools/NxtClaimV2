@@ -1,13 +1,17 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { describe, expect, it, beforeAll } from "@jest/globals";
+import { expect, it, beforeAll } from "@jest/globals";
 import {
   findUnmappedActiveDepartmentNames,
   type DepartmentMappingRepo,
 } from "@/lib/dept-mapping-guard";
+import { describeRequiringTestEnv } from "./_support/require-test-env";
 
 const projectUrl = process.env.SUPABASE_TEST_URL;
 const serviceKey = process.env.SUPABASE_TEST_SERVICE_ROLE_KEY;
-const skip = !projectUrl || !serviceKey;
+const describeIf = describeRequiringTestEnv([
+  { label: "SUPABASE_TEST_URL", value: projectUrl },
+  { label: "SUPABASE_TEST_SERVICE_ROLE_KEY", value: serviceKey },
+]);
 
 function makeSupabaseRepo(client: SupabaseClient): DepartmentMappingRepo {
   return {
@@ -34,7 +38,7 @@ function makeSupabaseRepo(client: SupabaseClient): DepartmentMappingRepo {
   };
 }
 
-(skip ? describe.skip : describe)("department mapping completeness (integration)", () => {
+describeIf("department mapping completeness (integration)", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let client: SupabaseClient<any>;
 

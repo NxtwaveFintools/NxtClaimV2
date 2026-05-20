@@ -1,10 +1,17 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { describe, expect, beforeAll, it } from "@jest/globals";
+import { expect, beforeAll, it } from "@jest/globals";
+import { describeRequiringTestEnv } from "./_support/require-test-env";
 
 const projectUrl = process.env.SUPABASE_TEST_URL;
 const anonKey = process.env.SUPABASE_TEST_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-const skip = !projectUrl || !anonKey;
+const describeIf = describeRequiringTestEnv([
+  { label: "SUPABASE_TEST_URL", value: projectUrl },
+  {
+    label: "SUPABASE_TEST_ANON_KEY (or NEXT_PUBLIC_SUPABASE_ANON_KEY)",
+    value: anonKey,
+  },
+]);
 
 // Domain SQLSTATEs the BC functions raise themselves. If anon ever sees one of
 // these, it means the function body executed — i.e. the lockdown failed.
@@ -35,7 +42,7 @@ const cases: Array<[string, Record<string, any>]> = [
   ],
 ];
 
-(skip ? describe.skip : describe)("BC RPC anon lockdown (integration)", () => {
+describeIf("BC RPC anon lockdown (integration)", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let anonClient: SupabaseClient<any>;
 

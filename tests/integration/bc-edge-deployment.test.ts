@@ -19,6 +19,7 @@
  */
 
 import "@jest/globals";
+import { describeRequiringTestEnv } from "./_support/require-test-env";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -32,7 +33,14 @@ const rawAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const legacyAnon = process.env.SUPABASE_LEGACY_ANON_KEY;
 const ANON_JWT = isJwt(rawAnon) ? rawAnon : isJwt(legacyAnon) ? legacyAnon : undefined;
 
-const liveSuite = SUPABASE_URL && ANON_JWT ? describe : describe.skip;
+const liveSuite = describeRequiringTestEnv([
+  { label: "NEXT_PUBLIC_SUPABASE_URL", value: SUPABASE_URL },
+  {
+    label:
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY or SUPABASE_LEGACY_ANON_KEY (must be a JWT starting with 'eyJ')",
+    value: ANON_JWT,
+  },
+]);
 const ANON_KEY = ANON_JWT ?? "";
 
 liveSuite("bc-edge-deployment (live)", () => {
