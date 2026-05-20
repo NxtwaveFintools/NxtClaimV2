@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertTriangle,
@@ -232,7 +232,8 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
 
   const canSubmit = !submitting && !catastrophic && paymentType !== null && vendorComplete;
 
-  // Aggregate reference loading: true only when currencies + gstGroups are both in-flight.
+  // Aggregate reference loading: true while currencies + gstGroups are idle-or-loading
+  // (covers the gap from first open through fetch completion with no idle flash).
   // HSN/SAC is excluded — it's search-driven and never pre-fetched.
   const allRefsLoading = [gstGroups, currencies].every(
     (s) => s.status === "loading" || s.status === "idle",
@@ -278,18 +279,27 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
       return;
     }
 
-    const result = data as
-      | { success: true; bcClaimDetailsId: string }
-      | { success: false; error: BcClaimErrorPayload };
+    const result =
+      data && typeof data === "object" && "success" in data
+        ? (data as { success: boolean; bcClaimDetailsId?: string; error?: BcClaimErrorPayload })
+        : null;
 
-    if (result?.success === true) {
+    if (result === null) {
+      setLifecycle({
+        phase: "recoverable_error",
+        message: "Unexpected response from server. Please try again.",
+      });
+      return;
+    }
+
+    if (result.success === true) {
       toast.success("Submitted to Business Central. Claim is now Finance Approved.");
       onSuccess();
       handleDialogChange(false);
       return;
     }
 
-    if (result?.error?.code === "RPC_FAILED_AFTER_BC_SUCCESS") {
+    if (result.error?.code === "RPC_FAILED_AFTER_BC_SUCCESS") {
       setLifecycle({
         phase: "catastrophic",
         bcClaimDetailsId: result.error.bcClaimDetailsId,
@@ -299,7 +309,7 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
       return;
     }
 
-    setLifecycle({ phase: "recoverable_error", message: formatError(result?.error) });
+    setLifecycle({ phase: "recoverable_error", message: formatError(result.error) });
   }
 
   // ─── Render ────────────────────────────────────────────────────────────
@@ -388,10 +398,10 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
                     <button
                       type="button"
                       onClick={() => {
-                        fetchReference("currencies", setCurrencies);
-                        fetchReference("gstGroupCodes", setGstGroups);
+                        void fetchReference("currencies", setCurrencies);
+                        void fetchReference("gstGroupCodes", setGstGroups);
                         if (debouncedHsnQuery.trim().length > 0) {
-                          fetchReference("hsnSacCodes", setHsnSacs, {
+                          void fetchReference("hsnSacCodes", setHsnSacs, {
                             query: debouncedHsnQuery,
                           });
                         }
@@ -405,53 +415,59 @@ export function BcClaimModal({ open, onOpenChange, claimId, onSuccess }: Props) 
                   </div>
                 )}
 
-                {allRefsLoading ? (
-                  <div className="flex h-20 w-full items-center justify-center rounded-xl border border-zinc-200 bg-gradient-to-b from-zinc-50 to-white dark:border-zinc-800 dark:from-zinc-900/60 dark:to-zinc-900/30">
-                    <span className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Loading reference codes…
-                    </span>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <ReferenceField
-                      label="HSN / SAC"
-                      required
-                      state={hsnSacs}
-                      value={hsnSacCode}
-                      onChange={setHsnSacCode}
-                      onRetry={() =>
-                        debouncedHsnQuery.trim().length > 0
-                          ? fetchReference("hsnSacCodes", setHsnSacs, {
-                              query: debouncedHsnQuery,
-                            })
-                          : undefined
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <ReferenceField
+                    label="HSN / SAC"
+                    required
+                    state={hsnSacs}
+                    value={hsnSacCode}
+                    onChange={setHsnSacCode}
+                    onRetry={() => {
+                      if (debouncedHsnQuery.trim().length > 0) {
+                        void fetchReference("hsnSacCodes", setHsnSacs, {
+                          query: debouncedHsnQuery,
+                        });
                       }
-                      disabled={submitting || catastrophic}
-                      searchQuery={hsnQuery}
-                      onSearchQueryChange={setHsnQuery}
-                      idleText="Type to search HSN/SAC codes"
-                    />
-                    <ReferenceField
-                      label="GST Group"
-                      required
-                      state={gstGroups}
-                      value={gstGroupCode}
-                      onChange={setGstGroupCode}
-                      onRetry={() => fetchReference("gstGroupCodes", setGstGroups)}
-                      disabled={submitting || catastrophic}
-                    />
-                    <ReferenceField
-                      label="Currency"
-                      required
-                      state={currencies}
-                      value={currencyCode}
-                      onChange={setCurrencyCode}
-                      onRetry={() => fetchReference("currencies", setCurrencies)}
-                      disabled={submitting || catastrophic}
-                    />
-                  </div>
-                )}
+                    }}
+                    disabled={submitting || catastrophic}
+                    searchQuery={hsnQuery}
+                    onSearchQueryChange={setHsnQuery}
+                    idleText="Type to search HSN/SAC codes"
+                  />
+                  {allRefsLoading ? (
+                    <div className="flex h-20 w-full items-center justify-center rounded-xl border border-zinc-200 bg-gradient-to-b from-zinc-50 to-white sm:col-span-2 dark:border-zinc-800 dark:from-zinc-900/60 dark:to-zinc-900/30">
+                      <span className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Loading reference codes…
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <ReferenceField
+                        label="GST Group"
+                        required
+                        state={gstGroups}
+                        value={gstGroupCode}
+                        onChange={setGstGroupCode}
+                        onRetry={() => {
+                          void fetchReference("gstGroupCodes", setGstGroups);
+                        }}
+                        disabled={submitting || catastrophic}
+                      />
+                      <ReferenceField
+                        label="Currency"
+                        required
+                        state={currencies}
+                        value={currencyCode}
+                        onChange={setCurrencyCode}
+                        onRetry={() => {
+                          void fetchReference("currencies", setCurrencies);
+                        }}
+                        disabled={submitting || catastrophic}
+                      />
+                    </>
+                  )}
+                </div>
               </Section>
             </>
           )}
@@ -632,6 +648,40 @@ function VendorPicker({
   error: string | null;
   disabled: boolean;
 }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const activeIndexRef = useRef(0);
+  const listboxId = "bc-vendor-listbox";
+
+  // Reset active index when the result list changes.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setActiveIndex(0);
+    activeIndexRef.current = 0;
+  }, [visibleVendors]);
+
+  function handleInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!shouldSearch || visibleVendors.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((i) => {
+        const next = Math.min(i + 1, visibleVendors.length - 1);
+        activeIndexRef.current = next;
+        return next;
+      });
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => {
+        const next = Math.max(i - 1, 0);
+        activeIndexRef.current = next;
+        return next;
+      });
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const vendor = visibleVendors[activeIndexRef.current];
+      if (vendor) onSelect(vendor);
+    }
+  }
+
   return (
     <div className="space-y-2">
       {selectedVendor ? (
@@ -666,8 +716,16 @@ function VendorPicker({
             placeholder="Search vendor by name or number…"
             value={vendorQuery}
             onChange={(e) => onQueryChange(e.target.value)}
+            onKeyDown={handleInputKeyDown}
             disabled={disabled}
             autoComplete="off"
+            aria-autocomplete="list"
+            aria-controls={shouldSearch ? listboxId : undefined}
+            aria-activedescendant={
+              shouldSearch && visibleVendors[activeIndex]
+                ? `bc-vendor-option-${visibleVendors[activeIndex]!.no}`
+                : undefined
+            }
             className="h-10 pl-10 text-sm"
           />
           {searching && (
@@ -677,7 +735,12 @@ function VendorPicker({
       )}
 
       {!selectedVendor && shouldSearch && (
-        <div className="max-h-56 overflow-auto rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+        <div
+          id={listboxId}
+          role="listbox"
+          aria-label="Vendor results"
+          className="max-h-56 overflow-auto rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+        >
           {visibleVendors.length === 0 && !searching && (
             <p className="px-3 py-4 text-center text-xs text-zinc-500 dark:text-zinc-400">
               No vendors match &ldquo;{debouncedQuery}&rdquo;.
@@ -686,10 +749,16 @@ function VendorPicker({
           {visibleVendors.map((v, i) => (
             <button
               key={v.no}
+              id={`bc-vendor-option-${v.no}`}
               type="button"
+              role="option"
+              tabIndex={-1}
+              aria-selected={i === activeIndex}
               onClick={() => onSelect(v)}
+              onMouseEnter={() => setActiveIndex(i)}
               className={cn(
                 "flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-indigo-50 focus:bg-indigo-50 focus:outline-none dark:hover:bg-indigo-950/40 dark:focus:bg-indigo-950/40",
+                i === activeIndex && "bg-indigo-50 dark:bg-indigo-950/40",
                 i !== visibleVendors.length - 1 && "border-b border-zinc-100 dark:border-zinc-800",
               )}
             >
@@ -799,6 +868,7 @@ function ReferenceField({
           onChange={onChange}
           placeholder={state.options.length === 0 ? "No options" : `Select ${label.toLowerCase()}…`}
           disabled={disabled}
+          enableSearch={!isSearchable}
         />
       )}
 
@@ -840,11 +910,14 @@ function ErrorBanner({
 
 type BcClaimErrorPayload =
   | { code: "UNAUTHENTICATED" }
+  | { code: "FORBIDDEN" }
   | { code: "INVALID_BODY"; details: string[] }
   | { code: "CLAIM_NOT_FOUND"; claimId: string }
   | { code: "ALREADY_SUBMITTED"; bcClaimDetailsId: string | null }
   | { code: "ALREADY_IN_FLIGHT" }
   | { code: "MISSING_MAPPING"; detail?: string }
+  | { code: "INVALID_CLAIM_STATE"; detail?: string }
+  | { code: "INTERNAL_ERROR"; detail?: string }
   | { code: "BC_FETCH_FAILED"; status: number; body: unknown }
   | { code: "RPC_FAILED_AFTER_BC_SUCCESS"; bcClaimDetailsId: string; detail: string };
 
@@ -853,6 +926,8 @@ function formatError(err: BcClaimErrorPayload | undefined): string {
   switch (err.code) {
     case "UNAUTHENTICATED":
       return "Your session expired. Sign in again and retry.";
+    case "FORBIDDEN":
+      return "You don't have permission to submit this claim to Business Central.";
     case "INVALID_BODY":
       return `Invalid input: ${err.details.join(", ")}`;
     case "CLAIM_NOT_FOUND":
@@ -863,6 +938,10 @@ function formatError(err: BcClaimErrorPayload | undefined): string {
       return "Another submission for this claim is already in flight. Try again in a moment.";
     case "MISSING_MAPPING":
       return `Mapping missing — ${err.detail ?? "contact admin"}.`;
+    case "INVALID_CLAIM_STATE":
+      return "This claim is not in a state that can be submitted to Business Central.";
+    case "INTERNAL_ERROR":
+      return "Something went wrong on our side. Please try again.";
     case "BC_FETCH_FAILED":
       return `Business Central rejected the request (HTTP ${err.status}). Contact admin.`;
     case "RPC_FAILED_AFTER_BC_SUCCESS":
