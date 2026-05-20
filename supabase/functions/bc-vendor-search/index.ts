@@ -3,7 +3,7 @@ import { bcFetch } from "../_shared/bcClient.ts";
 import { corsPreflightResponse, resolveCors } from "../_shared/cors.ts";
 import { log } from "../_shared/logger.ts";
 import { requireAuthenticatedUser } from "../_shared/auth.ts";
-import { sanitizeBcSearchQuery } from "../_shared/bcSearch.ts";
+import { escapeOdataLiteral, sanitizeBcSearchQuery } from "../_shared/bcSearch.ts";
 
 const InputSchema = z.object({
   query: z.string().trim().min(1).max(60),
@@ -53,10 +53,10 @@ Deno.serve(async (req) => {
       q.toUpperCase(),
       q.charAt(0).toUpperCase() + q.slice(1).toLowerCase(),
     ]),
-  ).map((v) => v.replace(/'/g, "''"));
+  ).map((v) => escapeOdataLiteral(v));
 
   const nameFilter = variants.map((v) => `contains(Name,'${v}')`).join(" or ");
-  const noFilter = `contains(No,'${q.toUpperCase().replace(/'/g, "''")}')`;
+  const noFilter = `contains(No,'${escapeOdataLiteral(q.toUpperCase())}')`;
   const path = (filter: string) => `/vendors?$filter=${encodeURIComponent(filter)}&$top=20`;
 
   let byName, byNo;

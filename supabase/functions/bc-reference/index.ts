@@ -2,7 +2,7 @@ import { bcFetch } from "../_shared/bcClient.ts";
 import { corsPreflightResponse, resolveCors } from "../_shared/cors.ts";
 import { log } from "../_shared/logger.ts";
 import { requireAuthenticatedUser } from "../_shared/auth.ts";
-import { sanitizeBcSearchQuery } from "../_shared/bcSearch.ts";
+import { escapeOdataLiteral, sanitizeBcSearchQuery } from "../_shared/bcSearch.ts";
 
 /**
  * bc-reference — returns code+description pairs for Finance modal dropdowns.
@@ -103,7 +103,7 @@ export async function handler(req: Request): Promise<Response> {
           query.toUpperCase(),
           query.charAt(0).toUpperCase() + query.slice(1).toLowerCase(),
         ]),
-      ).map((v) => v.replace(/'/g, "''"));
+      ).map((v) => escapeOdataLiteral(v));
       const filter = variants
         .map((v) => `(contains(Code,'${v}') or contains(Description,'${v}'))`)
         .join(" or ");
