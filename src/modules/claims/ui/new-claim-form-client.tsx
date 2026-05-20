@@ -26,7 +26,10 @@ import {
   type CurrentUserHydration,
 } from "@/modules/claims/actions";
 import { parseReceiptAction } from "@/modules/claims/actions/parse-receipt";
-import { newClaimSubmitSchema } from "@/modules/claims/validators/new-claim-schema";
+import {
+  newClaimSubmitSchema,
+  ON_BEHALF_EMAIL_DOMAIN,
+} from "@/modules/claims/validators/new-claim-schema";
 import { computeForeignTotal, computeInrTotal } from "@/modules/claims/utils/compute-totals";
 import { useClaimFormAutofill } from "@/hooks/use-claim-form-autofill";
 import {
@@ -1434,7 +1437,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   <FormInput
                     id="onBehalfEmail"
                     type="email"
-                    placeholder="e.g., user@nxtwave.co.in"
+                    placeholder={`e.g., user${ON_BEHALF_EMAIL_DOMAIN}`}
                     className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
                     {...register("onBehalfEmail", {
                       setValueAs: (value) => toNullable(String(value ?? "")),
