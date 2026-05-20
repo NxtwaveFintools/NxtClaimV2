@@ -74,7 +74,9 @@ export function buildBcClaimLineItem(inputs: BuildInputs): BcClaimLineItem {
 
   const ammountLCY = isVendorPayment ? db.basic_amount : db.total_amount;
   const Ammount = isVendorPayment
-    ? db.foreign_basic_amount
+    ? db.foreign_basic_amount > 0
+      ? db.foreign_basic_amount
+      : db.basic_amount
     : db.foreign_total_amount > 0
       ? db.foreign_total_amount
       : db.total_amount;
@@ -99,7 +101,7 @@ export function buildBcClaimLineItem(inputs: BuildInputs): BcClaimLineItem {
     beneficiaryDepartment: db.beneficiary_department_code,
     regionCode: db.region_code,
     invoiceRequired: isVendorPayment,
-    paymentRequired: db.payment_mode_name === "Reimbursement",
+    paymentRequired: db.payment_mode_name?.trim().toLowerCase() === "reimbursement",
     ammountLCY,
     Ammount,
     // Non-vendor claims are always INR; vendor path overrides via spread below.

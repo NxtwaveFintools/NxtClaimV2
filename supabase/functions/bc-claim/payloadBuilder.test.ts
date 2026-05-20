@@ -319,3 +319,41 @@ Deno.test("On Behalf submission sends beneficiary employee_id, not submitter's",
   assertEquals(line.employeeId, "NW0009999");
   assertEquals(line.employeeName, "Beneficiary Person");
 });
+
+Deno.test("paymentRequired is true when payment_mode_name has mixed case and whitespace", () => {
+  const line = buildBcClaimLineItem({
+    db: { ...baseDb, payment_mode_name: "  ReimBursement " },
+    isVendorPayment: false,
+  });
+  assertEquals(line.paymentRequired, true);
+});
+
+Deno.test("vendor Ammount falls back to basic_amount when foreign_basic_amount is 0", () => {
+  const line = buildBcClaimLineItem({
+    db: {
+      ...baseDb,
+      basic_amount: 500,
+      total_amount: 590,
+      foreign_basic_amount: 0,
+      foreign_total_amount: 0,
+    },
+    isVendorPayment: true,
+    vendor: vendorInputs.vendor,
+  });
+  assertEquals(line.Ammount, 500);
+});
+
+Deno.test("vendor Ammount uses foreign_basic_amount when it is > 0", () => {
+  const line = buildBcClaimLineItem({
+    db: {
+      ...baseDb,
+      basic_amount: 500,
+      total_amount: 590,
+      foreign_basic_amount: 80,
+      foreign_total_amount: 95,
+    },
+    isVendorPayment: true,
+    vendor: vendorInputs.vendor,
+  });
+  assertEquals(line.Ammount, 80);
+});

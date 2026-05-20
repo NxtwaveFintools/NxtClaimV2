@@ -49,8 +49,9 @@ export interface BcClaimLineItem {
   paymentRequired: boolean;
   // BC's exact JSON property names (typos and casing match BC's spec):
   //   ammountLCY = local-currency amount. Vendor → basic_amount; non-vendor → total_amount.
-  //   Ammount    = foreign-currency amount. Vendor → foreign_basic_amount;
-  //                non-vendor → foreign_total_amount, falling back to total_amount when foreign is 0.
+  //   Ammount    = foreign-currency amount. Vendor → foreign_basic_amount (falls back to
+  //                basic_amount when foreign_basic_amount is 0); non-vendor → foreign_total_amount,
+  //                falling back to total_amount when foreign is 0.
   ammountLCY: number;
   Ammount: number;
   // Vendor-only — OMIT ENTIRELY (do not send null/empty) for non-vendor claims.
