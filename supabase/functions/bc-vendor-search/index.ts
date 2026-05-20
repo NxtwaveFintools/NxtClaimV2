@@ -3,6 +3,7 @@ import { bcFetch } from "../_shared/bcClient.ts";
 import { corsPreflightResponse, resolveCors } from "../_shared/cors.ts";
 import { log } from "../_shared/logger.ts";
 import { requireAuthenticatedUser } from "../_shared/auth.ts";
+import { sanitizeBcSearchQuery } from "../_shared/bcSearch.ts";
 
 const InputSchema = z.object({
   query: z.string().trim().min(1).max(60),
@@ -44,7 +45,7 @@ Deno.serve(async (req) => {
   // case variants (as-typed, lower, upper, capitalize-first) and OR them
   // across the same field. BC allows OR within a field but rejects it across
   // distinct fields. No (Code field) is always upper in BC, so only upper variant.
-  const q = parsed.data.query;
+  const q = sanitizeBcSearchQuery(parsed.data.query);
   const variants = Array.from(
     new Set([
       q,

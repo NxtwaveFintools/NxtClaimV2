@@ -2,6 +2,7 @@ import { bcFetch } from "../_shared/bcClient.ts";
 import { corsPreflightResponse, resolveCors } from "../_shared/cors.ts";
 import { log } from "../_shared/logger.ts";
 import { requireAuthenticatedUser } from "../_shared/auth.ts";
+import { sanitizeBcSearchQuery } from "../_shared/bcSearch.ts";
 
 /**
  * bc-reference — returns code+description pairs for Finance modal dropdowns.
@@ -78,7 +79,8 @@ export async function handler(req: Request): Promise<Response> {
   // HSN/SAC alone supports an optional ?query= for search-as-you-type, since
   // BC can hold 10k+ codes; currencies (~150) and GST groups (~30) always
   // return the full list (small + rarely changes + worth caching in full).
-  const query = type === "hsnSacCodes" ? (url.searchParams.get("query") ?? "").trim() : "";
+  const query =
+    type === "hsnSacCodes" ? sanitizeBcSearchQuery(url.searchParams.get("query") ?? "") : "";
 
   // Cache key includes the query so different searches don't poison each other.
   const cacheKey = type === "hsnSacCodes" ? `${type}::${query}` : type;
