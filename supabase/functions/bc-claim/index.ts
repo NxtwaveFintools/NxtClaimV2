@@ -27,6 +27,19 @@ import type { BcClaimError, BcClaimPayloadFromDb } from "./types.ts";
  *       'submitting' row stays in the DB for the admin reconciliation tool.
  */
 
+// Test seam — overridable admin-client factory. Mirrors __setAuthClientFactory
+// in _shared/auth.ts. Prefixed __ to mark as not-for-production.
+// AdminClient is derived from the real two-arg createClient call so .rpc() keeps
+// the same permissive typing the original inline createClient(URL, KEY) had.
+const defaultAdminFactory = () =>
+  createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+type AdminClient = ReturnType<typeof defaultAdminFactory>;
+type AdminFactory = () => AdminClient;
+let adminFactory: AdminFactory = defaultAdminFactory;
+export function __setBcClaimAdminFactory(fn: AdminFactory | null): void {
+  adminFactory = fn ?? defaultAdminFactory;
+}
+
 const InputSchema = z
   .object({
     claimId: z.string().min(1),
@@ -68,7 +81,7 @@ function errResp(corsHeaders: Record<string, string>, err: BcClaimError, status:
   return json(corsHeaders, { success: false, error: err }, status);
 }
 
-Deno.serve(async (req) => {
+export async function handler(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return corsPreflightResponse(req);
   const cors = resolveCors(req);
 
@@ -87,9 +100,7 @@ Deno.serve(async (req) => {
   }
   const actorUserId = auth.userId;
 
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-  const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  const admin = adminFactory();
 
   // Step 2 — body validation.
   let rawBody: unknown;
@@ -296,4 +307,6 @@ Deno.serve(async (req) => {
     duration_ms: Date.now() - t0,
   });
   return json(cors.headers, { success: true, bcClaimDetailsId: bcDetailsId }, 200);
-});
+}
+
+if (import.meta.main) Deno.serve(handler);
