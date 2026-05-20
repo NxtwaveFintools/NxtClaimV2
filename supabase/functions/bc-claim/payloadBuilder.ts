@@ -101,7 +101,10 @@ export function buildBcClaimLineItem(inputs: BuildInputs): BcClaimLineItem {
     beneficiaryDepartment: db.beneficiary_department_code,
     regionCode: db.region_code,
     invoiceRequired: isVendorPayment,
-    paymentRequired: db.payment_mode_name?.trim().toLowerCase() === "reimbursement",
+    // `payment_mode_name` is non-null per `BcClaimPayloadFromDb` — the DB
+    // function INNER JOINs master_payment_modes and raises CLAIM_NOT_FOUND
+    // when there's no match, so we don't need optional chaining here.
+    paymentRequired: db.payment_mode_name.trim().toLowerCase() === "reimbursement",
     ammountLCY,
     Ammount,
     // Non-vendor claims are always INR; vendor path overrides via spread below.

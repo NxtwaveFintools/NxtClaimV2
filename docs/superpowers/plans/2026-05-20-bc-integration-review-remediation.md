@@ -729,7 +729,7 @@ git commit -m "feat(ui): SearchableCombobox enableSearch prop; drop unused empty
 
 - [ ] **Step 1: Kill HSN double-search** — in `ReferenceField`, pass `enableSearch={!isSearchable}` to `<SearchableCombobox>` (the `state.status === "loaded"` branch, ~796-803).
 
-- [ ] **Step 2: Fix loader gating** (line ~238): change the `allRefsLoading` predicate from `(s) => s.status === "loading" || s.status === "idle"` to `(s) => s.status === "loading"`.
+- [x] **Step 2: Fix loader gating** (line ~238): originally directed to change the `allRefsLoading` predicate to `(s) => s.status === "loading"` only. DEVIATION KEPT: implementation retains `loading || idle` because `idle` covers the gap between modal-open and the fetch effect firing (lines 139-143); loading-only causes an empty-grid flash. Inline comment in source records the rationale. See updated spec line 111.
 
 - [ ] **Step 3: `void` floating promises** — Retry-all (~391-397) and per-field `onRetry` (~423-451): prefix the `fetchReference(...)` calls with `void ` to match the effect calls at 141-142.
 

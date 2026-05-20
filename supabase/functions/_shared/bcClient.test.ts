@@ -144,8 +144,12 @@ Deno.test("bcFetch — AbortController timeout fires", async () => {
   setupAuth();
   __setBcFetchImpl(
     (_url, init) =>
-      new Promise((_resolve, reject) => {
-        init!.signal!.addEventListener("abort", () => reject(new Error("AbortError: aborted")));
+      new Promise<Response>((_resolve, reject) => {
+        // `typeof fetch`'s init parameter resolves to a union under deno --check
+        // (RequestInit | RequestInit-with-client | global.RequestInit) and one
+        // member doesn't expose `signal`. Narrow explicitly.
+        const signal = (init as RequestInit | undefined)?.signal;
+        signal?.addEventListener("abort", () => reject(new Error("AbortError: aborted")));
       }),
   );
   try {

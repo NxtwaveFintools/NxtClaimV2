@@ -57,6 +57,10 @@ export interface BcClaimLineItem {
   // Vendor-only — OMIT ENTIRELY (do not send null/empty) for non-vendor claims.
   currencyCode?: string;
   vendorInvoiceNo?: string;
+  // `vendorCode` is the authoritative identifier — BC resolves the vendor by
+  // this No on the server. `vendorName` is display-only (BC echoes its own
+  // canonical name in the API response), kept here so logs/audit show what
+  // the user picked in the UI.
   vendorCode?: string;
   vendorName?: string;
   gstGroupCode?: string;

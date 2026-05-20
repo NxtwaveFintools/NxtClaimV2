@@ -108,7 +108,13 @@ db.foreign_basic_amount : db.basic_amount) : ...`. (decision #5)
 - `src/modules/claims/ui/bc-claim-modal.tsx`:
   - `ReferenceField` passes `enableSearch={!isSearchable}` → kills HSN double-search.
     (important)
-  - `allRefsLoading`: gate on `status === "loading"` only (not `"idle"`). (important)
+  - `allRefsLoading`: gate on `status === "loading" || status === "idle"`. The
+    initial intent was loading-only, but in practice `currencies`/`gstGroups`
+    sit in `idle` for a microtask between the modal opening and the fetch
+    effect firing (see `bc-claim-modal.tsx:139-143`); gating loading-only
+    causes an empty-grid flash on first open. The implementation retains
+    `idle` with an inline comment justifying the deviation. (deliberate, see
+    `bc-claim-modal.tsx:238-240`)
   - Add `void` to floating `fetchReference` calls in Retry-all / `onRetry`. (nit)
   - Runtime-guard the `result as {…}` cast in the submit handler. (nit)
   - `VendorPicker`: add `role="listbox"`/`role="option"` + arrow-key navigation. (minor)
