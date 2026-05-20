@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
   const auth = await requireFinanceApprover(req);
   if (!auth.ok) {
     log("bc-claim", "warn", "auth_failed");
-    return errResp(cors.headers, { code: "UNAUTHENTICATED" }, auth.status);
+    return errResp(cors.headers, { code: auth.code }, auth.status);
   }
   const actorUserId = auth.userId;
 

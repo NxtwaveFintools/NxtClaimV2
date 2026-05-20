@@ -55,10 +55,10 @@ Deno.test("requireAuthenticatedUser — valid jwt → ok + userId", async () => 
   __setAuthClientFactory(null);
 });
 
-Deno.test("requireFinanceApprover — valid user but not approver → UNAUTHENTICATED", async () => {
+Deno.test("requireFinanceApprover — valid user but not approver → FORBIDDEN", async () => {
   __setAuthClientFactory(() => fakeClient({ user: { id: "u1" }, approverRow: null }));
   const r = await requireFinanceApprover(buildReq("Bearer ok"));
-  assertEquals(r, { ok: false, status: 401, code: "UNAUTHENTICATED" });
+  assertEquals(r, { ok: false, status: 403, code: "FORBIDDEN" });
   __setAuthClientFactory(null);
 });
 

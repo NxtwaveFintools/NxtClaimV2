@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 export type AuthResult =
   | { ok: true; userId: string }
-  | { ok: false; status: 401; code: "UNAUTHENTICATED" };
+  | { ok: false; status: 401; code: "UNAUTHENTICATED" }
+  | { ok: false; status: 403; code: "FORBIDDEN" };
 
 function getJwt(req: Request): string {
   return (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
@@ -38,6 +39,6 @@ export async function requireFinanceApprover(req: Request): Promise<AuthResult> 
     .eq("user_id", base.userId)
     .eq("is_active", true)
     .maybeSingle();
-  if (!row) return { ok: false, status: 401, code: "UNAUTHENTICATED" };
+  if (!row) return { ok: false, status: 403, code: "FORBIDDEN" };
   return base;
 }

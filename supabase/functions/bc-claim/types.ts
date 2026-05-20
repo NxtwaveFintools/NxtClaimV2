@@ -93,6 +93,7 @@ export interface BcClaimPayloadFromDb {
 /** Structured errors returned to the modal. */
 export type BcClaimError =
   | { code: "UNAUTHENTICATED" }
+  | { code: "FORBIDDEN" }
   | { code: "INVALID_BODY"; details: string[] }
   | { code: "CLAIM_NOT_FOUND"; claimId: string }
   | { code: "ALREADY_SUBMITTED"; bcClaimDetailsId: string | null }
