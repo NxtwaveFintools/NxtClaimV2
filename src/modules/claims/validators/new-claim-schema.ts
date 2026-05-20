@@ -171,6 +171,12 @@ export const newClaimSubmitSchema = z
           message: "Enter a valid on-behalf email.",
           path: ["onBehalfEmail"],
         });
+      } else if (!value.onBehalfEmail?.endsWith("@nxtwave.co.in")) {
+        context.addIssue({
+          code: "custom",
+          message: "Only @nxtwave.co.in emails are allowed for On Behalf submissions.",
+          path: ["onBehalfEmail"],
+        });
       }
 
       if (onBehalfEmployeeCodeIsNA) {

@@ -1434,6 +1434,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   <FormInput
                     id="onBehalfEmail"
                     type="email"
+                    placeholder="e.g., user@nxtwave.co.in"
                     className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
                     {...register("onBehalfEmail", {
                       setValueAs: (value) => toNullable(String(value ?? "")),
