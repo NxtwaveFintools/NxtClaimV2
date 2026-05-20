@@ -433,7 +433,11 @@ export class ExportClaimsService {
     const signedUrlMap: Record<string, string> = {};
     let cursor: { createdAt: string; claimId: string } | undefined;
 
-    const SIGNED_URL_EXPIRY_SECONDS = 60 * 60 * 24 * 365 * 10; // 10 years — matches in-app + BC remarks
+    // 10 years — keeps exported workbook links consistent with the in-app and BC
+    // remarks links (same file, same lifetime). Trade-off: a leaked URL exposes the
+    // file for 10 years; acceptable since these links only resolve behind our own
+    // authenticated routes / BC's auth. Mirrors page.tsx createBulkSignedUrls.
+    const SIGNED_URL_EXPIRY_SECONDS = 60 * 60 * 24 * 365 * 10;
 
     while (true) {
       const batchResult = await this.repository.getClaimsForFullExport({
