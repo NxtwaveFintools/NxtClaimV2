@@ -1,17 +1,4 @@
--- Corrective migration for PR #120 review:
---  1. Bake `SET search_path = public, pg_temp` into all four BC SECURITY DEFINER
---     functions so a fresh-DB restore can never apply them with an unpinned
---     (caller-controlled) search_path, even if 20260520020000 is skipped.
---  2. Add a workflow-status gate to get_bc_claim_payload (P0005 INVALID_CLAIM_STATE):
---     only claims at 'HOD approved - Awaiting finance approval' may be pushed to BC.
---  3. Reaffirm least-privilege grants (service_role only).
--- Append-only: supersedes the standalone pins in 20260520020000 (now redundant).
--- NOTE for future migrations: ALTER COLUMN TYPE on large tables should set
---   `SET lock_timeout = '5s'` to fail fast instead of stalling the table.
-
-BEGIN;
-
--- 1. get_bc_claim_payload — search_path baked in + status gate (P0005).
+-- Corrective migration for PR #120 review: search_path baked in + status gate + grants.
 CREATE OR REPLACE FUNCTION public.get_bc_claim_payload(p_claim_id TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -38,7 +25,6 @@ BEGIN
     RAISE EXCEPTION 'ALREADY_SUBMITTED: %', v_already_submitted_id USING ERRCODE = 'P0002';
   END IF;
 
-  -- Workflow-status gate: BC submission is only valid while finance is approving.
   IF v_status <> 'HOD approved - Awaiting finance approval'::public.claim_status THEN
     RAISE EXCEPTION 'INVALID_CLAIM_STATE: % is %', p_claim_id, v_status
       USING ERRCODE = 'P0005';
@@ -105,7 +91,6 @@ BEGIN
 END;
 $$;
 
--- 2. start_bc_claim_attempt — search_path baked in.
 CREATE OR REPLACE FUNCTION public.start_bc_claim_attempt(
   p_claim_id          TEXT,
   p_is_vendor_payment BOOLEAN,
@@ -129,7 +114,6 @@ BEGIN
 END;
 $$;
 
--- 3. complete_bc_claim — search_path baked in.
 CREATE OR REPLACE FUNCTION public.complete_bc_claim(
   p_bc_details_id     UUID,
   p_actor_user_id     UUID,
@@ -166,7 +150,6 @@ BEGIN
 END;
 $$;
 
--- 4. record_bc_claim_failure — search_path baked in.
 CREATE OR REPLACE FUNCTION public.record_bc_claim_failure(
   p_bc_details_id     UUID,
   p_actor_user_id     UUID,
@@ -197,7 +180,6 @@ BEGIN
 END;
 $$;
 
--- 5. Reaffirm least-privilege grants on all four (idempotent).
 REVOKE EXECUTE ON FUNCTION public.get_bc_claim_payload(TEXT)               FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.start_bc_claim_attempt(TEXT, BOOLEAN, JSONB) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.complete_bc_claim(UUID, UUID, JSONB)     FROM PUBLIC, anon, authenticated;
@@ -206,6 +188,4 @@ REVOKE EXECUTE ON FUNCTION public.record_bc_claim_failure(UUID, UUID, JSONB) FRO
 GRANT EXECUTE ON FUNCTION public.get_bc_claim_payload(TEXT)               TO service_role;
 GRANT EXECUTE ON FUNCTION public.start_bc_claim_attempt(TEXT, BOOLEAN, JSONB) TO service_role;
 GRANT EXECUTE ON FUNCTION public.complete_bc_claim(UUID, UUID, JSONB)     TO service_role;
-GRANT EXECUTE ON FUNCTION public.record_bc_claim_failure(UUID, UUID, JSONB) TO service_role;
-
-COMMIT;
+GRANT EXECUTE ON FUNCTION public.record_bc_claim_failure(UUID, UUID, JSONB) TO service_role;;
