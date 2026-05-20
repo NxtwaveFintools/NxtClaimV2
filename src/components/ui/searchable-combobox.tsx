@@ -237,6 +237,9 @@ export function SearchableCombobox({
                 className="max-h-64 overflow-auto py-1.5"
                 tabIndex={enableSearch ? undefined : 0}
                 onKeyDown={enableSearch ? undefined : onKeyDown}
+                aria-activedescendant={
+                  !enableSearch && filtered[activeIndex] ? `${id}-opt-${activeIndex}` : undefined
+                }
               >
                 {filtered.map((opt, i) => {
                   const isSelected = opt.code === value;
@@ -279,7 +282,7 @@ export function SearchableCombobox({
                   );
                 })}
               </ul>
-              {truncatedCount > 0 && (
+              {enableSearch && truncatedCount > 0 && (
                 <p className="border-t border-zinc-100 bg-zinc-50/50 px-3 py-2 text-center text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400">
                   + {truncatedCount.toLocaleString()} more match
                   {truncatedCount === 1 ? "" : "es"} &mdash; keep typing to narrow
