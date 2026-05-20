@@ -126,7 +126,10 @@ Deno.serve(async (req) => {
     if (code === "P0003") {
       return errResp(cors.headers, { code: "MISSING_MAPPING", detail: msg }, 422);
     }
-    return errResp(cors.headers, { code: "MISSING_MAPPING", detail: msg }, 500);
+    if (code === "P0005") {
+      return errResp(cors.headers, { code: "INVALID_CLAIM_STATE", detail: msg }, 409);
+    }
+    return errResp(cors.headers, { code: "INTERNAL_ERROR", detail: msg }, 500);
   }
   const db = dbPayloadRaw as unknown as BcClaimPayloadFromDb;
   log("bc-claim", "info", "payload_loaded", {
@@ -187,7 +190,7 @@ Deno.serve(async (req) => {
     if (startErr.code === "23505") {
       return errResp(cors.headers, { code: "ALREADY_IN_FLIGHT" }, 409);
     }
-    return errResp(cors.headers, { code: "MISSING_MAPPING", detail: startErr.message }, 500);
+    return errResp(cors.headers, { code: "INTERNAL_ERROR", detail: startErr.message }, 500);
   }
   const bcDetailsId = startData as string;
   log("bc-claim", "info", "attempt_started", {
@@ -214,11 +217,18 @@ Deno.serve(async (req) => {
       duration_ms: Date.now() - t0,
       error: String(err).slice(0, 500),
     });
-    await admin.rpc("record_bc_claim_failure", {
+    const { error: recordErr } = await admin.rpc("record_bc_claim_failure", {
       p_bc_details_id: bcDetailsId,
       p_actor_user_id: actorUserId,
       p_response_json: { error: "network_or_timeout", detail: String(err) },
     });
+    if (recordErr) {
+      log("bc-claim", "error", "record_failure_rpc_failed", {
+        claim_id: input.claimId,
+        bc_details_id: bcDetailsId,
+        detail: recordErr.message,
+      });
+    }
     return errResp(
       cors.headers,
       {
@@ -236,11 +246,18 @@ Deno.serve(async (req) => {
       bc_details_id: bcDetailsId,
       bc_status: bcResult.status,
     });
-    await admin.rpc("record_bc_claim_failure", {
+    const { error: recordErr } = await admin.rpc("record_bc_claim_failure", {
       p_bc_details_id: bcDetailsId,
       p_actor_user_id: actorUserId,
       p_response_json: bcResult.body,
     });
+    if (recordErr) {
+      log("bc-claim", "error", "record_failure_rpc_failed", {
+        claim_id: input.claimId,
+        bc_details_id: bcDetailsId,
+        detail: recordErr.message,
+      });
+    }
     return errResp(
       cors.headers,
       { code: "BC_FETCH_FAILED", status: bcResult.status, body: bcResult.body },

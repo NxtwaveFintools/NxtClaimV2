@@ -100,5 +100,7 @@ export type BcClaimError =
   | { code: "ALREADY_SUBMITTED"; bcClaimDetailsId: string | null }
   | { code: "ALREADY_IN_FLIGHT" }
   | { code: "MISSING_MAPPING"; detail?: string }
+  | { code: "INVALID_CLAIM_STATE"; detail?: string }
+  | { code: "INTERNAL_ERROR"; detail?: string }
   | { code: "BC_FETCH_FAILED"; status: number; body: unknown }
   | { code: "RPC_FAILED_AFTER_BC_SUCCESS"; bcClaimDetailsId: string; detail: string };
