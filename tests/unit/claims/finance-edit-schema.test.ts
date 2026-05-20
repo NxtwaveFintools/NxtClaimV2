@@ -22,7 +22,11 @@ describe("financeEditSchema", () => {
       remarks: null,
       receiptFilePath: "expenses/user/new-receipt.pdf",
       bankStatementFilePath: "expenses/user/new-bank.pdf",
-      approvedAmount: 120,
+      basicAmount: 100,
+      cgstAmount: 10,
+      sgstAmount: 10,
+      igstAmount: 0,
+      totalAmount: 120,
     });
 
     expect(result.success).toBe(true);
@@ -47,8 +51,7 @@ describe("financeEditSchema", () => {
       peopleInvolved: null,
       remarks: null,
       basicAmount: 120,
-      requestedTotalAmount: 141.6,
-      approvedAmount: 120,
+      totalAmount: 141.6,
     });
 
     expect(result.success).toBe(false);
@@ -73,7 +76,11 @@ describe("financeEditSchema", () => {
       purpose: "Client travel",
       peopleInvolved: null,
       remarks: null,
-      approvedAmount: 120,
+      basicAmount: 100,
+      cgstAmount: 10,
+      sgstAmount: 10,
+      igstAmount: 0,
+      totalAmount: 120,
     });
 
     expect(result.success).toBe(true);
@@ -96,7 +103,7 @@ describe("financeEditSchema", () => {
       purpose: "Client travel",
       peopleInvolved: null,
       remarks: null,
-      approvedAmount: 120,
+      totalAmount: 120,
     });
 
     expect(result.success).toBe(false);
@@ -114,7 +121,7 @@ describe("financeEditSchema", () => {
       locationId: "44444444-4444-4444-8444-444444444444",
       remarks: null,
       supportingDocumentPath: "petty_cash_requests/user/supporting.pdf",
-      approvedAmount: 500,
+      totalAmount: 500,
     });
 
     expect(result.success).toBe(true);
@@ -139,7 +146,7 @@ describe("financeEditSchema", () => {
       purpose: "Client travel",
       peopleInvolved: null,
       remarks: null,
-      approvedAmount: 0,
+      totalAmount: 0,
     });
 
     expect(result.success).toBe(false);
@@ -155,7 +162,7 @@ describe("financeEditSchema", () => {
       productId: null,
       locationId: null,
       remarks: null,
-      approvedAmount: 500,
+      totalAmount: 500,
     });
 
     expect(result.success).toBe(false);
@@ -180,7 +187,7 @@ describe("financeEditSchema", () => {
       purpose: "Client travel",
       peopleInvolved: null,
       remarks: null,
-      approvedAmount: 120,
+      totalAmount: 120,
     });
 
     expect(result.success).toBe(false);
@@ -204,7 +211,7 @@ describe("financeEditSchema", () => {
       purpose: "Client travel",
       peopleInvolved: null,
       remarks: null,
-      approvedAmount: 120,
+      totalAmount: 120,
     });
 
     expect(result.success).toBe(false);

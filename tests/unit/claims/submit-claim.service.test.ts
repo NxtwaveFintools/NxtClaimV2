@@ -148,8 +148,6 @@ describe("SubmitClaimService", () => {
     const logger = createLogger();
     const service = new SubmitClaimService({ repository, logger });
 
-    const hackedClientTotal = 50000;
-
     const result = await service.execute({
       ...baseInput,
       expense: {
@@ -170,8 +168,7 @@ describe("SubmitClaimService", () => {
         cgst_amount: number;
         sgst_amount: number;
         igst_amount: number;
-        requested_total_amount: number;
-        approved_amount: number;
+        total_amount: number;
       };
     };
 
@@ -181,8 +178,7 @@ describe("SubmitClaimService", () => {
         cgst_amount: 5,
         sgst_amount: 5,
         igst_amount: 0,
-        requested_total_amount: 110,
-        approved_amount: 110,
+        total_amount: 110,
       }),
     );
   });
@@ -232,6 +228,54 @@ describe("SubmitClaimService", () => {
         },
       },
     });
+  });
+
+  test("preserves foreign expense fields through preparation and payload mapping", async () => {
+    const repository = createRepository();
+    const logger = createLogger();
+    const service = new SubmitClaimService({ repository, logger });
+
+    const input = {
+      ...baseInput,
+      expense: {
+        ...baseInput.expense,
+        foreignCurrencyCode: "USD" as const,
+        foreignBasicAmount: 120.5,
+        foreignGstAmount: 12.75,
+        foreignTotalAmount: 133.25,
+      },
+    };
+
+    const preparedResult = await service.prepareSubmission(input);
+
+    expect(preparedResult.errorCode).toBeNull();
+    expect(preparedResult.preparedSubmission?.expense).toEqual(
+      expect.objectContaining({
+        foreignCurrencyCode: "USD",
+        foreignBasicAmount: 120.5,
+        foreignGstAmount: 12.75,
+        foreignTotalAmount: 133.25,
+      }),
+    );
+
+    await service.execute(input);
+
+    const createClaimPayload = (repository.createClaimWithDetail as jest.Mock).mock
+      .calls[0]?.[0] as {
+      expense?: {
+        foreign_currency_code?: string | null;
+        foreign_basic_amount?: number | null;
+        foreign_gst_amount?: number | null;
+      };
+    };
+
+    expect(createClaimPayload.expense).toEqual(
+      expect.objectContaining({
+        foreign_currency_code: "USD",
+        foreign_basic_amount: 120.5,
+        foreign_gst_amount: 12.75,
+      }),
+    );
   });
 
   test("accepts petty cash payment mode as expense", async () => {
@@ -306,7 +350,7 @@ describe("SubmitClaimService", () => {
       ...baseInput,
       detailType: "advance",
       advance: {
-        requestedTotalAmount: 500,
+        totalAmount: 500,
         budgetMonth: 3,
         budgetYear: 2026,
         expectedUsageDate: "2026-03-25",
@@ -345,7 +389,7 @@ describe("SubmitClaimService", () => {
       onBehalfEmail: "beneficiary@nxtwave.co.in",
       onBehalfEmployeeCode: "obh-77",
       advance: {
-        requestedTotalAmount: 500,
+        totalAmount: 500,
         budgetMonth: 3,
         budgetYear: 2026,
         expectedUsageDate: "2026-03-25",
@@ -379,7 +423,7 @@ describe("SubmitClaimService", () => {
       ...baseInput,
       detailType: "advance",
       advance: {
-        requestedTotalAmount: 500,
+        totalAmount: 500,
         budgetMonth: 3,
         budgetYear: 2026,
         expectedUsageDate: "2026-03-25",

@@ -4,6 +4,8 @@ import { LOCATION_TYPES } from "@/core/constants/location-types";
 const uuidSchema = z.uuid("Invalid UUID value");
 const emailSchema = z.email("Enter a valid on-behalf email");
 
+export const ON_BEHALF_EMAIL_DOMAIN = "@nxtwave.co.in";
+
 const optionalTextToNA = z.preprocess(
   (value) => (value === null ? undefined : value),
   z
@@ -36,6 +38,9 @@ const optionalTaxAmountSchema = z.preprocess(
   },
   z.number().min(0, "Tax amount cannot be negative"),
 );
+
+const toNullableNumber = (v: unknown) =>
+  v === "" || v === null || v === undefined ? null : typeof v === "string" ? Number(v) : v;
 
 const aiOriginalValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 
@@ -87,6 +92,19 @@ const expenseDetailSchema = z.object({
     basicAmount: z.number().min(0, "Basic amount cannot be negative"),
     totalAmount: z.number().min(0, "Total amount cannot be negative").optional(),
     currencyCode: z.string().trim().min(1).default("INR"),
+    foreignCurrencyCode: z.enum(["INR", "USD", "EUR", "CHF"]).default("INR"),
+    foreignBasicAmount: z.preprocess(
+      toNullableNumber,
+      z.number().min(0, "Foreign basic amount cannot be negative").nullable().optional(),
+    ),
+    foreignGstAmount: z.preprocess(
+      toNullableNumber,
+      z.number().min(0, "Foreign GST amount cannot be negative").nullable().optional(),
+    ),
+    foreignTotalAmount: z.preprocess(
+      toNullableNumber,
+      z.number().min(0, "Foreign total amount cannot be negative").nullable().optional(),
+    ),
     vendorName: optionalTextToNA,
     receiptFileName: optionalTextToNA,
     receiptFileType: optionalTextToNA,
@@ -104,7 +122,7 @@ const expenseDetailSchema = z.object({
 const advanceDetailSchema = z.object({
   detailType: z.literal("advance"),
   advance: z.object({
-    requestedTotalAmount: z.coerce.number().min(0, "Requested amount cannot be negative"),
+    totalAmount: z.coerce.number().min(0, "Requested amount cannot be negative"),
     budgetMonth: z.coerce
       .number()
       .int("Budget month is required")
@@ -153,6 +171,12 @@ export const newClaimSubmitSchema = z
         context.addIssue({
           code: "custom",
           message: "Enter a valid on-behalf email.",
+          path: ["onBehalfEmail"],
+        });
+      } else if (!value.onBehalfEmail.toLowerCase().endsWith(ON_BEHALF_EMAIL_DOMAIN)) {
+        context.addIssue({
+          code: "custom",
+          message: `Only ${ON_BEHALF_EMAIL_DOMAIN} emails are allowed for On Behalf submissions.`,
           path: ["onBehalfEmail"],
         });
       }
@@ -218,6 +242,19 @@ export const newClaimSubmitSchema = z
           message: "Location details are required when location type is Out Station.",
           path: ["expense", "locationDetails"],
         });
+      }
+
+      if (
+        value.expense?.foreignCurrencyCode !== "INR" &&
+        value.expense?.foreignCurrencyCode != null
+      ) {
+        if (!value.expense.foreignBasicAmount || value.expense.foreignBasicAmount <= 0) {
+          context.addIssue({
+            code: "custom",
+            message: "Foreign basic amount is required for non-INR currencies.",
+            path: ["expense", "foreignBasicAmount"],
+          });
+        }
       }
     }
 

@@ -82,6 +82,10 @@ describe("parseReceiptAction", () => {
       totalAmount: 118,
       category_name: "Travel Domestic",
       confidenceScore: 95,
+      foreignCurrencyCode: null,
+      foreignBasicAmount: 0,
+      foreignGstAmount: 0,
+      foreignTotalAmount: 0,
     });
   });
 

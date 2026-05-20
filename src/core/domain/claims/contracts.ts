@@ -61,6 +61,10 @@ export type ClaimSubmissionInput = {
     transactionDate: string;
     basicAmount: number;
     currencyCode: string;
+    foreignCurrencyCode?: "INR" | "USD" | "EUR" | "CHF" | null;
+    foreignBasicAmount?: number | null;
+    foreignGstAmount?: number | null;
+    foreignTotalAmount?: number | null;
     vendorName: string | null;
     receiptFilePath: string | null;
     bankStatementFilePath: string | null;
@@ -69,7 +73,7 @@ export type ClaimSubmissionInput = {
     aiMetadata?: ClaimExpenseAiMetadata | null;
   };
   advance?: {
-    requestedTotalAmount: number;
+    totalAmount: number;
     budgetMonth: number;
     budgetYear: number;
     expectedUsageDate: string | null;
@@ -81,6 +85,11 @@ export type ClaimSubmissionInput = {
   };
 };
 
+// Invariant: expense_details.currency_code is always 'INR' (the local_currency_code
+// enum only permits 'INR'). Non-INR settlements are encoded via foreign_currency_code
+// + foreign_basic_amount + foreign_gst_amount. The INR-side amounts (basic_amount,
+// cgst/sgst/igst_amount, total_amount) represent the INR settlement, which is 0 for
+// a foreign-only invoice until reconciled from a bank statement.
 export type PreparedClaimSubmission = {
   claim: {
     id: string;
@@ -115,9 +124,12 @@ export type PreparedClaimSubmission = {
     igstAmount: number;
     transactionDate: string;
     basicAmount: number;
-    requestedTotalAmount: number;
-    approvedAmount: number;
+    totalAmount: number;
     currencyCode: string;
+    foreignCurrencyCode?: "INR" | "USD" | "EUR" | "CHF" | null;
+    foreignBasicAmount?: number | null;
+    foreignGstAmount?: number | null;
+    foreignTotalAmount?: number | null;
     vendorName: string | null;
     receiptFilePath: string | null;
     bankStatementFilePath: string | null;
@@ -127,8 +139,7 @@ export type PreparedClaimSubmission = {
   };
   advance?: {
     claimId: string;
-    requestedTotalAmount: number;
-    approvedAmount: number;
+    totalAmount: number;
     budgetMonth: number;
     budgetYear: number;
     expectedUsageDate: string | null;
@@ -160,7 +171,15 @@ export type FinanceExpenseEditPayload = {
   remarks?: string | null;
   receiptFilePath?: string;
   bankStatementFilePath?: string;
-  approvedAmount: number;
+  basicAmount: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+  totalAmount: number;
+  foreignCurrencyCode?: "INR" | "USD" | "EUR" | "CHF" | null;
+  foreignBasicAmount?: number | null;
+  foreignGstAmount?: number | null;
+  foreignTotalAmount?: number | null;
 };
 
 export type FinanceAdvanceEditPayload = {
@@ -174,7 +193,7 @@ export type FinanceAdvanceEditPayload = {
   locationId?: string | null;
   remarks?: string | null;
   supportingDocumentPath?: string;
-  approvedAmount: number;
+  totalAmount: number;
 };
 
 export type FinanceClaimEditPayload = FinanceExpenseEditPayload | FinanceAdvanceEditPayload;
@@ -193,8 +212,11 @@ export type OwnExpenseEditPayload = {
   cgstAmount: number;
   sgstAmount: number;
   igstAmount: number;
-  requestedTotalAmount: number;
-  approvedAmount: number;
+  totalAmount: number;
+  foreignCurrencyCode?: "INR" | "USD" | "EUR" | "CHF" | null;
+  foreignBasicAmount?: number | null;
+  foreignGstAmount?: number | null;
+  foreignTotalAmount?: number | null;
   purpose: string;
   productId: string | null;
   peopleInvolved: string | null;
@@ -207,8 +229,7 @@ export type OwnAdvanceEditPayload = {
   detailType: "advance";
   detailId: string;
   purpose: string;
-  requestedTotalAmount: number;
-  approvedAmount: number;
+  totalAmount: number;
   expectedUsageDate: string;
   productId: string | null;
   locationId: string | null;
@@ -276,7 +297,7 @@ export type ClaimExportRecord = {
   submittedOn: string;
   hodActionDate: string | null;
   financeActionDate: string | null;
-  bcPaymentsFlag: boolean;
+  bcClaimDetailsId: string | null;
   isVendorPayment: boolean;
 };
 
@@ -295,7 +316,7 @@ export type ClaimFullExportRecord = {
   departmentName: string | null;
   paymentModeId: string;
   paymentModeName: string | null;
-  bcPaymentsFlag: boolean;
+  bcClaimDetailsId: string | null;
   isVendorPayment: boolean;
   assignedL1ApproverId: string;
   assignedL2ApproverId: string | null;
@@ -333,8 +354,7 @@ export type ClaimFullExportRecord = {
   expenseCgstAmount: number | null;
   expenseSgstAmount: number | null;
   expenseIgstAmount: number | null;
-  requestedTotalAmount: number | null;
-  approvedAmount: number | null;
+  totalAmount: number | null;
   expenseCurrencyCode: string | null;
   expenseVendorName: string | null;
   expensePeopleInvolved: string | null;
@@ -359,7 +379,7 @@ export type MyClaimRecord = {
   onBehalfEmail: string | null;
   departmentName: string | null;
   paymentModeName: string;
-  bcPaymentsFlag: boolean;
+  bcClaimDetailsId: string | null;
   isVendorPayment: boolean;
   submissionType: ClaimSubmissionType;
   status: DbClaimStatus;
@@ -403,7 +423,7 @@ export type MyClaimListRecord = {
   submittedAt: string;
   hodActionDate: string | null;
   financeActionDate: string | null;
-  bcPaymentsFlag: boolean;
+  bcClaimDetailsId: string | null;
   isVendorPayment: boolean;
   detailType: ClaimDetailType;
   submissionType: ClaimSubmissionType;
@@ -449,7 +469,7 @@ export type PendingApprovalListRecord = {
   paymentModeName: string;
   detailType: ClaimDetailType;
   submissionType: ClaimSubmissionType;
-  bcPaymentsFlag: boolean;
+  bcClaimDetailsId: string | null;
   isVendorPayment: boolean;
   onBehalfEmail: string | null;
   onBehalfEmployeeCode?: string | null;
@@ -467,7 +487,7 @@ export type PendingApprovalListRecord = {
 export type ClaimListDetail = {
   detailType: ClaimDetailType;
   submissionType: ClaimSubmissionType;
-  bcPaymentsFlag: boolean;
+  bcClaimDetailsId: string | null;
   isVendorPayment: boolean;
   onBehalfEmail: string | null;
   submitter: string;
@@ -500,7 +520,9 @@ export type ClaimRepository = {
   existsExpenseByCompositeKey(input: {
     billNo: string;
     transactionDate: string;
-    requestedTotalAmount: number;
+    totalAmount: number;
+    foreignCurrencyCode?: string | null;
+    foreignBasicAmount?: number | null;
   }): Promise<{
     exists: boolean;
     errorMessage: string | null;
@@ -653,7 +675,7 @@ export type DepartmentViewerClaimRecord = {
   submittedOn: string;
   hodActionDate: string | null;
   financeActionDate: string | null;
-  bcPaymentsFlag: boolean;
+  bcClaimDetailsId: string | null;
   isVendorPayment: boolean;
   detailType: "expense" | "advance";
   submissionType: "Self" | "On Behalf";

@@ -38,7 +38,7 @@ const validExpensePayload = {
     remarks: null,
   },
   advance: {
-    requestedTotalAmount: 500,
+    totalAmount: 500,
     budgetMonth: 3,
     budgetYear: 2026,
     expectedUsageDate: "2026-03-20",
@@ -161,6 +161,60 @@ describe("newClaimSubmitSchema", () => {
       expect(parsed.data.onBehalfEmail).toBe("N/A");
       expect(parsed.data.onBehalfEmployeeCode).toBe("N/A");
       expect(parsed.data.advance?.remarks).toBe("N/A");
+    }
+  });
+});
+
+describe("newClaimSubmitSchema – On Behalf email domain", () => {
+  const onBehalfPayload = (onBehalfEmail: string) => ({
+    ...validExpensePayload,
+    submissionType: "On Behalf" as const,
+    onBehalfEmail,
+    onBehalfEmployeeCode: "EMP-200",
+  });
+
+  test("accepts an On Behalf email whose @nxtwave.co.in domain is uppercase", () => {
+    const parsed = newClaimSubmitSchema.safeParse(onBehalfPayload("user@NXTWAVE.CO.IN"));
+
+    expect(parsed.success).toBe(true);
+  });
+
+  test("accepts a lowercase @nxtwave.co.in On Behalf email", () => {
+    const parsed = newClaimSubmitSchema.safeParse(onBehalfPayload("user@nxtwave.co.in"));
+
+    expect(parsed.success).toBe(true);
+  });
+
+  test("rejects an On Behalf email on a .tech domain", () => {
+    const parsed = newClaimSubmitSchema.safeParse(onBehalfPayload("user@nxtwave.tech"));
+
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.flatten().fieldErrors.onBehalfEmail).toContain(
+        "Only @nxtwave.co.in emails are allowed for On Behalf submissions.",
+      );
+    }
+  });
+
+  test("rejects an On Behalf email on an external domain", () => {
+    const parsed = newClaimSubmitSchema.safeParse(onBehalfPayload("user@gmail.com"));
+
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.flatten().fieldErrors.onBehalfEmail).toContain(
+        "Only @nxtwave.co.in emails are allowed for On Behalf submissions.",
+      );
+    }
+  });
+
+  test("rejects a look-alike domain that lacks the @nxtwave.co.in boundary", () => {
+    const parsed = newClaimSubmitSchema.safeParse(onBehalfPayload("user@evilnxtwave.co.in"));
+
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.flatten().fieldErrors.onBehalfEmail).toContain(
+        "Only @nxtwave.co.in emails are allowed for On Behalf submissions.",
+      );
     }
   });
 });

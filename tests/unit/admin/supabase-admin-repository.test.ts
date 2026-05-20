@@ -366,8 +366,7 @@ describe("SupabaseAdminRepository", () => {
         submitter_user: { full_name: "Alex", email: "alex@nxtwave.co.in" },
         master_departments: { name: "Engineering" },
         expense_details: {
-          requested_total_amount: "245.60",
-          approved_amount: null,
+          total_amount: "245.60",
           is_active: true,
         },
         advance_details: null,

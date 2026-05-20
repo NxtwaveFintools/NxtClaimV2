@@ -9,8 +9,16 @@ import { FormInput } from "@/components/ui/form-input";
 import { FormSelect } from "@/components/ui/form-select";
 import { FormTextarea } from "@/components/ui/form-textarea";
 import { SheetClose, useOptionalSheetContext } from "@/components/ui/sheet";
+import { AiAuditCaption } from "@/components/ui/ai-audit-caption";
 import { LOCATION_TYPE_OPTIONS } from "@/core/constants/location-types";
-import { isAdvancePaymentModeName, isExpensePaymentModeName } from "@/core/constants/payment-modes";
+import {
+  isAdvancePaymentModeName,
+  isExpensePaymentModeName,
+  normalizePaymentModeName,
+  PAYMENT_MODE_PETTY_CASH_REQUEST,
+} from "@/core/constants/payment-modes";
+import type { ClaimExpenseAiMetadata } from "@/core/domain/claims/contracts";
+import { computeForeignTotal } from "@/modules/claims/utils/compute-totals";
 
 type DropdownOption = {
   id: string;
@@ -32,6 +40,15 @@ type ExpenseAmountState = {
   sgstAmount: number;
   igstAmount: number;
   totalAmount: number;
+};
+
+type ForeignCurrencyCode = "INR" | "USD" | "EUR" | "CHF";
+
+type ForeignAmountState = {
+  foreignCurrencyCode: ForeignCurrencyCode;
+  foreignBasicAmount: number;
+  foreignGstAmount: number;
+  foreignTotalAmount: number;
 };
 
 type FinanceEditClaimFormProps = {
@@ -60,19 +77,22 @@ type FinanceEditClaimFormProps = {
       cgstAmount: number | null;
       sgstAmount: number | null;
       igstAmount: number | null;
-      requestedTotalAmount: number | null;
-      approvedAmount: number | null;
+      totalAmount: number | null;
       vendorName: string | null;
       purpose: string | null;
       productId: string | null;
       peopleInvolved: string | null;
       remarks: string | null;
+      aiMetadata?: ClaimExpenseAiMetadata | null;
+      foreignCurrencyCode?: ForeignCurrencyCode | null;
+      foreignBasicAmount?: number | null;
+      foreignGstAmount?: number | null;
+      foreignTotalAmount?: number | null;
     } | null;
     advance: {
       id: string;
       purpose: string;
-      requestedTotalAmount: number | null;
-      approvedAmount: number | null;
+      totalAmount: number | null;
       expectedUsageDate: string;
       productId: string | null;
       locationId: string | null;
@@ -119,12 +139,7 @@ function buildExpenseAmountState(
   expense:
     | Pick<
         NonNullable<FinanceEditClaimFormProps["claim"]["expense"]>,
-        | "basicAmount"
-        | "cgstAmount"
-        | "sgstAmount"
-        | "igstAmount"
-        | "requestedTotalAmount"
-        | "approvedAmount"
+        "basicAmount" | "cgstAmount" | "sgstAmount" | "igstAmount" | "totalAmount"
       >
     | null
     | undefined,
@@ -134,9 +149,9 @@ function buildExpenseAmountState(
   const sgstAmount = toNonNegativeCurrency(expense?.sgstAmount);
   const igstAmount = toNonNegativeCurrency(expense?.igstAmount);
   const totalAmount =
-    expense?.requestedTotalAmount === null || expense?.requestedTotalAmount === undefined
+    expense?.totalAmount === null || expense?.totalAmount === undefined
       ? calculateExpenseTotal({ basicAmount, cgstAmount, sgstAmount, igstAmount })
-      : toNonNegativeCurrency(expense.requestedTotalAmount ?? expense.approvedAmount);
+      : toNonNegativeCurrency(expense.totalAmount);
 
   return {
     basicAmount,
@@ -144,6 +159,24 @@ function buildExpenseAmountState(
     sgstAmount,
     igstAmount,
     totalAmount,
+  };
+}
+
+function buildForeignAmountState(expense: {
+  foreignCurrencyCode?: ForeignCurrencyCode | null;
+  foreignBasicAmount?: number | null;
+  foreignGstAmount?: number | null;
+}): ForeignAmountState {
+  const foreignBasicAmount = toNonNegativeCurrency(expense.foreignBasicAmount);
+  const foreignGstAmount = toNonNegativeCurrency(expense.foreignGstAmount);
+  return {
+    foreignCurrencyCode: expense.foreignCurrencyCode ?? "INR",
+    foreignBasicAmount,
+    foreignGstAmount,
+    foreignTotalAmount: computeForeignTotal({
+      basicAmount: foreignBasicAmount,
+      gstAmount: foreignGstAmount,
+    }),
   };
 }
 
@@ -188,13 +221,29 @@ export function FinanceEditClaimForm({
   const [totalAmountInputValue, setTotalAmountInputValue] = useState<string>(() =>
     toCurrencyInputValue(initialExpenseAmounts.totalAmount),
   );
+  const [advanceTotalAmount, setAdvanceTotalAmount] = useState<number>(() =>
+    toNonNegativeCurrency(claim.advance?.totalAmount),
+  );
+  const [foreignAmounts, setForeignAmounts] = useState<ForeignAmountState>(() =>
+    buildForeignAmountState(claim.expense ?? {}),
+  );
   const expenseId = claim.expense?.id ?? null;
+  const aiMetadata = isFinanceEdit ? (claim.expense?.aiMetadata ?? null) : null;
   const expenseBasicAmount = claim.expense?.basicAmount ?? null;
   const expenseCgstAmount = claim.expense?.cgstAmount ?? null;
   const expenseSgstAmount = claim.expense?.sgstAmount ?? null;
   const expenseIgstAmount = claim.expense?.igstAmount ?? null;
-  const expenseTotalAmount =
-    claim.expense?.requestedTotalAmount ?? claim.expense?.approvedAmount ?? null;
+  const expenseTotalAmount = claim.expense?.totalAmount ?? null;
+  const expenseForeignCurrencyCode = claim.expense?.foreignCurrencyCode ?? null;
+  const expenseForeignBasicAmount = claim.expense?.foreignBasicAmount ?? null;
+  const expenseForeignGstAmount = claim.expense?.foreignGstAmount ?? null;
+  const advanceId = claim.advance?.id ?? null;
+  const advanceTotalAmountProp = claim.advance?.totalAmount ?? null;
+  const currentPaymentModeName =
+    paymentModes.find((pm) => pm.id === claim.paymentModeId)?.name ?? "";
+  const canEditAdvanceTotalAmount =
+    isFinanceEdit &&
+    normalizePaymentModeName(currentPaymentModeName) === PAYMENT_MODE_PETTY_CASH_REQUEST;
   const isEmbeddedPresentation = presentation === "embedded";
   const isOpen = isEmbeddedPresentation ? true : isInlineOpen;
   const isDepartmentFieldLocked = isEditMode;
@@ -218,8 +267,7 @@ export function FinanceEditClaimForm({
       cgstAmount: expenseCgstAmount,
       sgstAmount: expenseSgstAmount,
       igstAmount: expenseIgstAmount,
-      requestedTotalAmount: expenseTotalAmount,
-      approvedAmount: claim.expense?.approvedAmount ?? null,
+      totalAmount: expenseTotalAmount,
     });
 
     setExpenseAmounts(nextExpenseAmounts);
@@ -232,6 +280,20 @@ export function FinanceEditClaimForm({
     expenseIgstAmount,
     expenseTotalAmount,
   ]);
+
+  useEffect(() => {
+    setAdvanceTotalAmount(toNonNegativeCurrency(advanceTotalAmountProp));
+  }, [advanceId, advanceTotalAmountProp]);
+
+  useEffect(() => {
+    setForeignAmounts(
+      buildForeignAmountState({
+        foreignCurrencyCode: expenseForeignCurrencyCode,
+        foreignBasicAmount: expenseForeignBasicAmount,
+        foreignGstAmount: expenseForeignGstAmount,
+      }),
+    );
+  }, [expenseId, expenseForeignCurrencyCode, expenseForeignBasicAmount, expenseForeignGstAmount]);
 
   const handleExpenseComponentAmountChange = (
     field: ExpenseComponentAmountField,
@@ -253,42 +315,24 @@ export function FinanceEditClaimForm({
     });
   };
 
-  const handleExpenseTotalAmountChange = (value: number | null) => {
-    setExpenseAmounts((current) => {
-      const enteredTotalAmount = toNonNegativeCurrency(value);
-      const taxAmount = roundCurrency(current.cgstAmount + current.sgstAmount + current.igstAmount);
-
-      if (enteredTotalAmount < taxAmount) {
-        return {
-          basicAmount: enteredTotalAmount,
-          cgstAmount: 0,
-          sgstAmount: 0,
-          igstAmount: 0,
-          totalAmount: enteredTotalAmount,
-        };
-      }
-
-      return {
-        ...current,
-        basicAmount: roundCurrency(Math.max(0, enteredTotalAmount - taxAmount)),
-        totalAmount: enteredTotalAmount,
-      };
-    });
+  const handleForeignCurrencyCodeChange = (code: ForeignCurrencyCode) => {
+    setForeignAmounts((prev) => ({ ...prev, foreignCurrencyCode: code }));
   };
 
-  const handleTotalAmountInputChange = (nextValue: string) => {
-    setTotalAmountInputValue(nextValue);
-
-    if (nextValue.trim().length === 0) {
-      return;
-    }
-
-    const parsedValue = Number(nextValue);
-    if (!Number.isFinite(parsedValue)) {
-      return;
-    }
-
-    handleExpenseTotalAmountChange(parsedValue);
+  const handleForeignAmountChange = (
+    field: "foreignBasicAmount" | "foreignGstAmount",
+    value: number | null,
+  ) => {
+    setForeignAmounts((prev) => {
+      const updated = { ...prev, [field]: toNonNegativeCurrency(value) };
+      return {
+        ...updated,
+        foreignTotalAmount: computeForeignTotal({
+          basicAmount: updated.foreignBasicAmount,
+          gstAmount: updated.foreignGstAmount,
+        }),
+      };
+    });
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -361,6 +405,14 @@ export function FinanceEditClaimForm({
           name="detailId"
           value={claim.detailType === "expense" ? (expense?.id ?? "") : (advance?.id ?? "")}
         />
+        <input
+          type="hidden"
+          name="foreignCurrencyCode"
+          value={foreignAmounts.foreignCurrencyCode}
+        />
+        <input type="hidden" name="foreignBasicAmount" value={foreignAmounts.foreignBasicAmount} />
+        <input type="hidden" name="foreignGstAmount" value={foreignAmounts.foreignGstAmount} />
+        <input type="hidden" name="foreignTotalAmount" value={foreignAmounts.foreignTotalAmount} />
 
         <fieldset
           disabled={isSubmitting}
@@ -472,7 +524,7 @@ export function FinanceEditClaimForm({
 
                 <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                   Payment Mode
-                  {isPaymentModeFieldLocked ? (
+                  {isFinanceEdit && isPaymentModeFieldLocked ? (
                     <input type="hidden" name="paymentModeId" value={claim.paymentModeId} />
                   ) : null}
                   <FormSelect
@@ -503,32 +555,14 @@ export function FinanceEditClaimForm({
                     <h4 className={groupedTitleClassName}>Finance Approval</h4>
                     <div className={groupedGridClassName}>
                       <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                        Requested Amount
-                        <CurrencyInput
-                          value={expense?.requestedTotalAmount ?? ""}
-                          disabled
-                          className={lockedFieldClassName}
+                        Total Amount
+                        <input
+                          type="hidden"
+                          name="totalAmount"
+                          value={String(expenseAmounts.totalAmount)}
                         />
-                      </label>
-
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                        Approved Amount
                         <CurrencyInput
-                          name="approvedAmount"
-                          min="0"
-                          step="0.01"
-                          required
-                          defaultValue={
-                            expense?.approvedAmount ?? expense?.requestedTotalAmount ?? ""
-                          }
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                        />
-                      </label>
-
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
-                        Reference
-                        <FormInput
-                          value={`${expense?.billNo ?? "N/A"} · ${toDateInputValue(expense?.transactionDate) || "N/A"}`}
+                          value={expenseAmounts.totalAmount}
                           disabled
                           className={lockedFieldClassName}
                         />
@@ -536,8 +570,8 @@ export function FinanceEditClaimForm({
                     </div>
 
                     <p className="text-xs text-muted-foreground">
-                      Finance can correct accounting metadata before approval. Requested amount and
-                      employee-entered base amounts remain locked.
+                      Finance can correct accounting metadata and amount components before approval.
+                      Total amount is derived from the edited values.
                     </p>
                   </div>
 
@@ -552,6 +586,7 @@ export function FinanceEditClaimForm({
                           defaultValue={expense?.billNo ?? ""}
                           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                         />
+                        <AiAuditCaption aiMetadata={aiMetadata} fieldKey="bill_no" />
                       </label>
 
                       <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
@@ -580,6 +615,7 @@ export function FinanceEditClaimForm({
                           defaultValue={expense?.vendorName ?? ""}
                           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                         />
+                        <AiAuditCaption aiMetadata={aiMetadata} fieldKey="vendor_name" />
                       </label>
 
                       <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
@@ -634,6 +670,7 @@ export function FinanceEditClaimForm({
                           defaultValue={toDateInputValue(expense?.transactionDate)}
                           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                         />
+                        <AiAuditCaption aiMetadata={aiMetadata} fieldKey="transaction_date" />
                       </label>
 
                       <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
@@ -656,47 +693,7 @@ export function FinanceEditClaimForm({
                           defaultValue={expense?.gstNumber ?? ""}
                           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                         />
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className={groupedWrapperClassName}>
-                    <h4 className={groupedTitleClassName}>Locked Amount Components</h4>
-                    <div className={groupedGridClassName}>
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                        Basic Amount
-                        <CurrencyInput
-                          value={expenseAmounts.basicAmount}
-                          disabled
-                          className={lockedFieldClassName}
-                        />
-                      </label>
-
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                        CGST Amount
-                        <CurrencyInput
-                          value={expenseAmounts.cgstAmount}
-                          disabled
-                          className={lockedFieldClassName}
-                        />
-                      </label>
-
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                        SGST Amount
-                        <CurrencyInput
-                          value={expenseAmounts.sgstAmount}
-                          disabled
-                          className={lockedFieldClassName}
-                        />
-                      </label>
-
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                        IGST Amount
-                        <CurrencyInput
-                          value={expenseAmounts.igstAmount}
-                          disabled
-                          className={lockedFieldClassName}
-                        />
+                        <AiAuditCaption aiMetadata={aiMetadata} fieldKey="gst_number" />
                       </label>
                     </div>
                   </div>
@@ -746,6 +743,129 @@ export function FinanceEditClaimForm({
                           rows={3}
                           defaultValue={expense?.remarks ?? ""}
                           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className={groupedWrapperClassName}>
+                    <h4 className={groupedTitleClassName}>Amount Details</h4>
+                    <div className={groupedGridClassName}>
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Basic Amount
+                        <CurrencyInput
+                          name="basicAmount"
+                          min="0"
+                          step="0.01"
+                          required
+                          value={expenseAmounts.basicAmount}
+                          onValueChange={(value) => {
+                            handleExpenseComponentAmountChange("basicAmount", value);
+                          }}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                        <AiAuditCaption aiMetadata={aiMetadata} fieldKey="basic_amount" />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        CGST Amount
+                        <CurrencyInput
+                          name="cgstAmount"
+                          min="0"
+                          step="0.01"
+                          value={expenseAmounts.cgstAmount}
+                          onValueChange={(value) => {
+                            handleExpenseComponentAmountChange("cgstAmount", value);
+                          }}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                        <AiAuditCaption aiMetadata={aiMetadata} fieldKey="cgst_amount" />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        SGST Amount
+                        <CurrencyInput
+                          name="sgstAmount"
+                          min="0"
+                          step="0.01"
+                          value={expenseAmounts.sgstAmount}
+                          onValueChange={(value) => {
+                            handleExpenseComponentAmountChange("sgstAmount", value);
+                          }}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                        <AiAuditCaption aiMetadata={aiMetadata} fieldKey="sgst_amount" />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        IGST Amount
+                        <CurrencyInput
+                          name="igstAmount"
+                          min="0"
+                          step="0.01"
+                          value={expenseAmounts.igstAmount}
+                          onValueChange={(value) => {
+                            handleExpenseComponentAmountChange("igstAmount", value);
+                          }}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                        <AiAuditCaption aiMetadata={aiMetadata} fieldKey="igst_amount" />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className={groupedWrapperClassName}>
+                    <h4 className={groupedTitleClassName}>Foreign Expense Details</h4>
+                    <div className={groupedGridClassName}>
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Foreign Currency
+                        <FormSelect
+                          value={foreignAmounts.foreignCurrencyCode}
+                          onChange={(e) => {
+                            handleForeignCurrencyCodeChange(e.target.value as ForeignCurrencyCode);
+                          }}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        >
+                          <option value="INR">INR</option>
+                          <option value="USD">USD</option>
+                          <option value="EUR">EUR</option>
+                          <option value="CHF">CHF</option>
+                        </FormSelect>
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Foreign Basic Amount
+                        <CurrencyInput
+                          min="0"
+                          step="0.01"
+                          value={foreignAmounts.foreignBasicAmount}
+                          onValueChange={(value) => {
+                            handleForeignAmountChange("foreignBasicAmount", value);
+                          }}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Foreign GST Amount
+                        <CurrencyInput
+                          min="0"
+                          step="0.01"
+                          value={foreignAmounts.foreignGstAmount}
+                          onValueChange={(value) => {
+                            handleForeignAmountChange("foreignGstAmount", value);
+                          }}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Foreign Total Amount
+                        <CurrencyInput
+                          value={foreignAmounts.foreignTotalAmount}
+                          disabled
+                          readOnly
+                          className={lockedFieldClassName}
                         />
                       </label>
                     </div>
@@ -848,6 +968,56 @@ export function FinanceEditClaimForm({
                   </div>
 
                   <div className={groupedWrapperClassName}>
+                    <h4 className={groupedTitleClassName}>Additional Details</h4>
+                    <div className={groupedGridClassName}>
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                        Purpose
+                        <FormInput
+                          name="purpose"
+                          required
+                          defaultValue={expense?.purpose ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Product
+                        <FormSelect
+                          name="productId"
+                          defaultValue={expense?.productId ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        >
+                          <option value="">None</option>
+                          {products.map((product) => (
+                            <option key={product.id} value={product.id}>
+                              {product.name}
+                            </option>
+                          ))}
+                        </FormSelect>
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        People Involved
+                        <FormInput
+                          name="peopleInvolved"
+                          defaultValue={expense?.peopleInvolved ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                        Remarks
+                        <FormTextarea
+                          name="remarks"
+                          rows={3}
+                          defaultValue={expense?.remarks ?? ""}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className={groupedWrapperClassName}>
                     <h4 className={groupedTitleClassName}>Amount Details</h4>
                     <div className={groupedGridClassName}>
                       <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
@@ -910,65 +1080,66 @@ export function FinanceEditClaimForm({
                       <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
                         Total Amount
                         <CurrencyInput
-                          name="totalAmount"
-                          min="0"
-                          step="0.01"
-                          required
                           value={totalAmountInputValue}
-                          onChange={(event) => {
-                            handleTotalAmountInputChange(event.currentTarget.value);
-                          }}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                        />
-                      </label>
-
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
-                        Purpose
-                        <FormInput
-                          name="purpose"
-                          required
-                          defaultValue={expense?.purpose ?? ""}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          disabled
+                          className={lockedFieldClassName}
                         />
                       </label>
                     </div>
                   </div>
 
                   <div className={groupedWrapperClassName}>
-                    <h4 className={groupedTitleClassName}>Additional Details</h4>
+                    <h4 className={groupedTitleClassName}>Foreign Expense Details</h4>
                     <div className={groupedGridClassName}>
                       <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                        Product
+                        Foreign Currency
                         <FormSelect
-                          name="productId"
-                          defaultValue={expense?.productId ?? ""}
+                          value={foreignAmounts.foreignCurrencyCode}
+                          onChange={(e) => {
+                            handleForeignCurrencyCodeChange(e.target.value as ForeignCurrencyCode);
+                          }}
                           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                         >
-                          <option value="">None</option>
-                          {products.map((product) => (
-                            <option key={product.id} value={product.id}>
-                              {product.name}
-                            </option>
-                          ))}
+                          <option value="INR">INR</option>
+                          <option value="USD">USD</option>
+                          <option value="EUR">EUR</option>
+                          <option value="CHF">CHF</option>
                         </FormSelect>
                       </label>
 
                       <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                        People Involved
-                        <FormInput
-                          name="peopleInvolved"
-                          defaultValue={expense?.peopleInvolved ?? ""}
+                        Foreign Basic Amount
+                        <CurrencyInput
+                          min="0"
+                          step="0.01"
+                          value={foreignAmounts.foreignBasicAmount}
+                          onValueChange={(value) => {
+                            handleForeignAmountChange("foreignBasicAmount", value);
+                          }}
                           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                         />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
-                        Remarks
-                        <FormTextarea
-                          name="remarks"
-                          rows={3}
-                          defaultValue={expense?.remarks ?? ""}
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Foreign GST Amount
+                        <CurrencyInput
+                          min="0"
+                          step="0.01"
+                          value={foreignAmounts.foreignGstAmount}
+                          onValueChange={(value) => {
+                            handleForeignAmountChange("foreignGstAmount", value);
+                          }}
                           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                        Foreign Total Amount
+                        <CurrencyInput
+                          value={foreignAmounts.foreignTotalAmount}
+                          disabled
+                          readOnly
+                          className={lockedFieldClassName}
                         />
                       </label>
                     </div>
@@ -981,41 +1152,40 @@ export function FinanceEditClaimForm({
                   <h4 className={groupedTitleClassName}>Finance Approval</h4>
                   <div className={groupedGridClassName}>
                     <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      Requested Amount
-                      <CurrencyInput
-                        value={advance?.requestedTotalAmount ?? ""}
-                        disabled
-                        className={lockedFieldClassName}
-                      />
-                    </label>
-
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      Approved Amount
-                      <CurrencyInput
-                        name="approvedAmount"
-                        min="0"
-                        step="0.01"
-                        required
-                        defaultValue={
-                          advance?.approvedAmount ?? advance?.requestedTotalAmount ?? ""
-                        }
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                      />
-                    </label>
-
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
-                      Reference
-                      <FormInput
-                        value={`${advance?.purpose ?? "N/A"} · ${toDateInputValue(advance?.expectedUsageDate) || "N/A"}`}
-                        disabled
-                        className={lockedFieldClassName}
-                      />
+                      Total Amount
+                      {canEditAdvanceTotalAmount ? (
+                        <CurrencyInput
+                          name="totalAmount"
+                          min="0"
+                          step="0.01"
+                          required
+                          value={advanceTotalAmount}
+                          onValueChange={(value) => {
+                            setAdvanceTotalAmount(toNonNegativeCurrency(value));
+                          }}
+                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      ) : (
+                        <>
+                          <input
+                            type="hidden"
+                            name="totalAmount"
+                            value={String(advanceTotalAmount)}
+                          />
+                          <CurrencyInput
+                            value={advanceTotalAmount}
+                            disabled
+                            className={lockedFieldClassName}
+                          />
+                        </>
+                      )}
                     </label>
                   </div>
 
                   <p className="text-xs text-muted-foreground">
-                    Finance can correct advance metadata before approval. Requested amount remains
-                    locked.
+                    {canEditAdvanceTotalAmount
+                      ? "Finance can edit the total amount for Petty Cash Requests before approval."
+                      : "Finance can correct advance metadata before approval. Total amount remains locked."}
                   </p>
                 </div>
 
@@ -1107,14 +1277,11 @@ export function FinanceEditClaimForm({
                     </label>
 
                     <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
-                      Requested Amount
+                      Total Amount
                       <CurrencyInput
-                        name="requestedTotalAmount"
-                        min="0"
-                        step="0.01"
-                        required
-                        defaultValue={advance?.requestedTotalAmount ?? ""}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        value={advance?.totalAmount ?? ""}
+                        disabled
+                        className={lockedFieldClassName}
                       />
                     </label>
 

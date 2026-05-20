@@ -37,7 +37,7 @@ type EnterpriseDashboardRow = {
   submitted_on: string;
   hod_action_date: string | null;
   finance_action_date: string | null;
-  bc_payments_flag: boolean | null;
+  bc_claim_details_id: string | null;
   is_vendor_payment: boolean | null;
   detail_type: "expense" | "advance";
   submission_type: "Self" | "On Behalf";
@@ -150,7 +150,7 @@ export class SupabaseDepartmentViewerRepository implements DepartmentViewerRepos
     let query = this.client
       .from("vw_enterprise_claims_dashboard")
       .select(
-        "claim_id, employee_name, employee_id, submitter_email, on_behalf_email, on_behalf_employee_code_raw, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, bc_payments_flag, is_vendor_payment, detail_type, submission_type, department_id, payment_mode_id, location_id, product_id, expense_category_id",
+        "claim_id, employee_name, employee_id, submitter_email, on_behalf_email, on_behalf_employee_code_raw, department_name, type_of_claim, amount, status, submitted_on, hod_action_date, finance_action_date, bc_claim_details_id, is_vendor_payment, detail_type, submission_type, department_id, payment_mode_id, location_id, product_id, expense_category_id",
       )
       .in("department_id", departmentIds)
       .order("submitted_on", { ascending: false })
@@ -263,7 +263,7 @@ export class SupabaseDepartmentViewerRepository implements DepartmentViewerRepos
           submittedOn: row.submitted_on,
           hodActionDate: row.hod_action_date,
           financeActionDate: row.finance_action_date,
-          bcPaymentsFlag: row.bc_payments_flag ?? false,
+          bcClaimDetailsId: row.bc_claim_details_id ?? null,
           isVendorPayment: row.is_vendor_payment ?? false,
           detailType: row.detail_type,
           submissionType: row.submission_type,

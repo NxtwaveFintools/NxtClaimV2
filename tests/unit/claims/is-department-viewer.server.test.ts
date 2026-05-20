@@ -9,6 +9,7 @@ const mockFrom = jest.fn();
 const mockGetServiceRoleSupabaseClient = jest.fn();
 const mockServiceRoleFrom = jest.fn();
 const mockLoggerWarn = jest.fn();
+const mockIsAllowedEmailDomainInDb = jest.fn();
 
 jest.mock("next/headers", () => ({
   cookies: (...args: unknown[]) => mockCookies(...args),
@@ -37,6 +38,10 @@ jest.mock("@/core/infra/logging/logger", () => ({
     debug: jest.fn(),
     maskEmail: jest.fn((value: string | null) => value),
   },
+}));
+
+jest.mock("@/core/infra/auth/allowed-auth-domains", () => ({
+  isAllowedEmailDomainInDb: (...args: unknown[]) => mockIsAllowedEmailDomainInDb(...args),
 }));
 
 jest.mock("next/cache", () => ({
@@ -73,6 +78,8 @@ describe("department viewer server helpers", () => {
     mockGetServiceRoleSupabaseClient.mockReturnValue({
       from: mockServiceRoleFrom,
     });
+    // getCachedRequestAuthUser now requires user.email and a domain check.
+    mockIsAllowedEmailDomainInDb.mockResolvedValue({ isAllowed: true, errorMessage: null });
   });
 
   test("isDepartmentViewer returns false when auth user is missing", async () => {
@@ -84,7 +91,7 @@ describe("department viewer server helpers", () => {
 
   test("isDepartmentViewer returns true when assignment count is positive", async () => {
     mockGetUser.mockResolvedValue({
-      data: { user: { id: "user-1" } },
+      data: { user: { id: "user-1", email: "user-1@nxtwave.co.in" } },
       error: null,
     });
 
@@ -100,7 +107,7 @@ describe("department viewer server helpers", () => {
 
   test("isDepartmentViewer returns false and logs when query fails", async () => {
     mockGetUser.mockResolvedValue({
-      data: { user: { id: "user-1" } },
+      data: { user: { id: "user-1", email: "user-1@nxtwave.co.in" } },
       error: null,
     });
 
@@ -136,7 +143,7 @@ describe("department viewer server helpers", () => {
 
   test("getViewerDepartmentIds maps department ids and handles query errors", async () => {
     mockGetUser.mockResolvedValue({
-      data: { user: { id: "user-1" } },
+      data: { user: { id: "user-1", email: "user-1@nxtwave.co.in" } },
       error: null,
     });
 
