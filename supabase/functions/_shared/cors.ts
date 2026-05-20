@@ -20,6 +20,14 @@ function getAllowedOrigins(): Set<string> {
   return getBcEnv().allowedOrigins;
 }
 
+/**
+ * Resolves CORS for a request. NOTE: the returned `allow` flag is advisory — it
+ * governs only the preflight (corsPreflightResponse) and which response headers a
+ * browser will honor. It is NOT an authorization gate: every BC endpoint
+ * independently enforces auth (requireAuthenticatedUser / requireFinanceApprover),
+ * which is the real protection. We deliberately do not 403 real requests on Origin
+ * so server-to-server callers (which send no Origin header) keep working.
+ */
 export function resolveCors(req: Request): {
   allow: boolean;
   headers: Record<string, string>;
