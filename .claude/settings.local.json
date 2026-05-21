@@ -29,7 +29,8 @@
       "Skill(superpowers:using-superpowers)",
       "Bash(git *)",
       "Bash(npx *)",
-      "PowerShell(Get-ChildItem \"d:\\\\nxtclaim\" -Name | Where-Object { $_ -match \"eslint|prettier|biome\" })"
+      "PowerShell(Get-ChildItem \"d:\\\\nxtclaim\" -Name | Where-Object { $_ -match \"eslint|prettier|biome\" })",
+      "Bash(Get-ChildItem *)"
     ]
   },
   "enabledMcpjsonServers": ["filesystem", "supabase"],

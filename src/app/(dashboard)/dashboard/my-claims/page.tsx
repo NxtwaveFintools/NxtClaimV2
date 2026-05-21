@@ -2,6 +2,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { MyClaimsHeaderCardSkeleton } from "./_skeletons";
 import { CirclePlus } from "lucide-react";
 import { AppShellHeader } from "@/components/app-shell-header";
 import { BackButton } from "@/components/ui/back-button";
@@ -335,6 +336,15 @@ function MyClaimsShellSkeleton() {
           ))}
         </div>
       </section>
+    </>
+  );
+}
+
+function MyClaimsFullPageSkeleton() {
+  return (
+    <>
+      <MyClaimsHeaderCardSkeleton />
+      <MyClaimsShellSkeleton />
     </>
   );
 }
@@ -851,7 +861,13 @@ async function MyClaimsDashboardResolvedContent({
   );
 }
 
-export default async function MyClaimsDashboardPage({
+async function AppShellHeaderLoader() {
+  const currentUserResult = await getCachedCurrentUser();
+  const currentEmail = currentUserResult.user?.email ?? null;
+  return <AppShellHeader currentEmail={currentEmail} />;
+}
+
+async function ClaimsDataComponent({
   searchParams,
 }: {
   searchParams: Promise<Record<string, SearchParamsValue>>;
@@ -861,27 +877,39 @@ export default async function MyClaimsDashboardPage({
     getCachedCurrentUser(),
   ]);
 
-  const currentEmail = currentUserResult.user?.email ?? null;
-
   if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
     redirect(ROUTES.login);
   }
 
   return (
+    <Suspense fallback={<MyClaimsFullPageSkeleton />}>
+      <MyClaimsDashboardResolvedContent
+        searchParams={resolvedSearchParams}
+        userId={currentUserResult.user.id}
+      />
+    </Suspense>
+  );
+}
+
+export default function MyClaimsDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, SearchParamsValue>>;
+}) {
+  return (
     <div
       className={`${pageBodyFont.variable} ${pageDisplayFont.variable} dashboard-font-body nxt-page-bg`}
     >
-      <AppShellHeader currentEmail={currentEmail} />
+      <Suspense fallback={null}>
+        <AppShellHeaderLoader />
+      </Suspense>
 
       <div className="relative z-0 mx-auto w-full max-w-[1600px] px-4 pb-16 pt-6 sm:px-6 lg:px-8">
         <main className="space-y-5">
           <BackButton className="w-fit" />
 
-          <Suspense fallback={<MyClaimsShellSkeleton />}>
-            <MyClaimsDashboardResolvedContent
-              searchParams={resolvedSearchParams}
-              userId={currentUserResult.user.id}
-            />
+          <Suspense fallback={<MyClaimsFullPageSkeleton />}>
+            <ClaimsDataComponent searchParams={searchParams} />
           </Suspense>
         </main>
       </div>
