@@ -1,4 +1,8 @@
-import type { DbClaimStatus } from "@/core/constants/statuses";
+import {
+  DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
+  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
+  type DbClaimStatus,
+} from "@/core/constants/statuses";
 import type {
   ClaimDetailType,
   ClaimDomainLogger,
@@ -297,4 +301,12 @@ export class GetPendingApprovalsService {
       errorMessage: null,
     };
   }
+}
+
+export function getDefaultApprovalsStatusFilter(
+  scope: "l1" | "finance" | null,
+): DbClaimStatus | null {
+  if (scope === "l1") return DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS;
+  if (scope === "finance") return DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS;
+  return null;
 }

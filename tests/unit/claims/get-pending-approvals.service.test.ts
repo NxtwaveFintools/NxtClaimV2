@@ -1,4 +1,7 @@
-import { GetPendingApprovalsService } from "@/core/domain/claims/GetPendingApprovalsService";
+import {
+  GetPendingApprovalsService,
+  getDefaultApprovalsStatusFilter,
+} from "@/core/domain/claims/GetPendingApprovalsService";
 import { formatCurrency, formatDate } from "@/lib/format";
 
 type PendingApprovalsRepository = {
@@ -404,5 +407,21 @@ describe("GetPendingApprovalsService", () => {
         errorMessage: "fetch failed",
       }),
     );
+  });
+});
+
+describe("getDefaultApprovalsStatusFilter", () => {
+  test("returns HOD-pending status for l1 scope", () => {
+    expect(getDefaultApprovalsStatusFilter("l1")).toBe("Submitted - Awaiting HOD approval");
+  });
+
+  test("returns finance-pending status for finance scope", () => {
+    expect(getDefaultApprovalsStatusFilter("finance")).toBe(
+      "HOD approved - Awaiting finance approval",
+    );
+  });
+
+  test("returns null for null scope", () => {
+    expect(getDefaultApprovalsStatusFilter(null)).toBeNull();
   });
 });

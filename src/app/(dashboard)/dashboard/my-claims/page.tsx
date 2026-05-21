@@ -24,6 +24,7 @@ import type {
   GetMyClaimsFilters,
 } from "@/core/domain/claims/contracts";
 import { GetMyClaimsPaginatedService } from "@/core/domain/claims/GetMyClaimsPaginatedService";
+import { getDefaultApprovalsStatusFilter } from "@/core/domain/claims/GetPendingApprovalsService";
 import { logger } from "@/core/infra/logging/logger";
 import { formatDate } from "@/lib/format";
 import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
@@ -264,6 +265,25 @@ function buildViewHref(
 
   params.set("view", targetView);
 
+  const query = params.toString();
+  return query ? `${ROUTES.claims.myClaims}?${query}` : ROUTES.claims.myClaims;
+}
+
+function buildApprovalsViewHref(
+  searchParams: Record<string, SearchParamsValue> | undefined,
+  scope: "l1" | "finance" | null,
+): string {
+  const params = toSearchParams(searchParams);
+  params.delete("cursor");
+  params.delete("prevCursor");
+  params.delete("page");
+  params.set("view", "approvals");
+  const defaultStatus = getDefaultApprovalsStatusFilter(scope);
+  if (defaultStatus) {
+    params.set("status", defaultStatus);
+  } else {
+    params.delete("status");
+  }
   const query = params.toString();
   return query ? `${ROUTES.claims.myClaims}?${query}` : ROUTES.claims.myClaims;
 }
@@ -685,6 +705,23 @@ async function MyClaimsDashboardResolvedContent({
       ? "approvals"
       : requestedView;
 
+  if (
+    !requestedView &&
+    requestedOrDefaultView === "approvals" &&
+    !firstParamValue(searchParams?.status)
+  ) {
+    const defaultStatus = getDefaultApprovalsStatusFilter(viewerContextResult.activeScope);
+    if (defaultStatus) {
+      const params = toSearchParams(searchParams);
+      params.delete("cursor");
+      params.delete("prevCursor");
+      params.delete("page");
+      params.set("view", "approvals");
+      params.set("status", defaultStatus);
+      redirect(`${ROUTES.claims.myClaims}?${params.toString()}`);
+    }
+  }
+
   const activeView = resolveView(
     requestedOrDefaultView,
     viewerContextResult.canViewApprovals,
@@ -693,7 +730,7 @@ async function MyClaimsDashboardResolvedContent({
   );
 
   const submissionsHref = buildViewHref(searchParams, "submissions");
-  const approvalsHref = buildViewHref(searchParams, "approvals");
+  const approvalsHref = buildApprovalsViewHref(searchParams, viewerContextResult.activeScope);
   const adminHref = buildViewHref(searchParams, "admin");
   const adminDeletedHref = buildViewHref(searchParams, "admin-deleted");
   const departmentHref = buildViewHref(searchParams, "department");
