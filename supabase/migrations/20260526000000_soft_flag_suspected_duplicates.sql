@@ -63,6 +63,11 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.sync_duplicate_flags(text, text, date) FROM PUBLIC, anon, authenticated;
 GRANT  EXECUTE ON FUNCTION public.sync_duplicate_flags(text, text, date) TO   service_role;
 
+-- Index to accelerate RPC lookups and the historical backfill
+CREATE INDEX IF NOT EXISTS idx_expense_details_dup_lookup
+  ON public.expense_details (bill_no, transaction_date)
+  WHERE is_active = true;
+
 -- 3. Historical backfill: link all existing pairs that share bill_no + transaction_date
 UPDATE public.expense_details AS target
 SET    suspected_duplicate_ids = agg.other_ids
