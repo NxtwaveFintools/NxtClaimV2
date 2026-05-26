@@ -28,7 +28,7 @@ async function financeEditApprovedAmount(page: Page, claimId: string, approvedAm
     timeout: 10000,
   });
 
-  const approvedInput = page.locator('input[name="approvedAmount"]');
+  const approvedInput = page.locator('input[name="basicAmount"]');
   await expect(approvedInput).toBeVisible({ timeout: 10000 });
   await approvedInput.fill(String(approvedAmount));
   await page

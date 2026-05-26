@@ -1821,6 +1821,20 @@ export async function updateOwnClaimAction(input: {
   revalidatePath(ROUTES.claims.dashboardList);
   revalidatePath(`${ROUTES.claims.dashboardList}/${claimIdParse.data.claimId}`, "page");
 
+  if (parseResult.data.detailType === "expense") {
+    const syncResult = await repository.syncExpenseDuplicateFlags({
+      claimId: claimIdParse.data.claimId,
+      billNo: parseResult.data.billNo,
+      transactionDate: parseResult.data.transactionDate,
+    });
+    if (syncResult.errorMessage) {
+      logger.warn("claims.own_edit.sync_duplicate_flags_failed", {
+        claimId: claimIdParse.data.claimId,
+        errorMessage: syncResult.errorMessage,
+      });
+    }
+  }
+
   return {
     ok: true,
     message: "Claim details updated.",
