@@ -6,13 +6,13 @@ BEGIN;
 
 -- 1. New column
 ALTER TABLE public.expense_details
-  ADD COLUMN IF NOT EXISTS suspected_duplicate_ids uuid[] NOT NULL DEFAULT '{}';
+  ADD COLUMN IF NOT EXISTS suspected_duplicate_ids text[] NOT NULL DEFAULT '{}';
 
 -- 2. RPC: atomically syncs bidirectional duplicate arrays for one claim.
 --    Clears stale back-references first (handles Finance edits that change bill_no or date),
 --    then writes fresh bidirectional links for the new bill_no + transaction_date.
 CREATE OR REPLACE FUNCTION public.sync_duplicate_flags(
-  p_claim_id uuid,
+  p_claim_id text,
   p_bill_no  text,
   p_transaction_date date
 )
@@ -23,7 +23,7 @@ SET search_path TO 'public'
 AS $$
 DECLARE
   v_match       RECORD;
-  v_matched_ids uuid[] := '{}';
+  v_matched_ids text[] := '{}';
 BEGIN
   -- Remove p_claim_id from any claim that currently references it
   UPDATE public.expense_details
@@ -60,7 +60,8 @@ END;
 $$;
 
 -- Revoke anon execute, consistent with codebase security posture
-REVOKE EXECUTE ON FUNCTION public.sync_duplicate_flags(uuid, text, date) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.sync_duplicate_flags(text, text, date) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION public.sync_duplicate_flags(text, text, date) TO   service_role;
 
 -- 3. Historical backfill: link all existing pairs that share bill_no + transaction_date
 UPDATE public.expense_details AS target
