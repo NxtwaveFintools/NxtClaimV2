@@ -2,6 +2,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { MyClaimsHeaderCardSkeleton } from "./_skeletons";
 import { CirclePlus } from "lucide-react";
 import { AppShellHeader } from "@/components/app-shell-header";
 import { BackButton } from "@/components/ui/back-button";
@@ -24,6 +25,7 @@ import type {
   GetMyClaimsFilters,
 } from "@/core/domain/claims/contracts";
 import { GetMyClaimsPaginatedService } from "@/core/domain/claims/GetMyClaimsPaginatedService";
+import { getDefaultApprovalsStatusFilter } from "@/core/domain/claims/GetPendingApprovalsService";
 import { logger } from "@/core/infra/logging/logger";
 import { formatDate } from "@/lib/format";
 import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
@@ -268,6 +270,25 @@ function buildViewHref(
   return query ? `${ROUTES.claims.myClaims}?${query}` : ROUTES.claims.myClaims;
 }
 
+function buildApprovalsViewHref(
+  searchParams: Record<string, SearchParamsValue> | undefined,
+  scope: "l1" | "finance" | null,
+): string {
+  const params = toSearchParams(searchParams);
+  params.delete("cursor");
+  params.delete("prevCursor");
+  params.delete("page");
+  params.set("view", "approvals");
+  const defaultStatus = getDefaultApprovalsStatusFilter(scope);
+  if (defaultStatus) {
+    params.set("status", defaultStatus);
+  } else {
+    params.delete("status");
+  }
+  const query = params.toString();
+  return query ? `${ROUTES.claims.myClaims}?${query}` : ROUTES.claims.myClaims;
+}
+
 function DateWithActor({
   dateValue,
   actorEmail,
@@ -315,6 +336,15 @@ function MyClaimsShellSkeleton() {
           ))}
         </div>
       </section>
+    </>
+  );
+}
+
+function MyClaimsFullPageSkeleton() {
+  return (
+    <>
+      <MyClaimsHeaderCardSkeleton />
+      <MyClaimsShellSkeleton />
     </>
   );
 }
@@ -685,6 +715,23 @@ async function MyClaimsDashboardResolvedContent({
       ? "approvals"
       : requestedView;
 
+  if (
+    !requestedView &&
+    requestedOrDefaultView === "approvals" &&
+    !firstParamValue(searchParams?.status)
+  ) {
+    const defaultStatus = getDefaultApprovalsStatusFilter(viewerContextResult.activeScope);
+    if (defaultStatus) {
+      const params = toSearchParams(searchParams);
+      params.delete("cursor");
+      params.delete("prevCursor");
+      params.delete("page");
+      params.set("view", "approvals");
+      params.set("status", defaultStatus);
+      redirect(`${ROUTES.claims.myClaims}?${params.toString()}`);
+    }
+  }
+
   const activeView = resolveView(
     requestedOrDefaultView,
     viewerContextResult.canViewApprovals,
@@ -693,7 +740,7 @@ async function MyClaimsDashboardResolvedContent({
   );
 
   const submissionsHref = buildViewHref(searchParams, "submissions");
-  const approvalsHref = buildViewHref(searchParams, "approvals");
+  const approvalsHref = buildApprovalsViewHref(searchParams, viewerContextResult.activeScope);
   const adminHref = buildViewHref(searchParams, "admin");
   const adminDeletedHref = buildViewHref(searchParams, "admin-deleted");
   const departmentHref = buildViewHref(searchParams, "department");
@@ -814,7 +861,13 @@ async function MyClaimsDashboardResolvedContent({
   );
 }
 
-export default async function MyClaimsDashboardPage({
+async function AppShellHeaderLoader() {
+  const currentUserResult = await getCachedCurrentUser();
+  const currentEmail = currentUserResult.user?.email ?? null;
+  return <AppShellHeader currentEmail={currentEmail} />;
+}
+
+async function ClaimsDataComponent({
   searchParams,
 }: {
   searchParams: Promise<Record<string, SearchParamsValue>>;
@@ -824,27 +877,39 @@ export default async function MyClaimsDashboardPage({
     getCachedCurrentUser(),
   ]);
 
-  const currentEmail = currentUserResult.user?.email ?? null;
-
   if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
     redirect(ROUTES.login);
   }
 
   return (
+    <Suspense fallback={<MyClaimsFullPageSkeleton />}>
+      <MyClaimsDashboardResolvedContent
+        searchParams={resolvedSearchParams}
+        userId={currentUserResult.user.id}
+      />
+    </Suspense>
+  );
+}
+
+export default function MyClaimsDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, SearchParamsValue>>;
+}) {
+  return (
     <div
       className={`${pageBodyFont.variable} ${pageDisplayFont.variable} dashboard-font-body nxt-page-bg`}
     >
-      <AppShellHeader currentEmail={currentEmail} />
+      <Suspense fallback={null}>
+        <AppShellHeaderLoader />
+      </Suspense>
 
       <div className="relative z-0 mx-auto w-full max-w-[1600px] px-4 pb-16 pt-6 sm:px-6 lg:px-8">
         <main className="space-y-5">
           <BackButton className="w-fit" />
 
-          <Suspense fallback={<MyClaimsShellSkeleton />}>
-            <MyClaimsDashboardResolvedContent
-              searchParams={resolvedSearchParams}
-              userId={currentUserResult.user.id}
-            />
+          <Suspense fallback={<MyClaimsFullPageSkeleton />}>
+            <ClaimsDataComponent searchParams={searchParams} />
           </Suspense>
         </main>
       </div>
