@@ -232,13 +232,14 @@ test.describe("Soft Flag - Suspected Duplicate Detection", () => {
     await expect
       .poll(
         async () => {
-          const { count } = await client
+          const { count, error } = await client
             .from("expense_details")
             .select("id", { count: "exact", head: true })
             .eq("bill_no", SOFT_FLAG_BILL)
             .eq("transaction_date", SOFT_FLAG_DATE)
             .eq("total_amount", 1000)
             .eq("is_active", true);
+          if (error) throw new Error(error.message);
           return count ?? 0;
         },
         {
@@ -279,12 +280,13 @@ test.describe("Soft Flag - Suspected Duplicate Detection", () => {
     await expect
       .poll(
         async () => {
-          const { data } = await client
+          const { data, error } = await client
             .from("expense_details")
             .select("suspected_duplicate_ids")
             .eq("claim_id", claimAId)
             .eq("is_active", true)
             .maybeSingle();
+          if (error) throw new Error(error.message);
           return (data?.suspected_duplicate_ids ?? []).includes(claimBId);
         },
         { timeout: 30000, message: "claimA.suspected_duplicate_ids must include claimBId" },
@@ -294,12 +296,13 @@ test.describe("Soft Flag - Suspected Duplicate Detection", () => {
     await expect
       .poll(
         async () => {
-          const { data } = await client
+          const { data, error } = await client
             .from("expense_details")
             .select("suspected_duplicate_ids")
             .eq("claim_id", claimBId)
             .eq("is_active", true)
             .maybeSingle();
+          if (error) throw new Error(error.message);
           return (data?.suspected_duplicate_ids ?? []).includes(claimAId);
         },
         { timeout: 30000, message: "claimB.suspected_duplicate_ids must include claimAId" },
@@ -313,7 +316,7 @@ test.describe("Soft Flag - Suspected Duplicate Detection", () => {
     await withActorPage(browser, runtime.submitterEmail, async (page) => {
       await page.goto(`/dashboard/claims/${claimBId}`, { waitUntil: "domcontentloaded" });
       await expect(page.getByText(claimBId, { exact: true })).toBeVisible({ timeout: 20000 });
-      await expect(page.getByText(/Suspected Duplicate/i)).not.toBeVisible();
+      await expect(page.getByText(/Suspected Duplicate/i)).not.toBeVisible({ timeout: 5000 });
     });
   });
 
