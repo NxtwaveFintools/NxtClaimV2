@@ -206,6 +206,7 @@ type ClaimDetailExpenseRow = {
   foreign_basic_amount: number | string | null;
   foreign_gst_amount: number | string | null;
   foreign_total_amount: number | string | null;
+  suspected_duplicate_ids: string[] | null;
   master_expense_categories: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
   master_products: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
   master_locations: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
@@ -1826,6 +1827,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
         foreignBasicAmount: number | null;
         foreignGstAmount: number | null;
         foreignTotalAmount: number | null;
+        suspectedDuplicateIds: string[];
       } | null;
       advance: {
         id: string;
@@ -1844,7 +1846,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     let query = client
       .from("claims")
       .select(
-        "id, employee_id, submission_type, detail_type, on_behalf_of_id, on_behalf_email, on_behalf_employee_code, status, is_active, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, bc_claim_details_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(id, bill_no, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, ai_metadata, receipt_file_path, bank_statement_file_path, foreign_currency_code, foreign_basic_amount, foreign_gst_amount, foreign_total_amount, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(id, purpose, total_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
+        "id, employee_id, submission_type, detail_type, on_behalf_of_id, on_behalf_email, on_behalf_employee_code, status, is_active, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, bc_claim_details_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(id, bill_no, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, ai_metadata, receipt_file_path, bank_statement_file_path, foreign_currency_code, foreign_basic_amount, foreign_gst_amount, foreign_total_amount, suspected_duplicate_ids, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(id, purpose, total_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
       )
       .eq("id", claimId);
 
@@ -1939,6 +1941,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
               foreignBasicAmount: toNumber(expense.foreign_basic_amount),
               foreignGstAmount: toNumber(expense.foreign_gst_amount),
               foreignTotalAmount: toNumber(expense.foreign_total_amount),
+              suspectedDuplicateIds: expense.suspected_duplicate_ids ?? [],
             }
           : null,
         advance: advance
@@ -4135,5 +4138,22 @@ export class SupabaseClaimRepository implements ClaimRepository {
       data: (data ?? []).map((row) => row.department_id as string),
       errorMessage: null,
     };
+  }
+
+  async syncExpenseDuplicateFlags(input: {
+    claimId: string;
+    billNo: string;
+    transactionDate: string;
+  }): Promise<{ errorMessage: string | null }> {
+    const client = getServiceRoleSupabaseClient();
+    const { error } = await client.rpc("sync_duplicate_flags", {
+      p_claim_id: input.claimId,
+      p_bill_no: input.billNo,
+      p_transaction_date: input.transactionDate,
+    });
+    if (error) {
+      return { errorMessage: error.message };
+    }
+    return { errorMessage: null };
   }
 }
