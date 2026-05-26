@@ -3,7 +3,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
-import { ExternalLink, X } from "lucide-react";
+import { AlertTriangle, ExternalLink, X } from "lucide-react";
 import { AppShellHeader } from "@/components/app-shell-header";
 import { BackButton } from "@/components/ui/back-button";
 import {
@@ -811,6 +811,38 @@ async function ClaimDetailCore({
               <p className="mt-1 text-sm text-rose-700 dark:text-rose-200">
                 {claim.rejectionReason}
               </p>
+            </section>
+          ) : null}
+
+          {isFinanceActor && (claim.expense?.suspectedDuplicateIds?.length ?? 0) > 0 ? (
+            <section className="border-l-2 border-amber-500/70 bg-amber-50/55 px-4 py-3 dark:border-amber-500/60 dark:bg-amber-900/10">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <div>
+                  <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-700 dark:text-amber-300">
+                    Suspected Duplicate
+                  </h2>
+                  <p className="mt-1 text-sm text-amber-700 dark:text-amber-200">
+                    This bill number and date match {claim.expense!.suspectedDuplicateIds.length}{" "}
+                    other claim
+                    {claim.expense!.suspectedDuplicateIds.length !== 1 ? "s" : ""}.
+                  </p>
+                  <ul className="mt-2 space-y-1">
+                    {claim.expense!.suspectedDuplicateIds.map((dupId) => (
+                      <li key={dupId}>
+                        <Link
+                          href={`/dashboard/claims/${dupId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-medium text-amber-700 underline hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
+                        >
+                          View claim {dupId}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             </section>
           ) : null}
 
