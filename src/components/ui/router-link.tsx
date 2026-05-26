@@ -1,6 +1,6 @@
 "use client";
 
-import { type AnchorHTMLAttributes, type MouseEvent, type ReactNode } from "react";
+import { type AnchorHTMLAttributes, type MouseEvent, type ReactNode, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 type RouterLinkProps = {
@@ -11,6 +11,7 @@ type RouterLinkProps = {
 
 export function RouterLink({ href, children, scroll = true, onClick, ...rest }: RouterLinkProps) {
   const router = useRouter();
+  const [, startTransition] = useTransition();
 
   const onRouterLinkClick = (event: MouseEvent<HTMLAnchorElement>) => {
     onClick?.(event);
@@ -24,7 +25,9 @@ export function RouterLink({ href, children, scroll = true, onClick, ...rest }: 
     }
 
     event.preventDefault();
-    router.push(href, { scroll });
+    startTransition(() => {
+      router.push(href, { scroll });
+    });
   };
 
   return (
