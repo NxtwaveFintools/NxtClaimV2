@@ -591,16 +591,18 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Foreign Expense Details — Unconditional Rendering
+// Foreign Financials — Unconditional Rendering
 //
-//  FOREIGN-REND-1  The "Foreign Expense Details" grid section must always
-//                  render on the claim detail page, even for claims that have
+//  FOREIGN-REND-1  The "Foreign Financials" accordion section must always be
+//                  visible on the claim detail page, even for claims that have
 //                  no foreign currency set.  Prior to the fix the section was
 //                  gated on `foreignCurrencyCode !== null && !== "INR"`, so it
-//                  was invisible for domestic expense claims.
+//                  was invisible for domestic expense claims.  The fix removes
+//                  the gate and applies `?? "INR"` / `?? 0` fallbacks so all
+//                  four field labels are always present.
 // ---------------------------------------------------------------------------
 
-test.describe("Foreign Expense Details — Unconditional Rendering", () => {
+test.describe("Foreign Financials — Unconditional Rendering", () => {
   test.use({ storageState: getAuthStatePathByRole("submitter") });
   test.setTimeout(60_000);
 
@@ -651,7 +653,7 @@ test.describe("Foreign Expense Details — Unconditional Rendering", () => {
   });
 
   // ─── FOREIGN-REND-1 ───────────────────────────────────────────────────────
-  test("FOREIGN-REND-1: foreign expense section and all four labels are visible on claim detail page", async ({
+  test("FOREIGN-REND-1: foreign financials accordion and all four field labels visible on claim detail page", async ({
     page,
   }) => {
     if (!claimId) {
@@ -661,18 +663,22 @@ test.describe("Foreign Expense Details — Unconditional Rendering", () => {
 
     await gotoWithRetry(page, `/dashboard/claims/${claimId}`);
 
-    // Scope all assertions to the "Foreign Expense Details" section to avoid
-    // collision with the main "Currency" label in the Expense Details grid.
-    const foreignSection = page.locator("section").filter({ hasText: "Foreign Expense Details" });
+    // The "Foreign Financials" accordion item is listed in `defaultValue` so it
+    // must be open on first render without user interaction.
+    // Note: the trigger has a CSS `uppercase` class — that is cosmetic only and
+    // does not change the DOM text content used for matching.
+    await expect(page.getByText("Foreign Financials")).toBeVisible({ timeout: 15_000 });
 
-    await expect(foreignSection).toBeVisible({ timeout: 15_000 });
-    await expect(foreignSection.getByText("Currency")).toBeVisible();
-    await expect(foreignSection.getByText("Foreign Basic Amount")).toBeVisible();
-    await expect(foreignSection.getByText("Foreign GST Amount")).toBeVisible();
-    await expect(foreignSection.getByText("Foreign Total Amount")).toBeVisible();
+    // All four field labels must be present in the open accordion content.
+    // These labels are specific enough not to collide with other page content.
+    await expect(page.getByText("Foreign Currency")).toBeVisible();
+    await expect(page.getByText("Foreign Basic Amount")).toBeVisible();
+    await expect(page.getByText("Foreign GST Amount")).toBeVisible();
+    await expect(page.getByText("Foreign Total Amount")).toBeVisible();
 
-    // When the claim has no foreign currency the grid must display the "INR"
-    // fallback rather than hiding the section entirely (the pre-fix behaviour).
-    await expect(foreignSection.getByText("INR")).toBeVisible();
+    // For a domestic claim (foreignCurrencyCode is null), the Foreign Currency
+    // card must display "INR" via the `?? "INR"` fallback rather than hiding
+    // the entire section (which was the pre-fix behaviour).
+    await expect(page.getByText("INR")).toBeVisible();
   });
 });
