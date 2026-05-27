@@ -427,24 +427,20 @@ export function ClaimFullDetailsGrid({
         </section>
       ) : null}
 
-      {includeExpenseDetail &&
-      claim.expense &&
-      claim.expense.foreignCurrencyCode !== null &&
-      claim.expense.foreignCurrencyCode !== undefined &&
-      claim.expense.foreignCurrencyCode !== "INR" ? (
+      {includeExpenseDetail && claim.expense ? (
         <section className={detailSectionClassName}>
           <h2 className={detailHeadingClassName}>Foreign Expense Details</h2>
           <div className={detailGridClassName}>
             <div className={detailCardClassName}>
               <p className={fieldLabelClassName}>Currency</p>
-              <p className={fieldValueClassName}>{claim.expense.foreignCurrencyCode}</p>
+              <p className={fieldValueClassName}>{claim.expense.foreignCurrencyCode ?? "INR"}</p>
             </div>
             <div className={detailCardClassName}>
               <p className={fieldLabelClassName}>Foreign Basic Amount</p>
               <p className={fieldValueClassName}>
                 {formatForeignAmount(
-                  claim.expense.foreignBasicAmount,
-                  claim.expense.foreignCurrencyCode,
+                  claim.expense.foreignBasicAmount ?? 0,
+                  claim.expense.foreignCurrencyCode ?? "INR",
                 )}
               </p>
             </div>
@@ -452,8 +448,8 @@ export function ClaimFullDetailsGrid({
               <p className={fieldLabelClassName}>Foreign GST Amount</p>
               <p className={fieldValueClassName}>
                 {formatForeignAmount(
-                  claim.expense.foreignGstAmount,
-                  claim.expense.foreignCurrencyCode,
+                  claim.expense.foreignGstAmount ?? 0,
+                  claim.expense.foreignCurrencyCode ?? "INR",
                 )}
               </p>
             </div>
@@ -461,8 +457,8 @@ export function ClaimFullDetailsGrid({
               <p className={fieldLabelClassName}>Foreign Total Amount</p>
               <p className={emphasizedValueClassName}>
                 {formatForeignAmount(
-                  claim.expense.foreignTotalAmount,
-                  claim.expense.foreignCurrencyCode,
+                  claim.expense.foreignTotalAmount ?? 0,
+                  claim.expense.foreignCurrencyCode ?? "INR",
                 )}
               </p>
             </div>

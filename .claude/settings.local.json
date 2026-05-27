@@ -30,7 +30,9 @@
       "Bash(git *)",
       "Bash(npx *)",
       "PowerShell(Get-ChildItem \"d:\\\\nxtclaim\" -Name | Where-Object { $_ -match \"eslint|prettier|biome\" })",
-      "Bash(Get-ChildItem *)"
+      "Bash(Get-ChildItem *)",
+      "Skill(superpowers:verification-before-completion)",
+      "mcp__ide__getDiagnostics"
     ]
   },
   "enabledMcpjsonServers": ["filesystem", "supabase"],

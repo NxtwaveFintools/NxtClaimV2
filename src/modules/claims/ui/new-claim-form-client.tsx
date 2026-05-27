@@ -478,7 +478,6 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   const igstAmount = useWatch({ control, name: "expense.igstAmount" });
   const watchedForeignBasic = useWatch({ control, name: "expense.foreignBasicAmount" });
   const watchedForeignGst = useWatch({ control, name: "expense.foreignGstAmount" });
-  const watchedForeignCode = useWatch({ control, name: "expense.foreignCurrencyCode" });
   const watchedTotalAmount = useWatch({ control, name: "expense.totalAmount" }) as
     | number
     | undefined;
@@ -521,10 +520,6 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   }, [basicAmount, cgstAmount, igstAmount, setValue, sgstAmount]);
 
   useEffect(() => {
-    if (!watchedForeignCode || watchedForeignCode === "INR") {
-      setValue("expense.foreignTotalAmount", null, { shouldValidate: false });
-      return;
-    }
     setValue(
       "expense.foreignTotalAmount",
       computeForeignTotal({
@@ -533,7 +528,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       }),
       { shouldValidate: false },
     );
-  }, [watchedForeignCode, watchedForeignBasic, watchedForeignGst, setValue]);
+  }, [watchedForeignBasic, watchedForeignGst, setValue]);
 
   const calculatedTotalAmount = calculateExpenseTotal(
     basicAmount,
@@ -542,13 +537,10 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     igstAmount,
   );
 
-  const calculatedForeignTotalAmount =
-    watchedForeignCode && watchedForeignCode !== "INR"
-      ? computeForeignTotal({
-          basicAmount: Number(watchedForeignBasic) || 0,
-          gstAmount: Number(watchedForeignGst) || 0,
-        })
-      : null;
+  const calculatedForeignTotalAmount = computeForeignTotal({
+    basicAmount: Number(watchedForeignBasic) || 0,
+    gstAmount: Number(watchedForeignGst) || 0,
+  });
 
   const selectedDepartment = useMemo(
     () => options.departmentRouting.find((department) => department.id === departmentId) ?? null,
@@ -2059,13 +2051,9 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                       readOnly
                       disabled
                       className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
-                      value={
-                        calculatedForeignTotalAmount !== null
-                          ? Number(
-                              watchedForeignTotalAmount ?? calculatedForeignTotalAmount,
-                            ).toFixed(2)
-                          : ""
-                      }
+                      value={Number(
+                        watchedForeignTotalAmount ?? calculatedForeignTotalAmount,
+                      ).toFixed(2)}
                     />
                   </div>
                 </div>
