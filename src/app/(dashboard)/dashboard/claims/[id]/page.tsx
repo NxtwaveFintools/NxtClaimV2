@@ -623,7 +623,7 @@ async function ClaimDetailCore({
   const canEditClaim = canEditOwnClaim || canEditFinanceClaim;
   const isDeptViewerOnly =
     isDepartmentViewerForClaim &&
-    currentUserId !== claim.submitter &&
+    currentUserId !== claim.submittedBy &&
     !isAssignedL1Approver &&
     !isFinanceActor &&
     !isAdminUser;
@@ -745,21 +745,13 @@ async function ClaimDetailCore({
 
     return formatCurrency(value);
   };
-  const formatForeignAmountValue = (
-    value: number | null | undefined,
-    currencyCode: string | null | undefined,
-  ) => {
-    if (value === null || value === undefined || !currencyCode) {
-      return "N/A";
-    }
-
-    return new Intl.NumberFormat("en-IN", {
+  const formatForeignAmountValue = (value: number, currencyCode: string) =>
+    new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: currencyCode,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);
-  };
   const totalAmountValue = claim.expense?.totalAmount ?? claim.advance?.totalAmount ?? null;
   const aiMetadata = canViewAsFinance ? (claim.expense?.aiMetadata ?? null) : null;
   const heroCategoryValue = claim.expense
@@ -1063,6 +1055,7 @@ async function ClaimDetailCore({
 
               <AccordionItem
                 value="foreign-financials"
+                id="foreign-financials-section"
                 className="border-none bg-muted/10 rounded-xl px-4 py-2"
               >
                 <AccordionTrigger className="hover:no-underline text-xs uppercase tracking-widest text-muted-foreground font-bold">

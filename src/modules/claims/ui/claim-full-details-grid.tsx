@@ -72,36 +72,6 @@ const indiaAmountFormatter = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 2,
 });
 
-const foreignCurrencyFormatters = new Map<string, Intl.NumberFormat>([
-  [
-    "USD",
-    new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }),
-  ],
-  [
-    "EUR",
-    new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "EUR",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }),
-  ],
-  [
-    "CHF",
-    new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "CHF",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }),
-  ],
-]);
-
 function formatAmount(amount: number | null): string {
   if (amount === null) {
     return "N/A";
@@ -121,9 +91,12 @@ function formatOptionalText(value: string | null | undefined, fallback = "N/A"):
 
 function formatForeignAmount(amount: number | null | undefined, currencyCode: string): string {
   if (amount == null) return "N/A";
-  const formatter = foreignCurrencyFormatters.get(currencyCode);
-  if (!formatter) return String(amount);
-  return formatter.format(amount);
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: currencyCode,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
 }
 
 export function ClaimFullDetailsGrid({
@@ -429,7 +402,7 @@ export function ClaimFullDetailsGrid({
 
       {includeExpenseDetail && claim.expense ? (
         <section className={detailSectionClassName}>
-          <h2 className={detailHeadingClassName}>Foreign Expense Details</h2>
+          <h2 className={detailHeadingClassName}>Foreign Financials</h2>
           <div className={detailGridClassName}>
             <div className={detailCardClassName}>
               <p className={fieldLabelClassName}>Currency</p>

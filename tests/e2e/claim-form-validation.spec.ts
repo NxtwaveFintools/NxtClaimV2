@@ -679,6 +679,6 @@ test.describe("Foreign Financials — Unconditional Rendering", () => {
     // For a domestic claim (foreignCurrencyCode is null), the Foreign Currency
     // card must display "INR" via the `?? "INR"` fallback rather than hiding
     // the entire section (which was the pre-fix behaviour).
-    await expect(page.getByText("INR")).toBeVisible();
+    await expect(page.locator("#foreign-financials-section").getByText("INR")).toBeVisible();
   });
 });
