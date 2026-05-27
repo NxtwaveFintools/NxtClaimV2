@@ -589,3 +589,90 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
     await expect(totalAmountInput).toHaveValue("1150.00");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Foreign Expense Details — Unconditional Rendering
+//
+//  FOREIGN-REND-1  The "Foreign Expense Details" grid section must always
+//                  render on the claim detail page, even for claims that have
+//                  no foreign currency set.  Prior to the fix the section was
+//                  gated on `foreignCurrencyCode !== null && !== "INR"`, so it
+//                  was invisible for domestic expense claims.
+// ---------------------------------------------------------------------------
+
+test.describe("Foreign Expense Details — Unconditional Rendering", () => {
+  test.use({ storageState: getAuthStatePathByRole("submitter") });
+  test.setTimeout(60_000);
+
+  // Resolved once in beforeAll and shared across tests in this describe block.
+  let claimId: string | null = null;
+
+  test.beforeAll(async () => {
+    const client = getAdminSupabaseClient();
+    const submitterEmail = (process.env.E2E_SUBMITTER_EMAIL ?? "user@nxtwave.co.in").toLowerCase();
+
+    // Resolve the submitter's internal UUID.
+    const { data: submitter } = await client
+      .from("users")
+      .select("id")
+      .eq("email", submitterEmail)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (!submitter?.id) return;
+
+    // Prefer a claim whose expense has no foreign currency so we can assert
+    // the "INR" fallback value.  If none exists, fall back to any expense claim.
+    const { data: noFxClaim } = await client
+      .from("claims")
+      .select("id, expense_details!inner(id)")
+      .eq("submitted_by", submitter.id)
+      .eq("is_active", true)
+      .is("expense_details.foreign_currency_code", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (noFxClaim?.id) {
+      claimId = noFxClaim.id;
+      return;
+    }
+
+    const { data: anyClaim } = await client
+      .from("claims")
+      .select("id, expense_details!inner(id)")
+      .eq("submitted_by", submitter.id)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    claimId = anyClaim?.id ?? null;
+  });
+
+  // ─── FOREIGN-REND-1 ───────────────────────────────────────────────────────
+  test("FOREIGN-REND-1: foreign expense section and all four labels are visible on claim detail page", async ({
+    page,
+  }) => {
+    if (!claimId) {
+      test.skip();
+      return;
+    }
+
+    await gotoWithRetry(page, `/dashboard/claims/${claimId}`);
+
+    // Scope all assertions to the "Foreign Expense Details" section to avoid
+    // collision with the main "Currency" label in the Expense Details grid.
+    const foreignSection = page.locator("section").filter({ hasText: "Foreign Expense Details" });
+
+    await expect(foreignSection).toBeVisible({ timeout: 15_000 });
+    await expect(foreignSection.getByText("Currency")).toBeVisible();
+    await expect(foreignSection.getByText("Foreign Basic Amount")).toBeVisible();
+    await expect(foreignSection.getByText("Foreign GST Amount")).toBeVisible();
+    await expect(foreignSection.getByText("Foreign Total Amount")).toBeVisible();
+
+    // When the claim has no foreign currency the grid must display the "INR"
+    // fallback rather than hiding the section entirely (the pre-fix behaviour).
+    await expect(foreignSection.getByText("INR")).toBeVisible();
+  });
+});

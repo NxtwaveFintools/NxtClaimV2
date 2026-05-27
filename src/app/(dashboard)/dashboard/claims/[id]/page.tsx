@@ -847,7 +847,13 @@ async function ClaimDetailCore({
           <section className="bg-card border border-border/50 shadow-sm rounded-xl p-6 md:p-8 flex flex-col gap-6">
             <Accordion
               type="multiple"
-              defaultValue={["expense-details", "general-info", "routing-context", "financials"]}
+              defaultValue={[
+                "expense-details",
+                "general-info",
+                "routing-context",
+                "local-financials",
+                "foreign-financials",
+              ]}
               className="w-full space-y-4"
             >
               <AccordionItem
@@ -991,11 +997,11 @@ async function ClaimDetailCore({
               </AccordionItem>
 
               <AccordionItem
-                value="financials"
+                value="local-financials"
                 className="border-none bg-muted/10 rounded-xl px-4 py-2"
               >
                 <AccordionTrigger className="hover:no-underline text-xs uppercase tracking-widest text-muted-foreground font-bold">
-                  Financials
+                  Local Financials
                 </AccordionTrigger>
                 <AccordionContent className="pt-4 pb-2">
                   <div className={microGridClassName}>
@@ -1040,6 +1046,32 @@ async function ClaimDetailCore({
                           label="Total Amount"
                           value={formatAmountValue(claim.expense.totalAmount)}
                         />
+                      </>
+                    ) : claim.advance ? (
+                      <>
+                        <DataCard
+                          label="Total Amount"
+                          value={formatAmountValue(claim.advance.totalAmount)}
+                        />
+                      </>
+                    ) : (
+                      <DataCard label="Amount" value="N/A" />
+                    )}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem
+                value="foreign-financials"
+                className="border-none bg-muted/10 rounded-xl px-4 py-2"
+              >
+                <AccordionTrigger className="hover:no-underline text-xs uppercase tracking-widest text-muted-foreground font-bold">
+                  Foreign Financials
+                </AccordionTrigger>
+                <AccordionContent className="pt-4 pb-2">
+                  <div className={microGridClassName}>
+                    {claim.expense ? (
+                      <>
                         <DataCard
                           label="Foreign Currency"
                           value={claim.expense.foreignCurrencyCode ?? "INR"}
@@ -1066,15 +1098,8 @@ async function ClaimDetailCore({
                           )}
                         />
                       </>
-                    ) : claim.advance ? (
-                      <>
-                        <DataCard
-                          label="Total Amount"
-                          value={formatAmountValue(claim.advance.totalAmount)}
-                        />
-                      </>
                     ) : (
-                      <DataCard label="Amount" value="N/A" />
+                      <DataCard label="Foreign Amount" value="N/A" />
                     )}
                   </div>
                 </AccordionContent>
