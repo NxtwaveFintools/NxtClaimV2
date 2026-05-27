@@ -40,7 +40,9 @@
       "Skill(superpowers:receiving-code-review)",
       "Bash(gh pr *)",
       "PowerShell(gh pr *)",
-      "PowerShell(dashboard *)"
+      "PowerShell(dashboard *)",
+      "PowerShell(Get-Command *)",
+      "PowerShell(git fetch *)"
     ]
   },
   "enabledMcpjsonServers": [
