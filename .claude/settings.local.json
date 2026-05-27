@@ -32,7 +32,8 @@
       "PowerShell(Get-ChildItem \"d:\\\\nxtclaim\" -Name | Where-Object { $_ -match \"eslint|prettier|biome\" })",
       "Bash(Get-ChildItem *)",
       "Skill(superpowers:verification-before-completion)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Skill(superpowers:brainstorming)"
     ]
   },
   "enabledMcpjsonServers": ["filesystem", "supabase"],
