@@ -239,7 +239,6 @@ type ClaimDetailRow = {
   department_id: string;
   payment_mode_id: string;
   bc_claim_details_id: string | null;
-  is_vendor_payment: boolean;
   assigned_l1_approver_id: string;
   assigned_l2_approver_id: string | null;
   submitted_by: string;
@@ -1777,7 +1776,6 @@ export class SupabaseClaimRepository implements ClaimRepository {
       departmentId: string;
       paymentModeId: string;
       bcClaimDetailsId: string | null;
-      isVendorPayment: boolean;
       submissionType: "Self" | "On Behalf";
       detailType: "expense" | "advance";
       onBehalfOfId: string | null;
@@ -1890,7 +1888,6 @@ export class SupabaseClaimRepository implements ClaimRepository {
         departmentId: row.department_id,
         paymentModeId: row.payment_mode_id,
         bcClaimDetailsId: row.bc_claim_details_id,
-        isVendorPayment: row.is_vendor_payment ?? false,
         submissionType: row.submission_type,
         detailType: row.detail_type,
         onBehalfOfId: row.on_behalf_of_id,
