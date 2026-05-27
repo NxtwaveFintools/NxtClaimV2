@@ -206,8 +206,7 @@ describe("NewClaimFormClient", () => {
     await user.type(foreignGstInput, "18");
 
     await waitFor(() => {
-      const foreignTotalInput = screen.getByLabelText(/Foreign Total Amount/i) as HTMLInputElement;
-      expect(foreignTotalInput.value).toBe("118.00");
+      expect(screen.getByLabelText(/Foreign Total Amount/i)).toHaveValue(118);
     });
   });
 

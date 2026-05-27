@@ -89,14 +89,25 @@ function formatOptionalText(value: string | null | undefined, fallback = "N/A"):
   return trimmed.length > 0 ? trimmed : fallback;
 }
 
+const fxFormatters = new Map<string, Intl.NumberFormat>();
+
+function getFxFormatter(currencyCode: string): Intl.NumberFormat {
+  let formatter = fxFormatters.get(currencyCode);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: currencyCode,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    fxFormatters.set(currencyCode, formatter);
+  }
+  return formatter;
+}
+
 function formatForeignAmount(amount: number | null | undefined, currencyCode: string): string {
   if (amount == null) return "N/A";
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: currencyCode,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
+  return getFxFormatter(currencyCode).format(amount);
 }
 
 export function ClaimFullDetailsGrid({

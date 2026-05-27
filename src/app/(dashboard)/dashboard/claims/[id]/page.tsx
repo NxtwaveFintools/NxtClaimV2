@@ -1055,7 +1055,7 @@ async function ClaimDetailCore({
 
               <AccordionItem
                 value="foreign-financials"
-                id="foreign-financials-section"
+                data-testid="foreign-financials-section"
                 className="border-none bg-muted/10 rounded-xl px-4 py-2"
               >
                 <AccordionTrigger className="hover:no-underline text-xs uppercase tracking-widest text-muted-foreground font-bold">

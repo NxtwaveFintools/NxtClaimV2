@@ -621,7 +621,12 @@ test.describe("Foreign Financials — Unconditional Rendering", () => {
       .eq("is_active", true)
       .maybeSingle();
 
-    if (!submitter?.id) return;
+    if (!submitter?.id) {
+      throw new Error(
+        `E2E setup failed: could not resolve submitter UUID for email "${submitterEmail}". ` +
+          "Ensure E2E_SUBMITTER_EMAIL is set and the user exists in the database.",
+      );
+    }
 
     // Prefer a claim whose expense has no foreign currency so we can assert
     // the "INR" fallback value.  If none exists, fall back to any expense claim.
@@ -679,6 +684,6 @@ test.describe("Foreign Financials — Unconditional Rendering", () => {
     // For a domestic claim (foreignCurrencyCode is null), the Foreign Currency
     // card must display "INR" via the `?? "INR"` fallback rather than hiding
     // the entire section (which was the pre-fix behaviour).
-    await expect(page.locator("#foreign-financials-section").getByText("INR")).toBeVisible();
+    await expect(page.getByTestId("foreign-financials-section").getByText("INR")).toBeVisible();
   });
 });
