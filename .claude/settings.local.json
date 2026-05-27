@@ -33,10 +33,16 @@
       "Bash(Get-ChildItem *)",
       "Skill(superpowers:verification-before-completion)",
       "mcp__ide__getDiagnostics",
-      "Skill(superpowers:brainstorming)"
+      "Skill(superpowers:brainstorming)",
+      "Bash(Select-String -Path \"D:\\\\nxtclaim\\\\src\\\\app\\\\\\(dashboard\\)\\\\dashboard\\\\claims\\\\[id]\\\\page.tsx\" -Pattern \"ClaimFull|includeExpense|Foreign\")",
+      "Bash(Select-Object -First 20)",
+      "PowerShell(Select-String -Path \"D:\\\\nxtclaim\\\\src\\\\app\\\\\\(dashboard\\)\\\\dashboard\\\\claims\\\\[id]\\\\page.tsx\" -Pattern \"ClaimFull|includeExpense|Foreign|expense\" | Select-Object -First 30 | ForEach-Object { $_.Line })"
     ]
   },
-  "enabledMcpjsonServers": ["filesystem", "supabase"],
+  "enabledMcpjsonServers": [
+    "filesystem",
+    "supabase"
+  ],
   "enabledPlugins": {
     "context-mode@context-mode": true
   }
