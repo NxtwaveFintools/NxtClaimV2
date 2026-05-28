@@ -172,6 +172,7 @@ test.describe("Soft Flag - Suspected Duplicate Detection", () => {
   test.setTimeout(180000);
 
   const SOFT_FLAG_BILL = `BILL-SOFT-${RUN_TAG}`;
+  const SOFT_FLAG_BILL_2 = `BILL-SOFTVAR-${RUN_TAG}`;
   const SOFT_FLAG_DATE = "2026-05-15";
   let claimAId: string;
   let claimBId: string;
@@ -255,15 +256,36 @@ test.describe("Soft Flag - Suspected Duplicate Detection", () => {
   }) => {
     const runtime = await resolveRuntimeClaimData();
 
+    // Use a distinct bill number to avoid triggering the hard-block from the first test
     await withActorPage(browser, runtime.submitterEmail, async (page) => {
       await submitExpenseClaim(page, {
         submitterEmail: runtime.submitterEmail,
         departmentName: runtime.submitterDepartmentName,
         paymentModeName: runtime.reimbursementPaymentModeName,
         expenseCategoryName: runtime.expenseCategoryName,
-        billNo: SOFT_FLAG_BILL,
+        billNo: SOFT_FLAG_BILL_2,
+        amount: 1000,
+        employeeId: `EMP-SFA-${Date.now()}`,
+        purpose: "Soft flag test: claim A (isolated)",
+        transactionDate: SOFT_FLAG_DATE,
+      });
+    });
+
+    const claimA = await resolveLatestActiveExpenseClaimByBillNo({
+      submitterId: runtime.submitterId,
+      billNo: SOFT_FLAG_BILL_2,
+    });
+    claimAId = claimA.claimId;
+
+    await withActorPage(browser, runtime.submitterEmail, async (page) => {
+      await submitExpenseClaim(page, {
+        submitterEmail: runtime.submitterEmail,
+        departmentName: runtime.submitterDepartmentName,
+        paymentModeName: runtime.reimbursementPaymentModeName,
+        expenseCategoryName: runtime.expenseCategoryName,
+        billNo: SOFT_FLAG_BILL_2,
         amount: 999,
-        employeeId: `EMP-SOFT-B-${Date.now()}`,
+        employeeId: `EMP-SFB-${Date.now()}`,
         purpose: "Soft flag test: claim B (amount variant)",
         transactionDate: SOFT_FLAG_DATE,
       });
@@ -271,7 +293,8 @@ test.describe("Soft Flag - Suspected Duplicate Detection", () => {
 
     const claimB = await resolveLatestActiveExpenseClaimByBillNo({
       submitterId: runtime.submitterId,
-      billNo: SOFT_FLAG_BILL,
+      billNo: SOFT_FLAG_BILL_2,
+      excludeClaimId: claimAId,
     });
     claimBId = claimB.claimId;
 

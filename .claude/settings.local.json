@@ -40,7 +40,11 @@
       "Bash(Select-Object -Last 30)",
       "Bash(awk -F: '$2 >= 1539 && $2 <= 1850 {print}')",
       "Skill(superpowers:systematic-debugging)",
-      "mcp__supabase__list_migrations"
+      "mcp__supabase__list_migrations",
+      "Bash(gh pr *)",
+      "PowerShell(gh pr *)",
+      "PowerShell(where.exe gh; $env:PATH)",
+      "PowerShell(git remote *)"
     ]
   },
   "enabledMcpjsonServers": ["filesystem", "supabase"],
