@@ -6,13 +6,15 @@ import {
   useRef,
   useState,
   useTransition,
+  useCallback,
   type BaseSyntheticEvent,
 } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch, type FieldErrors } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Sparkles } from "lucide-react";
+import { GripVertical } from "lucide-react";
+
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -240,6 +242,19 @@ function validateUploadFile(file: File, fieldLabel: string): string | null {
   return null;
 }
 
+function formatFileSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return "0 KB";
+  }
+
+  const megabytes = bytes / (1024 * 1024);
+  if (megabytes >= 1) {
+    return `${megabytes.toFixed(1)} MB`;
+  }
+
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
 function calculateExpenseTotal(
   basicAmountValue: number,
   cgstAmountValue: number,
@@ -391,9 +406,42 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [bankStatementFile, setBankStatementFile] = useState<File | null>(null);
   const [advanceSupportingFile, setAdvanceSupportingFile] = useState<File | null>(null);
+  const [invoicePreviewUrl, setInvoicePreviewUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAiParsing, setIsAiParsing] = useState(false);
   const originalAiExpenseSnapshotRef = useRef<AiExpenseSnapshot | null>(null);
+
+  const [panelWidth, setPanelWidth] = useState(360);
+  const isDraggingRef = useRef(false);
+
+  const startResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, []);
+
+  const onMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDraggingRef.current) return;
+    const newWidth = window.innerWidth - e.clientX - 32;
+    const clamped = Math.min(Math.max(newWidth, 320), 560);
+    setPanelWidth(clamped);
+  }, []);
+
+  const onMouseUp = useCallback(() => {
+    isDraggingRef.current = false;
+    document.body.style.cursor = "default";
+    document.body.style.userSelect = "auto";
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [onMouseMove, onMouseUp]);
 
   const defaultPaymentMode = options.paymentModes[0];
 
@@ -486,10 +534,19 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     | number
     | undefined;
 
-  const isBankStatementRequired = useMemo(() => {
-    const category = options.expenseCategories.find((c) => c.id === expenseCategoryId);
-    return category ? BANK_STATEMENT_REQUIRED_CATEGORIES.has(category.name) : false;
-  }, [expenseCategoryId, options.expenseCategories]);
+  const selectedExpenseCategory = useMemo(
+    () => options.expenseCategories.find((category) => category.id === expenseCategoryId) ?? null,
+    [expenseCategoryId, options.expenseCategories],
+  );
+
+  const selectedPaymentMode = useMemo(
+    () => options.paymentModes.find((mode) => mode.id === paymentModeId) ?? null,
+    [options.paymentModes, paymentModeId],
+  );
+
+  const isBankStatementRequired = selectedExpenseCategory
+    ? BANK_STATEMENT_REQUIRED_CATEGORIES.has(selectedExpenseCategory.name)
+    : false;
 
   const { hydrated, wasAutoFilled, clearDefaults } = useClaimFormAutofill(form, {
     departments: options.departments,
@@ -502,6 +559,18 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       setValue("detailType", mode.detailType, { shouldValidate: true });
     }
   }, [detailType, options.paymentModes, paymentModeId, setValue]);
+
+  useEffect(() => {
+    if (!invoiceFile || typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
+      setInvoicePreviewUrl(null);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(invoiceFile);
+    setInvoicePreviewUrl(objectUrl);
+
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [invoiceFile]);
 
   useEffect(() => {
     if (submissionType === "Self") {
@@ -1293,52 +1362,42 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
   return (
     <form
-      className="grid gap-5 text-zinc-900 transition-colors dark:text-zinc-100 [&_section]:overflow-hidden [&_section]:rounded-2xl [&_section]:border [&_section]:border-zinc-200/80 [&_section]:bg-white/80 [&_section]:p-5 [&_section]:shadow-[0_4px_24px_-8px_rgba(15,23,42,0.06)] [&_section]:backdrop-blur-sm dark:[&_section]:border-zinc-800 dark:[&_section]:bg-zinc-900/80 dark:[&_section]:shadow-black/10 [&_h2]:text-zinc-900 dark:[&_h2]:text-zinc-100 [&_label]:text-zinc-700 dark:[&_label]:text-zinc-300 [&_input:not([type='checkbox']):not([type='hidden'])]:nxt-input [&_input:not([type='checkbox']):not([type='hidden'])]:w-full [&_input:not([type='checkbox']):not([type='hidden'])]:min-w-0 [&_input:not([type='checkbox']):not([type='hidden'])]:!h-11 [&_input:not([type='checkbox']):not([type='hidden'])]:!text-base [&_input:not([type='checkbox'])]:border-zinc-300 [&_input:not([type='checkbox'])]:bg-white [&_input:not([type='checkbox'])]:text-zinc-900 dark:[&_input:not([type='checkbox'])]:border-zinc-700 dark:[&_input:not([type='checkbox'])]:bg-zinc-900/70 dark:[&_input:not([type='checkbox'])]:text-zinc-100 [&_select]:nxt-input [&_select]:w-full [&_select]:min-w-0 [&_select]:!h-11 [&_select]:!text-base [&_select]:border-zinc-300 [&_select]:bg-white [&_select]:text-zinc-900 dark:[&_select]:border-zinc-700 dark:[&_select]:bg-zinc-900/70 dark:[&_select]:text-zinc-100 [&_textarea]:nxt-input [&_textarea]:w-full [&_textarea]:min-w-0 [&_textarea]:!text-base [&_textarea]:border-zinc-300 [&_textarea]:bg-white [&_textarea]:text-zinc-900 dark:[&_textarea]:border-zinc-700 dark:[&_textarea]:bg-zinc-900/70 dark:[&_textarea]:text-zinc-100"
+      className="grid gap-5 text-foreground transition-colors [&_section]:rounded-xl [&_section]:border [&_section]:border-border [&_section]:bg-card [&_section]:p-4 sm:[&_section]:p-[18px] [&_h2]:text-foreground [&_label]:text-foreground [&_input:not([type='checkbox']):not([type='hidden'])]:nxt-input [&_input:not([type='checkbox']):not([type='hidden'])]:w-full [&_input:not([type='checkbox']):not([type='hidden'])]:min-w-0 [&_input:not([type='checkbox']):not([type='hidden'])]:!h-[38px] [&_input:not([type='checkbox']):not([type='hidden'])]:!rounded-lg [&_input:not([type='checkbox']):not([type='hidden'])]:!text-sm [&_select]:nxt-input [&_select]:w-full [&_select]:min-w-0 [&_select]:!h-[38px] [&_select]:!rounded-lg [&_select]:!text-sm [&_textarea]:nxt-input [&_textarea]:w-full [&_textarea]:min-w-0 [&_textarea]:!rounded-lg [&_textarea]:!text-sm"
       onSubmit={handleFormSubmit}
     >
       <input type="hidden" {...register("employeeName")} />
       <input type="hidden" {...register("hodName")} />
       <input type="hidden" {...register("hodEmail")} />
 
-      <div className="grid grid-cols-1 gap-y-12 xl:grid-cols-2 xl:items-start xl:gap-x-12">
-        {/* ── Left column: Employee + Submission Context ── */}
-        <div className="grid gap-5">
-          <section className="grid gap-3 rounded-2xl border border-zinc-200/80 p-4 sm:p-5">
-            <h2 className="dashboard-font-display text-sm font-semibold tracking-[-0.01em] text-zinc-950 dark:text-zinc-50">
-              Employee Details
-            </h2>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="grid gap-1">
-                <label
-                  htmlFor="employeeNameReadOnly"
-                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                >
-                  Employee Name
-                </label>
-                <FormInput
-                  id="employeeNameReadOnly"
-                  value={currentUser.name}
-                  readOnly
-                  className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
-                />
+      <div className="flex flex-col items-start gap-5 lg:flex-row">
+        <div className="grid w-full min-w-0 flex-1 gap-4 sm:gap-5 lg:min-w-[620px]">
+          {/* ── Left column: Employee + Submission Context ── */}
+          <section className="grid gap-3 rounded-xl border border-zinc-200 p-4 sm:p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h2 className="dashboard-font-display text-sm font-semibold tracking-[-0.01em] text-zinc-950 dark:text-zinc-50">
+                  Submission Context
+                </h2>
               </div>
-
-              <div className="grid gap-1">
-                <label
-                  htmlFor="employeeEmailReadOnly"
-                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+              {hydrated && wasAutoFilled ? (
+                <button
+                  type="button"
+                  onClick={clearDefaults}
+                  className="text-[11px] font-medium text-indigo-600 underline-offset-2 hover:text-indigo-500 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
                 >
-                  Employee Email
-                </label>
-                <FormInput
-                  id="employeeEmailReadOnly"
-                  value={currentUser.email}
-                  readOnly
-                  className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
-                />
-              </div>
+                  Clear Defaults
+                </button>
+              ) : null}
+            </div>
 
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background-secondary px-3 py-2 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Submitting as</span>
+              <span>{currentUser.name}</span>
+              <span aria-hidden="true">/</span>
+              <span>{currentUser.email}</span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
               <div className="grid gap-1">
                 <label
                   htmlFor="employeeId"
@@ -1356,34 +1415,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   <p className="text-xs text-rose-600">{errors.employeeId.message}</p>
                 ) : null}
               </div>
-            </div>
-          </section>
 
-          <section className="grid gap-3 rounded-xl border border-zinc-200 p-4 sm:p-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h2 className="dashboard-font-display text-sm font-semibold tracking-[-0.01em] text-zinc-950 dark:text-zinc-50">
-                  Submission Context
-                </h2>
-                {hydrated && wasAutoFilled ? (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-700 dark:border-indigo-700/40 dark:bg-indigo-950/30 dark:text-indigo-300">
-                    <Sparkles className="h-3 w-3" />
-                    Auto-filled
-                  </span>
-                ) : null}
-              </div>
-              {hydrated && wasAutoFilled ? (
-                <button
-                  type="button"
-                  onClick={clearDefaults}
-                  className="text-[11px] font-medium text-indigo-600 underline-offset-2 hover:text-indigo-500 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
-                >
-                  Clear Defaults
-                </button>
-              ) : null}
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="grid gap-1">
                 <label
                   htmlFor="submissionType"
@@ -1399,29 +1431,6 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   <option value="Self">Self</option>
                   <option value="On Behalf">On Behalf</option>
                 </FormSelect>
-              </div>
-
-              <div className="grid gap-1">
-                <label
-                  htmlFor="departmentId"
-                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                >
-                  Department <span className="text-rose-600">*</span>
-                </label>
-                <FormSelect
-                  id="departmentId"
-                  className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
-                  {...register("departmentId")}
-                >
-                  {options.departments.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.name}
-                    </option>
-                  ))}
-                </FormSelect>
-                {errors.departmentId ? (
-                  <p className="text-xs text-rose-600">{errors.departmentId.message}</p>
-                ) : null}
               </div>
             </div>
 
@@ -1470,7 +1479,30 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
               </div>
             ) : null}
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+              <div className="grid gap-1">
+                <label
+                  htmlFor="departmentId"
+                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                >
+                  Department <span className="text-rose-600">*</span>
+                </label>
+                <FormSelect
+                  id="departmentId"
+                  className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                  {...register("departmentId")}
+                >
+                  {options.departments.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.name}
+                    </option>
+                  ))}
+                </FormSelect>
+                {errors.departmentId ? (
+                  <p className="text-xs text-rose-600">{errors.departmentId.message}</p>
+                ) : null}
+              </div>
+
               <div className="grid gap-1">
                 <label
                   htmlFor="ccEmails"
@@ -1488,7 +1520,9 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   })}
                 />
               </div>
+            </div>
 
+            <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
               <div className="grid gap-1">
                 <label
                   htmlFor="l1ApproverNameReadOnly"
@@ -1532,7 +1566,10 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   htmlFor="paymentModeId"
                   className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
                 >
-                  Payment Mode <span className="text-rose-600">*</span>
+                  Payment Mode <span className="text-rose-600">*</span>{" "}
+                  <span className="text-xs font-normal text-zinc-400">
+                    ({detailType === "expense" ? "Expense" : "Advance"})
+                  </span>
                 </label>
                 <FormSelect
                   id="paymentModeId"
@@ -1551,135 +1588,17 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
               </div>
             </div>
           </section>
-        </div>
-        {/* end left column */}
-
-        {/* ── Right column: Expense / Advance Details ── */}
-        <div className="grid gap-5">
           {detailType === "expense" ? (
-            <section className="grid gap-3 rounded-xl border border-zinc-200 p-4 sm:p-5">
+            <section className="grid gap-x-4 gap-y-3 rounded-xl border border-zinc-200 p-4 sm:p-[18px] [&_label]:!text-[13px]">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="dashboard-font-display text-sm font-semibold tracking-[-0.01em] text-zinc-950 dark:text-zinc-50">
                   Expense Details
                 </h2>
-                <Button
-                  onClick={handleAutoFillWithAI}
-                  disabled={isSubmitting || isAiParsing || !invoiceFile}
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  className="border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:border-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 dark:hover:bg-indigo-900/40"
-                >
-                  {isAiParsing ? (
-                    <>
-                      <svg
-                        className="h-4 w-4 animate-spin"
-                        viewBox="0 0 20 20"
-                        aria-hidden="true"
-                        fill="none"
-                      >
-                        <circle
-                          cx="10"
-                          cy="10"
-                          r="7"
-                          stroke="currentColor"
-                          strokeOpacity="0.3"
-                          strokeWidth="2"
-                        />
-                        <path
-                          d="M10 3a7 7 0 0 1 7 7"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                      Auto-filling...
-                    </>
-                  ) : (
-                    "✨ Auto-fill with AI"
-                  )}
-                </Button>
               </div>
-
-              <AIDisclaimer />
 
               <input type="hidden" {...register("detailType")} value="expense" />
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="grid gap-1">
-                  <label
-                    htmlFor="receiptFile"
-                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                  >
-                    Invoice/Bill <span className="text-rose-600">*</span>
-                  </label>
-                  <input
-                    id="receiptFile"
-                    type="file"
-                    accept="application/pdf,image/jpeg,image/png,image/webp"
-                    aria-label="Invoice or bill file upload"
-                    className="hidden"
-                    onChange={(event) => {
-                      const selectedFile = event.target.files?.[0] ?? null;
-                      void handleReceiptUploadSuccess(selectedFile);
-                    }}
-                  />
-                  <label
-                    htmlFor="receiptFile"
-                    className="flex h-11 cursor-pointer items-center justify-center rounded-lg border border-zinc-300 bg-zinc-50 px-4 text-base font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                  >
-                    Choose Invoice/Bill
-                  </label>
-                  <p className="text-xs text-zinc-500">
-                    <span className="block truncate">
-                      {invoiceFile ? invoiceFile.name : "No file selected"}
-                    </span>
-                  </p>
-                  <p className="text-[10px] text-zinc-500">PDF, JPG, PNG, WEBP. Max: 25MB.</p>
-                </div>
-
-                <div className="grid gap-1">
-                  <label
-                    htmlFor="bankStatementFile"
-                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                  >
-                    Bank Statement{" "}
-                    {isBankStatementRequired ? (
-                      <span className="text-rose-600">*</span>
-                    ) : (
-                      <span className="text-zinc-400">(Optional)</span>
-                    )}
-                  </label>
-                  <input
-                    id="bankStatementFile"
-                    type="file"
-                    accept="application/pdf,image/jpeg,image/png,image/webp"
-                    aria-label="Bank statement file upload"
-                    className="hidden"
-                    onChange={(event) => {
-                      const selectedFile = event.target.files?.[0] ?? null;
-                      void handleBankStatementUploadSuccess(selectedFile);
-                    }}
-                  />
-                  <label
-                    htmlFor="bankStatementFile"
-                    className="flex h-11 cursor-pointer items-center justify-center rounded-lg border border-zinc-300 bg-zinc-50 px-4 text-base font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                  >
-                    Choose Bank Statement
-                  </label>
-                  <p className="text-xs text-zinc-500">
-                    <span className="block truncate">
-                      {bankStatementFile ? bankStatementFile.name : "No file selected"}
-                    </span>
-                  </p>
-                  <p className="text-[10px] text-zinc-500">PDF, JPG, PNG, WEBP. Max: 25MB.</p>
-                  {bankStatementError ? (
-                    <p className="text-xs text-rose-600">{bankStatementError}</p>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
                 <div className="grid gap-1">
                   <label
                     htmlFor="billNo"
@@ -1717,7 +1636,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
                 <div className="grid gap-1">
                   <label
                     htmlFor="expenseCategoryId"
@@ -1737,6 +1656,11 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                       </option>
                     ))}
                   </FormSelect>
+                  {isBankStatementRequired ? (
+                    <p className="text-xs text-muted-foreground">
+                      Bank statement is required for this category.
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="grid gap-1">
@@ -1763,7 +1687,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
                 <div className="grid gap-1">
                   <label
                     htmlFor="expenseLocationId"
@@ -1783,10 +1707,27 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     ))}
                   </FormSelect>
                 </div>
+
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="vendorName"
+                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  >
+                    Vendor (Optional)
+                  </label>
+                  <FormInput
+                    id="vendorName"
+                    type="text"
+                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    {...register("expense.vendorName", {
+                      setValueAs: (value) => toNullable(String(value ?? "")),
+                    })}
+                  />
+                </div>
               </div>
 
               {isNiatDepartment ? (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
                   <div className="grid gap-1">
                     <label
                       htmlFor="expenseLocationType"
@@ -1835,7 +1776,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                 </div>
               ) : null}
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-x-4 gap-y-3">
                 <div className="grid gap-1">
                   <label
                     htmlFor="transactionDate"
@@ -1849,31 +1790,14 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     {...register("expense.transactionDate")}
                   />
                 </div>
-
-                <div className="grid gap-1">
-                  <label
-                    htmlFor="vendorName"
-                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                  >
-                    Vendor (Optional)
-                  </label>
-                  <FormInput
-                    id="vendorName"
-                    type="text"
-                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
-                    {...register("expense.vendorName", {
-                      setValueAs: (value) => toNullable(String(value ?? "")),
-                    })}
-                  />
-                </div>
               </div>
 
-              <div className="grid gap-3 rounded-xl border border-zinc-200/80 bg-zinc-100/30 p-3 dark:border-zinc-700 dark:bg-zinc-800/20">
+              <div className="grid gap-x-4 gap-y-3 rounded-xl border border-zinc-200/80 bg-zinc-100/30 p-3 dark:border-zinc-700 dark:bg-zinc-800/20">
                 <p className="text-[11px] font-medium tracking-wide text-zinc-500 dark:text-zinc-400">
                   Tax Details
                 </p>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
                   <div className="grid gap-1">
                     <label
                       htmlFor="gstNumber"
@@ -1908,7 +1832,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
                   <div className="grid gap-1">
                     <label
                       htmlFor="cgstAmount"
@@ -1942,7 +1866,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
                   <div className="grid gap-1">
                     <label
                       htmlFor="basicAmount"
@@ -1983,12 +1907,12 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                 </div>
               </div>
 
-              <div className="grid gap-3 rounded-xl border border-zinc-200/80 bg-zinc-100/30 p-3 dark:border-zinc-700 dark:bg-zinc-800/20">
+              <div className="grid gap-x-4 gap-y-3 rounded-xl border border-zinc-200/80 bg-zinc-100/30 p-3 dark:border-zinc-700 dark:bg-zinc-800/20">
                 <p className="text-[11px] font-medium tracking-wide text-zinc-500 dark:text-zinc-400">
                   Foreign Expense Details
                 </p>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
                   <div className="grid gap-1">
                     <label
                       htmlFor="foreignCurrencyCode"
@@ -2030,7 +1954,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
                   <div className="grid gap-1">
                     <label
                       htmlFor="foreignGstAmount"
@@ -2071,7 +1995,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
                 <div className="grid gap-1">
                   <label
                     htmlFor="expenseRemarks"
@@ -2079,10 +2003,10 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   >
                     Remarks (Optional)
                   </label>
-                  <FormInput
+                  <FormTextarea
                     id="expenseRemarks"
-                    type="text"
-                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    rows={2}
+                    className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
                     {...register("expense.remarks", {
                       setValueAs: (value) => toNullable(String(value ?? "")),
                     })}
@@ -2269,42 +2193,198 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
             </section>
           ) : null}
         </div>
-        {/* end right column */}
+
+        {detailType === "expense" ? (
+          <>
+            <div
+              className="hidden lg:flex w-2 cursor-col-resize flex-col items-center justify-center self-stretch rounded-md transition-colors hover:bg-zinc-100 active:bg-[var(--accent)] group"
+              onMouseDown={startResize}
+              aria-label="Resize evidence panel — drag to adjust width"
+              role="separator"
+            >
+              <span
+                className="flex h-full w-0.5 flex-col items-center justify-center rounded-full bg-zinc-300 group-hover:bg-zinc-400"
+                aria-hidden="true"
+              >
+                <GripVertical className="h-4 w-4 text-zinc-400 group-hover:text-zinc-500" />
+              </span>
+            </div>
+
+            <aside
+              className="grid w-full lg:w-auto gap-4 rounded-xl border border-border bg-card p-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-48px)] lg:overflow-y-auto"
+              style={{ flexBasis: panelWidth, flexShrink: 0 }}
+            >
+              <div>
+                <h2 className="dashboard-font-display text-base font-semibold text-foreground">
+                  Evidence & Review
+                </h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Keep evidence visible while you complete the claim.
+                </p>
+              </div>
+
+              <div className="grid gap-2 rounded-lg border border-border bg-background-secondary p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <label htmlFor="receiptFile" className="text-sm font-medium text-foreground">
+                    Invoice/Bill
+                  </label>
+                  <span className="text-xs font-medium text-rose-600">Required</span>
+                </div>
+                <input
+                  id="receiptFile"
+                  type="file"
+                  accept="application/pdf,image/jpeg,image/png,image/webp"
+                  aria-label="Invoice or bill file upload"
+                  className="hidden"
+                  onChange={(event) => {
+                    const selectedFile = event.target.files?.[0] ?? null;
+                    void handleReceiptUploadSuccess(selectedFile);
+                  }}
+                />
+                <label
+                  htmlFor="receiptFile"
+                  className="inline-flex h-9 cursor-pointer items-center justify-center rounded-lg border border-border bg-card px-3 text-sm font-medium text-foreground transition-colors hover:bg-background"
+                >
+                  Choose file
+                </label>
+                <p className="text-xs text-muted-foreground">PDF, JPG, PNG, WEBP · Max 25MB</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {invoiceFile
+                    ? `${invoiceFile.name} · ${formatFileSize(invoiceFile.size)}`
+                    : "No file selected"}
+                </p>
+                {fileError ? <p className="text-xs text-rose-600">{fileError}</p> : null}
+              </div>
+
+              <Button
+                onClick={handleAutoFillWithAI}
+                disabled={isSubmitting || isAiParsing || !invoiceFile}
+                type="button"
+                variant="secondary"
+                size="md"
+                className="h-9 rounded-lg border-accent text-accent hover:bg-accent-muted"
+              >
+                {isAiParsing ? "Extracting..." : "Extract from invoice"}
+              </Button>
+              <AIDisclaimer />
+
+              {isBankStatementRequired ? (
+                <div className="grid gap-2 rounded-lg border border-border bg-background-secondary p-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">
+                      Bank statement required <span className="text-rose-600">*</span>
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      This category requires bank evidence before submission.
+                    </p>
+                  </div>
+                  <input
+                    id="bankStatementFile"
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png,image/webp"
+                    aria-label="Bank statement file upload"
+                    className="hidden"
+                    onChange={(event) => {
+                      const selectedFile = event.target.files?.[0] ?? null;
+                      void handleBankStatementUploadSuccess(selectedFile);
+                    }}
+                  />
+                  <label
+                    htmlFor="bankStatementFile"
+                    className="inline-flex h-9 cursor-pointer items-center justify-center rounded-lg border border-border bg-card px-3 text-sm font-medium text-foreground transition-colors hover:bg-background"
+                  >
+                    Choose file
+                  </label>
+                  <p className="text-xs text-muted-foreground">PDF, JPG, PNG, WEBP · Max 25MB</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {bankStatementFile
+                      ? `${bankStatementFile.name} · ${formatFileSize(bankStatementFile.size)}`
+                      : "No file selected"}
+                  </p>
+                  {bankStatementError ? (
+                    <p className="text-xs text-rose-600">{bankStatementError}</p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <div className="grid gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Uploaded invoice</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Compare this with the fields you enter.
+                  </p>
+                </div>
+                <div className="flex min-h-[280px] items-center justify-center overflow-hidden rounded-lg border border-border bg-background-secondary p-3 lg:min-h-[360px]">
+                  {!invoiceFile ? (
+                    <p className="text-center text-sm text-muted-foreground">
+                      Upload an invoice to preview it here.
+                    </p>
+                  ) : invoicePreviewUrl && invoiceFile.type.startsWith("image/") ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={invoicePreviewUrl}
+                      alt={`Uploaded invoice preview: ${invoiceFile.name}`}
+                      className="max-h-[440px] w-full object-contain"
+                    />
+                  ) : invoicePreviewUrl && invoiceFile.type === "application/pdf" ? (
+                    <iframe
+                      src={invoicePreviewUrl}
+                      title={`Uploaded invoice preview: ${invoiceFile.name}`}
+                      className="h-[360px] w-full rounded border-0"
+                    />
+                  ) : (
+                    <p className="text-center text-sm text-muted-foreground">{invoiceFile.name}</p>
+                  )}
+                </div>
+              </div>
+            </aside>
+          </>
+        ) : null}
       </div>
       {/* end 2-column grid */}
 
-      {fileError ? <Alert tone="error" description={fileError} /> : null}
-
-      <Button type="submit" disabled={isSubmitting} variant="primary" size="lg" className="w-full">
-        {isSubmitting ? (
-          <>
-            <svg
-              className="h-4 w-4 animate-spin"
-              viewBox="0 0 20 20"
-              aria-hidden="true"
-              fill="none"
-            >
-              <circle
-                cx="10"
-                cy="10"
-                r="7"
-                stroke="currentColor"
-                strokeOpacity="0.3"
-                strokeWidth="2"
-              />
-              <path
-                d="M10 3a7 7 0 0 1 7 7"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-            Processing...
-          </>
-        ) : (
-          "Submit Claim"
-        )}
-      </Button>
+      <div
+        className="fixed bottom-0 left-0 right-0 z-20 flex items-center border-t border-border bg-card/95 px-6 backdrop-blur sm:px-6 lg:px-8"
+        style={{ height: "60px" }}
+      >
+        {fileError ? <Alert tone="error" description={fileError} /> : null}
+        <div className="flex flex-1 flex-row items-center justify-end gap-2">
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="h-9 rounded-lg bg-[var(--accent)] px-5 text-sm font-medium text-white shadow-none hover:bg-[var(--accent-hover)]"
+          >
+            {isSubmitting ? (
+              <>
+                <svg
+                  className="mr-2 h-4 w-4 animate-spin"
+                  viewBox="0 0 20 20"
+                  aria-hidden="true"
+                  fill="none"
+                >
+                  <circle
+                    cx="10"
+                    cy="10"
+                    r="7"
+                    stroke="currentColor"
+                    strokeOpacity="0.3"
+                    strokeWidth="2"
+                  />
+                  <path
+                    d="M10 3a7 7 0 0 1 7 7"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                Processing...
+              </>
+            ) : (
+              "Submit Claim"
+            )}
+          </Button>
+        </div>
+      </div>
     </form>
   );
 }

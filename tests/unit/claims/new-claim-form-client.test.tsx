@@ -80,6 +80,7 @@ const options = {
   expenseCategories: [
     { id: "66666666-6666-4666-8666-666666666666", name: "Travel Domestic" },
     { id: "99999999-9999-4999-8999-999999999999", name: "Internet Expense" },
+    { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", name: "Overseas Subscription" },
   ],
   products: [{ id: "77777777-7777-4777-8777-777777777777", name: "NxtWave" }],
   locations: [{ id: "88888888-8888-4888-8888-888888888888", name: "Hyderabad" }],
@@ -123,6 +124,27 @@ describe("NewClaimFormClient", () => {
     await user.click(screen.getByRole("button", { name: /submit claim/i }));
 
     expect(await screen.findByText("Employee ID is required")).toBeInTheDocument();
+  });
+
+  test("shows compact submitting-as summary instead of employee details card", () => {
+    render(<NewClaimFormClient currentUser={currentUser} options={options} />);
+
+    expect(screen.queryByText("Employee Details")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Employee Name")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Employee Email")).not.toBeInTheDocument();
+    expect(screen.getByText(/Submitting as/i)).toBeInTheDocument();
+    expect(screen.getByText(currentUser.email)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Employee ID/i)).toBeInTheDocument();
+  });
+
+  test("shows evidence panel with invoice preview placeholder and sticky action helper", () => {
+    render(<NewClaimFormClient currentUser={currentUser} options={options} />);
+
+    expect(screen.getByRole("heading", { name: /Evidence & Review/i })).toBeInTheDocument();
+    expect(screen.getByText(/Upload an invoice to preview it here/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Review invoice, amounts, and routing before submitting/i),
+    ).toBeInTheDocument();
   });
 
   test("shows Tax Details fields by default without GST toggle", async () => {
@@ -255,6 +277,7 @@ describe("NewClaimFormClient", () => {
     expect(requestFormData.getAll("expenseCategoryNames")).toEqual([
       "Travel Domestic",
       "Internet Expense",
+      "Overseas Subscription",
     ]);
 
     await waitFor(() => {
@@ -308,7 +331,7 @@ describe("NewClaimFormClient", () => {
     });
   });
 
-  test("shows loading toast on upload and still allows manual retry via Auto-fill button", async () => {
+  test("shows loading toast on upload and still allows manual retry via Extract from invoice button", async () => {
     const user = userEvent.setup();
     const firstToastId = "receipt-ai-loading-toast-1";
     const secondToastId = "receipt-ai-loading-toast-2";
@@ -370,12 +393,28 @@ describe("NewClaimFormClient", () => {
       });
     });
 
-    await user.click(screen.getByRole("button", { name: /auto-fill with ai/i }));
+    await user.click(screen.getByRole("button", { name: /extract from invoice/i }));
 
     await waitFor(() => {
       expect(mockParseReceiptAction).toHaveBeenCalledTimes(2);
     });
 
     expect(mockToastSuccess).toHaveBeenCalledWith("Details fetched!", { id: secondToastId });
+  });
+
+  test("shows bank statement upload only for categories that require it", async () => {
+    const user = userEvent.setup();
+    render(<NewClaimFormClient currentUser={currentUser} options={options} />);
+
+    expect(screen.queryByLabelText(/Bank statement file upload/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Bank statement required/i)).not.toBeInTheDocument();
+
+    await user.selectOptions(
+      screen.getByLabelText(/Expense Category/i),
+      "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    );
+
+    expect(screen.getByText(/Bank statement required/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Bank statement file upload/i)).toBeInTheDocument();
   });
 });
