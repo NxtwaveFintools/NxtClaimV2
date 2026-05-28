@@ -1,4 +1,4 @@
-import { CircleArrowDown, CircleArrowUp, Wallet } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, Clock, Wallet } from "lucide-react";
 import type { WalletSummaryTotals } from "@/core/domain/dashboard/contracts";
 
 type WalletSummaryProps = {
@@ -17,103 +17,140 @@ function formatInr(value: number): string {
   return value < 0 ? `-${formatted}` : formatted;
 }
 
+function formatClaimCount(count: number): string {
+  return `${count} ${count === 1 ? "claim" : "claims"}`;
+}
+
+function getBalanceColor(balance: number): string {
+  if (balance < 0) return "#dc2626";
+  if (balance > 0) return "#16a34a";
+  return "var(--foreground)";
+}
+
+function getBalanceMessage(balance: number): string {
+  if (balance < 0) return `Company is owed ${formatInr(Math.abs(balance))}`;
+  if (balance > 0) return `${formatInr(balance)} in credit`;
+  return "Balance is settled";
+}
+
+const labelStyle = {
+  fontSize: 11,
+  fontWeight: 600,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+  color: "var(--muted-foreground)",
+} as const;
+
+const valueStyle = {
+  fontSize: 22,
+  fontWeight: 700,
+  lineHeight: 1.2,
+} as const;
+
+const subTextStyle = {
+  fontSize: 12,
+  color: "var(--muted-foreground)",
+  lineHeight: 1.6,
+  marginTop: 2,
+} as const;
+
+const iconWrapperStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: 36,
+  height: 36,
+  borderRadius: 10,
+  flexShrink: 0,
+} as const;
+
 export function WalletSummary({ summary }: WalletSummaryProps) {
-  const isNegativeBalance = summary.pettyCashBalance < 0;
-  const metrics = [
-    {
-      label: "Amount Received",
-      value: formatInr(summary.amountReceived),
-      supportingText: `Petty Cash: ${formatInr(summary.totalPettyCashReceived)} | Reimbursements: ${formatInr(summary.totalReimbursements)}`,
-      icon: CircleArrowDown,
-      cardClassName:
-        "border-emerald-200 bg-emerald-50/90 dark:border-emerald-900/50 dark:bg-emerald-950/30",
-      iconClassName:
-        "border-emerald-200 bg-white text-emerald-600 dark:border-emerald-900/60 dark:bg-emerald-950 dark:text-emerald-300",
-      labelClassName: "text-emerald-700 dark:text-emerald-300",
-      valueClassName: "text-emerald-950 dark:text-emerald-50",
-      supportingClassName: "text-emerald-800/80 dark:text-emerald-200/90",
-    },
-    {
-      label: "Amount Spent",
-      value: formatInr(summary.amountSpent),
-      supportingText: "Total petty cash utilized across submitted claims",
-      icon: CircleArrowUp,
-      cardClassName:
-        "border-amber-200 bg-amber-50/90 dark:border-amber-900/50 dark:bg-amber-950/30",
-      iconClassName:
-        "border-amber-200 bg-white text-amber-600 dark:border-amber-900/60 dark:bg-amber-950 dark:text-amber-300",
-      labelClassName: "text-amber-700 dark:text-amber-300",
-      valueClassName: "text-amber-950 dark:text-amber-50",
-      supportingClassName: "text-amber-800/80 dark:text-amber-200/90",
-    },
-    {
-      label: "Petty Cash Balance",
-      value: formatInr(summary.pettyCashBalance),
-      supportingText: isNegativeBalance
-        ? "Company owed = petty cash spent minus petty cash received"
-        : "Available balance = petty cash received minus petty cash spent",
-      icon: Wallet,
-      cardClassName: "border-sky-200 bg-sky-50/90 dark:border-sky-900/50 dark:bg-sky-950/30",
-      iconClassName:
-        "border-sky-200 bg-white text-sky-600 dark:border-sky-900/60 dark:bg-sky-950 dark:text-sky-300",
-      labelClassName: "text-sky-700 dark:text-sky-300",
-      valueClassName: isNegativeBalance
-        ? "text-rose-700 dark:text-rose-300"
-        : "text-sky-950 dark:text-sky-50",
-      supportingClassName: isNegativeBalance
-        ? "text-rose-700/90 dark:text-rose-300/90"
-        : "text-sky-800/80 dark:text-sky-200/90",
-    },
-  ];
+  const hasPendingReimbursement =
+    summary.pendingReimbursementAmount > 0 || summary.pendingReimbursementCount > 0;
 
   return (
-    <section className="overflow-hidden rounded-[30px] border border-zinc-200/80 bg-white/90 p-5 lg:p-6 shadow-[0_24px_70px_-34px_rgba(15,23,42,0.34)] backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/90 dark:shadow-black/25">
-      <div>
-        <h2 className="dashboard-font-display text-xl font-semibold tracking-[-0.03em] text-zinc-950 xl:text-2xl dark:text-zinc-50">
-          Wallet Summary
-        </h2>
-      </div>
+    <section>
+      <h2 style={{ ...labelStyle, marginBottom: 12 }}>WALLET SUMMARY</h2>
 
-      <div className="mt-4 grid gap-3 lg:grid-cols-3">
-        {metrics.map((metric) => {
-          const Icon = metric.icon;
+      <div
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        aria-label="Wallet summary metrics"
+      >
+        {/* Petty Cash Balance */}
+        <div className="nxt-card p-4 flex flex-col gap-3" style={{ borderRadius: 12 }}>
+          <div className="flex items-center justify-between">
+            <p style={labelStyle}>PETTY CASH BALANCE</p>
+            <div style={{ ...iconWrapperStyle, backgroundColor: "#eff6ff" }}>
+              <Wallet className="h-4 w-4" style={{ color: "#2563eb" }} aria-hidden="true" />
+            </div>
+          </div>
+          <p style={{ ...valueStyle, color: getBalanceColor(summary.pettyCashBalance) }}>
+            {formatInr(summary.pettyCashBalance)}
+          </p>
+          <p style={subTextStyle}>{getBalanceMessage(summary.pettyCashBalance)}</p>
+        </div>
 
-          return (
-            <article
-              key={metric.label}
-              className={`relative overflow-hidden rounded-[22px] border p-4 xl:p-5 shadow-sm shadow-zinc-900/5 ${metric.cardClassName}`}
-            >
-              <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/60 to-transparent dark:from-white/5 dark:to-transparent" />
-              <div className="flex items-start justify-between gap-4">
-                <div className="relative">
-                  <p
-                    className={`text-[11px] font-semibold uppercase tracking-[0.2em] ${metric.labelClassName}`}
-                  >
-                    {metric.label}
-                  </p>
-                  <p
-                    className={`dashboard-font-display mt-3 text-lg font-semibold tracking-[-0.02em] xl:text-2xl ${metric.valueClassName}`}
-                  >
-                    {metric.value}
-                  </p>
-                </div>
-                <span
-                  className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border shadow-sm ${metric.iconClassName}`}
-                >
-                  <Icon className="h-5 w-5" aria-hidden="true" />
-                </span>
-              </div>
+        {/* Amount Received */}
+        <div className="nxt-card p-4 flex flex-col gap-3" style={{ borderRadius: 12 }}>
+          <div className="flex items-center justify-between">
+            <p style={labelStyle}>AMOUNT RECEIVED</p>
+            <div style={{ ...iconWrapperStyle, backgroundColor: "#f0fdf4" }}>
+              <ArrowDownCircle
+                className="h-4 w-4"
+                style={{ color: "#16a34a" }}
+                aria-hidden="true"
+              />
+            </div>
+          </div>
+          <p style={{ ...valueStyle, color: "#16a34a" }}>{formatInr(summary.amountReceived)}</p>
+          <div style={subTextStyle}>
+            <p>Petty Cash &middot; {formatInr(summary.totalPettyCashReceived)}</p>
+            <p>Reimbursements &middot; {formatInr(summary.totalReimbursements)}</p>
+          </div>
+        </div>
 
-              <div className="relative mt-3 border-t border-white/50 pt-3 dark:border-white/10">
-                <p
-                  className={`text-xs leading-5 xl:text-sm xl:leading-6 ${metric.supportingClassName}`}
-                >
-                  {metric.supportingText}
-                </p>
-              </div>
-            </article>
-          );
-        })}
+        {/* Amount Spent */}
+        <div className="nxt-card p-4 flex flex-col gap-3" style={{ borderRadius: 12 }}>
+          <div className="flex items-center justify-between">
+            <p style={labelStyle}>AMOUNT SPENT</p>
+            <div style={{ ...iconWrapperStyle, backgroundColor: "#fffbeb" }}>
+              <ArrowUpCircle className="h-4 w-4" style={{ color: "#d97706" }} aria-hidden="true" />
+            </div>
+          </div>
+          <p style={{ ...valueStyle, color: "#d97706" }}>{formatInr(summary.amountSpent)}</p>
+          <div style={subTextStyle}>
+            <p>Petty cash utilized</p>
+            <p>{formatClaimCount(summary.amountSpentClaimCount)}</p>
+          </div>
+        </div>
+
+        {/* Pending Reimbursement */}
+        <div className="nxt-card p-4 flex flex-col gap-3" style={{ borderRadius: 12 }}>
+          <div className="flex items-center justify-between">
+            <p style={labelStyle}>PENDING REIMBURSEMENT</p>
+            <div style={{ ...iconWrapperStyle, backgroundColor: "#fff7ed" }}>
+              <Clock className="h-4 w-4" style={{ color: "#ea580c" }} aria-hidden="true" />
+            </div>
+          </div>
+          <p
+            style={{
+              ...valueStyle,
+              color: hasPendingReimbursement ? "#ea580c" : "var(--muted-foreground)",
+            }}
+          >
+            {formatInr(summary.pendingReimbursementAmount)}
+          </p>
+          <div style={subTextStyle}>
+            {hasPendingReimbursement ? (
+              <>
+                <p>{summary.pendingReimbursementCount} claims in pipeline</p>
+                <p>Awaiting HOD or finance action</p>
+              </>
+            ) : (
+              <p>No claims in pipeline</p>
+            )}
+          </div>
+        </div>
       </div>
     </section>
   );

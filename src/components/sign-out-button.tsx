@@ -20,9 +20,14 @@ export function SignOutButton() {
         });
       }}
       disabled={isPending}
-      className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900 ${
+      className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
         isPending ? "opacity-50 cursor-not-allowed" : ""
       }`}
+      style={{
+        backgroundColor: "transparent",
+        borderColor: "var(--border)",
+        color: "var(--muted-foreground)",
+      }}
     >
       <LogOut className="h-4 w-4" aria-hidden="true" />
       <span>{isPending ? "Signing Out..." : "Sign Out"}</span>

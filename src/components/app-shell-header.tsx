@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { CircleUser } from "lucide-react";
 import { CompanyPolicyButton, type CompanyPolicyState } from "@/components/company-policy-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -60,38 +59,40 @@ export async function AppShellHeader({ currentEmail, actions }: AppShellHeaderPr
   const companyPolicyState =
     !actions && currentEmail ? toCompanyPolicyState(await getPolicyGateState()) : null;
 
-  const resolvedActions = actions ?? (
-    <>
-      {currentEmail ? <CompanyPolicyButton initialState={companyPolicyState} /> : null}
-      <SignOutButton />
-    </>
-  );
-
   return (
-    <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/85 backdrop-blur-xl dark:border-zinc-800/80 dark:bg-slate-950/88">
-      <div className="mx-auto flex h-18 max-w-400 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <Link href={ROUTES.dashboard} className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-200 bg-linear-to-br from-indigo-500 to-sky-500 shadow-sm shadow-indigo-500/20 dark:border-indigo-500/30 dark:shadow-indigo-500/10">
-            <NxtClaimLogo className="h-7 w-7" />
-          </div>
-          <div>
-            <p className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">NxtClaim V2</p>
-          </div>
-        </Link>
-
-        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-          {currentEmail ? (
-            <div className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">
-              <CircleUser
-                className="h-4 w-4 shrink-0 text-zinc-500 dark:text-zinc-400"
-                aria-hidden="true"
-              />
-              <span className="max-w-45 truncate sm:max-w-60">{currentEmail}</span>
-            </div>
-          ) : null}
-          <ThemeToggle />
-          {resolvedActions}
+    <header
+      className="flex h-14 items-center border-b px-6"
+      style={{
+        backgroundColor: "var(--card)",
+        borderColor: "var(--border)",
+      }}
+    >
+      <Link href={ROUTES.dashboard} className="flex items-center gap-2.5">
+        <div
+          className="flex h-8 w-8 items-center justify-center rounded-lg"
+          style={{ backgroundColor: "var(--accent)" }}
+        >
+          <NxtClaimLogo className="h-5 w-5" />
         </div>
+        <span style={{ fontWeight: 600, fontSize: 15, color: "var(--foreground)" }}>
+          NxtClaim V2
+        </span>
+      </Link>
+
+      <div className="ml-auto flex items-center gap-3">
+        {currentEmail ? (
+          <span style={{ fontSize: 13, color: "var(--muted-foreground)" }}>{currentEmail}</span>
+        ) : null}
+        <ThemeToggle />
+
+        <div className="h-5 w-px" style={{ backgroundColor: "var(--border)" }} aria-hidden="true" />
+
+        {actions ?? (
+          <>
+            <CompanyPolicyButton initialState={companyPolicyState} />
+            <SignOutButton />
+          </>
+        )}
       </div>
     </header>
   );

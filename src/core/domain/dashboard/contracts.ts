@@ -7,6 +7,9 @@ export type WalletSummaryTotals = {
   amountReceived: number;
   amountSpent: number;
   pettyCashBalance: number;
+  amountSpentClaimCount: number;
+  pendingReimbursementAmount: number;
+  pendingReimbursementCount: number;
 };
 
 export type DashboardRepository = {
@@ -16,6 +19,19 @@ export type DashboardRepository = {
       totalPettyCashSpent: number;
       totalReimbursements: number;
       pettyCashBalance: number;
+    } | null;
+    errorMessage: string | null;
+  }>;
+  getPendingReimbursementTotals(userId: string): Promise<{
+    data: {
+      pendingReimbursementAmount: number;
+      pendingReimbursementCount: number;
+    } | null;
+    errorMessage: string | null;
+  }>;
+  getAmountSpentClaimCount(userId: string): Promise<{
+    data: {
+      amountSpentClaimCount: number;
     } | null;
     errorMessage: string | null;
   }>;

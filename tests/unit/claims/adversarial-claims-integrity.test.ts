@@ -191,6 +191,19 @@ describe("Adversarial Service Integrity", () => {
         },
         errorMessage: null,
       })),
+      getPendingReimbursementTotals: jest.fn(async () => ({
+        data: {
+          pendingReimbursementAmount: 0,
+          pendingReimbursementCount: 0,
+        },
+        errorMessage: null,
+      })),
+      getAmountSpentClaimCount: jest.fn(async () => ({
+        data: {
+          amountSpentClaimCount: 0,
+        },
+        errorMessage: null,
+      })),
     };
 
     const service = new GetWalletSummaryService({ repository, logger: createLogger() });

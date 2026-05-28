@@ -20,6 +20,19 @@ function createRepository(overrides?: Partial<DashboardRepository>): DashboardRe
       },
       errorMessage: null,
     })),
+    getPendingReimbursementTotals: jest.fn(async () => ({
+      data: {
+        pendingReimbursementAmount: 450.75,
+        pendingReimbursementCount: 3,
+      },
+      errorMessage: null,
+    })),
+    getAmountSpentClaimCount: jest.fn(async () => ({
+      data: {
+        amountSpentClaimCount: 2,
+      },
+      errorMessage: null,
+    })),
     ...overrides,
   };
 }
@@ -40,7 +53,48 @@ describe("GetWalletSummaryService", () => {
       amountReceived: 1300,
       amountSpent: 800,
       pettyCashBalance: 200,
+      amountSpentClaimCount: 2,
+      pendingReimbursementAmount: 450.75,
+      pendingReimbursementCount: 3,
     });
+  });
+
+  test("returns error when pending reimbursement lookup fails", async () => {
+    const repository = createRepository({
+      getPendingReimbursementTotals: jest.fn(async () => ({
+        data: null,
+        errorMessage: "pending lookup failed",
+      })),
+    });
+    const logger = createLogger();
+    const service = new GetWalletSummaryService({ repository, logger });
+
+    const result = await service.execute("user-2");
+
+    expect(result).toEqual({ data: null, errorMessage: "pending lookup failed" });
+    expect(logger.error).toHaveBeenCalledWith(
+      "dashboard.wallet_summary.pending_failed",
+      expect.objectContaining({ userId: "user-2", errorMessage: "pending lookup failed" }),
+    );
+  });
+
+  test("returns error when amount spent claim count lookup fails", async () => {
+    const repository = createRepository({
+      getAmountSpentClaimCount: jest.fn(async () => ({
+        data: null,
+        errorMessage: "spent count failed",
+      })),
+    });
+    const logger = createLogger();
+    const service = new GetWalletSummaryService({ repository, logger });
+
+    const result = await service.execute("user-6");
+
+    expect(result).toEqual({ data: null, errorMessage: "spent count failed" });
+    expect(logger.error).toHaveBeenCalledWith(
+      "dashboard.wallet_summary.spent_count_failed",
+      expect.objectContaining({ userId: "user-6", errorMessage: "spent count failed" }),
+    );
   });
 
   test("returns error when repository fails", async () => {
@@ -84,6 +138,9 @@ describe("GetWalletSummaryService", () => {
       amountReceived: 0.01,
       amountSpent: 0,
       pettyCashBalance: 0.01,
+      amountSpentClaimCount: 2,
+      pendingReimbursementAmount: 450.75,
+      pendingReimbursementCount: 3,
     });
   });
 
@@ -112,6 +169,9 @@ describe("GetWalletSummaryService", () => {
       amountReceived: 10000000.01,
       amountSpent: 9999999,
       pettyCashBalance: 1,
+      amountSpentClaimCount: 2,
+      pendingReimbursementAmount: 450.75,
+      pendingReimbursementCount: 3,
     });
   });
 
@@ -140,6 +200,9 @@ describe("GetWalletSummaryService", () => {
       amountReceived: 1300,
       amountSpent: 1200,
       pettyCashBalance: -200,
+      amountSpentClaimCount: 2,
+      pendingReimbursementAmount: 450.75,
+      pendingReimbursementCount: 3,
     });
   });
 });

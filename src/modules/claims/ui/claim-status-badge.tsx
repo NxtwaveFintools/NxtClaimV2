@@ -3,6 +3,15 @@ import { Badge } from "@/components/ui/badge";
 
 export const CLAIM_STATUS_COLUMN_WIDTH_CLASSES = "w-52 min-w-52 lg:w-56 lg:min-w-56";
 
+const STATUS_DISPLAY_LABELS: Partial<Record<ClaimStatus | DbClaimStatus, string>> = {
+  "Finance Approved - Payment under process": "Payment Processing",
+  "Payment Done - Closed": "Paid",
+  "HOD approved - Awaiting finance approval": "Awaiting Finance",
+  "Submitted - Awaiting HOD approval": "Awaiting HOD",
+  "Rejected - Resubmission Allowed": "Rejected",
+  "Rejected - Resubmission Not Allowed": "Rejected",
+};
+
 type ClaimStatusBadgeProps = {
   status: ClaimStatus | DbClaimStatus;
   fullWidth?: boolean;
@@ -10,12 +19,11 @@ type ClaimStatusBadgeProps = {
 };
 
 function getStatusClasses(status: ClaimStatus | DbClaimStatus): string {
-  if (status === "Rejected - Resubmission Not Allowed") {
+  if (
+    status === "Rejected - Resubmission Not Allowed" ||
+    status === "Rejected - Resubmission Allowed"
+  ) {
     return "border-rose-200 bg-rose-50/80 text-rose-700 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/50";
-  }
-
-  if (status === "Rejected - Resubmission Allowed") {
-    return "border-orange-200 bg-orange-50/80 text-orange-700 dark:border-orange-800/60 dark:bg-orange-900/20 dark:text-orange-300";
   }
 
   if (
@@ -26,7 +34,10 @@ function getStatusClasses(status: ClaimStatus | DbClaimStatus): string {
     return "border-sky-300 bg-sky-50/80 text-sky-800 dark:border-sky-700/60 dark:bg-sky-900/30 dark:text-sky-200";
   }
 
-  if (status === "HOD approved - Awaiting finance approval") {
+  if (
+    status === "HOD approved - Awaiting finance approval" ||
+    status === "HOD approved - Awaiting finance action"
+  ) {
     return "border-amber-300 bg-amber-50/80 text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/30 dark:text-amber-200";
   }
 
@@ -48,13 +59,14 @@ export function ClaimStatusBadge({
 }: ClaimStatusBadgeProps) {
   const layoutClasses = fullWidth
     ? "min-h-11 w-full items-center justify-center px-3 py-2 text-center text-xs font-semibold leading-4 whitespace-normal"
-    : "items-center whitespace-nowrap px-2.5 py-1 text-xs font-medium";
+    : "inline-flex items-center max-w-[170px] truncate whitespace-nowrap overflow-hidden px-3 py-1 text-xs font-medium";
 
   return (
     <Badge
-      className={`rounded-2xl ${layoutClasses} ${getStatusClasses(status)} ${className}`.trim()}
+      title={status}
+      className={`rounded-full ${layoutClasses} ${getStatusClasses(status)} ${className}`.trim()}
     >
-      {status}
+      {STATUS_DISPLAY_LABELS[status] ?? status}
     </Badge>
   );
 }

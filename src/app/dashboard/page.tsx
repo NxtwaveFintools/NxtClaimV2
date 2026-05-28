@@ -1,36 +1,44 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import {
-  BarChart3,
-  CalendarDays,
-  CirclePlus,
-  FileText,
-  LayoutDashboard,
-  Settings,
-} from "lucide-react";
+import { CalendarDays, CirclePlus, FileText, Settings } from "lucide-react";
 import { ROUTES } from "@/core/config/route-registry";
-import { AppShellHeader } from "@/components/app-shell-header";
+import { AppLayout } from "@/components/app-layout";
 import { PolicyGate } from "@/components/layout/PolicyGate";
 import { RouterLink } from "@/components/ui/router-link";
 import { DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS } from "@/core/constants/statuses";
 import { resolveDashboardAnalyticsScope } from "@/core/domain/dashboard/resolve-analytics-scope";
 import { logger } from "@/core/infra/logging/logger";
 import { GetWalletSummaryService } from "@/core/domain/dashboard/GetWalletSummaryService";
+import { GetMyClaimsPaginatedService } from "@/core/domain/claims/GetMyClaimsPaginatedService";
 import { SupabaseDashboardRepository } from "@/modules/dashboard/repositories/SupabaseDashboardRepository";
 import { WalletSummary } from "@/modules/dashboard/ui/wallet-summary";
+import { RecentClaims, type RecentClaimRecord } from "@/modules/dashboard/ui/recent-claims";
 import { isAdmin } from "@/modules/admin/server/is-admin";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
+import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
 import { isFinancePendingApprovalsViewer } from "@/modules/claims/server/get-pending-approvals-viewer-context";
 import { getPolicyGateState } from "@/modules/policies/server/get-policy-gate-state";
 import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
 import { formatDate } from "@/lib/format";
+import {
+  getUserFirstName,
+  getUserDisplayName,
+  getUserInitials,
+  getEmailDomain,
+} from "@/lib/user-name";
+import type { CompanyPolicyState } from "@/components/company-policy-button";
 
 export const dynamic = "force-dynamic";
 
 const dashboardRepository = new SupabaseDashboardRepository();
 const getWalletSummaryService = new GetWalletSummaryService({
   repository: dashboardRepository,
+  logger,
+});
+const claimRepository = new SupabaseClaimRepository();
+const getMyClaimsPaginatedService = new GetMyClaimsPaginatedService({
+  repository: claimRepository,
   logger,
 });
 
@@ -43,7 +51,7 @@ const indiaHourFormatter = new Intl.DateTimeFormat("en-IN", {
 type DashboardNavItem = {
   href: string;
   label: string;
-  icon: typeof LayoutDashboard;
+  iconName: string;
   isActive: boolean;
 };
 
@@ -61,19 +69,19 @@ function buildNavigationItems(input: {
     {
       href: ROUTES.dashboard,
       label: "Dashboard",
-      icon: LayoutDashboard,
+      iconName: "LayoutDashboard",
       isActive: true,
     },
     {
       href: ROUTES.claims.new,
       label: "New Claim",
-      icon: CirclePlus,
+      iconName: "CirclePlus",
       isActive: false,
     },
     {
       href: ROUTES.claims.myClaims,
       label: "Claims",
-      icon: FileText,
+      iconName: "FileText",
       isActive: false,
     },
     ...(input.isFinanceUser
@@ -81,7 +89,7 @@ function buildNavigationItems(input: {
           {
             href: buildHodPendingNavHref(),
             label: "HOD Pending",
-            icon: CalendarDays,
+            iconName: "CalendarDays",
             isActive: false,
           },
         ]
@@ -91,7 +99,7 @@ function buildNavigationItems(input: {
           {
             href: ROUTES.dashboardAnalytics,
             label: "Analytics",
-            icon: BarChart3,
+            iconName: "BarChart3",
             isActive: false,
           },
         ]
@@ -101,7 +109,7 @@ function buildNavigationItems(input: {
           {
             href: ROUTES.admin.settings,
             label: "System Settings",
-            icon: Settings,
+            iconName: "Settings",
             isActive: false,
           },
         ]
@@ -109,50 +117,146 @@ function buildNavigationItems(input: {
   ];
 }
 
+function toCompanyPolicyState(
+  gateState: Awaited<ReturnType<typeof getPolicyGateState>>,
+): CompanyPolicyState {
+  return {
+    policy: gateState.policy
+      ? {
+          id: gateState.policy.id,
+          versionName: gateState.policy.versionName,
+          fileUrl: gateState.policy.fileUrl,
+          createdAt: gateState.policy.createdAt,
+        }
+      : null,
+    accepted: gateState.accepted,
+    acceptedAt: gateState.acceptedAt,
+    message: gateState.errorMessage,
+  };
+}
+
 function DashboardSkeleton() {
   return (
-    <div className="relative mx-auto flex max-w-400 gap-5 px-4 py-5 sm:px-6 lg:px-8">
-      <aside className="hidden lg:block lg:w-56 xl:w-66">
-        <div className="flex h-[calc(100vh-7rem)] flex-col overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/90 p-4 dark:border-zinc-800 dark:bg-zinc-900/90">
-          <div className="space-y-2">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div
-                key={`dashboard-nav-skeleton-${index}`}
-                className="shimmer-sweep h-14 w-full rounded-2xl bg-zinc-200 dark:bg-gray-800/40"
-              />
-            ))}
+    <div className="flex min-h-screen" style={{ backgroundColor: "var(--background)" }}>
+      <aside
+        className="fixed left-0 top-0 bottom-0 flex flex-col"
+        style={{
+          width: 240,
+          backgroundColor: "var(--card)",
+          borderRight: "1px solid var(--border)",
+        }}
+      >
+        <div
+          className="flex h-14 shrink-0 items-center px-4"
+          style={{ borderBottom: "1px solid var(--border)" }}
+        >
+          <div
+            className="shimmer-sweep h-5 w-5 rounded"
+            style={{ backgroundColor: "var(--background-secondary)" }}
+          />
+          <div
+            className="shimmer-sweep ml-2.5 h-4 w-24 rounded-md"
+            style={{ backgroundColor: "var(--background-secondary)" }}
+          />
+        </div>
+        <div className="flex-1 space-y-1 px-2 pt-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div
+              key={`nav-skeleton-${index}`}
+              className="shimmer-sweep h-10 rounded-md"
+              style={{ margin: "2px 0", backgroundColor: "var(--background-secondary)" }}
+            />
+          ))}
+        </div>
+        <div
+          className="flex h-16 shrink-0 items-center px-3"
+          style={{ borderTop: "1px solid var(--border)" }}
+        >
+          <div
+            className="shimmer-sweep h-8 w-8 rounded-full"
+            style={{ backgroundColor: "var(--background-secondary)" }}
+          />
+          <div className="ml-2.5 flex-1 space-y-1.5">
+            <div
+              className="shimmer-sweep h-3 w-20 rounded-md"
+              style={{ backgroundColor: "var(--background-secondary)" }}
+            />
+            <div
+              className="shimmer-sweep h-2.5 w-28 rounded-md"
+              style={{ backgroundColor: "var(--background-secondary)" }}
+            />
           </div>
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 space-y-4 xl:space-y-6">
-        <section className="overflow-hidden rounded-4xl border border-zinc-200/80 bg-white/82 p-6 dark:border-zinc-800 dark:bg-zinc-900/82">
-          <div className="space-y-3">
-            <div className="shimmer-sweep h-10 w-72 max-w-full rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-            <div className="shimmer-sweep h-4 w-full rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-            <div className="shimmer-sweep h-4 w-3/4 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-            <div className="mt-4 flex gap-3">
-              <div className="shimmer-sweep h-10 w-32 rounded-xl bg-zinc-200 dark:bg-gray-800/40" />
-              <div className="shimmer-sweep h-10 w-32 rounded-xl bg-zinc-200 dark:bg-gray-800/40" />
-            </div>
-          </div>
-        </section>
+      <main
+        style={{
+          marginLeft: 240,
+          padding: 32,
+          backgroundColor: "var(--background)",
+          minHeight: "100vh",
+        }}
+      >
+        <div className="space-y-2">
+          <div
+            className="shimmer-sweep h-7 w-64 rounded-md"
+            style={{ backgroundColor: "var(--background-secondary)" }}
+          />
+          <div
+            className="shimmer-sweep h-4 w-full max-w-[520px] rounded-md"
+            style={{ backgroundColor: "var(--background-secondary)" }}
+          />
+          <div
+            className="shimmer-sweep h-3 w-48 rounded-md"
+            style={{ backgroundColor: "var(--background-secondary)" }}
+          />
+        </div>
+        <div className="mt-5 flex gap-2">
+          <div
+            className="shimmer-sweep h-9 w-28 rounded-md"
+            style={{ backgroundColor: "var(--background-secondary)" }}
+          />
+          <div
+            className="shimmer-sweep h-9 w-28 rounded-md"
+            style={{ backgroundColor: "var(--background-secondary)" }}
+          />
+        </div>
 
-        <section className="rounded-[30px] border border-zinc-200/80 bg-white/90 p-5 dark:border-zinc-800 dark:bg-zinc-900/90">
-          <div className="shimmer-sweep h-8 w-56 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-          <div className="mt-4 grid gap-3 lg:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <div
-                key={`dashboard-wallet-skeleton-${index}`}
-                className="space-y-3 rounded-2xl border border-zinc-200 p-5 dark:border-zinc-800"
-              >
-                <div className="shimmer-sweep h-4 w-24 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-                <div className="shimmer-sweep h-8 w-36 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-                <div className="shimmer-sweep h-3 w-full rounded-md bg-zinc-200 dark:bg-gray-800/40" />
+        <div className="mb-8 mt-8" />
+
+        <div
+          className="shimmer-sweep mb-4 h-4 w-32 rounded-md"
+          style={{ backgroundColor: "var(--background-secondary)" }}
+        />
+
+        <div className="grid grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div
+              key={`wallet-skeleton-${index}`}
+              className="rounded-lg border p-5"
+              style={{ backgroundColor: "var(--card)", borderColor: "var(--border)" }}
+            >
+              <div className="flex items-start justify-between">
+                <div
+                  className="shimmer-sweep h-4 w-24 rounded-md"
+                  style={{ backgroundColor: "var(--background-secondary)" }}
+                />
+                <div
+                  className="shimmer-sweep h-8 w-8 rounded-md"
+                  style={{ backgroundColor: "var(--background-secondary)" }}
+                />
               </div>
-            ))}
-          </div>
-        </section>
+              <div
+                className="shimmer-sweep mt-3 h-8 w-32 rounded-md"
+                style={{ backgroundColor: "var(--background-secondary)" }}
+              />
+              <div
+                className="shimmer-sweep mt-2 h-3 w-full rounded-md"
+                style={{ backgroundColor: "var(--background-secondary)" }}
+              />
+            </div>
+          ))}
+        </div>
       </main>
     </div>
   );
@@ -171,8 +275,132 @@ async function DashboardPageContent({
   greeting: string;
   currentDateLabel: string;
 }) {
-  const [walletResult, analyticsViewerContextResult, isFinanceUser] = await Promise.all([
+  const [walletResult, recentClaimsResult] = await Promise.all([
     getWalletSummaryService.execute(userId),
+    getMyClaimsPaginatedService.execute({
+      userId,
+      cursor: null,
+      limit: 5,
+    }),
+  ]);
+  const walletSummary = walletResult.data ?? GetWalletSummaryService.empty();
+  const recentClaims: RecentClaimRecord[] = recentClaimsResult.data.map((claim) => ({
+    id: claim.id,
+    claimId: claim.id,
+    date: claim.submittedAt,
+    category: claim.categoryName ?? claim.typeOfClaim ?? "Claim",
+    amount: claim.totalAmount,
+    status: claim.status,
+  }));
+
+  return (
+    <>
+      <section className="mb-4">
+        <h1 style={{ fontSize: 24, fontWeight: 600, color: "var(--foreground)" }}>
+          {greeting}, {getUserFirstName(userEmail)}
+        </h1>
+
+        <p
+          className="mt-1"
+          style={{
+            fontSize: 15,
+            fontWeight: 400,
+            color: "var(--muted-foreground)",
+          }}
+        >
+          Manage submissions, approvals, and payment progress from a single finance workspace with a
+          cleaner, more focused review surface.
+        </p>
+
+        <div className="mt-2 flex items-center gap-1.5">
+          <CalendarDays
+            className="h-3.5 w-3.5 shrink-0"
+            aria-hidden="true"
+            style={{ color: "var(--muted-foreground)" }}
+          />
+          <span style={{ fontSize: 14, color: "var(--muted-foreground)" }}>{currentDateLabel}</span>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link
+            href={ROUTES.claims.new}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md px-4 font-medium text-white transition-colors hover:opacity-90"
+            style={{ backgroundColor: "var(--accent)", fontSize: 14 }}
+          >
+            <CirclePlus className="h-3.5 w-3.5" aria-hidden="true" />
+            New Claim
+          </Link>
+
+          <RouterLink
+            href={ROUTES.claims.myClaims}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border px-4 font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            style={{
+              backgroundColor: "transparent",
+              borderColor: "var(--border)",
+              color: "var(--muted-foreground)",
+              fontSize: 14,
+            }}
+          >
+            <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+            Claims
+          </RouterLink>
+
+          {isAdminUser ? (
+            <Link
+              href={ROUTES.admin.settings}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border px-4 font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              style={{
+                backgroundColor: "transparent",
+                borderColor: "var(--border)",
+                color: "var(--muted-foreground)",
+                fontSize: 14,
+              }}
+            >
+              <Settings className="h-3.5 w-3.5" aria-hidden="true" />
+              System Settings
+            </Link>
+          ) : null}
+        </div>
+      </section>
+
+      {walletResult.errorMessage ? (
+        <p
+          className="mb-4 rounded-md border px-4 py-3"
+          style={{
+            borderColor: "#fecaca",
+            backgroundColor: "#fef2f2",
+            color: "#b91c1c",
+            fontSize: 15,
+          }}
+        >
+          Unable to load wallet summary. {walletResult.errorMessage}
+        </p>
+      ) : null}
+
+      <WalletSummary summary={walletSummary} />
+
+      <div className="mt-6">
+        <RecentClaims claims={recentClaims} errorMessage={recentClaimsResult.errorMessage} />
+      </div>
+    </>
+  );
+}
+
+export default async function DashboardPage() {
+  const [currentUserResult, isAdminUser, policyGateState] = await Promise.all([
+    getCachedCurrentUser(),
+    isAdmin(),
+    getPolicyGateState(),
+  ]);
+
+  if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
+    redirect(ROUTES.login);
+  }
+
+  const userId = currentUserResult.user.id;
+  const userEmail = currentUserResult.user.email ?? "Unknown User";
+
+  const [analyticsViewerContextResult, isFinanceUser] = await Promise.all([
     dashboardRepository.getAnalyticsViewerContext(userId),
     isFinancePendingApprovalsViewer(userId),
   ]);
@@ -192,176 +420,43 @@ async function DashboardPageContent({
     isAdminUser,
     isFinanceUser,
   });
-  const walletSummary = walletResult.data ?? GetWalletSummaryService.empty();
 
-  return (
-    <div className="relative mx-auto flex max-w-400 gap-5 px-4 py-5 sm:px-6 lg:px-8">
-      <aside className="hidden lg:sticky lg:top-24 lg:block lg:h-[calc(100vh-7rem)] lg:w-56 xl:w-66">
-        <div className="flex h-full flex-col overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/90 p-4 shadow-[0_20px_60px_-30px_rgba(15,23,42,0.28)] backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/90 dark:shadow-black/20">
-          <nav className="space-y-2" aria-label="Dashboard navigation">
-            {navigationItems.map((item) => {
-              const Icon = item.icon;
+  const displayName = getUserDisplayName(userEmail);
+  const emailDomain = getEmailDomain(userEmail);
+  const avatarInitial = getUserInitials(userEmail);
 
-              return (
-                <RouterLink
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-2.5 rounded-2xl border px-3 py-2.5 transition-all duration-200 xl:gap-3 xl:px-4 xl:py-3 ${
-                    item.isActive
-                      ? "border-indigo-200 bg-linear-to-r from-indigo-50 to-sky-50 text-indigo-700 shadow-sm dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200"
-                      : "border-transparent text-zinc-700 hover:border-zinc-200 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/70"
-                  }`}
-                >
-                  <span
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                      item.isActive
-                        ? "bg-white text-indigo-600 shadow-sm dark:bg-slate-950 dark:text-indigo-300"
-                        : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0 text-sm font-semibold">{item.label}</span>
-                </RouterLink>
-              );
-            })}
-          </nav>
-        </div>
-      </aside>
-
-      <main className="min-w-0 flex-1 space-y-4 xl:space-y-6">
-        <section className="relative overflow-hidden rounded-4xl border border-zinc-200/80 bg-white/82 shadow-[0_30px_80px_-36px_rgba(15,23,42,0.35)] backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/82 dark:shadow-black/25">
-          <div className="pointer-events-none absolute inset-0 bg-linear-to-br from-white/65 via-indigo-50/85 to-sky-50/90 dark:from-zinc-900/88 dark:via-indigo-950/25 dark:to-sky-950/20" />
-          <div className="pointer-events-none absolute -left-12 top-2 h-44 w-44 rounded-full bg-indigo-300/30 blur-3xl dark:bg-indigo-500/16" />
-          <div className="pointer-events-none absolute bottom-0 left-1/3 h-32 w-32 rounded-full bg-violet-200/24 blur-3xl dark:bg-violet-500/10" />
-          <div className="pointer-events-none absolute right-10 top-6 h-52 w-52 rounded-full bg-sky-200/40 blur-3xl dark:bg-sky-500/12" />
-          <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-linear-to-r from-transparent via-white/90 to-transparent dark:via-white/20" />
-          <div className="relative p-5 lg:p-6 xl:p-8">
-            <div className="relative">
-              <h2 className="dashboard-font-display text-xl font-semibold tracking-[-0.02em] text-zinc-950 lg:text-2xl xl:text-3xl dark:text-zinc-50">
-                {greeting}, {userEmail}
-              </h2>
-
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-                Manage submissions, approvals, and payment progress from a single finance workspace
-                with a cleaner, more focused review surface.
-              </p>
-
-              <div className="mt-6 flex flex-wrap gap-3">
-                <div className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-600 shadow-sm shadow-zinc-900/5 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:shadow-none">
-                  <CalendarDays
-                    className="h-4 w-4 text-zinc-500 dark:text-zinc-400"
-                    aria-hidden="true"
-                  />
-                  <span>{currentDateLabel}</span>
-                </div>
-              </div>
-
-              <div className="mt-5 flex flex-wrap gap-2.5">
-                <Link
-                  href={ROUTES.claims.new}
-                  className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition-colors hover:bg-indigo-500"
-                >
-                  <CirclePlus className="h-4 w-4" aria-hidden="true" />
-                  New Claim
-                </Link>
-
-                <RouterLink
-                  href={ROUTES.claims.myClaims}
-                  className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900"
-                >
-                  <FileText className="h-4 w-4" aria-hidden="true" />
-                  Claims
-                </RouterLink>
-
-                {isAdminUser ? (
-                  <Link
-                    href={ROUTES.admin.settings}
-                    className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900"
-                  >
-                    <Settings className="h-4 w-4" aria-hidden="true" />
-                    System Settings
-                  </Link>
-                ) : null}
-              </div>
-
-              <div className="mt-6 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-                {navigationItems.map((item) => {
-                  const Icon = item.icon;
-
-                  return (
-                    <RouterLink
-                      key={`mobile-${item.href}`}
-                      href={item.href}
-                      className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
-                        item.isActive
-                          ? "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200"
-                          : "border-zinc-200 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
-                      }`}
-                    >
-                      <Icon className="h-4 w-4" aria-hidden="true" />
-                      {item.label}
-                    </RouterLink>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {walletResult.errorMessage ? (
-          <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200">
-            Unable to load wallet summary. {walletResult.errorMessage}
-          </p>
-        ) : null}
-
-        <WalletSummary summary={walletSummary} />
-      </main>
-    </div>
-  );
-}
-
-export default async function DashboardPage() {
-  const [currentUserResult, isAdminUser, policyGateState] = await Promise.all([
-    getCachedCurrentUser(),
-    isAdmin(),
-    getPolicyGateState(),
-  ]);
-
-  if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
-    redirect(ROUTES.login);
-  }
-
-  const userEmail = currentUserResult.user.email ?? "Unknown User";
   const currentDate = new Date();
   const currentHour = Number(indiaHourFormatter.format(currentDate));
   const greeting =
     currentHour < 12 ? "Good morning" : currentHour < 18 ? "Good afternoon" : "Good evening";
   const currentDateLabel = formatDate(currentDate);
 
+  const companyPolicyState = toCompanyPolicyState(policyGateState);
+
   return (
     <PolicyGate initialState={policyGateState}>
       <div
-        className={`${pageBodyFont.variable} ${pageDisplayFont.variable} dashboard-font-body nxt-page-bg relative isolate min-h-screen`}
+        className={`${pageBodyFont.variable} ${pageDisplayFont.variable} dashboard-font-body`}
+        style={{ minHeight: "100vh", backgroundColor: "var(--background)" }}
       >
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute inset-0 bg-linear-to-b from-white/15 via-transparent to-transparent dark:from-white/0 dark:via-transparent dark:to-transparent" />
-          <div className="absolute -left-16 top-14 h-96 w-96 rounded-full bg-indigo-200/32 blur-3xl dark:bg-indigo-500/10" />
-          <div className="absolute left-1/3 top-24 h-80 w-80 rounded-full bg-violet-200/18 blur-3xl dark:bg-violet-500/8" />
-          <div className="absolute right-[-12%] top-0 h-104 w-104 rounded-full bg-sky-200/28 blur-3xl dark:bg-sky-500/10" />
-        </div>
-
-        <AppShellHeader currentEmail={userEmail} />
-
-        <Suspense fallback={<DashboardSkeleton />}>
-          <DashboardPageContent
-            userId={currentUserResult.user.id}
-            userEmail={userEmail}
-            isAdminUser={isAdminUser}
-            greeting={greeting}
-            currentDateLabel={currentDateLabel}
-          />
-        </Suspense>
+        <AppLayout
+          navigationItems={navigationItems}
+          userEmail={userEmail}
+          avatarInitial={avatarInitial}
+          displayName={displayName}
+          emailDomain={emailDomain}
+          companyPolicyState={companyPolicyState}
+        >
+          <Suspense fallback={<DashboardSkeleton />}>
+            <DashboardPageContent
+              userId={userId}
+              userEmail={userEmail}
+              isAdminUser={isAdminUser}
+              greeting={greeting}
+              currentDateLabel={currentDateLabel}
+            />
+          </Suspense>
+        </AppLayout>
       </div>
     </PolicyGate>
   );

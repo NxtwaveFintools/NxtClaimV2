@@ -10,6 +10,17 @@ type WalletQueryBuilder = {
   maybeSingle: jest.Mock;
 };
 
+type PendingQueryResult = {
+  data: Array<{ amount: number | string | null }> | null;
+  error: { message: string } | null;
+};
+
+type PendingQueryBuilder = PromiseLike<PendingQueryResult> & {
+  eq: jest.Mock;
+  ilike?: jest.Mock;
+  in: jest.Mock;
+};
+
 const mockFrom = jest.fn();
 const mockGetServiceRoleSupabaseClient = jest.fn();
 
@@ -134,6 +145,103 @@ describe("SupabaseDashboardRepository.getWalletTotals", () => {
       totalPettyCashSpent: 10,
       totalReimbursements: 20,
       pettyCashBalance: 20,
+    });
+  });
+});
+
+describe("SupabaseDashboardRepository.getAmountSpentClaimCount", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("counts active paid petty cash claims for the beneficiary", async () => {
+    const spentBuilder: PendingQueryBuilder = {
+      eq: jest.fn(() => spentBuilder),
+      ilike: jest.fn(() => spentBuilder),
+      in: jest.fn(() => spentBuilder),
+      then: jest.fn((resolve, reject) =>
+        Promise.resolve({
+          data: [{ amount: "100.50" }, { amount: "25" }],
+          error: null,
+        }).then(resolve, reject),
+      ),
+    };
+    const select = jest.fn(() => spentBuilder);
+
+    mockFrom.mockReturnValue({ select });
+    mockGetServiceRoleSupabaseClient.mockReturnValue({
+      from: mockFrom,
+    });
+
+    const repository = new SupabaseDashboardRepository();
+    const result = await repository.getAmountSpentClaimCount(
+      "11111111-1111-1111-1111-111111111111",
+    );
+
+    expect(mockFrom).toHaveBeenCalledWith("vw_enterprise_claims_dashboard");
+    expect(select).toHaveBeenCalledWith("amount");
+    expect(spentBuilder.eq).toHaveBeenCalledWith("is_active", true);
+    expect(spentBuilder.eq).toHaveBeenCalledWith(
+      "on_behalf_of_id",
+      "11111111-1111-1111-1111-111111111111",
+    );
+    expect(spentBuilder.eq).toHaveBeenCalledWith("status", "Payment Done - Closed");
+    expect(spentBuilder.ilike).toHaveBeenCalledWith("type_of_claim", "petty cash");
+    expect(result).toEqual({
+      data: {
+        amountSpentClaimCount: 2,
+      },
+      errorMessage: null,
+    });
+  });
+});
+
+describe("SupabaseDashboardRepository.getPendingReimbursementTotals", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("sums pending reimbursement amount and count for active beneficiary claims", async () => {
+    const pendingBuilder: PendingQueryBuilder = {
+      eq: jest.fn(() => pendingBuilder),
+      in: jest.fn(() => pendingBuilder),
+      then: jest.fn((resolve, reject) =>
+        Promise.resolve({
+          data: [{ amount: "100.50" }, { amount: "25" }, { amount: null }],
+          error: null,
+        }).then(resolve, reject),
+      ),
+    };
+    const select = jest.fn(() => pendingBuilder);
+
+    mockFrom.mockReturnValue({ select });
+    mockGetServiceRoleSupabaseClient.mockReturnValue({
+      from: mockFrom,
+    });
+
+    const repository = new SupabaseDashboardRepository();
+    const result = await repository.getPendingReimbursementTotals(
+      "11111111-1111-1111-1111-111111111111",
+    );
+
+    expect(mockFrom).toHaveBeenCalledWith("vw_enterprise_claims_dashboard");
+    expect(select).toHaveBeenCalledWith("amount");
+    expect(pendingBuilder.eq).toHaveBeenCalledWith("is_active", true);
+    expect(pendingBuilder.eq).toHaveBeenCalledWith(
+      "on_behalf_of_id",
+      "11111111-1111-1111-1111-111111111111",
+    );
+    expect(pendingBuilder.in).toHaveBeenCalledWith("status", [
+      "Submitted - Awaiting HOD approval",
+      "HOD approved - Awaiting finance approval",
+      "Finance Approved - Payment under process",
+    ]);
+    expect(result).toEqual({
+      data: {
+        pendingReimbursementAmount: 125.5,
+        pendingReimbursementCount: 3,
+      },
+      errorMessage: null,
     });
   });
 });

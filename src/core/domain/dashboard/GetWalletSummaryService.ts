@@ -16,6 +16,9 @@ const EMPTY_WALLET_TOTALS: WalletSummaryTotals = {
   amountReceived: 0,
   amountSpent: 0,
   pettyCashBalance: 0,
+  amountSpentClaimCount: 0,
+  pendingReimbursementAmount: 0,
+  pendingReimbursementCount: 0,
 };
 
 class LedgerIntegrityError extends Error {
@@ -47,7 +50,11 @@ export class GetWalletSummaryService {
   async execute(
     userId: string,
   ): Promise<{ data: WalletSummaryTotals | null; errorMessage: string | null }> {
-    const result = await this.repository.getWalletTotals(userId);
+    const [result, pendingResult, spentCountResult] = await Promise.all([
+      this.repository.getWalletTotals(userId),
+      this.repository.getPendingReimbursementTotals(userId),
+      this.repository.getAmountSpentClaimCount(userId),
+    ]);
 
     if (result.errorMessage || !result.data) {
       this.logger.error("dashboard.wallet_summary.failed", {
@@ -58,6 +65,30 @@ export class GetWalletSummaryService {
       return {
         data: null,
         errorMessage: result.errorMessage ?? "Unable to compute wallet summary.",
+      };
+    }
+
+    if (pendingResult.errorMessage || !pendingResult.data) {
+      this.logger.error("dashboard.wallet_summary.pending_failed", {
+        userId,
+        errorMessage: pendingResult.errorMessage,
+      });
+
+      return {
+        data: null,
+        errorMessage: pendingResult.errorMessage ?? "Unable to compute pending reimbursement.",
+      };
+    }
+
+    if (spentCountResult.errorMessage || !spentCountResult.data) {
+      this.logger.error("dashboard.wallet_summary.spent_count_failed", {
+        userId,
+        errorMessage: spentCountResult.errorMessage,
+      });
+
+      return {
+        data: null,
+        errorMessage: spentCountResult.errorMessage ?? "Unable to compute spent claim count.",
       };
     }
 
@@ -86,6 +117,7 @@ export class GetWalletSummaryService {
     const amountReceived = roundCurrency(totalPettyCashReceived + totalReimbursements);
     const amountSpent = totalPettyCashSpent;
     const pettyCashBalance = roundCurrency(result.data.pettyCashBalance);
+    const pendingReimbursementAmount = roundCurrency(pendingResult.data.pendingReimbursementAmount);
 
     const summary: WalletSummaryTotals = {
       totalPettyCashReceived,
@@ -94,6 +126,9 @@ export class GetWalletSummaryService {
       amountReceived,
       amountSpent,
       pettyCashBalance,
+      amountSpentClaimCount: spentCountResult.data.amountSpentClaimCount,
+      pendingReimbursementAmount,
+      pendingReimbursementCount: pendingResult.data.pendingReimbursementCount,
     };
 
     return { data: summary, errorMessage: null };

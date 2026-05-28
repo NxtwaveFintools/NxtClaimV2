@@ -1,3 +1,4 @@
+import { PAYMENT_MODE_PETTY_CASH } from "@/core/constants/payment-modes";
 import {
   DB_CLAIM_STATUSES,
   DB_FINANCE_APPROVED_PAYMENT_UNDER_PROCESS_STATUS,
@@ -103,6 +104,14 @@ type LegacyAnalyticsClaimQueryRow = {
   hod_action_date: string | null;
 };
 
+type PendingReimbursementRow = {
+  amount: number | string | null;
+};
+
+type AmountSpentClaimRow = {
+  amount: number | string | null;
+};
+
 type AnalyticsStatusBreakdownJsonRow = {
   status: string;
   count: number | string | null;
@@ -173,6 +182,11 @@ const PENDING_STATUSES: DbClaimStatus[] = [
   DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
   DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
 ];
+const PENDING_REIMBURSEMENT_STATUSES: DbClaimStatus[] = [
+  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
+  DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
+  DB_FINANCE_APPROVED_PAYMENT_UNDER_PROCESS_STATUS,
+];
 
 function toNumber(value: number | string | null | undefined): number {
   if (typeof value === "number") {
@@ -189,6 +203,10 @@ function toNumber(value: number | string | null | undefined): number {
 
 function toInteger(value: number | string | null | undefined): number {
   return Math.max(0, Math.trunc(toNumber(value)));
+}
+
+function roundCurrency(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 function isDbClaimStatus(value: string): value is DbClaimStatus {
@@ -501,6 +519,70 @@ export class SupabaseDashboardRepository
         totalPettyCashSpent: toNumber(row.total_petty_cash_spent),
         totalReimbursements: toNumber(row.total_reimbursements_received),
         pettyCashBalance: toNumber(row.petty_cash_balance),
+      },
+      errorMessage: null,
+    };
+  }
+
+  async getPendingReimbursementTotals(userId: string): Promise<{
+    data: {
+      pendingReimbursementAmount: number;
+      pendingReimbursementCount: number;
+    } | null;
+    errorMessage: string | null;
+  }> {
+    const client = getServiceRoleSupabaseClient();
+
+    const { data, error } = await runWithSingleRetry<PendingReimbursementRow[] | null>(async () =>
+      client
+        .from("vw_enterprise_claims_dashboard")
+        .select("amount")
+        .eq("is_active", true)
+        .eq("on_behalf_of_id", userId)
+        .in("status", PENDING_REIMBURSEMENT_STATUSES),
+    );
+
+    if (error) {
+      return { data: null, errorMessage: error.message };
+    }
+
+    const rows = data ?? [];
+    const pendingReimbursementAmount = rows.reduce((total, row) => total + toNumber(row.amount), 0);
+
+    return {
+      data: {
+        pendingReimbursementAmount: roundCurrency(pendingReimbursementAmount),
+        pendingReimbursementCount: rows.length,
+      },
+      errorMessage: null,
+    };
+  }
+
+  async getAmountSpentClaimCount(userId: string): Promise<{
+    data: {
+      amountSpentClaimCount: number;
+    } | null;
+    errorMessage: string | null;
+  }> {
+    const client = getServiceRoleSupabaseClient();
+
+    const { data, error } = await runWithSingleRetry<AmountSpentClaimRow[] | null>(async () =>
+      client
+        .from("vw_enterprise_claims_dashboard")
+        .select("amount")
+        .eq("is_active", true)
+        .eq("on_behalf_of_id", userId)
+        .eq("status", DB_PAYMENT_DONE_CLOSED_STATUS)
+        .ilike("type_of_claim", PAYMENT_MODE_PETTY_CASH),
+    );
+
+    if (error) {
+      return { data: null, errorMessage: error.message };
+    }
+
+    return {
+      data: {
+        amountSpentClaimCount: (data ?? []).length,
       },
       errorMessage: null,
     };
