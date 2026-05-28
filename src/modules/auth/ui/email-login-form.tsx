@@ -4,6 +4,7 @@ import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Eye, EyeOff } from "lucide-react";
+import { cn } from "@/lib/cn";
 import type { LoginFormValues } from "@/modules/auth/validators/login-schema";
 import { loginFormSchema } from "@/modules/auth/validators/login-schema";
 
@@ -29,14 +30,19 @@ export function EmailLoginForm({ loading, onSubmit }: EmailLoginFormProps) {
   return (
     <form className="grid gap-4" onSubmit={handleSubmit((values) => void onSubmit(values))}>
       <div className="grid gap-1.5">
-        <label htmlFor="email" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <label htmlFor="email" className="text-[13px] font-medium text-foreground">
           Work Email
         </label>
         <input
           id="email"
           type="email"
           autoComplete="email"
-          className="rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm text-zinc-900 shadow-sm outline-none ring-indigo-500/20 transition-all focus:border-indigo-500 focus:ring-4 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-indigo-400 dark:focus:ring-indigo-400/20"
+          placeholder="name@nxtwave.co.in"
+          className={cn(
+            "h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground",
+            "focus:border-accent focus:ring-2 focus:ring-accent/20",
+            errors.email && "border-rose-400 focus:border-rose-500 focus:ring-rose-500/20",
+          )}
           {...register("email")}
         />
         {errors.email ? (
@@ -45,7 +51,7 @@ export function EmailLoginForm({ loading, onSubmit }: EmailLoginFormProps) {
       </div>
 
       <div className="grid gap-1.5">
-        <label htmlFor="password" className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <label htmlFor="password" className="text-[13px] font-medium text-foreground">
           Password
         </label>
         <div className="relative">
@@ -53,12 +59,18 @@ export function EmailLoginForm({ loading, onSubmit }: EmailLoginFormProps) {
             id="password"
             type={showPassword ? "text" : "password"}
             autoComplete="current-password"
-            className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2.5 pr-10 text-sm text-zinc-900 shadow-sm outline-none ring-indigo-500/20 transition-all focus:border-indigo-500 focus:ring-4 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-indigo-400 dark:focus:ring-indigo-400/20"
+            placeholder="Enter your password"
+            className={cn(
+              "h-10 w-full rounded-lg border border-border bg-card px-3 pr-9 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground",
+              "focus:border-accent focus:ring-2 focus:ring-accent/20",
+              errors.password && "border-rose-400 focus:border-rose-500 focus:ring-rose-500/20",
+            )}
             {...register("password")}
           />
           <button
             type="button"
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
             onClick={() => setShowPassword(!showPassword)}
             tabIndex={-1}
           >
@@ -73,7 +85,7 @@ export function EmailLoginForm({ loading, onSubmit }: EmailLoginFormProps) {
       <button
         type="submit"
         disabled={loading}
-        className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:bg-indigo-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-1 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
       >
         {loading ? (
           <>
