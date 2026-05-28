@@ -63,11 +63,17 @@ type RpcResult = { data?: unknown; error?: { code?: string; message?: string } |
  *   - .storage.from().createSignedUrl() returns a fixed signed URL.
  *   - rpcCalls records every rpc name so tests can assert record_bc_claim_failure fired.
  */
-function fakeAdmin(rpcMap: Record<string, RpcResult>): { client: SupaClient; rpcCalls: string[] } {
+function fakeAdmin(rpcMap: Record<string, RpcResult>): {
+  client: SupaClient;
+  rpcCalls: string[];
+  rpcArgs: Record<string, unknown>[];
+} {
   const rpcCalls: string[] = [];
+  const rpcArgs: Record<string, unknown>[] = [];
   const client = {
-    rpc: (name: string, _args: unknown) => {
+    rpc: (name: string, args: unknown) => {
       rpcCalls.push(name);
+      rpcArgs.push({ name, args });
       return Promise.resolve(rpcMap[name] ?? { data: null, error: null });
     },
     storage: {
@@ -76,7 +82,7 @@ function fakeAdmin(rpcMap: Record<string, RpcResult>): { client: SupaClient; rpc
       }),
     },
   } as unknown as SupaClient;
-  return { client, rpcCalls };
+  return { client, rpcCalls, rpcArgs };
 }
 
 /** A scripted BC response. bcFetch reads .status from this and JSON-parses .body. */
@@ -181,6 +187,33 @@ Deno.test("bc-claim — non-approver → 403 FORBIDDEN", async () => {
     const body = await res.json();
     assertEquals(res.status, 403);
     assertEquals(body.error.code, "FORBIDDEN");
+  } finally {
+    resetSeams();
+  }
+});
+
+Deno.test("bc-claim - evidence proxy remarks use request origin", async () => {
+  setupBcEnv();
+  __setAuthClientFactory(approverFactory());
+  const { client, rpcArgs } = fakeAdmin({
+    get_bc_claim_payload: {
+      data: { ...validDbPayload(), receipt_file_path: "receipts/inv.pdf" },
+      error: null,
+    },
+    start_bc_claim_attempt: { data: "bc-details-1", error: null },
+    complete_bc_claim: { error: null },
+  });
+  __setBcClaimAdminFactory(() => client);
+  setBcResponse(201, { id: "bc-201" });
+  try {
+    const res = await handler(postReq(NONVENDOR_BODY));
+    assertEquals(res.status, 200);
+    const startCall = rpcArgs.find((call) => call.name === "start_bc_claim_attempt");
+    const startArgs = startCall?.args as { p_payload_json: { remarks: string } };
+    assertEquals(
+      startArgs.p_payload_json.remarks,
+      "claim-1 - Test purpose\nbill - http://localhost/api/evidence/claim-1?type=bill",
+    );
   } finally {
     resetSeams();
   }

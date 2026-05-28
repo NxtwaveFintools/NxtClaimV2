@@ -9,7 +9,13 @@ export type BcType = (typeof BcType)[keyof typeof BcType];
 export const BcGstCredit = { NonAvailment: "Non-Availment" } as const;
 export type BcGstCredit = (typeof BcGstCredit)[keyof typeof BcGstCredit];
 
-export const BcGstSubcategory = { Ineligible4344: "Ineligible-43/44" } as const;
+export const BcGstSubcategory = {
+  Blank: "_x0020_",
+  Ineligible4344: "Ineligible_x0020__x002D__x0020_43_x002F_44",
+  Ineligible175: "Ineligible_x0020__x002D__x0020_17_x0028_5_x0029_",
+  IneligiblePos: "Ineligible_x0020__x002D__x0020_POS",
+  NA: "N_x002F_A",
+} as const;
 export type BcGstSubcategory = (typeof BcGstSubcategory)[keyof typeof BcGstSubcategory];
 
 export const BcEmployeeTransactionType = { Advance: "Advance" } as const;
@@ -31,7 +37,7 @@ export interface BcClaimLineItem {
   type: "G/L Account";
   quantity: 1;
   gstCredit: "Non-Availment";
-  gstSubcategory: "Ineligible-43/44";
+  gstSubcategory: BcGstSubcategory;
   employeeTransactionType: "Advance";
   // Per-claim.
   documentDate: string;

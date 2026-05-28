@@ -1,5 +1,11 @@
-import { assertEquals, assert, assertThrows } from "std/assert/mod.ts";
-import { buildBcClaimLineItem, buildRemarks, type BuildInputs } from "./payloadBuilder.ts";
+// @ts-expect-error Deno resolves URL imports; the Node/Next TS server does not.
+import { assertEquals, assert, assertThrows } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  buildBcClaimLineItem,
+  buildEvidenceUrls,
+  buildRemarks,
+  type BuildInputs,
+} from "./payloadBuilder.ts";
 import type { BcClaimPayloadFromDb } from "./types.ts";
 
 const baseDb: BcClaimPayloadFromDb = {
@@ -50,7 +56,7 @@ Deno.test("vendor payload has all 28 fields with vendor-only keys present", () =
   assertEquals(line.type, "G/L Account");
   assertEquals(line.quantity, 1);
   assertEquals(line.gstCredit, "Non-Availment");
-  assertEquals(line.gstSubcategory, "Ineligible-43/44");
+  assertEquals(line.gstSubcategory, "Ineligible_x0020__x002D__x0020_43_x002F_44");
   assertEquals(line.employeeTransactionType, "Advance");
   assertEquals(line.documentDate, "2026-05-10");
   assertEquals(line.glCode, "503063");
@@ -88,6 +94,9 @@ Deno.test("non-vendor payload omits vendor-only keys but always sends currencyCo
   }
   assertEquals(line.currencyCode, "INR");
   assertEquals(line.invoiceRequired, false);
+  const sentGstSubcategory = line.gstSubcategory as string;
+  assert(sentGstSubcategory !== "Ineligible-43/44");
+  assertEquals(line.gstSubcategory, "Ineligible_x0020__x002D__x0020_43_x002F_44");
   assertEquals(line.paymentRequired, true);
   assertEquals(Object.keys(line).length, 23);
 });
@@ -279,6 +288,42 @@ Deno.test("buildRemarks — empty purpose falls back to '{claim_id} - '", () => 
   const r = buildRemarks({ ...baseDb, claim_id: "CLM-100", purpose: "" }, {});
   assertEquals(r, "CLM-100 - ");
 });
+
+Deno.test("buildEvidenceUrls — builds short proxy URLs only for present evidence paths", () => {
+  const urls = buildEvidenceUrls(
+    {
+      ...baseDb,
+      claim_id: "CLAIM/NW 1",
+      receipt_file_path: "receipts/r.pdf",
+      bank_statement_file_path: null,
+    },
+    "https://nxtclaim.example.com/",
+  );
+
+  assertEquals(urls.billUrl, "https://nxtclaim.example.com/api/evidence/CLAIM%2FNW%201?type=bill");
+  assertEquals(urls.bankStatementUrl, null);
+});
+
+Deno.test(
+  "buildBcClaimLineItem — remarks use short evidence proxy URLs when siteUrl is provided",
+  () => {
+    const line = buildBcClaimLineItem({
+      db: {
+        ...baseDb,
+        receipt_file_path: "receipts/inv.pdf",
+        bank_statement_file_path: "bank/stmt.pdf",
+      },
+      isVendorPayment: false,
+      siteUrl: "https://nxtclaim.example.com",
+    });
+
+    assertEquals(
+      line.remarks,
+      "CLM-000145 - Software subscription\nbill - https://nxtclaim.example.com/api/evidence/CLM-000145?type=bill\nbank statement - https://nxtclaim.example.com/api/evidence/CLM-000145?type=bank_statement",
+    );
+    assert(!line.remarks.includes("supabase.co/storage"));
+  },
+);
 
 Deno.test("buildBcClaimLineItem — remarks include bill + bank statement URLs when supplied", () => {
   const line = buildBcClaimLineItem({

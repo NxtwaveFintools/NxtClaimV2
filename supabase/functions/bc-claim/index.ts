@@ -149,31 +149,13 @@ export async function handler(req: Request): Promise<Response> {
     is_vendor_payment: input.isVendorPayment,
   });
 
-  // Step 3b — sign bill / bank-statement URLs (private "claims" bucket).
-  // 10 years — matches the in-app expiry so a URL works the same whether the user
-  // got it from the app or from BC remarks. Trade-off: a leaked URL exposes the
-  // file for 10 years; acceptable since these URLs only render behind BC's auth
-  // or our own authenticated routes.
-  const SIGNED_URL_EXPIRY_SECONDS = 60 * 60 * 24 * 365 * 10;
-  const signPath = async (path: string | null): Promise<string | null> => {
-    if (!path) return null;
-    const { data, error } = await admin.storage
-      .from("claims")
-      .createSignedUrl(path, SIGNED_URL_EXPIRY_SECONDS);
-    if (error) {
-      log("bc-claim", "warn", "sign_url_failed", {
-        claim_id: input.claimId,
-        path,
-        detail: error.message,
-      });
-      return null;
-    }
-    return data.signedUrl;
-  };
-  const [billUrl, bankStatementUrl] = await Promise.all([
-    signPath(db.receipt_file_path),
-    signPath(db.bank_statement_file_path),
-  ]);
+  // Step 3b — build short NxtClaim evidence proxy links for BC remarks.
+  // The Next route validates an active NxtClaim session and creates a 60-second
+  // Supabase signed URL only when the evidence link is opened.
+  const siteUrl =
+    (cors.allow ? req.headers.get("origin") : null) ??
+    Deno.env.get("NEXT_PUBLIC_SITE_URL") ??
+    "https://nxt-claim.vercel.app";
 
   // Step 4 — build BC payload.
   const linePayload = buildBcClaimLineItem({
@@ -188,7 +170,7 @@ export async function handler(req: Request): Promise<Response> {
           hsnSacCode: input.hsnSacCode!,
         }
       : undefined,
-    fileUrls: { billUrl, bankStatementUrl },
+    siteUrl,
   });
 
   // Step 5 — claim the in-flight slot.
