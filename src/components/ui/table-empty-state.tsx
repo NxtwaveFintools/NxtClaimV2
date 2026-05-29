@@ -10,12 +10,10 @@ type TableEmptyStateProps = {
 
 export function TableEmptyState({ title, description, icon, className }: TableEmptyStateProps) {
   return (
-    <div className={cn("grid place-items-center px-4 py-14 text-center", className)}>
+    <div className={cn("grid place-items-center px-4 py-10 text-center", className)}>
       {icon}
-      <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{title}</p>
-      {description ? (
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">{description}</p>
-      ) : null}
+      <p className="text-sm font-medium text-foreground">{title}</p>
+      {description ? <p className="mt-1 text-xs text-muted-foreground">{description}</p> : null}
     </div>
   );
 }

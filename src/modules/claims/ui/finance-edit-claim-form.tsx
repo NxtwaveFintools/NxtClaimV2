@@ -377,7 +377,7 @@ export function FinanceEditClaimForm({
         }}
         variant="secondary"
         size="md"
-        className="border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:border-indigo-600/60 dark:bg-indigo-600/15 dark:text-indigo-200 dark:hover:bg-indigo-600/25"
+        className="border-border bg-card text-accent hover:bg-accent-muted"
       >
         Edit Claim
       </Button>
@@ -392,7 +392,7 @@ export function FinanceEditClaimForm({
       className={`${
         isEmbeddedPresentation
           ? "h-full rounded-none border-0 bg-transparent p-0"
-          : "mt-6 rounded-xl border border-zinc-200 bg-white p-4 dark:border-indigo-700/40 dark:bg-zinc-800"
+          : "mt-6 rounded-xl border border-border bg-card p-4"
       }`}
     >
       <form
@@ -424,10 +424,10 @@ export function FinanceEditClaimForm({
             }
           >
             <div className="space-y-2">
-              <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-indigo-600 dark:text-indigo-300">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-accent">
                 Edit Claim
               </h2>
-              <p className="text-xs text-zinc-600 dark:text-indigo-100/80">
+              <p className="text-xs text-muted-foreground">
                 Routing context is locked during edits. Only detail fields can be updated.
               </p>
             </div>
@@ -1416,7 +1416,7 @@ export function FinanceEditClaimForm({
               disabled={isSubmitting}
               variant="primary"
               size="md"
-              className="text-zinc-950 bg-indigo-500 hover:bg-indigo-400"
+              className="bg-accent text-white hover:bg-accent-hover"
             >
               {isSubmitting ? (
                 <>

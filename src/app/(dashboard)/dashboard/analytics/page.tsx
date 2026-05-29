@@ -1,14 +1,10 @@
 import nextDynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import { Suspense, cache } from "react";
-import { AppShellHeader } from "@/components/app-shell-header";
-import { BackButton } from "@/components/ui/back-button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FilterToolbarSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { ROUTES } from "@/core/config/route-registry";
 import { GetAnalyticsService } from "@/core/domain/dashboard/GetAnalyticsService";
 import { logger } from "@/core/infra/logging/logger";
-import { formatCurrency } from "@/lib/format";
-import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
 import { normalizeIsoDateOnly } from "@/lib/date-only";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
 import { SupabaseDashboardRepository } from "@/modules/dashboard/repositories/SupabaseDashboardRepository";
@@ -196,13 +192,11 @@ async function AnalyticsErrorBannerFetcher({
   }
 
   return (
-    <Card className="border-rose-200/70 bg-rose-50/70 dark:border-rose-900/60 dark:bg-rose-950/20">
-      <CardContent className="pt-5">
-        <p className="text-sm text-rose-700 dark:text-rose-300">
-          Unable to load analytics. {analyticsResult.errorMessage}
-        </p>
-      </CardContent>
-    </Card>
+    <div className="rounded-xl border border-rose-200/70 bg-rose-50/70 p-4 dark:border-rose-900/60 dark:bg-rose-950/20">
+      <p className="text-sm text-rose-700 dark:text-rose-300">
+        Unable to load analytics. {analyticsResult.errorMessage}
+      </p>
+    </div>
   );
 }
 
@@ -264,135 +258,34 @@ async function AnalyticsChartsFetcher({
   const isAdmin = analytics.scope === "admin";
 
   return (
-    <>
-      <AnalyticsCharts
-        statusBreakdown={analytics.statusBreakdown}
-        paymentModeBreakdown={analytics.paymentModeBreakdown}
-        efficiencyByDepartment={analytics.efficiencyByDepartment}
-        financeApproverTatBreakdown={analytics.financeApproverTatBreakdown}
-        isAdmin={isAdmin}
-      />
-
-      <div className={`grid gap-4 ${isAdmin ? "xl:grid-cols-3" : "xl:grid-cols-1"}`}>
-        <Card className="xl:col-span-1">
-          <CardHeader>
-            <CardTitle>Status Summary (Raw)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2 text-sm">
-              {analytics.statusBreakdown.map((item) => (
-                <li key={item.status} className="flex items-center justify-between gap-4">
-                  <span className="text-muted-foreground">{item.status}</span>
-                  <span className="text-right font-medium text-foreground">
-                    {item.count} claims | {formatCurrency(item.amount)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-
-        {isAdmin ? (
-          <Card className="xl:col-span-1">
-            <CardHeader>
-              <CardTitle>Efficiency Summary (Raw)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {analytics.efficiencyByDepartment.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No approval efficiency records in this period.
-                </p>
-              ) : (
-                <ul className="space-y-2 text-sm">
-                  {analytics.efficiencyByDepartment.map((item) => (
-                    <li key={item.departmentId} className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">{item.departmentName}</span>
-                      <span className="text-right font-medium text-foreground">
-                        {item.averageDaysToApproval.toFixed(2)} days | {item.sampleCount} claims
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        ) : null}
-
-        {isAdmin ? (
-          <Card className="xl:col-span-1">
-            <CardHeader>
-              <CardTitle>Finance Efficiency Summary (Raw)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4 text-sm">
-                <p className="font-medium text-foreground">
-                  Overall Team: {(analytics.overallFinanceTatAverage ?? 0).toFixed(2)} days |{" "}
-                  {analytics.overallFinanceTatSampleCount} claims
-                </p>
-
-                {analytics.financeApproverTatBreakdown.length === 0 ? (
-                  <p className="text-muted-foreground">
-                    No finance approval efficiency records in this period.
-                  </p>
-                ) : (
-                  <ul className="space-y-2">
-                    {analytics.financeApproverTatBreakdown.map((item) => (
-                      <li
-                        key={item.financeApproverId}
-                        className="flex items-center justify-between gap-4"
-                      >
-                        <span className="text-muted-foreground">{item.financeApproverName}</span>
-                        <span className="text-right font-medium text-foreground">
-                          {item.averageDaysToApproval.toFixed(2)} days | {item.sampleCount} claims
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ) : null}
-      </div>
-    </>
+    <AnalyticsCharts
+      statusBreakdown={analytics.statusBreakdown}
+      paymentModeBreakdown={analytics.paymentModeBreakdown}
+      efficiencyByDepartment={analytics.efficiencyByDepartment}
+      financeApproverTatBreakdown={analytics.financeApproverTatBreakdown}
+      isAdmin={isAdmin}
+      overallFinanceTatAverage={analytics.overallFinanceTatAverage}
+      overallFinanceTatSampleCount={analytics.overallFinanceTatSampleCount}
+    />
   );
 }
 
 function AnalyticsFiltersSkeleton() {
-  return (
-    <div className="w-full space-y-3 rounded-2xl border border-white/20 bg-white/40 p-4 backdrop-blur-md dark:bg-zinc-900/40">
-      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-7">
-        {Array.from({ length: 7 }).map((_, index) => (
-          <div key={`analytics-filter-skeleton-${index}`} className="space-y-2">
-            <div className="shimmer-sweep h-3 w-20 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-            <div className="shimmer-sweep h-10 w-full rounded-xl bg-zinc-200 dark:bg-gray-800/40" />
-          </div>
-        ))}
-      </div>
-      <div className="flex gap-3">
-        <div className="shimmer-sweep h-10 w-24 rounded-xl bg-zinc-200 dark:bg-gray-800/40" />
-        <div className="shimmer-sweep h-10 w-24 rounded-xl bg-zinc-200 dark:bg-gray-800/40" />
-      </div>
-    </div>
-  );
+  return <FilterToolbarSkeleton fields={7} />;
 }
 
 function AnalyticsKpiSkeleton() {
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
       {Array.from({ length: 5 }).map((_, index) => (
-        <Card
+        <div
           key={`analytics-kpi-skeleton-${index}`}
-          className="border-white/30 bg-white/60 dark:bg-zinc-900/55"
+          className="rounded-xl border border-border bg-card p-4"
         >
-          <CardHeader className="space-y-3 pb-3">
-            <div className="shimmer-sweep h-4 w-32 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-            <div className="shimmer-sweep h-6 w-20 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-          </CardHeader>
-          <CardContent>
-            <div className="shimmer-sweep h-9 w-40 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-          </CardContent>
-        </Card>
+          <Skeleton className="mb-3 h-3 w-24" />
+          <Skeleton className="h-7 w-32" />
+          <Skeleton className="mt-2 h-3 w-16" />
+        </div>
       ))}
     </div>
   );
@@ -401,29 +294,49 @@ function AnalyticsKpiSkeleton() {
 function AnalyticsChartsSkeleton() {
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 xl:grid-cols-2">
-        {Array.from({ length: 2 }).map((_, index) => (
-          <Card
-            key={`analytics-chart-skeleton-${index}`}
-            className="border-white/30 bg-white/60 dark:bg-zinc-900/55"
-          >
-            <CardHeader>
-              <div className="shimmer-sweep h-6 w-52 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-            </CardHeader>
-            <CardContent>
-              <div className="shimmer-sweep h-[320px] w-full rounded-xl bg-zinc-200 dark:bg-gray-800/40" />
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="min-h-[320px] rounded-xl border border-border bg-card p-4">
+          <Skeleton className="mb-3 h-5 w-44" />
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <Skeleton className="h-[190px] w-[190px] shrink-0 rounded-full" />
+            <div className="flex-1 space-y-3">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div key={`payment-legend-skeleton-${index}`} className="flex items-center gap-2">
+                  <Skeleton className="h-3 w-3 rounded-sm" />
+                  <Skeleton className="h-4 flex-1" />
+                  <Skeleton className="h-4 w-10" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="min-h-[320px] rounded-xl border border-border bg-card p-4">
+          <Skeleton className="mb-3 h-5 w-36" />
+          <div className="space-y-4 pt-2">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div
+                key={`status-bar-skeleton-${index}`}
+                className="grid grid-cols-[120px_1fr] items-center gap-3"
+              >
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-5 w-full" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
-      <Card className="border-white/30 bg-white/60 dark:bg-zinc-900/55">
-        <CardHeader>
-          <div className="shimmer-sweep h-6 w-44 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-        </CardHeader>
-        <CardContent>
-          <div className="shimmer-sweep h-[300px] w-full rounded-xl bg-zinc-200 dark:bg-gray-800/40" />
-        </CardContent>
-      </Card>
+
+      <div className="rounded-xl border border-border bg-card">
+        <div className="border-b border-border px-4 py-3">
+          <Skeleton className="h-5 w-32" />
+        </div>
+        <div className="grid grid-cols-3 gap-3 p-4">
+          {Array.from({ length: 12 }).map((_, index) => (
+            <Skeleton key={`analytics-summary-cell-${index}`} className="h-4 w-full" />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -442,46 +355,38 @@ export default async function AnalyticsDashboardPage({
     redirect(ROUTES.login);
   }
 
+  const user = currentUserResult.user;
   const params = resolveAnalyticsQueryParams(resolvedSearchParams);
 
   return (
-    <div
-      className={`${pageBodyFont.variable} ${pageDisplayFont.variable} dashboard-font-body nxt-page-bg`}
-    >
-      <AppShellHeader currentEmail={currentUserResult.user.email ?? null} />
+    <div className="space-y-4">
+      <div>
+        <h1
+          className="dashboard-font-display text-2xl font-semibold tracking-[-0.02em] text-foreground"
+          style={{ fontSize: 24 }}
+        >
+          Analytics
+        </h1>
+        <p className="mt-0.5 text-sm text-muted-foreground" style={{ fontSize: 14 }}>
+          Claim intelligence, trends, and approval efficiency.
+        </p>
+      </div>
 
-      <main className="mx-auto max-w-400 space-y-5 px-4 py-6 sm:px-6 lg:px-8">
-        <BackButton fallbackHref={ROUTES.dashboard} className="w-fit" />
+      <Suspense fallback={<AnalyticsFiltersSkeleton />}>
+        <AnalyticsFiltersFetcher userId={user.id} params={params} />
+      </Suspense>
 
-        <section className="rounded-[30px] border border-white/20 bg-gradient-to-br from-sky-100/55 via-white/72 to-cyan-100/45 p-5 shadow-[0_28px_85px_-42px_rgba(14,116,144,0.45)] backdrop-blur-md dark:from-zinc-900/80 dark:via-zinc-900/70 dark:to-sky-950/50 lg:p-6">
-          <div className="space-y-4">
-            <div>
-              <h1 className="dashboard-font-display text-3xl font-semibold tracking-[-0.03em] text-zinc-950 dark:text-zinc-50">
-                Analytics Command Center
-              </h1>
-              <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-300">
-                Enterprise claim intelligence with trend signals and approval-efficiency insights.
-              </p>
-            </div>
+      <Suspense fallback={null}>
+        <AnalyticsErrorBannerFetcher userId={user.id} params={params} />
+      </Suspense>
 
-            <Suspense fallback={<AnalyticsFiltersSkeleton />}>
-              <AnalyticsFiltersFetcher userId={currentUserResult.user.id} params={params} />
-            </Suspense>
-          </div>
-        </section>
+      <Suspense fallback={<AnalyticsKpiSkeleton />}>
+        <AnalyticsKpiFetcher userId={user.id} params={params} />
+      </Suspense>
 
-        <Suspense fallback={null}>
-          <AnalyticsErrorBannerFetcher userId={currentUserResult.user.id} params={params} />
-        </Suspense>
-
-        <Suspense fallback={<AnalyticsKpiSkeleton />}>
-          <AnalyticsKpiFetcher userId={currentUserResult.user.id} params={params} />
-        </Suspense>
-
-        <Suspense fallback={<AnalyticsChartsSkeleton />}>
-          <AnalyticsChartsFetcher userId={currentUserResult.user.id} params={params} />
-        </Suspense>
-      </main>
+      <Suspense fallback={<AnalyticsChartsSkeleton />}>
+        <AnalyticsChartsFetcher userId={user.id} params={params} />
+      </Suspense>
     </div>
   );
 }

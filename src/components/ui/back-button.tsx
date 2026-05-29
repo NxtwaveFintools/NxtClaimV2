@@ -83,7 +83,7 @@ export function BackButton({
       href={targetHref}
       scroll={false}
       onClick={handleClick}
-      className={`group inline-flex items-center gap-1.5 rounded-lg border border-indigo-200/60 bg-indigo-50/60 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 transition-all duration-200 hover:border-indigo-300 hover:bg-indigo-100/80 hover:text-indigo-800 active:scale-[0.98] dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:border-indigo-400/30 dark:hover:bg-indigo-500/20 dark:hover:text-indigo-200 ${className}`.trim()}
+      className={`group inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-background-secondary hover:text-foreground active:scale-[0.98] ${className}`.trim()}
       aria-label="Go back"
     >
       <ArrowLeft

@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import type { CompanyPolicyState } from "@/components/company-policy-button";
+import { isDashboardNavItemActive } from "@/lib/dashboard-navigation";
 
 export type DashboardNavItem = {
   href: string;
@@ -47,11 +49,16 @@ export function AppLayout({
   emailDomain,
   companyPolicyState,
 }: AppLayoutProps) {
+  const pathname = usePathname();
   const isMobile = useIsMobile();
   const [collapsed, setCollapsed] = useState(false);
 
   const sidebarWidth = collapsed ? (isMobile ? 0 : 56) : 240;
   const mainMargin = isMobile && collapsed ? 0 : sidebarWidth;
+  const activeNavigationItems = navigationItems.map((item) => ({
+    ...item,
+    isActive: isDashboardNavItemActive(item.href, pathname),
+  }));
 
   return (
     <>
@@ -59,7 +66,7 @@ export function AppLayout({
         collapsed={isMobile ? true : collapsed}
         hidden={isMobile && collapsed}
         onToggle={() => setCollapsed((c) => !c)}
-        navigationItems={navigationItems}
+        navigationItems={activeNavigationItems}
         userEmail={userEmail}
         avatarInitial={avatarInitial}
         displayName={displayName}

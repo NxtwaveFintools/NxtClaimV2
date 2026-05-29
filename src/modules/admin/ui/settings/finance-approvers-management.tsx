@@ -82,7 +82,7 @@ export function FinanceApproversManagement({ approvers }: Props) {
                     (approver.fullName ?? "—")
                   )}
                   {approver.isPrimary ? (
-                    <span className="ml-2 inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                    <span className="ml-2 inline-flex items-center rounded-full bg-accent-muted px-2 py-0.5 text-xs font-semibold text-accent">
                       Primary
                     </span>
                   ) : null}
@@ -103,7 +103,7 @@ export function FinanceApproversManagement({ approvers }: Props) {
                     type="button"
                     variant="secondary"
                     size="sm"
-                    className="border-indigo-300 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-700 dark:text-indigo-300 dark:hover:bg-indigo-950/30"
+                    className="border-border text-accent hover:bg-accent-muted"
                   >
                     Set Primary
                   </Button>

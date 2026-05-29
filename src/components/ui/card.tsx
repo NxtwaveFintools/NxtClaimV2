@@ -7,10 +7,7 @@ function joinClasses(...classes: Array<string | undefined>): string {
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={joinClasses(
-        "rounded-2xl border border-white/15 bg-background/60 backdrop-blur-md shadow-[0_20px_50px_-35px_rgba(15,23,42,0.45)]",
-        className,
-      )}
+      className={joinClasses("rounded-xl border border-border bg-card shadow-none", className)}
       {...props}
     />
   );

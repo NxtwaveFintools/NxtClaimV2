@@ -135,7 +135,7 @@ export function PolicyManagement({ initialState }: PolicyManagementProps) {
               const selectedFile = event.currentTarget.files?.[0] ?? null;
               setPolicyFile(selectedFile);
             }}
-            className="nxt-input rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-indigo-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+            className="nxt-input rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-accent-hover"
           />
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             Upload a PDF file only. Max size 25MB.

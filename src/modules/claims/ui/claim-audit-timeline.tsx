@@ -101,8 +101,8 @@ function actionAccentClasses(actionType: ClaimAuditLogRecord["actionType"]): {
   }
 
   return {
-    labelClassName: "text-indigo-700 dark:text-indigo-300",
-    dotClassName: "bg-indigo-600 dark:bg-indigo-400",
+    labelClassName: "text-accent",
+    dotClassName: "bg-accent",
   };
 }
 
@@ -139,36 +139,30 @@ export function ClaimAuditTimeline({
 }: ClaimAuditTimelineProps) {
   const isMinimalVisual = visualStyle === "minimal";
   const containerClassName = isMinimalVisual
-    ? "rounded-2xl border border-zinc-200/70 bg-white/65 p-5 shadow-[0_14px_35px_-28px_rgba(15,23,42,0.35)] dark:border-zinc-800/90 dark:bg-zinc-950/45"
-    : "rounded-3xl border border-zinc-200/80 bg-white/80 p-5 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.22)] dark:border-zinc-800/80 dark:bg-zinc-950/60 dark:shadow-black/25";
+    ? "rounded-xl border border-border bg-card p-4"
+    : "rounded-2xl border border-border bg-card p-5";
   const itemClassName = isMinimalVisual
-    ? "relative border-b border-zinc-200/75 py-3 pl-5 last:border-b-0 dark:border-zinc-800"
-    : "relative overflow-hidden rounded-2xl border border-zinc-200/80 bg-zinc-50/90 p-4 pl-5 dark:border-zinc-800/80 dark:bg-zinc-900/80";
+    ? "relative border-b border-border py-2.5 pl-4 last:border-b-0"
+    : "relative overflow-hidden rounded-xl border border-border bg-background-secondary/60 p-3.5 pl-4";
   const remarksClassName = isMinimalVisual
-    ? "mt-2 text-xs leading-5 text-zinc-700 dark:text-zinc-300"
-    : "mt-3 rounded-xl bg-white px-3 py-2 text-xs leading-5 text-zinc-700 shadow-sm dark:bg-zinc-950 dark:text-zinc-300";
+    ? "mt-1.5 text-xs leading-5 text-muted-foreground"
+    : "mt-2 rounded-lg bg-card px-2.5 py-1.5 text-xs leading-5 text-muted-foreground";
 
   return (
     <section className={containerClassName}>
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-500">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
           {title}
         </h3>
-        {isMinimalVisual ? (
-          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-            {logs.length} event{logs.length === 1 ? "" : "s"}
-          </span>
-        ) : (
-          <span className="inline-flex rounded-full border border-zinc-200/80 bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
-            {logs.length} event{logs.length === 1 ? "" : "s"}
-          </span>
-        )}
+        <span className="text-xs font-medium text-muted-foreground">
+          {logs.length} event{logs.length === 1 ? "" : "s"}
+        </span>
       </div>
 
       {logs.length === 0 ? (
-        <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">{emptyLabel}</p>
+        <p className="mt-3 text-sm text-muted-foreground">{emptyLabel}</p>
       ) : (
-        <ol className="mt-4 grid gap-3">
+        <ol className="mt-3 grid gap-2">
           {logs.map((log) => {
             const assigneeLabel = buildAssigneeLabel(log);
             const actionAccent = actionAccentClasses(log.actionType);
@@ -176,19 +170,19 @@ export function ClaimAuditTimeline({
             return (
               <li key={log.id} className={itemClassName}>
                 <span
-                  className={`absolute bottom-4 left-0 top-4 w-1 rounded-full ${actionAccent.dotClassName}`}
+                  className={`absolute bottom-3 left-0 top-3 w-0.5 rounded-full ${actionAccent.dotClassName}`}
                 />
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400 dark:text-zinc-500">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                   {log.formattedCreatedAt}
                 </p>
-                <p className={`mt-1 text-sm font-semibold ${actionAccent.labelClassName}`}>
+                <p className={`mt-0.5 text-sm font-semibold ${actionAccent.labelClassName}`}>
                   {describeAction(log.actionType)}
                 </p>
-                <p className="mt-1 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
+                <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
                   By {buildActorLabel(log)}
                 </p>
                 {assigneeLabel ? (
-                  <p className="mt-1 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
+                  <p className="text-xs leading-5 text-muted-foreground">
                     Assigned to {assigneeLabel}
                   </p>
                 ) : null}

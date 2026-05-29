@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { DashboardAnalyticsOption } from "@/core/domain/dashboard/contracts";
 import { normalizeIsoDateOnly } from "@/lib/date-only";
@@ -31,7 +31,7 @@ const QUICK_PRESET_OPTIONS: Array<{ value: QuickPresetValue; label: string; mont
 ];
 
 const ANALYTICS_FIELD_CLASS_NAME =
-  "h-10 rounded-xl border border-zinc-300/80 bg-white/80 px-3 text-sm text-zinc-800 outline-hidden ring-0 transition focus:border-sky-500 focus:bg-white focus:shadow-[0_0_0_3px_rgba(14,165,233,0.16)] dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-200";
+  "h-[38px] rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-hidden ring-0 transition focus:border-accent focus:shadow-[0_0_0_3px_rgba(37,99,235,0.16)]";
 
 const ANALYTICS_COLOR_SCHEME_CLASS_NAME = "[color-scheme:light] dark:[color-scheme:dark]";
 
@@ -107,6 +107,8 @@ export function AnalyticsFilters({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  const [isPending, startTransition] = useTransition();
+
   const [selectedPreset, setSelectedPreset] = useState<QuickPresetValue>(
     detectPresetValue(fromDate, toDate),
   );
@@ -126,7 +128,9 @@ export function AnalyticsFilters({
 
   function pushParams(next: URLSearchParams) {
     next.delete("month");
-    router.push(next.size > 0 ? `${pathname}?${next.toString()}` : pathname);
+    startTransition(() => {
+      router.push(next.size > 0 ? `${pathname}?${next.toString()}` : pathname);
+    });
   }
 
   function applyScopeFilterParams(next: URLSearchParams) {
@@ -215,9 +219,36 @@ export function AnalyticsFilters({
   }
 
   return (
-    <div className="w-full space-y-3 rounded-2xl border border-white/20 bg-white/40 p-4 backdrop-blur-md dark:bg-zinc-900/40">
-      <div className={`grid gap-3 ${gridClassName}`}>
-        <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-600 dark:text-zinc-300">
+    <div className="relative w-full space-y-2 rounded-xl border border-border bg-card p-3">
+      {isPending ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-card/80 backdrop-blur-[1px]">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <svg
+              className="h-4 w-4 animate-spin"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
+            </svg>
+            <span>Applying filters...</span>
+          </div>
+        </div>
+      ) : null}
+      <div className={`grid gap-2 ${gridClassName}`}>
+        <label className="flex flex-col gap-0.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
           Quick Presets
           <select
             value={selectedPreset}
@@ -247,7 +278,7 @@ export function AnalyticsFilters({
           </select>
         </label>
 
-        <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-600 dark:text-zinc-300">
+        <label className="flex flex-col gap-0.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
           From
           <input
             type="date"
@@ -262,7 +293,7 @@ export function AnalyticsFilters({
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-600 dark:text-zinc-300">
+        <label className="flex flex-col gap-0.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
           To
           <input
             type="date"
@@ -279,7 +310,7 @@ export function AnalyticsFilters({
 
         {canUseScopeFilters ? (
           <>
-            <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-600 dark:text-zinc-300">
+            <label className="flex flex-col gap-0.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
               Department
               <select
                 value={draftDepartmentId}
@@ -295,7 +326,7 @@ export function AnalyticsFilters({
               </select>
             </label>
 
-            <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-600 dark:text-zinc-300">
+            <label className="flex flex-col gap-0.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
               Expense Category
               <select
                 value={draftExpenseCategoryId}
@@ -311,7 +342,7 @@ export function AnalyticsFilters({
               </select>
             </label>
 
-            <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-600 dark:text-zinc-300">
+            <label className="flex flex-col gap-0.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
               Product
               <select
                 value={draftProductId}
@@ -331,7 +362,7 @@ export function AnalyticsFilters({
 
         {canUseFinanceApproverFilter ? (
           <>
-            <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-600 dark:text-zinc-300">
+            <label className="flex flex-col gap-0.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
               Finance Approver
               <select
                 value={draftFinanceApproverId}
@@ -354,16 +385,18 @@ export function AnalyticsFilters({
         <button
           type="button"
           onClick={resetFilters}
-          className="h-9 rounded-lg border border-zinc-300/80 bg-white/70 px-4 text-xs font-semibold uppercase tracking-[0.12em] text-zinc-700 transition hover:bg-white dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-200 dark:hover:bg-zinc-900"
+          disabled={isPending}
+          className="h-[36px] rounded-lg border border-border bg-card px-4 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground transition hover:bg-background-secondary disabled:cursor-not-allowed disabled:opacity-60"
         >
           Reset
         </button>
         <button
           type="button"
           onClick={applyFilters}
-          className="h-9 rounded-lg border border-sky-400/50 bg-sky-500 px-4 text-xs font-semibold uppercase tracking-[0.12em] text-white transition hover:bg-sky-600"
+          disabled={isPending}
+          className="h-[36px] rounded-lg bg-accent px-5 text-xs font-semibold uppercase tracking-[0.1em] text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Apply Filters
+          {isPending ? "Applying..." : "Apply Filters"}
         </button>
       </div>
     </div>

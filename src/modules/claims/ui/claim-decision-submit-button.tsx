@@ -20,8 +20,8 @@ export function ClaimDecisionSubmitButton({
 
   const baseClasses = compact
     ? isMarkPaid
-      ? "inline-flex h-8 items-center justify-center gap-1 rounded-lg border px-2.5 text-xs font-semibold"
-      : "inline-flex h-8 items-center justify-center rounded-lg border px-3 text-xs font-semibold"
+      ? "inline-flex h-[34px] items-center justify-center gap-1 rounded-lg border px-2.5 text-xs font-semibold"
+      : "inline-flex h-[34px] items-center justify-center rounded-lg border px-3 text-xs font-semibold"
     : "inline-flex items-center justify-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-semibold";
 
   let toneClasses =

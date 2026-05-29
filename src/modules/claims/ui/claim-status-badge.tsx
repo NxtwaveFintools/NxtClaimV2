@@ -59,7 +59,7 @@ export function ClaimStatusBadge({
   const layoutClasses = fullWidth
     ? "w-full min-w-[150px] max-w-[190px] items-center justify-center px-2.5 py-1.5 text-center text-xs font-semibold leading-tight whitespace-normal"
     : fullStatus
-      ? "inline-flex max-w-[190px] items-center justify-center px-2.5 py-1.5 text-center text-xs font-semibold leading-tight whitespace-normal"
+      ? "inline-flex max-w-[260px] items-center justify-center px-2 py-1 text-center text-xs font-semibold leading-tight whitespace-nowrap"
       : "inline-flex items-center max-w-[170px] truncate whitespace-nowrap overflow-hidden px-3 py-1 text-xs font-medium";
   const displayLabel = fullStatus ? status : (STATUS_DISPLAY_LABELS[status] ?? status);
 

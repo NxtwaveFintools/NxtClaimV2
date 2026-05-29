@@ -415,7 +415,7 @@ export function FinanceApprovalsBulkTable({
                   onClick={submitBulkMarkPaid}
                   disabled={!isMarkAsPaidValid || isAnyBulkSubmitting}
                   title={markPaidTitle}
-                  className="inline-flex h-8 items-center justify-center rounded-lg border border-indigo-300 bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 transition-all duration-200 enabled:hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-300 dark:enabled:hover:bg-indigo-950/40"
+                  className="inline-flex h-8 items-center justify-center rounded-lg border border-border bg-card px-3 text-xs font-semibold text-accent transition-colors enabled:hover:bg-accent-muted disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {isSubmittingBulkMarkPaid ? (
                     <>
@@ -513,7 +513,7 @@ export function FinanceApprovalsBulkTable({
                     disabled={actionableIds.length === 0}
                     aria-label="Select all claims on this page"
                     data-testid="bulk-master-checkbox"
-                    className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 dark:border-zinc-700"
+                    className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
                   />
                 </th>
               ) : null}
@@ -558,7 +558,7 @@ export function FinanceApprovalsBulkTable({
                             toggleRow(claim.id, event.currentTarget.checked);
                           }}
                           aria-label={`Select claim ${claim.id}`}
-                          className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 dark:border-zinc-700"
+                          className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
                         />
                       ) : (
                         <span
@@ -667,7 +667,7 @@ export function FinanceApprovalsBulkTable({
                   minLength={5}
                   disabled={isSubmittingBulkReject}
                   rows={4}
-                  className="min-h-24 w-full resize-y rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-indigo-500 transition focus:ring dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="min-h-24 w-full resize-y rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                   placeholder="Enter at least 5 characters"
                 />
               </div>
@@ -679,7 +679,7 @@ export function FinanceApprovalsBulkTable({
                   name="allowResubmission"
                   value="true"
                   disabled={isSubmittingBulkReject}
-                  className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 dark:border-zinc-700"
+                  className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
                 />
                 <label
                   htmlFor="bulkAllowResubmission"

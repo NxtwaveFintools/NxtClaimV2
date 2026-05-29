@@ -4,8 +4,8 @@ type ClaimsTableSkeletonProps = {
   rows?: number;
 };
 
-const DEFAULT_ROWS = 8;
+const DEFAULT_ROWS = 5;
 
 export function ClaimsTableSkeleton({ rows = DEFAULT_ROWS }: ClaimsTableSkeletonProps) {
-  return <TableSkeleton rows={rows} columns={7} showHeaderBar />;
+  return <TableSkeleton rows={rows} columns={8} showHeaderBar />;
 }

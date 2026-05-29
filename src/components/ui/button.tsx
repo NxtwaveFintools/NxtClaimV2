@@ -2,15 +2,14 @@ import { forwardRef, type ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/cn";
 
 const VARIANT_CLASSES = {
-  primary:
-    "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 hover:bg-indigo-500 dark:shadow-indigo-500/10",
+  primary: "bg-accent text-white shadow-none hover:bg-accent-hover",
   secondary:
-    "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800",
+    "border border-border bg-card text-foreground shadow-none hover:bg-background-secondary",
   danger:
-    "bg-rose-600 text-white shadow-sm shadow-rose-500/20 hover:bg-rose-500 dark:shadow-rose-500/10",
+    "border border-rose-200 bg-rose-50 text-rose-700 shadow-none hover:bg-rose-100 dark:border-rose-800/60 dark:bg-rose-950/30 dark:text-rose-200 dark:hover:bg-rose-950/50",
   success:
-    "bg-emerald-600 text-white shadow-sm shadow-emerald-500/20 hover:bg-emerald-500 dark:shadow-emerald-500/10",
-  ghost: "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800",
+    "border border-emerald-200 bg-emerald-600 text-white shadow-none hover:bg-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-700 dark:hover:bg-emerald-600",
+  ghost: "text-foreground hover:bg-background-secondary",
 } as const;
 
 const SIZE_CLASSES = {
@@ -51,7 +50,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       type={type}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+        "inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-60",
         SIZE_CLASSES[size],
         VARIANT_CLASSES[variant],
         className,

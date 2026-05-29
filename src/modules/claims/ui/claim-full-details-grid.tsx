@@ -1,4 +1,5 @@
 import { formatDate } from "@/lib/format";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { ReactNode } from "react";
 
 type ClaimExpenseAiMetadata = {
@@ -502,13 +503,10 @@ export function ClaimFullDetailsGridSkeleton() {
     <div className="mt-3 space-y-3">
       <div className="grid grid-cols-2 gap-3">
         {Array.from({ length: 6 }).map((_, index) => (
-          <div
-            key={`claim-details-summary-skeleton-${index}`}
-            className="h-16 animate-pulse rounded-[20px] border border-zinc-200/80 bg-white dark:border-zinc-800/80 dark:bg-zinc-900/80"
-          />
+          <Skeleton key={`claim-details-summary-skeleton-${index}`} className="h-16" />
         ))}
       </div>
-      <div className="h-56 animate-pulse rounded-[20px] border border-zinc-200/80 bg-white dark:border-zinc-800/80 dark:bg-zinc-900/80" />
+      <Skeleton className="h-56" />
     </div>
   );
 }

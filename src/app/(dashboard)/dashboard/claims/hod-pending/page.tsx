@@ -1,6 +1,4 @@
 import { notFound, redirect } from "next/navigation";
-import { AppShellHeader } from "@/components/app-shell-header";
-import { BackButton } from "@/components/ui/back-button";
 import { ROUTES } from "@/core/config/route-registry";
 import { DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS } from "@/core/constants/statuses";
 import type {
@@ -10,7 +8,6 @@ import type {
   GetMyClaimsFilters,
 } from "@/core/domain/claims/contracts";
 import { normalizeIsoDateOnly } from "@/lib/date-only";
-import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
 import { firstParamValue, toSearchParams } from "@/lib/pagination-helpers";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
 import { getCachedPendingApprovalsViewerContext } from "@/modules/claims/server/get-pending-approvals-viewer-context";
@@ -164,25 +161,15 @@ export default async function FinanceHodPendingClaimsPage({
 
   if (viewerContext.errorMessage) {
     return (
-      <div
-        className={`${pageBodyFont.variable} ${pageDisplayFont.variable} dashboard-font-body nxt-page-bg`}
-      >
-        <AppShellHeader currentEmail={currentUserResult.user.email ?? null} />
-
-        <div className="relative z-0 mx-auto w-full max-w-[1600px] px-4 pb-16 pt-6 sm:px-6 lg:px-8">
-          <main className="space-y-5">
-            <BackButton className="w-fit" fallbackHref={ROUTES.claims.myClaims} />
-
-            <section className="rounded-[28px] border border-rose-200 bg-white/92 px-5 py-6 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] dark:border-rose-900/50 dark:bg-zinc-900/92 dark:shadow-black/25">
-              <h1 className="dashboard-font-display text-xl font-bold tracking-[-0.03em] text-zinc-950 dark:text-zinc-50">
-                HOD Pending Claims
-              </h1>
-              <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
-                Unable to load finance observability view. {viewerContext.errorMessage}
-              </p>
-            </section>
-          </main>
-        </div>
+      <div className="mx-auto w-full max-w-[1600px] pb-16">
+        <section className="rounded-xl border border-rose-200 bg-card px-4 py-5 dark:border-rose-900/50">
+          <h1 className="dashboard-font-display text-xl font-bold text-foreground">
+            HOD Pending Claims
+          </h1>
+          <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
+            Unable to load finance observability view. {viewerContext.errorMessage}
+          </p>
+        </section>
       </div>
     );
   }
@@ -194,51 +181,34 @@ export default async function FinanceHodPendingClaimsPage({
   const filters = buildClaimFilters(resolvedSearchParams);
 
   return (
-    <div
-      className={`${pageBodyFont.variable} ${pageDisplayFont.variable} dashboard-font-body nxt-page-bg`}
-    >
-      <AppShellHeader currentEmail={currentUserResult.user.email ?? null} />
-
-      <div className="relative z-0 mx-auto w-full max-w-[1600px] px-4 pb-16 pt-6 sm:px-6 lg:px-8">
-        <main className="space-y-5">
-          <BackButton className="w-fit" fallbackHref={ROUTES.claims.myClaims} />
-
-          <section className="overflow-hidden rounded-[28px] border border-zinc-200/70 bg-white/88 shadow-[0_24px_70px_-30px_rgba(15,23,42,0.14),0_8px_24px_-8px_rgba(99,102,241,0.05)] backdrop-blur-lg transition-colors dark:border-zinc-800/80 dark:bg-zinc-900/88 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.40)]">
-            <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-sky-500" />
-
-            <div className="p-5 sm:p-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h1 className="dashboard-font-display text-xl font-bold tracking-[-0.03em] text-zinc-950 sm:text-2xl lg:text-3xl dark:text-zinc-50">
-                    HOD Pending Claims
-                  </h1>
-                  <p className="mt-1 text-xs text-zinc-500 sm:text-sm dark:text-zinc-400">
-                    Read-only finance observability for claims still awaiting L1 approval
-                  </p>
-                </div>
-                <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 dark:border-amber-700/50 dark:bg-amber-950/20 dark:text-amber-300">
-                  Read Only
-                </span>
-              </div>
-            </div>
-          </section>
-
-          <ClaimsApprovalsSection
-            userId={currentUserResult.user.id}
-            viewerContext={viewerContext}
-            searchParams={resolvedSearchParams}
-            filters={filters}
-            exportScope="finance_hod_pending"
-            defaultFiltersExpanded
-            showAdvancedFilters
-            storageScope="finance_hod_pending"
-            lockedStatus={DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS}
-            statusFilterMode="disabled"
-            readOnly
-            dataMode="finance_hod_pending"
-          />
-        </main>
+    <div className="mx-auto w-full max-w-[1600px] space-y-3 pb-16">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h1 className="dashboard-font-display text-2xl font-semibold leading-tight text-foreground">
+            HOD Pending Claims
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Read-only finance observability for claims still awaiting L1 approval
+          </p>
+        </div>
+        <span className="inline-flex h-[28px] items-center rounded-full border border-amber-200 bg-amber-50 px-[10px] text-xs font-semibold text-amber-700 dark:border-amber-700/50 dark:bg-amber-950/20 dark:text-amber-300">
+          Read Only
+        </span>
       </div>
+
+      <ClaimsApprovalsSection
+        userId={currentUserResult.user.id}
+        viewerContext={viewerContext}
+        searchParams={resolvedSearchParams}
+        filters={filters}
+        exportScope="finance_hod_pending"
+        showAdvancedFilters
+        storageScope="finance_hod_pending"
+        lockedStatus={DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS}
+        statusFilterMode="disabled"
+        readOnly
+        dataMode="finance_hod_pending"
+      />
     </div>
   );
 }

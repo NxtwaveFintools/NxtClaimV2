@@ -1,5 +1,6 @@
 import dynamic from "next/dynamic";
 import { Suspense } from "react";
+import { FilterToolbarSkeleton } from "@/components/ui/skeleton";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { type DbClaimStatus } from "@/core/constants/statuses";
 import type { GetMyClaimsFilters } from "@/core/domain/claims/contracts";
@@ -42,22 +43,7 @@ function firstParamValue(value: SearchParamsValue): string | undefined {
 }
 
 function FilterBarSkeleton() {
-  return (
-    <section className="rounded-xl border border-border bg-card p-3 transition-colors">
-      <div className="grid gap-2 md:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, index) => (
-          <div key={`filter-placeholder-${index}`} className="space-y-2">
-            <div className="shimmer-sweep h-3 w-20 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-            <div className="shimmer-sweep h-9 w-full rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-          </div>
-        ))}
-      </div>
-      <div className="mt-2 flex items-center gap-2">
-        <div className="shimmer-sweep h-9 w-28 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-        <div className="shimmer-sweep h-9 w-24 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-      </div>
-    </section>
-  );
+  return <FilterToolbarSkeleton fields={5} />;
 }
 
 async function ApprovalsFilterBarWithData({
@@ -173,7 +159,12 @@ export async function ClaimsApprovalsSection({
 
   const rows = Array.from(new Map(approvalsResult.data.map((claim) => [claim.id, claim])).values());
   const approvalsSummaryText = `Showing ${rows.length} of ${approvalsResult.totalCount} claims`;
-  const tableLabel = approvalScope === "finance" ? "Finance Queue" : "Approvals History";
+  const tableLabel =
+    dataMode === "finance_hod_pending"
+      ? "HOD PENDING CLAIMS"
+      : approvalScope === "finance"
+        ? "Finance Queue"
+        : "Approvals History";
 
   return (
     <>
@@ -220,15 +211,22 @@ export async function ClaimsApprovalsSection({
         ) : rows.length === 0 ? (
           <div className="grid place-items-center px-4 py-14 text-center">
             <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              No approvals history found.
+              {dataMode === "finance_hod_pending"
+                ? "No HOD pending claims found"
+                : "No approvals history found."}
             </p>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
-              Claims routed to your approval scope will appear here.
+              {dataMode === "finance_hod_pending"
+                ? "Claims awaiting L1 approval will appear here."
+                : "Claims routed to your approval scope will appear here."}
             </p>
           </div>
         ) : approvalScope === "finance" || approvalScope === "l1" ? (
           <>
-            <Suspense key={JSON.stringify(searchParams)} fallback={<TableSkeleton />}>
+            <Suspense
+              key={JSON.stringify(searchParams)}
+              fallback={<TableSkeleton rows={5} columns={readOnly ? 8 : 9} showHeaderBar={false} />}
+            >
               <FinanceApprovalsBulkTable
                 claims={rows.map((claim) => ({
                   id: claim.id,

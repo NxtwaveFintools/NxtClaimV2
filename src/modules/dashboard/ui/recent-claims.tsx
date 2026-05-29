@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowUpRight, ExternalLink } from "lucide-react";
 import type { ClaimStatus, DbClaimStatus } from "@/core/constants/statuses";
 import { ROUTES } from "@/core/config/route-registry";
+import { Skeleton as BaseSkeleton } from "@/components/ui/skeleton";
 import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
 import { formatDate } from "@/lib/format";
 
@@ -40,9 +41,7 @@ function formatInr(value: number): string {
 }
 
 function Skeleton({ className }: { className: string }) {
-  return (
-    <div className={`shimmer-sweep rounded-md bg-zinc-200 dark:bg-gray-800/40 ${className}`} />
-  );
+  return <BaseSkeleton className={className} />;
 }
 
 export function RecentClaimsSkeleton() {

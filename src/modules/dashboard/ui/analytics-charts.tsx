@@ -18,7 +18,7 @@ import type {
   DashboardAnalyticsPaymentModeBreakdownItem,
   DashboardAnalyticsStatusBreakdownItem,
 } from "@/core/domain/dashboard/contracts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatCurrency } from "@/lib/format";
 
 type AnalyticsChartsProps = {
   statusBreakdown: DashboardAnalyticsStatusBreakdownItem[];
@@ -26,51 +26,141 @@ type AnalyticsChartsProps = {
   efficiencyByDepartment: DashboardAnalyticsEfficiencyItem[];
   financeApproverTatBreakdown: DashboardAnalyticsFinanceApproverTatItem[];
   isAdmin: boolean;
+  overallFinanceTatAverage: number | null;
+  overallFinanceTatSampleCount: number;
 };
 
 const PIE_COLORS = ["#0EA5E9", "#14B8A6", "#F97316", "#E11D48", "#6366F1", "#64748B"];
-const RADIAN = Math.PI / 180;
-const MUTED_FOREGROUND_COLOR = "currentColor";
 
-type PieLabelPayload = {
-  cx?: number;
-  cy?: number;
-  midAngle?: number;
-  innerRadius?: number;
-  outerRadius?: number;
-  value?: number | string;
-  name?: string;
-};
-
-const renderCustomizedLabel = ({
-  cx = 0,
-  cy = 0,
-  midAngle = 0,
-  outerRadius = 0,
-  value,
-  name,
-}: PieLabelPayload) => {
-  const safeOuterRadius = Number(outerRadius);
-  const radius = safeOuterRadius * 1.2;
-  const x = Number(cx) + radius * Math.cos(-Number(midAngle) * RADIAN);
-  const y = Number(cy) + radius * Math.sin(-Number(midAngle) * RADIAN);
-
-  return (
-    <text
-      x={x}
-      y={y}
-      fill={MUTED_FOREGROUND_COLOR}
-      className="text-xs"
-      textAnchor={x > Number(cx) ? "start" : "end"}
-      dominantBaseline="central"
-    >
-      {`${name ?? "Unknown"}: ${value ?? 0}`}
-    </text>
-  );
-};
+const STATUS_BAR_COLORS = ["#0EA5E9", "#14B8A6", "#F59E0B", "#6366F1", "#E11D48", "#64748B"];
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(value);
+}
+
+type PaymentModeLegendProps = {
+  data: { name: string; count: number }[];
+  colors: string[];
+};
+
+function PaymentModeLegend({ data, colors }: PaymentModeLegendProps) {
+  return (
+    <div className="min-w-0 flex-1">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+            <th className="pb-2 text-left font-medium">Payment Mode</th>
+            <th className="pb-2 text-right font-medium">Claims</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((entry, index) => (
+            <tr key={entry.name} className="border-t border-border">
+              <td className="flex items-center gap-2 py-2 text-sm text-foreground">
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                  style={{ backgroundColor: colors[index % colors.length] }}
+                />
+                {entry.name}
+              </td>
+              <td className="py-2 text-right font-semibold text-foreground">
+                {formatNumber(entry.count)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+type StatusSummaryTableProps = {
+  data: DashboardAnalyticsStatusBreakdownItem[];
+};
+
+function StatusSummaryTable({ data }: StatusSummaryTableProps) {
+  return (
+    <div
+      className="overflow-hidden rounded-xl border"
+      style={{ backgroundColor: "var(--card)", borderColor: "var(--border)" }}
+    >
+      <table className="w-full text-sm">
+        <thead>
+          <tr
+            className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground"
+            style={{ backgroundColor: "var(--background-secondary)" }}
+          >
+            <th className="px-4 py-3 text-left font-medium">Status</th>
+            <th className="px-4 py-3 text-right font-medium">Claims</th>
+            <th className="px-4 py-3 text-right font-medium">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((item) => (
+            <tr key={item.status} className="border-t border-border">
+              <td className="px-4 py-2.5 text-foreground">{item.status}</td>
+              <td className="px-4 py-2.5 text-right text-muted-foreground">
+                {item.count} claim{item.count === 1 ? "" : "s"}
+              </td>
+              <td className="px-4 py-2.5 text-right font-semibold text-foreground">
+                {formatCurrency(item.amount)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+type EfficiencyTableProps = {
+  title: string;
+  data: { name: string; avgDays: number; sampleCount: number }[];
+};
+
+function EfficiencyTable({ title, data }: EfficiencyTableProps) {
+  if (data.length === 0) {
+    return (
+      <div
+        className="rounded-xl border p-4"
+        style={{ backgroundColor: "var(--card)", borderColor: "var(--border)" }}
+      >
+        <h3 className="mb-2 text-sm font-semibold text-foreground">{title}</h3>
+        <p className="text-sm text-muted-foreground">No records in this period.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="overflow-hidden rounded-xl border"
+      style={{ backgroundColor: "var(--card)", borderColor: "var(--border)" }}
+    >
+      <table className="w-full text-sm">
+        <thead>
+          <tr
+            className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground"
+            style={{ backgroundColor: "var(--background-secondary)" }}
+          >
+            <th className="px-4 py-3 text-left font-medium">{title}</th>
+            <th className="px-4 py-3 text-right font-medium">Avg Days</th>
+            <th className="px-4 py-3 text-right font-medium">Claims</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((item) => (
+            <tr key={item.name} className="border-t border-border">
+              <td className="px-4 py-2.5 text-foreground">{item.name}</td>
+              <td className="px-4 py-2.5 text-right font-semibold text-foreground">
+                {item.avgDays.toFixed(2)}
+              </td>
+              <td className="px-4 py-2.5 text-right text-muted-foreground">{item.sampleCount}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 export function AnalyticsCharts({
@@ -79,11 +169,15 @@ export function AnalyticsCharts({
   efficiencyByDepartment,
   financeApproverTatBreakdown,
   isAdmin,
+  overallFinanceTatAverage,
+  overallFinanceTatSampleCount,
 }: AnalyticsChartsProps) {
-  const statusChartData = statusBreakdown.map((item) => ({
-    name: item.status,
-    count: item.count,
-  }));
+  const statusChartData = statusBreakdown
+    .map((item) => ({
+      name: item.status,
+      count: item.count,
+    }))
+    .sort((a, b) => b.count - a.count);
 
   const paymentChartData = paymentModeBreakdown.map((item) => ({
     name: item.paymentModeName,
@@ -102,25 +196,28 @@ export function AnalyticsCharts({
     sampleCount: item.sampleCount,
   }));
 
+  const cardStyle = {
+    backgroundColor: "var(--card)",
+    borderColor: "var(--border)",
+  } as React.CSSProperties;
+
   return (
     <div className="space-y-4">
-      <div className={`grid gap-4 ${isAdmin ? "xl:grid-cols-2" : "xl:grid-cols-1"}`}>
-        <Card className="border-white/30 bg-white/60 dark:bg-zinc-900/55">
-          <CardHeader>
-            <CardTitle>Payment Mode Distribution</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[350px] min-h-[350px] w-full text-muted-foreground">
-              <ResponsiveContainer width="100%" height="100%" minHeight={350}>
-                <PieChart margin={{ top: 20, right: 52, bottom: 20, left: 52 }}>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-xl border p-4" style={{ ...cardStyle, minHeight: 320 }}>
+          <h3 className="mb-3 text-base font-semibold text-foreground">
+            Payment Mode Distribution
+          </h3>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="h-[200px] w-full shrink-0 sm:w-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
                   <Pie
                     data={paymentChartData}
                     dataKey="count"
                     nameKey="name"
-                    innerRadius={56}
-                    outerRadius={84}
-                    label={renderCustomizedLabel}
-                    labelLine={{ stroke: MUTED_FOREGROUND_COLOR, strokeWidth: 1 }}
+                    innerRadius={50}
+                    outerRadius={80}
                   >
                     {paymentChartData.map((entry, index) => (
                       <Cell
@@ -133,122 +230,97 @@ export function AnalyticsCharts({
                 </PieChart>
               </ResponsiveContainer>
             </div>
-          </CardContent>
-        </Card>
+            <PaymentModeLegend data={paymentChartData} colors={PIE_COLORS} />
+          </div>
+        </div>
 
-        {isAdmin ? (
-          <Card className="border-white/30 bg-white/60 dark:bg-zinc-900/55">
-            <CardHeader>
-              <CardTitle>Efficiency: Days to Approve by Department</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[320px] min-h-[320px] w-full text-muted-foreground">
-                <ResponsiveContainer width="100%" height="100%" minHeight={320}>
-                  <BarChart
-                    data={efficiencyChartData}
-                    margin={{ top: 8, right: 12, left: -8, bottom: 22 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.28)" />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fill: MUTED_FOREGROUND_COLOR, fontSize: 12 }}
-                      interval={0}
-                      angle={-18}
-                      textAnchor="end"
-                      height={72}
-                    />
-                    <YAxis tick={{ fill: MUTED_FOREGROUND_COLOR, fontSize: 12 }} />
-                    <Tooltip
-                      formatter={(value, _key, payload) => {
-                        const sampleCount = Number(payload?.payload?.sampleCount ?? 0);
-                        return [
-                          `${formatNumber(Number(value))} days`,
-                          `${sampleCount} claims sampled`,
-                        ];
-                      }}
-                    />
-                    <Bar dataKey="avgDays" fill="#0EA5E9" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        ) : null}
+        <div className="rounded-xl border p-4" style={{ ...cardStyle, minHeight: 320 }}>
+          <h3 className="mb-3 text-base font-semibold text-foreground">Claims By Status</h3>
+          {statusChartData.length === 0 ? (
+            <div className="flex h-[200px] items-center justify-center">
+              <p className="text-sm text-muted-foreground">No data for selected filters.</p>
+            </div>
+          ) : (
+            <div className="h-[260px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={statusChartData}
+                  layout="vertical"
+                  margin={{ top: 4, right: 16, left: 0, bottom: 4 }}
+                  barSize={20}
+                  barGap={4}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+                  <XAxis
+                    type="number"
+                    tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={false}
+                    allowDecimals={false}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={220}
+                  />
+                  <Tooltip formatter={(value) => formatNumber(Number(value))} />
+                  <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                    {statusChartData.map((entry, index) => (
+                      <Cell
+                        key={`${entry.name}-${index}`}
+                        fill={STATUS_BAR_COLORS[index % STATUS_BAR_COLORS.length]}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="mb-3 text-base font-semibold text-foreground">Status Summary</h3>
+        {statusBreakdown.length === 0 ? (
+          <div className="flex items-center justify-center rounded-xl border p-8" style={cardStyle}>
+            <p className="text-sm text-muted-foreground">
+              No data for selected filters. Try changing the date range or filters.
+            </p>
+          </div>
+        ) : (
+          <StatusSummaryTable data={statusBreakdown} />
+        )}
       </div>
 
       {isAdmin ? (
-        <Card className="border-white/30 bg-white/60 dark:bg-zinc-900/55">
-          <CardHeader>
-            <CardTitle>Efficiency: Days to Approve by Finance Approver</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {financeTatChartData.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No finance approval records in this period.
-              </p>
-            ) : (
-              <div className="h-[320px] min-h-[320px] w-full text-muted-foreground">
-                <ResponsiveContainer width="100%" height="100%" minHeight={320}>
-                  <BarChart
-                    data={financeTatChartData}
-                    margin={{ top: 8, right: 12, left: -8, bottom: 22 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.28)" />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fill: MUTED_FOREGROUND_COLOR, fontSize: 12 }}
-                      interval={0}
-                      angle={-18}
-                      textAnchor="end"
-                      height={72}
-                    />
-                    <YAxis tick={{ fill: MUTED_FOREGROUND_COLOR, fontSize: 12 }} />
-                    <Tooltip
-                      formatter={(value, _key, payload) => {
-                        const sampleCount = Number(payload?.payload?.sampleCount ?? 0);
-                        return [
-                          `${formatNumber(Number(value))} days`,
-                          `${sampleCount} claims sampled`,
-                        ];
-                      }}
-                    />
-                    <Bar dataKey="avgDays" fill="#06B6D4" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <EfficiencyTable
+            title="Efficiency: Days to Approve by Department"
+            data={efficiencyChartData}
+          />
+          <div>
+            {overallFinanceTatAverage !== null ? (
+              <div className="mb-3 rounded-xl border p-4" style={cardStyle}>
+                <h3 className="text-sm font-semibold text-foreground">Overall Finance Team TAT</h3>
+                <p className="mt-1 text-lg font-bold text-foreground">
+                  {overallFinanceTatAverage.toFixed(2)} days
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {overallFinanceTatSampleCount} claim
+                  {overallFinanceTatSampleCount === 1 ? "" : "s"}
+                </p>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <Card className="border-white/30 bg-white/60 dark:bg-zinc-900/55">
-        <CardHeader>
-          <CardTitle>Claims By Status</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[340px] min-h-[340px] w-full text-muted-foreground">
-            <ResponsiveContainer width="100%" height="100%" minHeight={340}>
-              <BarChart data={statusChartData} margin={{ top: 8, right: 8, left: -8, bottom: 30 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.28)" />
-                <XAxis
-                  dataKey="name"
-                  interval={0}
-                  angle={-18}
-                  textAnchor="end"
-                  height={72}
-                  tick={{ fill: MUTED_FOREGROUND_COLOR, fontSize: 12 }}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  tick={{ fill: MUTED_FOREGROUND_COLOR, fontSize: 12 }}
-                />
-                <Tooltip formatter={(value) => formatNumber(Number(value))} />
-                <Bar dataKey="count" fill="#6366F1" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            ) : null}
+            <EfficiencyTable
+              title="Efficiency: Days to Approve by Finance Approver"
+              data={financeTatChartData}
+            />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      ) : null}
     </div>
   );
 }

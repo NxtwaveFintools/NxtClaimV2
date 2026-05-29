@@ -94,7 +94,7 @@ export function CompanyPolicyButton({
 
       <SheetContent className="!max-w-4xl p-0">
         <div className="flex h-full min-h-0 flex-col">
-          <SheetHeader className="border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
+          <SheetHeader className="border-b border-border px-5 py-4">
             <SheetTitle>Company Policy</SheetTitle>
             <SheetDescription>
               Review the currently active policy version and your acceptance timestamp.
@@ -104,12 +104,12 @@ export function CompanyPolicyButton({
           <div className="nxt-scroll min-h-0 flex-1 overflow-y-auto px-5 py-4">
             {state?.policy ? (
               <article className="space-y-4">
-                <header className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 dark:border-indigo-800/60 dark:bg-indigo-950/30">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-indigo-700 dark:text-indigo-300">
+                <header className="rounded-xl border border-border bg-background-secondary px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-accent">
                     {state.policy.versionName}
                   </p>
                 </header>
-                <div className="relative overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900/70">
+                <div className="relative overflow-hidden rounded-xl border border-border bg-background-secondary">
                   <iframe
                     src={state.policy.fileUrl}
                     title={`Company policy ${state.policy.versionName}`}
@@ -127,7 +127,7 @@ export function CompanyPolicyButton({
             )}
           </div>
 
-          <footer className="border-t border-zinc-200 bg-zinc-50 px-5 py-3 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950/70 dark:text-zinc-300">
+          <footer className="border-t border-border bg-background-secondary px-5 py-3 text-sm text-muted-foreground">
             You accepted this policy on {formatAcceptedDate(state?.acceptedAt ?? null)}.
           </footer>
         </div>

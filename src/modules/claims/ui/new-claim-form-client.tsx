@@ -1400,7 +1400,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                 <button
                   type="button"
                   onClick={clearDefaults}
-                  className="text-[11px] font-medium text-indigo-600 underline-offset-2 hover:text-indigo-500 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
+                  className="text-[11px] font-medium text-accent underline-offset-2 hover:underline"
                 >
                   Clear Defaults
                 </button>

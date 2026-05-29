@@ -2,12 +2,13 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { MyClaimsHeaderCardSkeleton } from "./_skeletons";
+import {
+  MyClaimsContentSkeleton,
+  MyClaimsFilterSkeleton,
+  MyClaimsPageSkeleton,
+} from "./_skeletons";
 import { CirclePlus } from "lucide-react";
-import { AppLayout, type DashboardNavItem } from "@/components/app-layout";
-import type { CompanyPolicyState } from "@/components/company-policy-button";
 import { RouterLink } from "@/components/ui/router-link";
-import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { ROUTES } from "@/core/config/route-registry";
 import {
   CLAIM_STATUSES,
@@ -26,37 +27,27 @@ import type {
 } from "@/core/domain/claims/contracts";
 import { GetMyClaimsPaginatedService } from "@/core/domain/claims/GetMyClaimsPaginatedService";
 import { getDefaultApprovalsStatusFilter } from "@/core/domain/claims/GetPendingApprovalsService";
-import { resolveDashboardAnalyticsScope } from "@/core/domain/dashboard/resolve-analytics-scope";
 import { logger } from "@/core/infra/logging/logger";
 import { formatDate } from "@/lib/format";
-import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
 import { normalizeIsoDateOnly } from "@/lib/date-only";
 import { appendReturnToParam, buildPathWithSearchParams } from "@/lib/pagination-helpers";
-import { getEmailDomain, getUserDisplayName, getUserInitials } from "@/lib/user-name";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
 import { isAdmin } from "@/modules/admin/server/is-admin";
 import { isDepartmentViewer } from "@/modules/claims/server/is-department-viewer";
-import {
-  getCachedPendingApprovalsViewerContext,
-  isFinancePendingApprovalsViewer,
-} from "@/modules/claims/server/get-pending-approvals-viewer-context";
+import { getCachedPendingApprovalsViewerContext } from "@/modules/claims/server/get-pending-approvals-viewer-context";
 import { AdminClaimsSection } from "@/modules/admin/ui/admin-claims-section";
 import { ClaimsApprovalsSection } from "@/modules/claims/ui/claims-approvals-section";
 import { DepartmentClaimsSection } from "@/modules/claims/ui/department-claims-section";
 import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
 import { MyClaimsPaginationControls } from "@/modules/claims/ui/my-claims-pagination-controls";
 import { DeleteClaimButton } from "@/modules/claims/ui/delete-claim-button";
-import { SupabaseDashboardRepository } from "@/modules/dashboard/repositories/SupabaseDashboardRepository";
-import { getPolicyGateState } from "@/modules/policies/server/get-policy-gate-state";
 
 const PAGE_SIZE = 5;
 const CLAIM_ID_LINK_CLASSES =
   "block max-w-full break-words text-primary hover:underline font-medium cursor-pointer leading-snug";
 const VIEW_LINK_CLASSES =
   "inline-flex h-8 items-center justify-center rounded-md border border-border bg-card px-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-background-secondary";
-const dashboardRepository = new SupabaseDashboardRepository();
-
 type SearchParamsValue = string | string[] | undefined;
 type ViewMode = "submissions" | "approvals" | "admin" | "admin-deleted" | "department";
 
@@ -64,90 +55,10 @@ export const metadata = {
   title: "Claims | NxtClaim",
 };
 
-function buildHodPendingNavHref(): string {
-  const params = new URLSearchParams({ status: DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS });
-  return `${ROUTES.claims.hodPending}?${params.toString()}`;
-}
-
-function buildNavigationItems(input: {
-  canViewAnalytics: boolean;
-  isAdminUser: boolean;
-  isFinanceUser: boolean;
-}): DashboardNavItem[] {
-  return [
-    {
-      href: ROUTES.dashboard,
-      label: "Dashboard",
-      iconName: "LayoutDashboard",
-      isActive: false,
-    },
-    {
-      href: ROUTES.claims.new,
-      label: "New Claim",
-      iconName: "CirclePlus",
-      isActive: false,
-    },
-    {
-      href: ROUTES.claims.myClaims,
-      label: "Claims",
-      iconName: "FileText",
-      isActive: true,
-    },
-    ...(input.isFinanceUser
-      ? [
-          {
-            href: buildHodPendingNavHref(),
-            label: "HOD Pending",
-            iconName: "CalendarDays",
-            isActive: false,
-          },
-        ]
-      : []),
-    ...(input.canViewAnalytics
-      ? [
-          {
-            href: ROUTES.dashboardAnalytics,
-            label: "Analytics",
-            iconName: "BarChart3",
-            isActive: false,
-          },
-        ]
-      : []),
-    ...(input.isAdminUser
-      ? [
-          {
-            href: ROUTES.admin.settings,
-            label: "System Settings",
-            iconName: "Settings",
-            isActive: false,
-          },
-        ]
-      : []),
-  ];
-}
-
-function toCompanyPolicyState(
-  gateState: Awaited<ReturnType<typeof getPolicyGateState>>,
-): CompanyPolicyState {
-  return {
-    policy: gateState.policy
-      ? {
-          id: gateState.policy.id,
-          versionName: gateState.policy.versionName,
-          fileUrl: gateState.policy.fileUrl,
-          createdAt: gateState.policy.createdAt,
-        }
-      : null,
-    accepted: gateState.accepted,
-    acceptedAt: gateState.acceptedAt,
-    message: gateState.errorMessage,
-  };
-}
-
 const ClaimsFilterBar = dynamic(
   () => import("@/modules/claims/ui/claims-filter-bar").then((module) => module.ClaimsFilterBar),
   {
-    loading: () => <FilterBarSkeleton />,
+    loading: () => <MyClaimsFilterSkeleton />,
   },
 );
 
@@ -373,36 +284,11 @@ function buildApprovalsViewHref(
 }
 
 function MyClaimsShellSkeleton() {
-  return (
-    <>
-      <div className="min-h-[112px]">
-        <FilterBarSkeleton />
-      </div>
-
-      <section className="min-h-[460px] overflow-hidden rounded-xl border border-border bg-card transition-colors">
-        <div className="border-b border-border px-4 py-2.5">
-          <div className="shimmer-sweep h-4 w-40 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-        </div>
-        <div className="space-y-3 p-5">
-          {Array.from({ length: 11 }).map((_, index) => (
-            <div
-              key={`table-shell-row-${index}`}
-              className="shimmer-sweep h-4 w-full rounded-md bg-zinc-200 dark:bg-gray-800/40"
-            />
-          ))}
-        </div>
-      </section>
-    </>
-  );
+  return <MyClaimsContentSkeleton />;
 }
 
 function MyClaimsFullPageSkeleton() {
-  return (
-    <>
-      <MyClaimsHeaderCardSkeleton />
-      <MyClaimsShellSkeleton />
-    </>
-  );
+  return <MyClaimsPageSkeleton />;
 }
 
 function TableHeader({ showActions }: { showActions: boolean }) {
@@ -653,22 +539,7 @@ async function ClaimsCommandCenterTable({
 }
 
 function FilterBarSkeleton() {
-  return (
-    <section className="rounded-xl border border-border bg-card p-3 transition-colors">
-      <div className="grid gap-2 md:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, index) => (
-          <div key={`filter-placeholder-${index}`} className="space-y-2">
-            <div className="shimmer-sweep h-3 w-20 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-            <div className="shimmer-sweep h-9 w-full rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-          </div>
-        ))}
-      </div>
-      <div className="mt-2 flex items-center gap-2">
-        <div className="shimmer-sweep h-9 w-28 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-        <div className="shimmer-sweep h-9 w-24 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-      </div>
-    </section>
-  );
+  return <MyClaimsFilterSkeleton />;
 }
 
 async function FilterBarWithData({
@@ -795,7 +666,7 @@ async function MyClaimsDashboardPageContent({
         />
       </Suspense>
 
-      <Suspense key={JSON.stringify(resolvedSearchParams)} fallback={<TableSkeleton />}>
+      <Suspense key={JSON.stringify(resolvedSearchParams)} fallback={<MyClaimsContentSkeleton />}>
         <ClaimsCommandCenterTable
           userId={userId}
           cursor={cursor}
@@ -950,45 +821,13 @@ async function ClaimsDataComponent({
     redirect(ROUTES.login);
   }
   const userId = currentUserResult.user.id;
-  const userEmail = currentUserResult.user.email ?? "Unknown User";
-  const [isAdminUser, policyGateState, analyticsViewerContextResult, isFinanceUser] =
-    await Promise.all([
-      isAdmin(),
-      getPolicyGateState(),
-      dashboardRepository.getAnalyticsViewerContext(userId),
-      isFinancePendingApprovalsViewer(userId),
-    ]);
-
-  if (analyticsViewerContextResult.errorMessage) {
-    logger.warn("claims.navigation.analytics_visibility_check_failed", {
-      userId,
-      error: analyticsViewerContextResult.errorMessage,
-    });
-  }
-
-  const canViewAnalytics = analyticsViewerContextResult.data
-    ? resolveDashboardAnalyticsScope(analyticsViewerContextResult.data) !== null
-    : false;
 
   return (
-    <AppLayout
-      navigationItems={buildNavigationItems({
-        canViewAnalytics,
-        isAdminUser,
-        isFinanceUser,
-      })}
-      userEmail={userEmail}
-      avatarInitial={getUserInitials(userEmail)}
-      displayName={getUserDisplayName(userEmail)}
-      emailDomain={getEmailDomain(userEmail)}
-      companyPolicyState={toCompanyPolicyState(policyGateState)}
-    >
-      <div className="mx-auto w-full max-w-[1600px] pb-16">
-        <Suspense fallback={<MyClaimsFullPageSkeleton />}>
-          <MyClaimsDashboardResolvedContent searchParams={resolvedSearchParams} userId={userId} />
-        </Suspense>
-      </div>
-    </AppLayout>
+    <div className="mx-auto w-full max-w-[1600px] pb-16">
+      <Suspense fallback={<MyClaimsFullPageSkeleton />}>
+        <MyClaimsDashboardResolvedContent searchParams={resolvedSearchParams} userId={userId} />
+      </Suspense>
+    </div>
   );
 }
 
@@ -998,13 +837,8 @@ export default function MyClaimsDashboardPage({
   searchParams: Promise<Record<string, SearchParamsValue>>;
 }) {
   return (
-    <div
-      className={`${pageBodyFont.variable} ${pageDisplayFont.variable} dashboard-font-body`}
-      style={{ minHeight: "100vh", backgroundColor: "var(--background)" }}
-    >
-      <Suspense fallback={<MyClaimsFullPageSkeleton />}>
-        <ClaimsDataComponent searchParams={searchParams} />
-      </Suspense>
-    </div>
+    <Suspense fallback={<MyClaimsFullPageSkeleton />}>
+      <ClaimsDataComponent searchParams={searchParams} />
+    </Suspense>
   );
 }

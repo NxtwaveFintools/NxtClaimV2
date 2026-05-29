@@ -314,11 +314,11 @@ export function AdvancedFiltersSheet() {
           </section>
         </div>
 
-        <div className="mt-5 flex items-center justify-between gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+        <div className="mt-5 flex items-center justify-between gap-2 border-t border-border pt-4">
           <button
             type="button"
             onClick={handleResetAdvanced}
-            className="inline-flex rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            className="inline-flex rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-background-secondary"
           >
             Reset Advanced
           </button>
@@ -327,7 +327,7 @@ export function AdvancedFiltersSheet() {
             type="button"
             onClick={handleApply}
             disabled={isApplyDisabled}
-            className="inline-flex rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+            className="inline-flex rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             Apply
           </button>

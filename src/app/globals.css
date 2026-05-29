@@ -12,7 +12,9 @@
   --accent: #2563eb;
   --accent-hover: #1d4ed8;
   --accent-muted: #eff6ff;
-  --font-geist-sans: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-nxt-sans:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-geist-sans: var(--font-nxt-sans);
   --font-geist-mono: "Cascadia Mono", "Consolas", "Courier New", monospace;
 }
 
@@ -47,18 +49,46 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-dashboard-inter), "Inter Fallback", sans-serif;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   transition:
     background-color 180ms ease,
     color 180ms ease;
 }
 
 .dashboard-font-body {
-  font-family: var(--font-dashboard-inter), "Inter Fallback", sans-serif;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
 }
 
 .dashboard-font-display {
-  font-family: var(--font-dashboard-display), var(--font-geist-sans), sans-serif;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
 }
 
 /* ─── Shimmer skeleton animation ────────────────────────────────────────────── */
@@ -124,29 +154,22 @@ body {
 
 .nxt-input:focus {
   outline: none;
-  border-color: #6366f1;
-  box-shadow:
-    0 0 0 3px rgba(99, 102, 241, 0.15),
-    0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .dark .nxt-input:focus {
-  border-color: #818cf8;
-  box-shadow:
-    0 0 0 3px rgba(129, 140, 248, 0.12),
-    0 1px 2px 0 rgba(0, 0, 0, 0.15);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 /* ─── Premium card elevation matching dashboard ─────────────────────────────── */
 
 .nxt-card {
-  border-radius: 24px;
-  border: 1px solid rgba(228, 228, 231, 0.8);
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow:
-    0 20px 60px -20px rgba(15, 23, 42, 0.12),
-    0 4px 16px -4px rgba(15, 23, 42, 0.04);
-  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: none;
   transition:
     border-color 200ms ease,
     box-shadow 200ms ease,
@@ -154,11 +177,9 @@ body {
 }
 
 .dark .nxt-card {
-  border-color: rgba(63, 63, 70, 0.7);
-  background: rgba(24, 24, 27, 0.92);
-  box-shadow:
-    0 20px 60px -20px rgba(0, 0, 0, 0.35),
-    0 4px 16px -4px rgba(0, 0, 0, 0.15);
+  border-color: var(--border);
+  background: var(--card);
+  box-shadow: none;
 }
 
 /* ─── Ambient page background — world-class gradient ────────────────────────── */
@@ -172,11 +193,11 @@ body {
   position: relative;
   isolation: isolate;
   min-height: 100vh;
-  background-color: #f6f7fb;
+  background-color: var(--background);
 }
 
 .dark .nxt-page-bg {
-  background-color: #060912;
+  background-color: var(--background);
 }
 
 /* Primary gradient layer — fills entire viewport (fixed) */
@@ -186,41 +207,11 @@ body {
   inset: 0;
   pointer-events: none;
   z-index: -1;
-  background:
-    /* Top-left indigo haze */
-    radial-gradient(ellipse 80% 55% at -5% -10%, rgba(165, 180, 252, 0.45) 0%, transparent 65%),
-    /* Top-right sky haze */
-    radial-gradient(ellipse 65% 45% at 105% 5%, rgba(147, 210, 250, 0.3) 0%, transparent 60%),
-    /* Center-left violet depth */
-    radial-gradient(ellipse 55% 40% at 10% 55%, rgba(196, 181, 253, 0.22) 0%, transparent 65%),
-    /* Bottom-right warm accent */
-    radial-gradient(ellipse 50% 35% at 90% 85%, rgba(165, 180, 252, 0.18) 0%, transparent 60%),
-    /* Subtle base linear wash */
-    linear-gradient(
-        160deg,
-        rgba(238, 242, 255, 0.7) 0%,
-        rgba(248, 250, 252, 0.4) 50%,
-        rgba(240, 244, 255, 0.5) 100%
-      );
+  background: var(--background);
 }
 
 .dark .nxt-page-bg::before {
-  background:
-    /* Top-left indigo aurora */
-    radial-gradient(ellipse 80% 55% at -5% -10%, rgba(67, 56, 202, 0.2) 0%, transparent 65%),
-    /* Top-right blue aurora */
-    radial-gradient(ellipse 65% 45% at 105% 5%, rgba(14, 116, 144, 0.12) 0%, transparent 60%),
-    /* Center-left violet depth */
-    radial-gradient(ellipse 55% 40% at 10% 55%, rgba(88, 28, 235, 0.1) 0%, transparent 65%),
-    /* Bottom accent */
-    radial-gradient(ellipse 50% 35% at 90% 85%, rgba(49, 46, 129, 0.12) 0%, transparent 60%),
-    /* Dark base */
-    linear-gradient(
-        160deg,
-        rgba(15, 10, 40, 0.95) 0%,
-        rgba(6, 9, 18, 0.98) 50%,
-        rgba(10, 5, 30, 0.95) 100%
-      );
+  background: var(--background);
 }
 
 /* Secondary layer — subtle noise texture feel via soft grain overlay */
@@ -230,12 +221,7 @@ body {
   inset: 0;
   pointer-events: none;
   z-index: -1;
-  background:
-    /* Thin bottom fade */ linear-gradient(
-    to top,
-    rgba(99, 102, 241, 0.04) 0%,
-    transparent 30%
-  );
+  background: transparent;
 }
 
 /* ─── Smooth scrollbar styling ───────────────────────────────────────────────── */

@@ -4,8 +4,8 @@ import dynamic from "next/dynamic";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { ExternalLink, X } from "lucide-react";
-import { AppShellHeader } from "@/components/app-shell-header";
 import { BackButton } from "@/components/ui/back-button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Accordion,
   AccordionContent,
@@ -42,7 +42,6 @@ import { CopyableDataCard as DataCard } from "../../../../../modules/claims/ui/c
 import { AiAuditCaption } from "@/components/ui/ai-audit-caption";
 import { DeleteClaimButton } from "@/modules/claims/ui/delete-claim-button";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
-import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
 import { sanitizeDashboardReturnToPath } from "@/lib/pagination-helpers";
 import { getClaimDetailActionPermissions } from "@/modules/claims/utils/get-available-claim-actions";
 import { isAdmin } from "@/modules/admin/server/is-admin";
@@ -53,9 +52,7 @@ const FinanceEditClaimForm = dynamic(
   () =>
     import("@/modules/claims/ui/finance-edit-claim-form").then((mod) => mod.FinanceEditClaimForm),
   {
-    loading: () => (
-      <div className="h-96 animate-pulse rounded-xl bg-zinc-200 dark:bg-gray-800/40" />
-    ),
+    loading: () => <Skeleton className="h-96 w-full rounded-xl" />,
   },
 );
 
@@ -87,32 +84,22 @@ function EvidenceTabPanel({ item, value }: { item: EvidenceItem; value: Evidence
       value={value}
       className="relative mt-0 flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
     >
-      <a
-        href={item.signedUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="absolute right-4 top-4 z-20 inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white/90 px-2.5 py-1 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950/85 dark:text-slate-300 dark:hover:bg-slate-900"
-      >
-        Open in New Tab
-        <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-      </a>
-
-      <div className="flex-1 min-h-0 overflow-auto bg-slate-950/40 p-2 pt-14 sm:p-3 sm:pt-16">
+      <div className="flex-1 min-h-0 overflow-auto bg-background-secondary p-2 sm:p-3">
         {isPdf(item.path) ? (
           <iframe
             title={item.label}
             src={item.signedUrl}
-            className="h-full w-full rounded-lg border border-slate-800"
+            className="h-full w-full rounded-lg border border-border bg-card"
           />
         ) : (
-          <div className="w-full rounded-lg border border-slate-800 bg-slate-950/40 p-2">
+          <div className="grid min-h-full place-items-center rounded-lg border border-border bg-card p-2">
             <Image
               src={item.signedUrl}
               alt={item.label}
               width={1800}
               height={2200}
               unoptimized
-              className="h-auto w-full max-w-none rounded-md"
+              className="max-h-full w-auto max-w-full rounded-md object-contain"
             />
           </div>
         )}
@@ -174,53 +161,44 @@ function buildEvidencePaths(
 function ClaimDetailContentSkeleton() {
   return (
     <>
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
+      <section className="rounded-xl border border-border bg-card p-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
-            <div className="h-3 w-20 animate-pulse rounded-md bg-muted/60" />
-            <div className="h-8 w-48 animate-pulse rounded-md bg-muted/60" />
-            <div className="h-4 w-56 animate-pulse rounded-md bg-muted/60" />
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-56" />
           </div>
-          <div className="h-7 w-32 animate-pulse rounded-md bg-muted/60" />
+          <Skeleton className="h-7 w-32" />
         </div>
         <div className="mt-5 grid gap-4 md:grid-cols-3">
           {Array.from({ length: 3 }).map((_, index) => (
-            <article
-              key={`skel-meta-1-${index}`}
-              className="rounded-xl border border-slate-200 p-4 dark:border-slate-800"
-            >
-              <div className="h-3 w-24 animate-pulse rounded-md bg-muted/60" />
-              <div className="mt-2 h-4 w-32 animate-pulse rounded-md bg-muted/60" />
+            <article key={`skel-meta-1-${index}`} className="rounded-lg border border-border p-3">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="mt-2 h-4 w-32" />
             </article>
           ))}
         </div>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           {Array.from({ length: 2 }).map((_, index) => (
-            <article
-              key={`skel-meta-2-${index}`}
-              className="rounded-xl border border-slate-200 p-4 dark:border-slate-800"
-            >
-              <div className="h-3 w-24 animate-pulse rounded-md bg-muted/60" />
-              <div className="mt-2 h-4 w-36 animate-pulse rounded-md bg-muted/60" />
+            <article key={`skel-meta-2-${index}`} className="rounded-lg border border-border p-3">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="mt-2 h-4 w-36" />
             </article>
           ))}
         </div>
-        <section className="mt-5 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-          <div className="h-4 w-32 animate-pulse rounded-md bg-muted/60" />
+        <section className="mt-5 rounded-lg border border-border p-4">
+          <Skeleton className="h-4 w-32" />
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             {Array.from({ length: 6 }).map((_, index) => (
-              <div
-                key={`skel-detail-${index}`}
-                className="h-4 w-full animate-pulse rounded-md bg-muted/60"
-              />
+              <Skeleton key={`skel-detail-${index}`} className="h-4 w-full" />
             ))}
           </div>
         </section>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-        <div className="h-4 w-36 animate-pulse rounded-md bg-muted/60" />
-        <div className="mt-4 h-[460px] w-full animate-pulse rounded-lg bg-muted/60" />
+      <section className="rounded-xl border border-border bg-card p-4">
+        <Skeleton className="h-4 w-36" />
+        <Skeleton className="mt-4 h-[460px] w-full" />
       </section>
     </>
   );
@@ -228,14 +206,14 @@ function ClaimDetailContentSkeleton() {
 
 function ClaimAuditHistorySkeleton() {
   return (
-    <section className="mt-6 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-      <div className="h-4 w-28 animate-pulse rounded-md bg-muted/60" />
+    <section className="mt-6 rounded-xl border border-border bg-card p-4">
+      <Skeleton className="h-4 w-28" />
       <div className="mt-4 space-y-4">
         {Array.from({ length: 4 }).map((_, index) => (
           <div key={`audit-skel-${index}`} className="space-y-2">
-            <div className="h-3 w-36 animate-pulse rounded-md bg-muted/60" />
-            <div className="h-4 w-52 animate-pulse rounded-md bg-muted/60" />
-            <div className="h-3 w-64 animate-pulse rounded-md bg-muted/60" />
+            <Skeleton className="h-3 w-36" />
+            <Skeleton className="h-4 w-52" />
+            <Skeleton className="h-3 w-64 max-w-full" />
           </div>
         ))}
       </div>
@@ -312,7 +290,7 @@ async function FinanceEditClaimSection({
 
   return (
     <Sheet>
-      <SheetTrigger className="inline-flex items-center rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-all duration-200 hover:bg-indigo-100 active:scale-[0.98] dark:border-indigo-600/60 dark:bg-indigo-600/15 dark:text-indigo-200 dark:hover:bg-indigo-600/25">
+      <SheetTrigger className="inline-flex h-[34px] items-center rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground transition-all duration-200 hover:bg-background-secondary active:scale-[0.98]">
         Edit Claim
       </SheetTrigger>
 
@@ -403,17 +381,17 @@ function EvidenceGallerySkeleton() {
   return (
     <div className="flex h-full flex-col">
       <div className="h-14 border-b border-border px-4 py-3">
-        <div className="h-8 w-48 animate-pulse rounded-md bg-muted/60" />
+        <Skeleton className="h-8 w-48" />
       </div>
       <div className="flex-1 p-3">
-        <div className="h-full w-full animate-pulse rounded-lg bg-muted/60" />
+        <Skeleton className="h-full w-full" />
       </div>
     </div>
   );
 }
 
 function FinanceEditClaimSkeleton() {
-  return <div className="h-8 w-24 animate-pulse rounded-xl bg-muted/60" />;
+  return <Skeleton className="h-8 w-24" />;
 }
 
 async function ClaimAuditHistorySection({ claimId }: { claimId: string }) {
@@ -486,12 +464,10 @@ async function EvidenceGallerySection({ evidencePaths }: { evidencePaths: Eviden
   if (!defaultTabValue) {
     return (
       <div className="flex h-full flex-col">
-        <div className="flex h-14 items-center border-b border-border px-4">
-          <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-            Evidence Gallery
-          </p>
+        <div className="flex items-center border-b border-border px-4 py-2">
+          <p className="text-sm font-semibold text-foreground">Evidence</p>
         </div>
-        <p className="px-4 py-4 text-sm text-slate-600 dark:text-slate-400">
+        <p className="px-4 py-4 text-sm text-muted-foreground">
           {evidenceErrorMessage
             ? `Unable to load evidence files right now. ${evidenceErrorMessage}`
             : "No evidence files attached to this claim."}
@@ -500,36 +476,56 @@ async function EvidenceGallerySection({ evidencePaths }: { evidencePaths: Eviden
     );
   }
 
+  const activeSignedUrl =
+    receiptItem?.signedUrl ?? bankStatementItem?.signedUrl ?? supportingDocumentItem?.signedUrl;
+
   return (
     <Tabs defaultValue={defaultTabValue} className="flex h-full w-full flex-col">
-      <TabsList className="h-14 w-full justify-start rounded-none border-b border-border bg-transparent p-0 px-4">
-        {receiptItem ? (
-          <TabsTrigger
-            value="receipt"
-            className="rounded-md px-4 py-2 data-[state=active]:bg-muted/50"
-          >
-            Receipt
-          </TabsTrigger>
-        ) : null}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <p className="text-sm font-semibold text-foreground">Evidence</p>
+          <TabsList className="h-auto justify-start gap-1 rounded-lg border border-border bg-card p-1">
+            {receiptItem ? (
+              <TabsTrigger
+                value="receipt"
+                className="h-8 rounded-md px-3 text-xs text-muted-foreground data-[state=active]:bg-[var(--accent-muted)] data-[state=active]:text-[var(--accent)]"
+              >
+                Receipt
+              </TabsTrigger>
+            ) : null}
 
-        {bankStatementItem ? (
-          <TabsTrigger
-            value="bank-statement"
-            className="rounded-md px-4 py-2 data-[state=active]:bg-muted/50"
-          >
-            Bank Statement
-          </TabsTrigger>
-        ) : null}
+            {bankStatementItem ? (
+              <TabsTrigger
+                value="bank-statement"
+                className="h-8 rounded-md px-3 text-xs text-muted-foreground data-[state=active]:bg-[var(--accent-muted)] data-[state=active]:text-[var(--accent)]"
+              >
+                Bank Statement
+              </TabsTrigger>
+            ) : null}
 
-        {supportingDocumentItem ? (
-          <TabsTrigger
-            value="supporting-document"
-            className="rounded-md px-4 py-2 data-[state=active]:bg-muted/50"
+            {supportingDocumentItem ? (
+              <TabsTrigger
+                value="supporting-document"
+                className="h-8 rounded-md px-3 text-xs text-muted-foreground data-[state=active]:bg-[var(--accent-muted)] data-[state=active]:text-[var(--accent)]"
+              >
+                Supporting Document
+              </TabsTrigger>
+            ) : null}
+          </TabsList>
+        </div>
+
+        {activeSignedUrl ? (
+          <a
+            href={activeSignedUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-[32px] shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-background-secondary"
           >
-            Supporting Document
-          </TabsTrigger>
+            Open in New Tab
+            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+          </a>
         ) : null}
-      </TabsList>
+      </div>
 
       {receiptItem ? <EvidenceTabPanel item={receiptItem} value="receipt" /> : null}
       {bankStatementItem ? (
@@ -575,7 +571,7 @@ async function ClaimDetailCore({
         </p>
         <Link
           href={returnToPath}
-          className="mt-4 inline-flex text-sm font-medium text-indigo-500 hover:text-indigo-400"
+          className="mt-4 inline-flex text-sm font-medium text-[var(--accent)] hover:text-[var(--accent-hover)]"
         >
           Back to approvals
         </Link>
@@ -648,11 +644,6 @@ async function ClaimDetailCore({
   const shouldRenderFinanceAuthorizationActions =
     !isBeneficiary && canTakeFinanceAuthorizationDecision;
   const shouldRenderFinanceExecutionAction = !isBeneficiary && canTakeFinanceExecutionDecision;
-  const canTakeDecision =
-    shouldRenderL1DecisionActions ||
-    shouldRenderFinanceAuthorizationActions ||
-    shouldRenderFinanceExecutionAction;
-  const showBottomActionBar = canTakeDecision || canEditClaim;
   const canDeleteClaim =
     currentUserId === claim.submittedBy && isSubmitterDeletableClaimStatus(claim.status);
 
@@ -736,7 +727,9 @@ async function ClaimDetailCore({
       ? formatOptionalText(claim.onBehalfEmployeeCode, claim.employeeId)
       : claim.employeeId;
   const isPendingFinanceApproval = isPendingFinanceApprovalStatus(claim.status);
-  const microGridClassName = "grid grid-cols-2 2xl:grid-cols-3 gap-4";
+  const microGridClassName = "grid grid-cols-1 gap-2 sm:grid-cols-2 2xl:grid-cols-3";
+  const financialGridClassName = "grid grid-cols-1 gap-2 sm:grid-cols-2 2xl:grid-cols-3";
+  const wideFactClassName = "sm:col-span-2 2xl:col-span-3";
   const detailHeadingLabel = claim.detailType === "expense" ? "Expense Details" : "Advance Details";
   const formatAmountValue = (value: number | null | undefined) => {
     if (value === null || value === undefined) {
@@ -776,35 +769,156 @@ async function ClaimDetailCore({
 
   return (
     <>
-      <section className="flex items-center justify-between border-b border-zinc-200/80 py-4 dark:border-zinc-800/80">
-        <BackButton className="w-fit" fallbackHref={returnToPath} />
+      <section className="sticky top-0 z-20 -mx-4 flex flex-col gap-2 border-b border-border bg-background px-6 py-2.5 sm:-mx-6 sm:px-6 lg:-mx-8 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <BackButton
+            className="!h-[34px] !rounded-md !border-border !bg-card !px-2.5 !py-0 !text-xs !font-semibold !text-foreground hover:!bg-background-secondary"
+            fallbackHref={returnToPath}
+          />
+          <div className="flex min-w-0 items-baseline gap-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+              Audit &amp; Review
+            </p>
+            <h1 className="break-words text-sm font-semibold leading-tight text-foreground">
+              {claim.id}
+            </h1>
+          </div>
+        </div>
 
-        <div className="ml-4 flex min-w-0 flex-wrap items-center justify-end gap-2">
-          <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            Audit &amp; Review · {claim.id}
-          </p>
-          <ClaimStatusBadge status={claim.status} />
+        <div className="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
+          <ClaimStatusBadge status={claim.status} fullStatus />
+
+          {canEditClaim ? (
+            <Suspense fallback={<FinanceEditClaimSkeleton />}>
+              <FinanceEditClaimSection
+                claim={claim}
+                editFlow={canEditFinanceClaim ? "finance" : "own"}
+              />
+            </Suspense>
+          ) : null}
+
+          {shouldRenderFinanceExecutionAction ? (
+            <ClaimDecisionActionForm
+              action={markPaidFromDetail}
+              decision="mark-paid"
+              compact
+              isSubmitter={isBeneficiary}
+              loadingMessage="Marking payment as done..."
+              successMessage="Claim marked as paid."
+              errorMessage="Unable to mark payment as done."
+              redirectToHref={returnToPath}
+            />
+          ) : null}
+
+          {shouldRenderFinanceAuthorizationActions ? (
+            <>
+              <ClaimDecisionActionForm
+                action={approveFinanceFromDetail}
+                decision="approve"
+                compact
+                isSubmitter={isBeneficiary}
+                loadingMessage="Approving finance step..."
+                successMessage="Finance decision approved."
+                errorMessage="Unable to approve finance step."
+                redirectToHref={returnToPath}
+              />
+              <ClaimRejectWithReasonForm
+                action={rejectFinanceFromDetail}
+                compact
+                isSubmitter={isBeneficiary}
+                redirectToHref={returnToPath}
+              />
+            </>
+          ) : null}
+
+          {shouldRenderL1DecisionActions ? (
+            <>
+              <ClaimDecisionActionForm
+                action={approveFromDetail}
+                decision="approve"
+                compact
+                isSubmitter={isBeneficiary}
+                loadingMessage="Approving claim..."
+                successMessage="Claim approved."
+                errorMessage="Unable to approve claim."
+                redirectToHref={returnToPath}
+              />
+              <ClaimRejectWithReasonForm
+                action={rejectFromDetail}
+                compact
+                isSubmitter={isBeneficiary}
+                redirectToHref={returnToPath}
+              />
+            </>
+          ) : null}
 
           {canDeleteClaim ? (
-            <DeleteClaimButton claimId={claim.id} redirectToHref={ROUTES.claims.myClaims} />
+            <DeleteClaimButton claimId={claim.id} redirectToHref={returnToPath} compact />
           ) : null}
+        </div>
+      </section>
+
+      <section className="mt-3 rounded-xl border border-border bg-card p-3">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="min-w-0 sm:col-span-2 xl:col-span-1">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+              Total Amount
+            </p>
+            <p className="mt-1 break-words text-[26px] font-bold leading-none text-foreground">
+              {formatAmountValue(totalAmountValue)}
+            </p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+              Claim For
+            </p>
+            <p className="mt-1 break-words text-sm font-semibold text-foreground">
+              {claimForDisplayName}
+            </p>
+            <p className="break-words text-xs text-muted-foreground">{claimForDisplayEmail}</p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+              Category
+            </p>
+            <p className="mt-1 break-words text-sm font-medium text-foreground">
+              {heroCategoryValue}
+            </p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+              Department
+            </p>
+            <p className="mt-1 break-words text-sm font-medium text-foreground">
+              {heroDepartmentValue}
+            </p>
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+              Purpose
+            </p>
+            <p className="mt-1 break-words text-sm font-medium text-foreground">
+              {heroPurposeValue}
+            </p>
+          </div>
         </div>
       </section>
 
       {isAdminUser ? <AdminSoftDeletePanel claimId={claim.id} isActive={claim.isActive} /> : null}
       {isDeptViewerOnly ? (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/50">
-          <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
-            View Only: Department POC
-          </span>
+        <div className="rounded-lg border border-border bg-background-secondary px-3 py-2">
+          <p className="text-xs font-semibold text-foreground">Read-only access</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            You can view this claim because it belongs to an assigned department.
+          </p>
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-8 pt-4 lg:grid-cols-12 lg:gap-12">
-        <section className="relative z-10 flex flex-col gap-12 pb-32 lg:col-span-5">
+      <div className="grid grid-cols-1 gap-4 pt-4 lg:grid-cols-[minmax(420px,44%)_minmax(520px,56%)]">
+        <section className="relative z-10 flex flex-col gap-3 lg:order-1">
           {DB_REJECTED_STATUSES.some((status) => status === claim.status) &&
           claim.rejectionReason ? (
-            <section className="border-l-2 border-rose-500/70 bg-rose-50/55 px-4 py-3 dark:border-rose-500/60 dark:bg-rose-900/10">
+            <section className="rounded-xl border border-rose-200 bg-rose-50/55 px-4 py-3 dark:border-rose-900/60 dark:bg-rose-950/20">
               <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-rose-700 dark:text-rose-300">
                 Rejection Reason
               </h2>
@@ -814,59 +928,27 @@ async function ClaimDetailCore({
             </section>
           ) : null}
 
-          <section className="bg-primary/5 border border-primary/20 rounded-xl p-6 mb-8 flex flex-col gap-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="min-w-0 md:flex-1">
-                <p className="text-[10px] uppercase text-muted-foreground">Total Amount</p>
-                <p className="max-w-full break-words text-3xl font-black leading-none tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-                  {formatAmountValue(totalAmountValue)}
-                </p>
-              </div>
-
-              <div className="min-w-0 md:max-w-[18rem] md:flex-none">
-                <p className="text-[10px] uppercase text-muted-foreground">Claim For</p>
-                <p className="break-words font-medium text-foreground">{claimForDisplayName}</p>
-                <p className="break-words text-sm text-muted-foreground">{claimForDisplayEmail}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-primary/10">
-              <div>
-                <p className="text-[10px] uppercase text-muted-foreground">Category</p>
-                <p className="font-medium text-foreground">{heroCategoryValue}</p>
-              </div>
-              <div>
-                <p className="text-[10px] uppercase text-muted-foreground">Department</p>
-                <p className="font-medium text-foreground">{heroDepartmentValue}</p>
-              </div>
-              <div>
-                <p className="text-[10px] uppercase text-muted-foreground">Purpose</p>
-                <p className="font-medium text-foreground">{heroPurposeValue}</p>
-              </div>
-            </div>
-          </section>
-
-          <section className="bg-card border border-border/50 shadow-sm rounded-xl p-6 md:p-8 flex flex-col gap-6">
+          <section className="flex flex-col gap-2">
             <Accordion
               type="multiple"
-              defaultValue={["expense-details", "general-info", "routing-context", "financials"]}
-              className="w-full space-y-4"
+              defaultValue={["expense-details", "financials"]}
+              className="w-full space-y-2"
             >
               <AccordionItem
                 value="expense-details"
-                className="border-none bg-muted/10 rounded-xl px-4 py-2"
+                className="rounded-xl border border-border bg-card p-3.5"
               >
-                <AccordionTrigger className="hover:no-underline text-xs uppercase tracking-widest text-muted-foreground font-bold">
+                <AccordionTrigger className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground hover:no-underline">
                   {detailHeadingLabel}
                 </AccordionTrigger>
-                <AccordionContent className="pt-4 pb-2">
+                <AccordionContent className="pt-3 pb-1">
                   <div className={microGridClassName}>
                     {claim.expense ? (
                       <>
-                        <div className="col-span-2 2xl:col-span-2 flex flex-col gap-1">
+                        <div className="sm:col-span-2 2xl:col-span-2 flex flex-col gap-1">
                           <DataCard
                             label="Bill No"
-                            value={formatOptionalText(claim.expense.billNo, "-")}
+                            value={formatOptionalText(claim.expense.billNo)}
                           />
                           <AiAuditCaption aiMetadata={aiMetadata} fieldKey="bill_no" />
                         </div>
@@ -895,7 +977,7 @@ async function ClaimDetailCore({
                           <DataCard
                             label="Location Details"
                             value={formatOptionalText(claim.expense.locationDetails)}
-                            className="col-span-2 2xl:col-span-3"
+                            className={wideFactClassName}
                           />
                         ) : null}
                         <div className="flex flex-col gap-1">
@@ -905,32 +987,62 @@ async function ClaimDetailCore({
                           />
                           <AiAuditCaption aiMetadata={aiMetadata} fieldKey="vendor_name" />
                         </div>
-                        {claim.expense.remarks ? (
-                          <DataCard
-                            label="Remarks"
-                            value={formatOptionalText(claim.expense.remarks)}
-                            className="col-span-2 2xl:col-span-3"
-                          />
-                        ) : null}
+                        <DataCard
+                          label="Expense Category"
+                          value={formatOptionalText(claim.expense.expenseCategoryName)}
+                        />
+                        <DataCard
+                          label="Purpose"
+                          value={formatOptionalText(claim.expense.purpose)}
+                          className={wideFactClassName}
+                        />
+                        <DataCard
+                          label="Remarks"
+                          value={formatOptionalText(claim.expense.remarks)}
+                          className={wideFactClassName}
+                        />
                         <DataCard
                           label="People Involved"
                           value={formatOptionalText(claim.expense.peopleInvolved)}
+                          className={wideFactClassName}
                         />
                       </>
                     ) : claim.advance ? (
                       <>
                         <DataCard
+                          label="Total Amount"
+                          value={formatAmountValue(claim.advance.totalAmount)}
+                        />
+                        <DataCard
                           label="Purpose"
                           value={formatOptionalText(claim.advance.purpose)}
-                          className="col-span-2 2xl:col-span-3"
+                          className={wideFactClassName}
                         />
                         <DataCard
                           label="Expected Usage Date"
                           value={formatDate(claim.advance.expectedUsageDate)}
                         />
+                        <DataCard
+                          label="Product"
+                          value={formatOptionalText(claim.advance.productId)}
+                        />
+                        <DataCard
+                          label="Location"
+                          value={formatOptionalText(claim.advance.locationId)}
+                        />
+                        <DataCard
+                          label="Remarks"
+                          value={formatOptionalText(claim.advance.remarks)}
+                          className={wideFactClassName}
+                        />
+                        <DataCard
+                          label="Supporting Document"
+                          value={formatOptionalText(claim.advance.supportingDocumentPath)}
+                          className={wideFactClassName}
+                        />
                       </>
                     ) : (
-                      <DataCard label="Details" value="N/A" className="col-span-2 2xl:col-span-3" />
+                      <DataCard label="Details" value="N/A" className={wideFactClassName} />
                     )}
                   </div>
                 </AccordionContent>
@@ -938,18 +1050,14 @@ async function ClaimDetailCore({
 
               <AccordionItem
                 value="general-info"
-                className="border-none bg-muted/10 rounded-xl px-4 py-2"
+                className="rounded-xl border border-border bg-card p-3.5"
               >
-                <AccordionTrigger className="hover:no-underline text-xs uppercase tracking-widest text-muted-foreground font-bold">
+                <AccordionTrigger className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground hover:no-underline">
                   General Info
                 </AccordionTrigger>
-                <AccordionContent className="pt-4 pb-2">
+                <AccordionContent className="pt-3 pb-1">
                   <div className={microGridClassName}>
-                    <DataCard
-                      label="Claim ID"
-                      value={claim.id}
-                      className="col-span-2 2xl:col-span-3"
-                    />
+                    <DataCard label="Claim ID" value={claim.id} className={wideFactClassName} />
                     <DataCard label="Submitted On" value={formatDate(claim.submittedAt)} />
                     <DataCard label="Employee" value={submitterDisplayName} />
                     <DataCard label="Submission Type" value={claim.submissionType} />
@@ -957,18 +1065,24 @@ async function ClaimDetailCore({
                     <DataCard
                       label="Email"
                       value={submitterDisplayEmail}
-                      className="col-span-2 2xl:col-span-2"
+                      className="sm:col-span-2"
                     />
                     <DataCard
                       label="Claim For"
                       value={`${claimForDisplayName} (${claimForDisplayEmail})`}
-                      className="col-span-2 2xl:col-span-2"
+                      className="sm:col-span-2"
                     />
                     {claim.submissionType === "On Behalf" ? (
                       <DataCard
                         label="On Behalf Email"
                         value={formatOptionalText(claim.onBehalfEmail)}
-                        className="col-span-2 2xl:col-span-2"
+                        className="sm:col-span-2"
+                      />
+                    ) : null}
+                    {claim.submissionType === "On Behalf" ? (
+                      <DataCard
+                        label="On Behalf Employee ID"
+                        value={formatOptionalText(claim.onBehalfEmployeeCode)}
                       />
                     ) : null}
                   </div>
@@ -977,30 +1091,48 @@ async function ClaimDetailCore({
 
               <AccordionItem
                 value="routing-context"
-                className="border-none bg-muted/10 rounded-xl px-4 py-2"
+                className="rounded-xl border border-border bg-card p-3.5"
               >
-                <AccordionTrigger className="hover:no-underline text-xs uppercase tracking-widest text-muted-foreground font-bold">
+                <AccordionTrigger className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground hover:no-underline">
                   Routing Context
                 </AccordionTrigger>
-                <AccordionContent className="pt-4 pb-2">
+                <AccordionContent className="pt-3 pb-1">
                   <div className={microGridClassName}>
-                    <DataCard label="Payment Mode" value={claim.paymentModeName ?? "Unknown"} />
-                    {isPendingFinanceApproval ? (
-                      <DataCard label="Assigned To" value="Finance Team" />
-                    ) : null}
+                    <DataCard
+                      label="Payment Mode"
+                      value={formatOptionalText(claim.paymentModeName)}
+                    />
+                    <DataCard label="Department" value={formatOptionalText(claim.departmentName)} />
+                    <DataCard
+                      label="Assigned HOD / L1"
+                      value={formatOptionalText(claim.assignedL1ApproverId)}
+                    />
+                    <DataCard
+                      label="Assigned Finance / L2"
+                      value={
+                        isPendingFinanceApproval
+                          ? "Finance Team"
+                          : formatOptionalText(claim.assignedL2ApproverId)
+                      }
+                    />
+                    <DataCard
+                      label="Current Workflow Status"
+                      value={claim.status}
+                      className={wideFactClassName}
+                    />
                   </div>
                 </AccordionContent>
               </AccordionItem>
 
               <AccordionItem
                 value="financials"
-                className="border-none bg-muted/10 rounded-xl px-4 py-2"
+                className="rounded-xl border border-border bg-card p-3.5"
               >
-                <AccordionTrigger className="hover:no-underline text-xs uppercase tracking-widest text-muted-foreground font-bold">
+                <AccordionTrigger className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground hover:no-underline">
                   Financials
                 </AccordionTrigger>
-                <AccordionContent className="pt-4 pb-2">
-                  <div className={microGridClassName}>
+                <AccordionContent className="pt-3 pb-1">
+                  <div className={financialGridClassName}>
                     {claim.expense ? (
                       <>
                         <div className="flex flex-col gap-1">
@@ -1078,6 +1210,10 @@ async function ClaimDetailCore({
                           label="Total Amount"
                           value={formatAmountValue(claim.advance.totalAmount)}
                         />
+                        <DataCard
+                          label="Expected Usage Date"
+                          value={formatDate(claim.advance.expectedUsageDate)}
+                        />
                       </>
                     ) : (
                       <DataCard label="Amount" value="N/A" />
@@ -1088,104 +1224,12 @@ async function ClaimDetailCore({
             </Accordion>
           </section>
 
-          <section className="bg-card border border-border/50 shadow-sm rounded-xl p-6 md:p-8 flex flex-col gap-6">
-            <div>
-              <Suspense fallback={<ClaimAuditHistorySkeleton />}>
-                <ClaimAuditHistorySection claimId={claim.id} />
-              </Suspense>
-            </div>
-          </section>
-
-          {showBottomActionBar ? (
-            <section className="fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur-sm z-40 px-8 py-4 flex justify-between items-center">
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
-                  {canTakeL1Decision
-                    ? "L1 Decision"
-                    : canTakeFinanceAuthorizationDecision || canTakeFinanceExecutionDecision
-                      ? "Finance Decision"
-                      : "Claim Actions"}
-                </p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {canTakeL1Decision
-                    ? canEditClaim
-                      ? "Edit details if needed, then approve to route this claim to Finance."
-                      : "Approve to route this claim to Finance."
-                    : canTakeFinanceExecutionDecision
-                      ? "Mark this claim as paid to complete execution."
-                      : canTakeFinanceAuthorizationDecision && canEditClaim
-                        ? "Edit details if needed, then approve or reject after evidence verification."
-                        : canTakeFinanceAuthorizationDecision
-                          ? "Approve or reject after evidence verification."
-                          : "Edit this claim before it moves through the workflow."}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                {canEditClaim ? (
-                  <Suspense fallback={<FinanceEditClaimSkeleton />}>
-                    <FinanceEditClaimSection
-                      claim={claim}
-                      editFlow={canEditFinanceClaim ? "finance" : "own"}
-                    />
-                  </Suspense>
-                ) : null}
-
-                {shouldRenderFinanceExecutionAction ? (
-                  <ClaimDecisionActionForm
-                    action={markPaidFromDetail}
-                    decision="mark-paid"
-                    isSubmitter={isBeneficiary}
-                    loadingMessage="Marking payment as done..."
-                    successMessage="Claim marked as paid."
-                    errorMessage="Unable to mark payment as done."
-                    redirectToHref={returnToPath}
-                  />
-                ) : null}
-
-                {shouldRenderFinanceAuthorizationActions ? (
-                  <>
-                    <ClaimDecisionActionForm
-                      action={approveFinanceFromDetail}
-                      decision="approve"
-                      isSubmitter={isBeneficiary}
-                      loadingMessage="Approving finance step..."
-                      successMessage="Finance decision approved."
-                      errorMessage="Unable to approve finance step."
-                      redirectToHref={returnToPath}
-                    />
-                    <ClaimRejectWithReasonForm
-                      action={rejectFinanceFromDetail}
-                      isSubmitter={isBeneficiary}
-                      redirectToHref={returnToPath}
-                    />
-                  </>
-                ) : null}
-
-                {shouldRenderL1DecisionActions ? (
-                  <>
-                    <ClaimDecisionActionForm
-                      action={approveFromDetail}
-                      decision="approve"
-                      isSubmitter={isBeneficiary}
-                      loadingMessage="Approving claim..."
-                      successMessage="Claim approved."
-                      errorMessage="Unable to approve claim."
-                      redirectToHref={returnToPath}
-                    />
-                    <ClaimRejectWithReasonForm
-                      action={rejectFromDetail}
-                      isSubmitter={isBeneficiary}
-                      redirectToHref={returnToPath}
-                    />
-                  </>
-                ) : null}
-              </div>
-            </section>
-          ) : null}
+          <Suspense fallback={<ClaimAuditHistorySkeleton />}>
+            <ClaimAuditHistorySection claimId={claim.id} />
+          </Suspense>
         </section>
 
-        <aside className="sticky top-8 h-[calc(100vh-6rem)] overflow-hidden rounded-xl border border-border bg-card shadow-sm lg:col-span-7">
+        <aside className="order-first h-[460px] overflow-hidden rounded-xl border border-border bg-card sm:h-[520px] lg:order-2 lg:sticky lg:top-[76px] lg:h-[calc(100vh-92px)]">
           <Suspense fallback={<EvidenceGallerySkeleton />}>
             <EvidenceGallerySection evidencePaths={evidencePaths} />
           </Suspense>
@@ -1197,22 +1241,16 @@ async function ClaimDetailCore({
 
 export default async function ClaimDetailPage({ params, searchParams }: PageProps) {
   const currentUserResult = await getCachedCurrentUser();
-  const currentEmail = currentUserResult.user?.email ?? null;
+
+  if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
+    redirect(ROUTES.login);
+  }
 
   return (
-    <div
-      className={`${pageBodyFont.variable} ${pageDisplayFont.variable} dashboard-font-body nxt-page-bg bg-muted/30 dark:bg-background`}
-    >
-      <AppShellHeader currentEmail={currentEmail} />
-
-      <div className="relative z-0 mx-auto w-full max-w-[1600px] px-4 pb-16 pt-6 sm:px-6 lg:px-8">
-        <main className="space-y-5">
-          {/* Claim detail content */}
-          <Suspense fallback={<ClaimDetailContentSkeleton />}>
-            <ClaimDetailCore params={params} searchParams={searchParams} />
-          </Suspense>
-        </main>
-      </div>
+    <div className="mx-auto w-full max-w-[1600px] pb-16">
+      <Suspense fallback={<ClaimDetailContentSkeleton />}>
+        <ClaimDetailCore params={params} searchParams={searchParams} />
+      </Suspense>
     </div>
   );
 }
