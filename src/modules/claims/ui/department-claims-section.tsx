@@ -39,14 +39,16 @@ function normalizeDate(value: string | undefined): string | undefined {
   return normalizeIsoDateOnly(value);
 }
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 5;
 
 async function DepartmentClaimsTableSection({
   searchParams,
   pagination,
+  title,
 }: {
   searchParams?: Record<string, SearchParamsValue>;
   pagination: ClaimsPaginationState;
+  title: string;
 }) {
   const authRepository = new SupabaseServerAuthRepository();
   const currentUserResult = await authRepository.getCurrentUser();
@@ -86,11 +88,19 @@ async function DepartmentClaimsTableSection({
 
   if (result.errorMessage || !result.data) {
     return (
-      <div className="px-4 py-6">
-        <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
-          Unable to load claims. {result.errorMessage ?? "Unknown error"}
-        </p>
-      </div>
+      <>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2.5">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+            {title}
+          </h2>
+          <p className="text-xs text-muted-foreground">Showing 0 claims</p>
+        </div>
+        <div className="px-4 py-6">
+          <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
+            Unable to load claims. {result.errorMessage ?? "Unknown error"}
+          </p>
+        </div>
+      </>
     );
   }
 
@@ -98,19 +108,34 @@ async function DepartmentClaimsTableSection({
 
   return (
     <>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2.5">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+          {title}
+        </h2>
+        {claims.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Showing 0 claims</p>
+        ) : (
+          <MyClaimsPaginationControls
+            hasNextPage={hasNextPage}
+            currentCursor={pagination.cursor}
+            nextCursor={nextCursor}
+            prevCursor={pagination.prevCursor}
+            summaryText={`Showing ${claims.length} claims`}
+            position="inline"
+            searchParams={searchParams}
+          />
+        )}
+      </div>
       <DepartmentClaimsTable claims={claims} />
-      <MyClaimsPaginationControls
-        hasNextPage={hasNextPage}
-        currentCursor={pagination.cursor}
-        nextCursor={nextCursor}
-        prevCursor={pagination.prevCursor}
-        searchParams={searchParams}
-      />
     </>
   );
 }
 
-async function DeptFilterBarWithData() {
+async function DeptFilterBarWithData({
+  defaultFiltersExpanded,
+}: {
+  defaultFiltersExpanded: boolean;
+}) {
   const claimRepository = new SupabaseClaimRepository();
   const [paymentModesResult, departmentsResult, locationsResult, productsResult, categoriesResult] =
     await Promise.all([
@@ -124,7 +149,7 @@ async function DeptFilterBarWithData() {
   return (
     <ClaimsFilterBar
       exportScope="department"
-      defaultFiltersExpanded
+      defaultFiltersExpanded={defaultFiltersExpanded}
       paymentModes={paymentModesResult.data.map((m) => ({ id: m.id, name: m.name }))}
       departments={departmentsResult.data.map((d) => ({ id: d.id, name: d.name }))}
       locations={locationsResult.data.map((l) => ({ id: l.id, name: l.name }))}
@@ -137,23 +162,31 @@ async function DeptFilterBarWithData() {
 export function DepartmentClaimsSection({
   searchParams,
   pagination,
+  defaultFiltersExpanded = false,
 }: {
   searchParams?: Record<string, SearchParamsValue>;
   pagination: ClaimsPaginationState;
+  defaultFiltersExpanded?: boolean;
 }) {
+  const sectionTitle = "Department Claims";
+
   return (
-    <section className="space-y-4">
+    <section className="space-y-3">
       <Suspense fallback={null}>
-        <DeptFilterBarWithData />
+        <DeptFilterBarWithData defaultFiltersExpanded={defaultFiltersExpanded} />
       </Suspense>
-      <div className="overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/92 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
-        <div className="border-b border-zinc-200/80 px-5 py-3.5 dark:border-zinc-800">
+      <div className="overflow-hidden rounded-xl border border-border bg-card transition-colors">
+        <div className="hidden">
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
             Department Overview — Assigned Claims
           </h2>
         </div>
         <Suspense fallback={<TableSkeleton />}>
-          <DepartmentClaimsTableSection searchParams={searchParams} pagination={pagination} />
+          <DepartmentClaimsTableSection
+            searchParams={searchParams}
+            pagination={pagination}
+            title={sectionTitle}
+          />
         </Suspense>
       </div>
     </section>

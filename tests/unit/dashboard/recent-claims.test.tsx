@@ -21,6 +21,8 @@ describe("RecentClaims", () => {
     expect(screen.getAllByText("REAL-2026-0001")).toHaveLength(2);
     expect(screen.getAllByText("Travel")).toHaveLength(2);
     expect(screen.getAllByText("\u20b92,500.00")).toHaveLength(2);
+    expect(screen.getAllByText("Awaiting HOD")).toHaveLength(2);
+    expect(screen.queryByText("Submitted - Awaiting HOD approval")).not.toBeInTheDocument();
     expect(screen.queryByText("CLM-2026-0058")).not.toBeInTheDocument();
   });
 

@@ -51,16 +51,18 @@ function normalizeAmountFilter(value: string | undefined): number | undefined {
   return parsed;
 }
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 5;
 
 async function AdminClaimsTableSection({
   searchParams,
   pagination,
   mode,
+  title,
 }: {
   searchParams?: Record<string, SearchParamsValue>;
   pagination: ClaimsPaginationState;
   mode: AdminClaimsViewMode;
+  title: string;
 }) {
   const adminRepository = new SupabaseAdminRepository();
   const service = new GetAdminClaimsService({ repository: adminRepository, logger });
@@ -102,11 +104,19 @@ async function AdminClaimsTableSection({
 
   if (result.errorMessage || !result.data) {
     return (
-      <div className="px-4 py-6">
-        <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
-          Unable to load claims. {result.errorMessage ?? "Unknown error"}
-        </p>
-      </div>
+      <>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2.5">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+            {title}
+          </h2>
+          <p className="text-xs text-muted-foreground">Showing 0 claims</p>
+        </div>
+        <div className="px-4 py-6">
+          <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
+            Unable to load claims. {result.errorMessage ?? "Unknown error"}
+          </p>
+        </div>
+      </>
     );
   }
 
@@ -114,19 +124,34 @@ async function AdminClaimsTableSection({
 
   return (
     <>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2.5">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+          {title}
+        </h2>
+        {claims.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Showing 0 claims</p>
+        ) : (
+          <MyClaimsPaginationControls
+            hasNextPage={hasNextPage}
+            currentCursor={pagination.cursor}
+            nextCursor={nextCursor}
+            prevCursor={pagination.prevCursor}
+            summaryText={`Showing ${claims.length} claims`}
+            position="inline"
+            searchParams={searchParams}
+          />
+        )}
+      </div>
       <AdminClaimsTable claims={claims} />
-      <MyClaimsPaginationControls
-        hasNextPage={hasNextPage}
-        currentCursor={pagination.cursor}
-        nextCursor={nextCursor}
-        prevCursor={pagination.prevCursor}
-        searchParams={searchParams}
-      />
     </>
   );
 }
 
-async function AdminFilterBarWithData() {
+async function AdminFilterBarWithData({
+  defaultFiltersExpanded,
+}: {
+  defaultFiltersExpanded: boolean;
+}) {
   const claimRepository = new SupabaseClaimRepository();
   const [paymentModesResult, departmentsResult, locationsResult, productsResult, categoriesResult] =
     await Promise.all([
@@ -140,7 +165,7 @@ async function AdminFilterBarWithData() {
   return (
     <ClaimsFilterBar
       exportScope="admin"
-      defaultFiltersExpanded
+      defaultFiltersExpanded={defaultFiltersExpanded}
       isAdmin
       paymentModes={paymentModesResult.data.map((m) => ({ id: m.id, name: m.name }))}
       departments={departmentsResult.data.map((d) => ({ id: d.id, name: d.name }))}
@@ -155,30 +180,27 @@ export function AdminClaimsSection({
   searchParams,
   pagination,
   mode,
+  defaultFiltersExpanded = false,
 }: {
   searchParams?: Record<string, SearchParamsValue>;
   pagination: ClaimsPaginationState;
   mode: AdminClaimsViewMode;
+  defaultFiltersExpanded?: boolean;
 }) {
-  const sectionTitle =
-    mode === "deleted" ? "Admin Overview - Deleted Claims" : "Admin Overview - Active Claims";
+  const sectionTitle = mode === "deleted" ? "Admin Deleted Claims" : "Admin Active Claims";
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-3">
       <Suspense fallback={null}>
-        <AdminFilterBarWithData />
+        <AdminFilterBarWithData defaultFiltersExpanded={defaultFiltersExpanded} />
       </Suspense>
-      <div className="overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/92 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
-        <div className="border-b border-zinc-200/80 px-5 py-3.5 dark:border-zinc-800">
-          <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
-            {sectionTitle}
-          </h2>
-        </div>
+      <div className="overflow-hidden rounded-xl border border-border bg-card transition-colors">
         <Suspense fallback={<TableSkeleton />}>
           <AdminClaimsTableSection
             searchParams={searchParams}
             pagination={pagination}
             mode={mode}
+            title={sectionTitle}
           />
         </Suspense>
       </div>

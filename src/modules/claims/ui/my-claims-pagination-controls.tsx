@@ -11,7 +11,7 @@ type MyClaimsPaginationControlsProps = {
   nextCursor: string | null;
   prevCursor: string | null;
   summaryText?: string;
-  position?: "top" | "bottom";
+  position?: "top" | "bottom" | "inline";
   searchParams?: Record<string, string | string[] | undefined>;
 };
 
@@ -51,21 +51,24 @@ export function MyClaimsPaginationControls({
   };
 
   const borderClass =
-    position === "top"
-      ? "border-b border-zinc-200/80 dark:border-zinc-800"
-      : "border-t border-zinc-200/80 dark:border-zinc-800";
+    position === "inline"
+      ? ""
+      : position === "top"
+        ? "border-b border-border"
+        : "border-t border-border";
+  const spacingClass = position === "inline" ? "px-0 py-0" : "px-4 py-2.5";
 
   return (
     <div
-      className={`flex items-center ${summaryText ? "justify-between" : "justify-end"} gap-2.5 px-5 py-3.5 transition-opacity ${borderClass} ${
+      className={`flex flex-wrap items-center ${summaryText ? "justify-between" : "justify-end"} gap-2 transition-opacity ${spacingClass} ${borderClass} ${
         isPending ? "opacity-80" : "opacity-100"
       }`}
     >
       {summaryText ? (
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">{summaryText}</p>
+        <p className="whitespace-nowrap text-xs text-muted-foreground">{summaryText}</p>
       ) : null}
 
-      <div className="flex items-center justify-end gap-2.5">
+      <div className="flex items-center justify-end gap-2">
         {isPending ? (
           <span className="mr-2 inline-flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
             <svg
@@ -98,12 +101,18 @@ export function MyClaimsPaginationControls({
             }}
             disabled={isPending}
             variant="secondary"
-            size="md"
+            size="sm"
+            className="h-8 rounded-lg border-border bg-card px-3 text-foreground hover:bg-background-secondary"
           >
             Previous
           </Button>
         ) : (
-          <Button variant="secondary" size="md" disabled>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-8 rounded-lg border-border bg-card px-3 text-foreground hover:bg-background-secondary"
+            disabled
+          >
             Previous
           </Button>
         )}
@@ -114,12 +123,18 @@ export function MyClaimsPaginationControls({
             }}
             disabled={isPending}
             variant="primary"
-            size="md"
+            size="sm"
+            className="h-8 rounded-lg bg-[var(--accent)] px-3 shadow-none hover:bg-[var(--accent-hover)]"
           >
             Next
           </Button>
         ) : (
-          <Button variant="primary" size="md" disabled>
+          <Button
+            variant="primary"
+            size="sm"
+            className="h-8 rounded-lg bg-[var(--accent)] px-3 shadow-none hover:bg-[var(--accent-hover)]"
+            disabled
+          >
             Next
           </Button>
         )}

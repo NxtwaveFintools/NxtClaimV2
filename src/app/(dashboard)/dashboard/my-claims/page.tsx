@@ -4,15 +4,15 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { MyClaimsHeaderCardSkeleton } from "./_skeletons";
 import { CirclePlus } from "lucide-react";
-import { AppShellHeader } from "@/components/app-shell-header";
-import { BackButton } from "@/components/ui/back-button";
+import { AppLayout, type DashboardNavItem } from "@/components/app-layout";
+import type { CompanyPolicyState } from "@/components/company-policy-button";
 import { RouterLink } from "@/components/ui/router-link";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { ROUTES } from "@/core/config/route-registry";
 import {
   CLAIM_STATUSES,
   DB_CLAIM_STATUSES,
-  isPendingFinanceApprovalStatus,
+  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
   isSubmitterDeletableClaimStatus,
   mapCanonicalStatusToDbStatuses,
   type ClaimStatus,
@@ -26,33 +26,36 @@ import type {
 } from "@/core/domain/claims/contracts";
 import { GetMyClaimsPaginatedService } from "@/core/domain/claims/GetMyClaimsPaginatedService";
 import { getDefaultApprovalsStatusFilter } from "@/core/domain/claims/GetPendingApprovalsService";
+import { resolveDashboardAnalyticsScope } from "@/core/domain/dashboard/resolve-analytics-scope";
 import { logger } from "@/core/infra/logging/logger";
 import { formatDate } from "@/lib/format";
 import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
 import { normalizeIsoDateOnly } from "@/lib/date-only";
 import { appendReturnToParam, buildPathWithSearchParams } from "@/lib/pagination-helpers";
+import { getEmailDomain, getUserDisplayName, getUserInitials } from "@/lib/user-name";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
 import { isAdmin } from "@/modules/admin/server/is-admin";
 import { isDepartmentViewer } from "@/modules/claims/server/is-department-viewer";
-import { getCachedPendingApprovalsViewerContext } from "@/modules/claims/server/get-pending-approvals-viewer-context";
+import {
+  getCachedPendingApprovalsViewerContext,
+  isFinancePendingApprovalsViewer,
+} from "@/modules/claims/server/get-pending-approvals-viewer-context";
 import { AdminClaimsSection } from "@/modules/admin/ui/admin-claims-section";
 import { ClaimsApprovalsSection } from "@/modules/claims/ui/claims-approvals-section";
 import { DepartmentClaimsSection } from "@/modules/claims/ui/department-claims-section";
-import {
-  CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
-  ClaimStatusBadge,
-} from "@/modules/claims/ui/claim-status-badge";
+import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
 import { MyClaimsPaginationControls } from "@/modules/claims/ui/my-claims-pagination-controls";
 import { DeleteClaimButton } from "@/modules/claims/ui/delete-claim-button";
+import { SupabaseDashboardRepository } from "@/modules/dashboard/repositories/SupabaseDashboardRepository";
+import { getPolicyGateState } from "@/modules/policies/server/get-policy-gate-state";
 
-const PAGE_SIZE = 10;
-const STICKY_ACTION_COLUMN_CLASSES =
-  "sticky right-0 bg-background/60 backdrop-blur-md border-l border-border/50 z-10";
+const PAGE_SIZE = 5;
 const CLAIM_ID_LINK_CLASSES =
-  "whitespace-nowrap text-primary hover:underline font-medium cursor-pointer";
+  "block max-w-full break-words text-primary hover:underline font-medium cursor-pointer leading-snug";
 const VIEW_LINK_CLASSES =
-  "inline-flex h-8 items-center justify-center rounded-xl border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
+  "inline-flex h-8 items-center justify-center rounded-md border border-border bg-card px-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-background-secondary";
+const dashboardRepository = new SupabaseDashboardRepository();
 
 type SearchParamsValue = string | string[] | undefined;
 type ViewMode = "submissions" | "approvals" | "admin" | "admin-deleted" | "department";
@@ -60,6 +63,86 @@ type ViewMode = "submissions" | "approvals" | "admin" | "admin-deleted" | "depar
 export const metadata = {
   title: "Claims | NxtClaim",
 };
+
+function buildHodPendingNavHref(): string {
+  const params = new URLSearchParams({ status: DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS });
+  return `${ROUTES.claims.hodPending}?${params.toString()}`;
+}
+
+function buildNavigationItems(input: {
+  canViewAnalytics: boolean;
+  isAdminUser: boolean;
+  isFinanceUser: boolean;
+}): DashboardNavItem[] {
+  return [
+    {
+      href: ROUTES.dashboard,
+      label: "Dashboard",
+      iconName: "LayoutDashboard",
+      isActive: false,
+    },
+    {
+      href: ROUTES.claims.new,
+      label: "New Claim",
+      iconName: "CirclePlus",
+      isActive: false,
+    },
+    {
+      href: ROUTES.claims.myClaims,
+      label: "Claims",
+      iconName: "FileText",
+      isActive: true,
+    },
+    ...(input.isFinanceUser
+      ? [
+          {
+            href: buildHodPendingNavHref(),
+            label: "HOD Pending",
+            iconName: "CalendarDays",
+            isActive: false,
+          },
+        ]
+      : []),
+    ...(input.canViewAnalytics
+      ? [
+          {
+            href: ROUTES.dashboardAnalytics,
+            label: "Analytics",
+            iconName: "BarChart3",
+            isActive: false,
+          },
+        ]
+      : []),
+    ...(input.isAdminUser
+      ? [
+          {
+            href: ROUTES.admin.settings,
+            label: "System Settings",
+            iconName: "Settings",
+            isActive: false,
+          },
+        ]
+      : []),
+  ];
+}
+
+function toCompanyPolicyState(
+  gateState: Awaited<ReturnType<typeof getPolicyGateState>>,
+): CompanyPolicyState {
+  return {
+    policy: gateState.policy
+      ? {
+          id: gateState.policy.id,
+          versionName: gateState.policy.versionName,
+          fileUrl: gateState.policy.fileUrl,
+          createdAt: gateState.policy.createdAt,
+        }
+      : null,
+    accepted: gateState.accepted,
+    acceptedAt: gateState.acceptedAt,
+    message: gateState.errorMessage,
+  };
+}
 
 const ClaimsFilterBar = dynamic(
   () => import("@/modules/claims/ui/claims-filter-bar").then((module) => module.ClaimsFilterBar),
@@ -289,42 +372,15 @@ function buildApprovalsViewHref(
   return query ? `${ROUTES.claims.myClaims}?${query}` : ROUTES.claims.myClaims;
 }
 
-function DateWithActor({
-  dateValue,
-  actorEmail,
-}: {
-  dateValue: string | null;
-  actorEmail: string | null;
-}) {
-  if (!dateValue && !actorEmail) {
-    return <span>-</span>;
-  }
-
-  return (
-    <div className="flex flex-col">
-      <span>{formatDate(dateValue)}</span>
-      <span className="text-xs text-muted-foreground">{actorEmail ?? "-"}</span>
-    </div>
-  );
-}
-
-function FinanceTeamQueueBadge() {
-  return (
-    <span className="inline-flex w-fit rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-      Finance Team
-    </span>
-  );
-}
-
 function MyClaimsShellSkeleton() {
   return (
     <>
-      <div className="min-h-[140px]">
+      <div className="min-h-[112px]">
         <FilterBarSkeleton />
       </div>
 
-      <section className="min-h-[600px] overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/92 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
-        <div className="border-b border-zinc-200/80 px-5 py-3.5 dark:border-zinc-800">
+      <section className="min-h-[460px] overflow-hidden rounded-xl border border-border bg-card transition-colors">
+        <div className="border-b border-border px-4 py-2.5">
           <div className="shimmer-sweep h-4 w-40 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
         </div>
         <div className="space-y-3 p-5">
@@ -351,30 +407,17 @@ function MyClaimsFullPageSkeleton() {
 
 function TableHeader({ showActions }: { showActions: boolean }) {
   return (
-    <thead className="bg-zinc-50/80 text-[11px] uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
+    <thead className="bg-background-secondary text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
       <tr>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">CLAIM ID</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTER ID</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTER EMAIL</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">ON BEHALF ID</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">ON BEHALF EMAIL</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">CLAIM</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTER / BENEFICIARY</th>
         <th className="whitespace-nowrap px-3 py-2.5 font-semibold">DEPARTMENT</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">TYPE OF CLAIM</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">AMOUNT</th>
-        <th
-          className={`${CLAIM_STATUS_COLUMN_WIDTH_CLASSES} whitespace-nowrap px-3 py-2.5 font-semibold`}
-        >
-          STATUS
-        </th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTED ON</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">HOD ACTION DATE</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">FINANCE ACTION DATE</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">TYPE</th>
+        <th className="whitespace-nowrap px-3 py-2.5 text-right font-semibold">AMOUNT</th>
+        <th className="whitespace-nowrap px-3 py-2.5 text-center font-semibold">STATUS</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTED</th>
         {showActions ? (
-          <th
-            className={`${STICKY_ACTION_COLUMN_CLASSES} whitespace-nowrap px-3 py-2.5 text-right font-semibold`}
-          >
-            Actions
-          </th>
+          <th className="whitespace-nowrap px-3 py-2.5 text-right font-semibold">Actions</th>
         ) : null}
       </tr>
     </thead>
@@ -412,124 +455,143 @@ async function ClaimsCommandCenterTable({
   const submissionsSummaryText = `Showing ${rows.length} of ${claimsResult.totalCount} claims`;
 
   return (
-    <section className="overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/92 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
-      <div className="border-b border-zinc-200/80 px-5 py-3.5 dark:border-zinc-800">
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+    <section className="overflow-hidden rounded-xl border border-border bg-card transition-colors">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2.5">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
           My Submissions
         </h2>
-      </div>
-
-      {claimsResult.errorMessage ? (
-        <div className="px-4 py-6">
-          <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
-            Unable to load claims. {claimsResult.errorMessage}
-          </p>
-        </div>
-      ) : claimsResult.totalCount === 0 ? (
-        <div className="grid place-items-center px-4 py-14 text-center">
-          <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">No claims found</p>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
-            Submit a new claim to see it here.
-          </p>
-        </div>
-      ) : (
-        <>
+        {claimsResult.errorMessage || claimsResult.totalCount === 0 ? (
+          <p className="text-xs text-muted-foreground">{submissionsSummaryText}</p>
+        ) : (
           <MyClaimsPaginationControls
             hasNextPage={claimsResult.hasNextPage}
             currentCursor={cursor}
             nextCursor={claimsResult.nextCursor}
             prevCursor={previousCursorToken}
             summaryText={submissionsSummaryText}
-            position="top"
+            position="inline"
             searchParams={searchParams}
           />
+        )}
+      </div>
 
-          <div className="nxt-scroll overflow-x-auto">
-            <table className="min-w-395 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
+      {claimsResult.errorMessage ? (
+        <div className="px-4 py-6">
+          <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
+            Could not load claims. {claimsResult.errorMessage}
+          </p>
+        </div>
+      ) : claimsResult.totalCount === 0 ? (
+        <div className="grid place-items-center px-4 py-14 text-center">
+          <p className="text-sm font-medium text-foreground">No claims found</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Try changing filters or clearing the current search.
+          </p>
+          <Link
+            href={ROUTES.claims.new}
+            prefetch={false}
+            className="mt-4 inline-flex h-9 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium text-white transition hover:opacity-90"
+            style={{ backgroundColor: "var(--accent)" }}
+          >
+            <CirclePlus className="h-4 w-4" aria-hidden="true" />
+            New Claim
+          </Link>
+        </div>
+      ) : (
+        <>
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full table-fixed divide-y divide-border text-left text-sm">
+              <colgroup>
+                <col className="w-[21%]" />
+                <col className="w-[19%]" />
+                <col className="w-[8%]" />
+                <col className="w-[10%]" />
+                <col className="w-[9%]" />
+                <col className="w-[15%]" />
+                <col className="w-[10%]" />
+                <col className="w-[8%]" />
+              </colgroup>
               <TableHeader showActions />
-              <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
+              <tbody className="divide-y divide-border bg-card text-[13px] text-foreground">
                 {rows.map((claim) => {
                   const canDeleteClaim = isSubmitterDeletableClaimStatus(claim.status);
                   const detailHref = appendReturnToParam(
                     ROUTES.claims.detail(claim.id),
                     listReturnToPath,
                   );
+                  const primarySubmitter = claim.submitterEmail?.trim() || claim.employeeName;
+                  const onBehalfValue =
+                    claim.onBehalfEmail?.trim() || claim.onBehalfEmployeeCode?.trim() || "";
+                  const hasOnBehalf = onBehalfValue.length > 0;
 
                   return (
                     <tr
                       key={claim.id}
-                      className="group transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
+                      className="group transition-colors hover:bg-background-secondary"
                     >
-                      <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
-                        <RouterLink href={detailHref} className={CLAIM_ID_LINK_CLASSES}>
+                      <td className="px-3 py-2.5 font-medium text-foreground">
+                        <RouterLink
+                          href={detailHref}
+                          className={CLAIM_ID_LINK_CLASSES}
+                          title={claim.id}
+                        >
                           {claim.id}
                         </RouterLink>
+                        <div className="mt-0.5 text-[11px] text-muted-foreground">
+                          {claim.employeeId}
+                        </div>
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2">
-                        <span>{claim.employeeId}</span>
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className="inline-block max-w-[150px] truncate align-bottom">
-                          {claim.submitterEmail?.trim() || claim.employeeName}
+                      <td className="px-3 py-2.5">
+                        <span
+                          className="inline-block max-w-full truncate align-bottom"
+                          title={primarySubmitter}
+                        >
+                          {hasOnBehalf ? `Submitter: ${primarySubmitter}` : primarySubmitter}
                         </span>
+                        <div
+                          className="mt-0.5 max-w-full truncate text-xs text-muted-foreground"
+                          title={hasOnBehalf ? onBehalfValue : "On behalf: N/A"}
+                        >
+                          {hasOnBehalf ? `For: ${onBehalfValue}` : "On behalf: N/A"}
+                        </div>
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2">
-                        <span>{claim.onBehalfEmployeeCode?.trim() || "N/A"}</span>
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className="inline-block max-w-[150px] truncate align-bottom">
-                          {claim.onBehalfEmail?.trim() || "N/A"}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className="inline-block max-w-[130px] truncate align-bottom">
+                      <td className="px-3 py-2.5">
+                        <span
+                          className="inline-block max-w-full truncate align-bottom"
+                          title={claim.departmentName}
+                        >
                           {claim.departmentName}
                         </span>
                       </td>
-                      <td className="px-3 py-2">
-                        <span className="inline-block max-w-[140px] truncate align-bottom">
+                      <td className="px-3 py-2.5">
+                        <span
+                          className="inline-block max-w-full truncate align-bottom"
+                          title={claim.typeOfClaim}
+                        >
                           {claim.typeOfClaim}
                         </span>
                       </td>
-                      <td className="px-3 py-2 font-semibold text-zinc-900 dark:text-zinc-100">
+                      <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold text-foreground">
                         {claim.formattedTotalAmount}
                       </td>
-                      <td className={`${CLAIM_STATUS_COLUMN_WIDTH_CLASSES} px-3 py-2 align-top`}>
-                        <ClaimStatusBadge status={claim.status} fullWidth />
+                      <td className="px-3 py-2.5 align-middle">
+                        <ClaimStatusBadge status={claim.status} fullWidth fullStatus />
                       </td>
-                      <td className="px-3 py-2">
-                        <DateWithActor
-                          dateValue={claim.submittedAt}
-                          actorEmail={claim.submitterEmail}
-                        />
+                      <td className="whitespace-nowrap px-3 py-2.5 text-[13px]">
+                        {formatDate(claim.submittedAt)}
+                        <div className="mt-0.5 text-xs text-muted-foreground">
+                          HOD: {formatDate(claim.hodActionDate)}
+                        </div>
+                        <div className="mt-0.5 text-xs text-muted-foreground">
+                          Finance: {formatDate(claim.financeActionDate)}
+                        </div>
                       </td>
-                      <td className="px-3 py-2">
-                        <DateWithActor
-                          dateValue={claim.hodActionDate}
-                          actorEmail={claim.hodEmail}
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        {isPendingFinanceApprovalStatus(claim.status) ? (
-                          <div className="flex flex-col gap-1">
-                            <span>-</span>
-                            <FinanceTeamQueueBadge />
-                          </div>
-                        ) : (
-                          <DateWithActor
-                            dateValue={claim.financeActionDate}
-                            actorEmail={claim.financeEmail}
-                          />
-                        )}
-                      </td>
-                      <td
-                        className={`${STICKY_ACTION_COLUMN_CLASSES} whitespace-nowrap px-3 py-2 text-right`}
-                      >
-                        <div className="flex items-center justify-end gap-2">
-                          {canDeleteClaim ? <DeleteClaimButton claimId={claim.id} compact /> : null}
+                      <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
                           <Link href={detailHref} className={VIEW_LINK_CLASSES}>
                             View
                           </Link>
+                          {canDeleteClaim ? <DeleteClaimButton claimId={claim.id} compact /> : null}
                         </div>
                       </td>
                     </tr>
@@ -537,6 +599,52 @@ async function ClaimsCommandCenterTable({
                 })}
               </tbody>
             </table>
+          </div>
+
+          <div className="divide-y divide-border md:hidden">
+            {rows.map((claim) => {
+              const canDeleteClaim = isSubmitterDeletableClaimStatus(claim.status);
+              const detailHref = appendReturnToParam(
+                ROUTES.claims.detail(claim.id),
+                listReturnToPath,
+              );
+              const primarySubmitter = claim.submitterEmail?.trim() || claim.employeeName;
+              const onBehalfValue =
+                claim.onBehalfEmail?.trim() || claim.onBehalfEmployeeCode?.trim() || "";
+
+              return (
+                <article key={claim.id} className="space-y-3 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <RouterLink href={detailHref} className={CLAIM_ID_LINK_CLASSES}>
+                      {claim.id}
+                    </RouterLink>
+                    <ClaimStatusBadge status={claim.status} fullStatus />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground">{claim.formattedTotalAmount}</p>
+                    <p className="text-xs text-muted-foreground">{claim.typeOfClaim}</p>
+                  </div>
+                  <dl className="grid gap-1 text-xs text-muted-foreground">
+                    <div>Submitted {formatDate(claim.submittedAt)}</div>
+                    <div>Department: {claim.departmentName}</div>
+                    <div className="truncate">
+                      {onBehalfValue
+                        ? `Submitter: ${primarySubmitter} / For: ${onBehalfValue}`
+                        : primarySubmitter}
+                    </div>
+                  </dl>
+                  <div className="flex items-center gap-2">
+                    <Link href={detailHref} className={VIEW_LINK_CLASSES}>
+                      View
+                    </Link>
+                    {canDeleteClaim ? <DeleteClaimButton claimId={claim.id} compact /> : null}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          <div className="border-t border-border px-4 py-2 text-xs text-muted-foreground">
+            {submissionsSummaryText}
           </div>
         </>
       )}
@@ -546,18 +654,18 @@ async function ClaimsCommandCenterTable({
 
 function FilterBarSkeleton() {
   return (
-    <section className="rounded-[28px] border border-zinc-200/80 bg-white/92 p-5 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
-      <div className="grid gap-4 md:grid-cols-5">
+    <section className="rounded-xl border border-border bg-card p-3 transition-colors">
+      <div className="grid gap-2 md:grid-cols-5">
         {Array.from({ length: 5 }).map((_, index) => (
           <div key={`filter-placeholder-${index}`} className="space-y-2">
             <div className="shimmer-sweep h-3 w-20 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-            <div className="shimmer-sweep h-10 w-full rounded-xl bg-zinc-200 dark:bg-gray-800/40" />
+            <div className="shimmer-sweep h-9 w-full rounded-md bg-zinc-200 dark:bg-gray-800/40" />
           </div>
         ))}
       </div>
-      <div className="mt-4 flex items-center gap-3">
-        <div className="shimmer-sweep h-10 w-28 rounded-xl bg-zinc-200 dark:bg-gray-800/40" />
-        <div className="shimmer-sweep h-10 w-24 rounded-xl bg-zinc-200 dark:bg-gray-800/40" />
+      <div className="mt-2 flex items-center gap-2">
+        <div className="shimmer-sweep h-9 w-28 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
+        <div className="shimmer-sweep h-9 w-24 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
       </div>
     </section>
   );
@@ -639,6 +747,7 @@ async function MyClaimsDashboardPageContent({
         searchParams={resolvedSearchParams}
         pagination={{ cursor, prevCursor: previousCursorToken }}
         mode="active"
+        defaultFiltersExpanded={viewerContextResult.activeScope === "finance"}
       />
     );
   }
@@ -649,6 +758,7 @@ async function MyClaimsDashboardPageContent({
         searchParams={resolvedSearchParams}
         pagination={{ cursor, prevCursor: previousCursorToken }}
         mode="deleted"
+        defaultFiltersExpanded={viewerContextResult.activeScope === "finance"}
       />
     );
   }
@@ -658,6 +768,7 @@ async function MyClaimsDashboardPageContent({
       <DepartmentClaimsSection
         searchParams={resolvedSearchParams}
         pagination={{ cursor, prevCursor: previousCursorToken }}
+        defaultFiltersExpanded={viewerContextResult.activeScope === "finance"}
       />
     );
   }
@@ -669,6 +780,7 @@ async function MyClaimsDashboardPageContent({
         viewerContext={viewerContextResult}
         searchParams={resolvedSearchParams}
         filters={filters}
+        defaultFiltersExpanded={viewerContextResult.activeScope === "finance"}
       />
     );
   }
@@ -744,109 +856,72 @@ async function MyClaimsDashboardResolvedContent({
   const adminHref = buildViewHref(searchParams, "admin");
   const adminDeletedHref = buildViewHref(searchParams, "admin-deleted");
   const departmentHref = buildViewHref(searchParams, "department");
+  const approvalsLabel =
+    viewerContextResult.activeScope === "finance" ? "Finance Queue" : "Approvals";
+  const availableViewModes: Array<{ mode: ViewMode; href: string; label: string }> = [
+    { mode: "submissions", href: submissionsHref, label: "My Submissions" },
+    ...(viewerContextResult.canViewApprovals
+      ? [{ mode: "approvals" as const, href: approvalsHref, label: approvalsLabel }]
+      : []),
+    ...(isAdminUser
+      ? [
+          { mode: "admin" as const, href: adminHref, label: "Admin Active" },
+          { mode: "admin-deleted" as const, href: adminDeletedHref, label: "Admin Deleted" },
+        ]
+      : []),
+    ...(isDeptViewer
+      ? [{ mode: "department" as const, href: departmentHref, label: "Department Claims" }]
+      : []),
+  ];
 
   return (
-    <>
-      <section className="overflow-hidden rounded-[28px] border border-zinc-200/70 bg-white/88 shadow-[0_24px_70px_-30px_rgba(15,23,42,0.14),0_8px_24px_-8px_rgba(99,102,241,0.05)] backdrop-blur-lg transition-colors dark:border-zinc-800/80 dark:bg-zinc-900/88 dark:shadow-[0_24px_70px_-30px_rgba(0,0,0,0.40)]">
-        <div className="h-1 w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-sky-500" />
-
-        <div className="p-5 sm:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="dashboard-font-display text-xl font-bold tracking-[-0.03em] text-zinc-950 sm:text-2xl lg:text-3xl dark:text-zinc-50">
-                Claims
-              </h1>
-              <p className="mt-1 text-xs text-zinc-500 sm:text-sm dark:text-zinc-400">
-                Command Center for submissions and approvals
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {isAdminUser ? (
-                <Link
-                  href={ROUTES.admin.settings}
-                  prefetch={false}
-                  className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white/80 px-4 text-sm font-semibold text-zinc-700 backdrop-blur-sm transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/80 dark:text-zinc-200 dark:hover:bg-zinc-900"
-                >
-                  System Settings
-                </Link>
-              ) : null}
-              <Link
-                href={ROUTES.claims.new}
-                prefetch={false}
-                className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-colors hover:bg-indigo-500 active:scale-[0.98]"
-              >
-                <CirclePlus className="h-4 w-4" aria-hidden="true" />
-                New Claim
-              </Link>
-            </div>
+    <div className="space-y-3">
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="dashboard-font-display text-2xl font-semibold leading-tight text-foreground">
+              Claims
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Command center for submissions and approvals
+            </p>
           </div>
-
-          <div className="mt-4 inline-flex flex-wrap rounded-2xl border border-zinc-200/80 bg-zinc-50/80 p-1 dark:border-zinc-700/60 dark:bg-zinc-900/60">
-            <Link
-              href={submissionsHref}
-              prefetch={false}
-              className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                activeView === "submissions"
-                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
-                  : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-              }`}
-            >
-              My Submissions
-            </Link>
-            {viewerContextResult.canViewApprovals ? (
-              <Link
-                href={approvalsHref}
-                prefetch={false}
-                className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                  activeView === "approvals"
-                    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
-                    : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                }`}
-              >
-                Approvals History
-              </Link>
-            ) : null}
-            {isAdminUser ? (
-              <Link
-                href={adminHref}
-                prefetch={false}
-                className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                  activeView === "admin"
-                    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
-                    : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                }`}
-              >
-                Admin Overview
-              </Link>
-            ) : null}
-            {isAdminUser ? (
-              <Link
-                href={adminDeletedHref}
-                prefetch={false}
-                className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                  activeView === "admin-deleted"
-                    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
-                    : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                }`}
-              >
-                Deleted Claims
-              </Link>
-            ) : null}
-            {isDeptViewer ? (
-              <Link
-                href={departmentHref}
-                prefetch={false}
-                className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
-                  activeView === "department"
-                    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20 dark:bg-indigo-500"
-                    : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-                }`}
-              >
-                Department Overview
-              </Link>
-            ) : null}
-          </div>
+          <Link
+            href={ROUTES.claims.new}
+            prefetch={false}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md px-4 text-sm font-medium text-white transition hover:opacity-90"
+            style={{ backgroundColor: "var(--accent)" }}
+          >
+            <CirclePlus className="h-4 w-4" aria-hidden="true" />
+            New Claim
+          </Link>
         </div>
+
+        {availableViewModes.length > 1 ? (
+          <div
+            className="inline-flex max-w-full flex-wrap gap-1 rounded-lg border border-border bg-card p-1"
+            role="tablist"
+            aria-label="Claim views"
+          >
+            {availableViewModes.map((item) => (
+              <Link
+                key={item.mode}
+                href={item.href}
+                prefetch={false}
+                role="tab"
+                aria-selected={activeView === item.mode}
+                aria-current={activeView === item.mode ? "page" : undefined}
+                className={`inline-flex h-[34px] items-center whitespace-nowrap rounded-md border px-3 text-sm font-medium transition-colors ${
+                  activeView === item.mode
+                    ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+                    : "border-border bg-card text-muted-foreground hover:bg-background-secondary hover:text-foreground"
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       <Suspense fallback={<MyClaimsShellSkeleton />}>
@@ -857,14 +932,8 @@ async function MyClaimsDashboardResolvedContent({
           userId={userId}
         />
       </Suspense>
-    </>
+    </div>
   );
-}
-
-async function AppShellHeaderLoader() {
-  const currentUserResult = await getCachedCurrentUser();
-  const currentEmail = currentUserResult.user?.email ?? null;
-  return <AppShellHeader currentEmail={currentEmail} />;
 }
 
 async function ClaimsDataComponent({
@@ -880,14 +949,46 @@ async function ClaimsDataComponent({
   if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
     redirect(ROUTES.login);
   }
+  const userId = currentUserResult.user.id;
+  const userEmail = currentUserResult.user.email ?? "Unknown User";
+  const [isAdminUser, policyGateState, analyticsViewerContextResult, isFinanceUser] =
+    await Promise.all([
+      isAdmin(),
+      getPolicyGateState(),
+      dashboardRepository.getAnalyticsViewerContext(userId),
+      isFinancePendingApprovalsViewer(userId),
+    ]);
+
+  if (analyticsViewerContextResult.errorMessage) {
+    logger.warn("claims.navigation.analytics_visibility_check_failed", {
+      userId,
+      error: analyticsViewerContextResult.errorMessage,
+    });
+  }
+
+  const canViewAnalytics = analyticsViewerContextResult.data
+    ? resolveDashboardAnalyticsScope(analyticsViewerContextResult.data) !== null
+    : false;
 
   return (
-    <Suspense fallback={<MyClaimsFullPageSkeleton />}>
-      <MyClaimsDashboardResolvedContent
-        searchParams={resolvedSearchParams}
-        userId={currentUserResult.user.id}
-      />
-    </Suspense>
+    <AppLayout
+      navigationItems={buildNavigationItems({
+        canViewAnalytics,
+        isAdminUser,
+        isFinanceUser,
+      })}
+      userEmail={userEmail}
+      avatarInitial={getUserInitials(userEmail)}
+      displayName={getUserDisplayName(userEmail)}
+      emailDomain={getEmailDomain(userEmail)}
+      companyPolicyState={toCompanyPolicyState(policyGateState)}
+    >
+      <div className="mx-auto w-full max-w-[1600px] pb-16">
+        <Suspense fallback={<MyClaimsFullPageSkeleton />}>
+          <MyClaimsDashboardResolvedContent searchParams={resolvedSearchParams} userId={userId} />
+        </Suspense>
+      </div>
+    </AppLayout>
   );
 }
 
@@ -898,21 +999,12 @@ export default function MyClaimsDashboardPage({
 }) {
   return (
     <div
-      className={`${pageBodyFont.variable} ${pageDisplayFont.variable} dashboard-font-body nxt-page-bg`}
+      className={`${pageBodyFont.variable} ${pageDisplayFont.variable} dashboard-font-body`}
+      style={{ minHeight: "100vh", backgroundColor: "var(--background)" }}
     >
-      <Suspense fallback={null}>
-        <AppShellHeaderLoader />
+      <Suspense fallback={<MyClaimsFullPageSkeleton />}>
+        <ClaimsDataComponent searchParams={searchParams} />
       </Suspense>
-
-      <div className="relative z-0 mx-auto w-full max-w-[1600px] px-4 pb-16 pt-6 sm:px-6 lg:px-8">
-        <main className="space-y-5">
-          <BackButton className="w-fit" />
-
-          <Suspense fallback={<MyClaimsFullPageSkeleton />}>
-            <ClaimsDataComponent searchParams={searchParams} />
-          </Suspense>
-        </main>
-      </div>
     </div>
   );
 }

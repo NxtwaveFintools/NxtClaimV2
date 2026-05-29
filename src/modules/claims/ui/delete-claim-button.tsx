@@ -125,11 +125,11 @@ export function DeleteClaimButton({
         disabled={isPending}
         className={
           compact
-            ? "inline-flex h-8 items-center justify-center rounded-lg border border-rose-200 px-2.5 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-700/60 dark:text-rose-300 dark:hover:bg-rose-950/40"
+            ? "inline-flex h-8 items-center justify-center rounded-md border border-rose-200 px-2 text-[11px] font-semibold text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-700/60 dark:text-rose-300 dark:hover:bg-rose-950/40"
             : "inline-flex h-9 items-center justify-center rounded-xl border border-rose-200 px-3 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-700/60 dark:text-rose-300 dark:hover:bg-rose-950/40"
         }
       >
-        {isPending ? "Deleting..." : "Delete Claim"}
+        {isPending ? "Deleting..." : compact ? "Delete" : "Delete Claim"}
       </button>
 
       {typeof document !== "undefined" && modal ? createPortal(modal, document.body) : null}

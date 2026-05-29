@@ -1,7 +1,7 @@
 import type { ClaimStatus, DbClaimStatus } from "@/core/constants/statuses";
 import { Badge } from "@/components/ui/badge";
 
-export const CLAIM_STATUS_COLUMN_WIDTH_CLASSES = "w-52 min-w-52 lg:w-56 lg:min-w-56";
+export const CLAIM_STATUS_COLUMN_WIDTH_CLASSES = "w-44 min-w-44 lg:w-48 lg:min-w-48";
 
 const STATUS_DISPLAY_LABELS: Partial<Record<ClaimStatus | DbClaimStatus, string>> = {
   "Finance Approved - Payment under process": "Payment Processing",
@@ -15,6 +15,7 @@ const STATUS_DISPLAY_LABELS: Partial<Record<ClaimStatus | DbClaimStatus, string>
 type ClaimStatusBadgeProps = {
   status: ClaimStatus | DbClaimStatus;
   fullWidth?: boolean;
+  fullStatus?: boolean;
   className?: string;
 };
 
@@ -34,10 +35,7 @@ function getStatusClasses(status: ClaimStatus | DbClaimStatus): string {
     return "border-sky-300 bg-sky-50/80 text-sky-800 dark:border-sky-700/60 dark:bg-sky-900/30 dark:text-sky-200";
   }
 
-  if (
-    status === "HOD approved - Awaiting finance approval" ||
-    status === "HOD approved - Awaiting finance action"
-  ) {
+  if (status === "HOD approved - Awaiting finance approval") {
     return "border-amber-300 bg-amber-50/80 text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/30 dark:text-amber-200";
   }
 
@@ -55,18 +53,22 @@ function getStatusClasses(status: ClaimStatus | DbClaimStatus): string {
 export function ClaimStatusBadge({
   status,
   fullWidth = false,
+  fullStatus = false,
   className = "",
 }: ClaimStatusBadgeProps) {
   const layoutClasses = fullWidth
-    ? "min-h-11 w-full items-center justify-center px-3 py-2 text-center text-xs font-semibold leading-4 whitespace-normal"
-    : "inline-flex items-center max-w-[170px] truncate whitespace-nowrap overflow-hidden px-3 py-1 text-xs font-medium";
+    ? "w-full min-w-[150px] max-w-[190px] items-center justify-center px-2.5 py-1.5 text-center text-xs font-semibold leading-tight whitespace-normal"
+    : fullStatus
+      ? "inline-flex max-w-[190px] items-center justify-center px-2.5 py-1.5 text-center text-xs font-semibold leading-tight whitespace-normal"
+      : "inline-flex items-center max-w-[170px] truncate whitespace-nowrap overflow-hidden px-3 py-1 text-xs font-medium";
+  const displayLabel = fullStatus ? status : (STATUS_DISPLAY_LABELS[status] ?? status);
 
   return (
     <Badge
-      title={status}
+      title={fullStatus ? undefined : status}
       className={`rounded-full ${layoutClasses} ${getStatusClasses(status)} ${className}`.trim()}
     >
-      {STATUS_DISPLAY_LABELS[status] ?? status}
+      {displayLabel}
     </Badge>
   );
 }

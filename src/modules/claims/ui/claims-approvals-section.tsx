@@ -14,7 +14,7 @@ import { MyClaimsPaginationControls } from "@/modules/claims/ui/my-claims-pagina
 
 type SearchParamsValue = string | string[] | undefined;
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 5;
 
 const ClaimsFilterBar = dynamic(
   () => import("@/modules/claims/ui/claims-filter-bar").then((module) => module.ClaimsFilterBar),
@@ -43,18 +43,18 @@ function firstParamValue(value: SearchParamsValue): string | undefined {
 
 function FilterBarSkeleton() {
   return (
-    <section className="rounded-[28px] border border-zinc-200/80 bg-white/92 p-5 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
-      <div className="grid gap-4 md:grid-cols-5">
+    <section className="rounded-xl border border-border bg-card p-3 transition-colors">
+      <div className="grid gap-2 md:grid-cols-5">
         {Array.from({ length: 5 }).map((_, index) => (
           <div key={`filter-placeholder-${index}`} className="space-y-2">
             <div className="shimmer-sweep h-3 w-20 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
-            <div className="shimmer-sweep h-10 w-full rounded-xl bg-zinc-200 dark:bg-gray-800/40" />
+            <div className="shimmer-sweep h-9 w-full rounded-md bg-zinc-200 dark:bg-gray-800/40" />
           </div>
         ))}
       </div>
-      <div className="mt-4 flex items-center gap-3">
-        <div className="shimmer-sweep h-10 w-28 rounded-xl bg-zinc-200 dark:bg-gray-800/40" />
-        <div className="shimmer-sweep h-10 w-24 rounded-xl bg-zinc-200 dark:bg-gray-800/40" />
+      <div className="mt-2 flex items-center gap-2">
+        <div className="shimmer-sweep h-9 w-28 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
+        <div className="shimmer-sweep h-9 w-24 rounded-md bg-zinc-200 dark:bg-gray-800/40" />
       </div>
     </section>
   );
@@ -173,13 +173,14 @@ export async function ClaimsApprovalsSection({
 
   const rows = Array.from(new Map(approvalsResult.data.map((claim) => [claim.id, claim])).values());
   const approvalsSummaryText = `Showing ${rows.length} of ${approvalsResult.totalCount} claims`;
+  const tableLabel = approvalScope === "finance" ? "Finance Queue" : "Approvals History";
 
   return (
     <>
       <Suspense fallback={<FilterBarSkeleton />}>
         <ApprovalsFilterBarWithData
           exportScope={exportScope}
-          defaultFiltersExpanded={defaultFiltersExpanded ?? viewerContext.activeScope === "finance"}
+          defaultFiltersExpanded={defaultFiltersExpanded ?? false}
           showAdvancedFilters={showAdvancedFilters ?? viewerContext.activeScope === "finance"}
           storageScope={storageScope}
           lockedStatus={lockedStatus}
@@ -187,14 +188,32 @@ export async function ClaimsApprovalsSection({
         />
       </Suspense>
 
-      <h2 className="sr-only" aria-label="Approvals History">
-        Approvals History
+      <h2 className="sr-only" aria-label={tableLabel}>
+        {tableLabel}
       </h2>
 
-      <section className="overflow-hidden rounded-[28px] border border-zinc-200/80 bg-white/92 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.12)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
+      <section className="overflow-hidden rounded-xl border border-border bg-card transition-colors">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2.5">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+            {tableLabel}
+          </h2>
+          {approvalsResult.errorMessage || rows.length === 0 ? (
+            <p className="text-xs text-muted-foreground">{approvalsSummaryText}</p>
+          ) : (
+            <MyClaimsPaginationControls
+              hasNextPage={approvalsResult.hasNextPage}
+              currentCursor={cursor}
+              nextCursor={approvalsResult.nextCursor}
+              prevCursor={previousCursorToken}
+              summaryText={approvalsSummaryText}
+              position="inline"
+              searchParams={searchParams}
+            />
+          )}
+        </div>
         {approvalsResult.errorMessage ? (
           <div className="px-4 py-6">
-            <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
               Unable to load approvals history. {approvalsResult.errorMessage}
             </p>
           </div>
@@ -209,16 +228,6 @@ export async function ClaimsApprovalsSection({
           </div>
         ) : approvalScope === "finance" || approvalScope === "l1" ? (
           <>
-            <MyClaimsPaginationControls
-              hasNextPage={approvalsResult.hasNextPage}
-              currentCursor={cursor}
-              nextCursor={approvalsResult.nextCursor}
-              prevCursor={previousCursorToken}
-              summaryText={approvalsSummaryText}
-              position="top"
-              searchParams={searchParams}
-            />
-
             <Suspense key={JSON.stringify(searchParams)} fallback={<TableSkeleton />}>
               <FinanceApprovalsBulkTable
                 claims={rows.map((claim) => ({

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Download, Filter, SlidersHorizontal, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useSessionStorage } from "@/hooks/use-session-storage";
@@ -368,11 +369,7 @@ export function ClaimsFilterBar({
 
   const filtersParam = currentParams.get("filters");
   const isFiltersExpanded =
-    filtersParam === "open"
-      ? true
-      : filtersParam === "closed"
-        ? false
-        : defaultFiltersExpanded || hasActiveFilterParams(currentParams);
+    filtersParam === "open" ? true : filtersParam === "closed" ? false : defaultFiltersExpanded;
 
   // ---------------------------------------------------------------------------
   // One-time restore from sessionStorage when URL has no active filters.
@@ -707,6 +704,14 @@ export function ClaimsFilterBar({
   const hasActiveFilters = hasActiveFilterParams(currentParams);
   const renderedStatusValue = lockedStatus ?? localStatus;
   const statusOptions = lockedStatus ? [lockedStatus] : DB_CLAIM_STATUSES;
+  const advancedFilterCount = [
+    localSubmissionType,
+    localPaymentModeId,
+    localDepartmentId,
+    localLocationId,
+    localProductId,
+    localExpenseCategoryId,
+  ].filter((value) => value.trim().length > 0).length;
 
   const searchPlaceholder =
     localSearchField === "claim_id"
@@ -718,328 +723,328 @@ export function ClaimsFilterBar({
           : "Search by Employee Email...";
 
   return (
-    <section className="rounded-2xl border border-zinc-200/80 bg-white/92 p-4 shadow-[0_8px_32px_-12px_rgba(15,23,42,0.08)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">
+    <section className="relative rounded-xl border border-border bg-card p-3 transition-colors">
       {isPending ? (
-        <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-            />
-          </svg>
-          Updating results…
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-card/80 backdrop-blur-[1px]">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <svg
+              className="h-4 w-4 animate-spin"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
+            </svg>
+            Updating results...
+          </div>
         </div>
       ) : null}
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => {
-              const nextParams = new URLSearchParams(searchParams.toString());
-              nextParams.set("filters", isFiltersExpanded ? "closed" : "open");
-              nextParams.delete("cursor");
-              nextParams.delete("prevCursor");
-              nextParams.delete("page");
-              startTransition(() => {
-                updateUrlWithMutation(nextParams, pathname, router);
-              });
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-[1fr_1.5fr_1fr_145px_145px]">
+        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+          Search Category
+          <select
+            value={localSearchField}
+            onChange={(event) => {
+              handleSearchFieldChange(event.target.value);
             }}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            {...(isFiltersExpanded
-              ? ({ "aria-expanded": "true" } as const)
-              : ({ "aria-expanded": "false" } as const))}
-            aria-controls="claims-filter-panel"
+            className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
           >
-            <svg
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              className="h-3.5 w-3.5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-            >
-              <path d="M3 6h18" />
-              <path d="M6 12h12" />
-              <path d="M10 18h4" />
-            </svg>
-            Filters
-            {hasActiveFilters ? (
-              <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
-                Active
-              </span>
-            ) : null}
-          </button>
+            {SEARCH_FIELD_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
 
-          {exportScope ? (
-            <button
-              type="button"
-              onClick={() => {
-                void handleExportXlsx();
+        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+          Search
+          <input
+            value={searchInput}
+            onChange={(event) => {
+              setSearchInput(event.target.value);
+            }}
+            placeholder={searchPlaceholder}
+            className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
+          />
+        </label>
+
+        {statusFilterMode !== "hidden" ? (
+          <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+            Status
+            <select
+              value={renderedStatusValue}
+              disabled={statusFilterMode === "disabled"}
+              onChange={(event) => {
+                setParam("status", event.target.value, setLocalStatus);
               }}
-              disabled={isExporting}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-70 dark:border-emerald-700/60 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
+              title={statusFilterMode === "disabled" ? "Status is fixed for this view." : undefined}
+              className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground disabled:cursor-not-allowed disabled:opacity-70"
             >
-              <svg
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-              >
-                <path d="M12 3v11" />
-                <path d="m7.5 10.5 4.5 4.5 4.5-4.5" />
-                <path d="M4 17.5A1.5 1.5 0 0 0 5.5 19h13a1.5 1.5 0 0 0 1.5-1.5" />
-              </svg>
-              {isExporting ? "Exporting..." : "Export Excel"}
-            </button>
+              {lockedStatus ? null : <option value="">All</option>}
+              {statusOptions.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+
+        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+          From
+          <input
+            type="date"
+            value={localFromDate}
+            onChange={(event) => {
+              setParam("from", event.target.value, setLocalFromDate);
+            }}
+            className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
+          />
+        </label>
+
+        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+          To
+          <input
+            type="date"
+            value={localToDate}
+            onChange={(event) => {
+              setParam("to", event.target.value, setLocalToDate);
+            }}
+            className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
+          />
+        </label>
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            const nextParams = new URLSearchParams(searchParams.toString());
+            nextParams.set("filters", isFiltersExpanded ? "closed" : "open");
+            nextParams.delete("cursor");
+            nextParams.delete("prevCursor");
+            nextParams.delete("page");
+            startTransition(() => {
+              updateUrlWithMutation(nextParams, pathname, router);
+            });
+          }}
+          className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-md border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-background-secondary"
+          {...(isFiltersExpanded
+            ? ({ "aria-expanded": "true" } as const)
+            : ({ "aria-expanded": "false" } as const))}
+          aria-controls="claims-filter-panel"
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+          More Filters
+          {advancedFilterCount > 0 ? (
+            <span className="rounded-full bg-accent-muted px-1.5 py-0.5 text-[10px] font-semibold text-accent">
+              {advancedFilterCount}
+            </span>
           ) : null}
+        </button>
 
-          {isAdmin ? <AdvancedFiltersSheet /> : null}
-
+        {exportScope ? (
           <button
             type="button"
             onClick={() => {
-              setSearchInput("");
-              setLocalSearchField("claim_id");
-              setLocalSubmissionType("");
-              setLocalPaymentModeId("");
-              setLocalDepartmentId("");
-              setLocalLocationId("");
-              setLocalProductId("");
-              setLocalExpenseCategoryId("");
-              setLocalStatus(lockedStatus ?? "");
-              setLocalFromDate("");
-              setLocalToDate("");
-
-              const nextParams = new URLSearchParams();
-              const currentView = searchParams.get("view");
-              const currentFilters = searchParams.get("filters");
-
-              if (currentView) {
-                nextParams.set("view", currentView);
-              }
-
-              if (currentFilters) {
-                nextParams.set("filters", currentFilters);
-              }
-
-              if (lockedStatus) {
-                nextParams.set("status", lockedStatus);
-              }
-
-              startTransition(() => {
-                updateUrlWithMutation(nextParams, pathname, router);
-              });
+              void handleExportXlsx();
             }}
-            className="inline-flex rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            disabled={isExporting}
+            className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-md border border-emerald-300 bg-emerald-50 px-3 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-70 dark:border-emerald-700/60 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
           >
-            Clear All
+            <Download className="h-4 w-4" aria-hidden="true" />
+            {isExporting ? "Exporting..." : "Export Excel"}
           </button>
-        </div>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={() => {
+            setSearchInput("");
+            setLocalSearchField("claim_id");
+            setLocalSubmissionType("");
+            setLocalPaymentModeId("");
+            setLocalDepartmentId("");
+            setLocalLocationId("");
+            setLocalProductId("");
+            setLocalExpenseCategoryId("");
+            setLocalStatus(lockedStatus ?? "");
+            setLocalFromDate("");
+            setLocalToDate("");
+
+            const nextParams = new URLSearchParams();
+            const currentView = searchParams.get("view");
+            const currentFilters = searchParams.get("filters");
+
+            if (currentView) {
+              nextParams.set("view", currentView);
+            }
+
+            if (currentFilters) {
+              nextParams.set("filters", currentFilters);
+            }
+
+            if (lockedStatus) {
+              nextParams.set("status", lockedStatus);
+            }
+
+            startTransition(() => {
+              updateUrlWithMutation(nextParams, pathname, router);
+            });
+          }}
+          className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-md border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-background-secondary"
+        >
+          <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
+          Clear All
+        </button>
       </div>
+
+      {hasActiveFilters ? (
+        <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background-secondary px-2 py-1">
+            <Filter className="h-3 w-3" aria-hidden="true" />
+            Filters applied
+          </span>
+        </div>
+      ) : null}
 
       <div
         id="claims-filter-panel"
-        className={`overflow-hidden transition-all duration-300 ${
-          isFiltersExpanded ? "mt-4 max-h-[1200px] opacity-100" : "max-h-0 opacity-0"
+        hidden={!isFiltersExpanded}
+        className={`grid transition-all duration-300 ${
+          isFiltersExpanded ? "mt-4 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         }`}
       >
-        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-          <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-            Search Category
-            <select
-              value={localSearchField}
-              onChange={(event) => {
-                handleSearchFieldChange(event.target.value);
-              }}
-              className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-            >
-              {SEARCH_FIELD_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 sm:col-span-2 xl:col-span-3">
-            Search
-            <input
-              value={searchInput}
-              onChange={(event) => {
-                setSearchInput(event.target.value);
-              }}
-              placeholder={searchPlaceholder}
-              className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-            />
-          </label>
-
-          <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-            Submission Type
-            <select
-              value={localSubmissionType}
-              onChange={(event) => {
-                setParam("submission_type", event.target.value, setLocalSubmissionType);
-              }}
-              className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-            >
-              <option value="">All</option>
-              {SUBMISSION_TYPE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-            Payment Mode
-            <select
-              value={localPaymentModeId}
-              onChange={(event) => {
-                setParam("payment_mode_id", event.target.value, setLocalPaymentModeId);
-              }}
-              className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-            >
-              <option value="">All</option>
-              {paymentModes.map((mode) => (
-                <option key={mode.id} value={mode.id}>
-                  {mode.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-            Department
-            <select
-              value={localDepartmentId}
-              onChange={(event) => {
-                setParam("department_id", event.target.value, setLocalDepartmentId);
-              }}
-              className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-            >
-              <option value="">All</option>
-              {departments.map((department) => (
-                <option key={department.id} value={department.id}>
-                  {department.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-            Location
-            <select
-              value={localLocationId}
-              onChange={(event) => {
-                setParam("location_id", event.target.value, setLocalLocationId);
-              }}
-              className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-            >
-              <option value="">All</option>
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-            Product
-            <select
-              value={localProductId}
-              onChange={(event) => {
-                setParam("product_id", event.target.value, setLocalProductId);
-              }}
-              className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-            >
-              <option value="">All</option>
-              {products.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-            Expense Category
-            <select
-              value={localExpenseCategoryId}
-              onChange={(event) => {
-                setParam("expense_category_id", event.target.value, setLocalExpenseCategoryId);
-              }}
-              className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-            >
-              <option value="">All</option>
-              {expenseCategories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {statusFilterMode !== "hidden" ? (
-            <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-              Status
+        <div className="overflow-hidden">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+            <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+              Submission Type
               <select
-                value={renderedStatusValue}
-                disabled={statusFilterMode === "disabled"}
+                value={localSubmissionType}
                 onChange={(event) => {
-                  setParam("status", event.target.value, setLocalStatus);
+                  setParam("submission_type", event.target.value, setLocalSubmissionType);
                 }}
-                title={
-                  statusFilterMode === "disabled" ? "Status is fixed for this view." : undefined
-                }
-                className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs disabled:cursor-not-allowed disabled:opacity-70 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
               >
-                {lockedStatus ? null : <option value="">All</option>}
-                {statusOptions.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
+                <option value="">All</option>
+                {SUBMISSION_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
             </label>
-          ) : null}
 
-          <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-            From
-            <input
-              type="date"
-              value={localFromDate}
-              onChange={(event) => {
-                setParam("from", event.target.value, setLocalFromDate);
-              }}
-              className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-            />
-          </label>
+            <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+              Payment Mode
+              <select
+                value={localPaymentModeId}
+                onChange={(event) => {
+                  setParam("payment_mode_id", event.target.value, setLocalPaymentModeId);
+                }}
+                className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
+              >
+                <option value="">All</option>
+                {paymentModes.map((mode) => (
+                  <option key={mode.id} value={mode.id}>
+                    {mode.name}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-            To
-            <input
-              type="date"
-              value={localToDate}
-              onChange={(event) => {
-                setParam("to", event.target.value, setLocalToDate);
-              }}
-              className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-            />
-          </label>
+            <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+              Department
+              <select
+                value={localDepartmentId}
+                onChange={(event) => {
+                  setParam("department_id", event.target.value, setLocalDepartmentId);
+                }}
+                className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
+              >
+                <option value="">All</option>
+                {departments.map((department) => (
+                  <option key={department.id} value={department.id}>
+                    {department.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+              Location
+              <select
+                value={localLocationId}
+                onChange={(event) => {
+                  setParam("location_id", event.target.value, setLocalLocationId);
+                }}
+                className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
+              >
+                <option value="">All</option>
+                {locations.map((location) => (
+                  <option key={location.id} value={location.id}>
+                    {location.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+              Product
+              <select
+                value={localProductId}
+                onChange={(event) => {
+                  setParam("product_id", event.target.value, setLocalProductId);
+                }}
+                className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
+              >
+                <option value="">All</option>
+                {products.map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+              Expense Category
+              <select
+                value={localExpenseCategoryId}
+                onChange={(event) => {
+                  setParam("expense_category_id", event.target.value, setLocalExpenseCategoryId);
+                }}
+                className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
+              >
+                <option value="">All</option>
+                {expenseCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {isAdmin ? (
+              <div className="flex items-end justify-start px-5">
+                <AdvancedFiltersSheet />
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     </section>

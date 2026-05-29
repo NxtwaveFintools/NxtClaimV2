@@ -20,18 +20,13 @@ import {
   bulkRejectL1,
 } from "@/modules/claims/actions";
 import type { GetMyClaimsFilters } from "@/core/domain/claims/contracts";
-import {
-  CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
-  ClaimStatusBadge,
-} from "@/modules/claims/ui/claim-status-badge";
+import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
 import { getAvailableClaimActions } from "@/modules/claims/utils/get-available-claim-actions";
 
-const STICKY_ACTION_COLUMN_CLASSES =
-  "sticky right-0 bg-background/60 backdrop-blur-md border-l border-border/50 z-10";
 const CLAIM_ID_LINK_CLASSES =
-  "whitespace-nowrap text-primary hover:underline font-medium cursor-pointer";
+  "block max-w-full break-words text-primary hover:underline font-medium cursor-pointer leading-snug";
 const VIEW_LINK_CLASSES =
-  "inline-flex h-8 items-center justify-center rounded-xl border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
+  "inline-flex h-8 items-center justify-center rounded-md border border-border bg-card px-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-background-secondary";
 
 type FinanceApprovalRow = {
   id: string;
@@ -359,24 +354,12 @@ export function FinanceApprovalsBulkTable({
   }
 
   return (
-    <div className="min-h-150">
-      <div className="border-b border-zinc-200/80 px-5 py-3.5 dark:border-zinc-800">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-3">
-            <p
-              aria-hidden="true"
-              className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400"
-            >
-              Approvals History
-            </p>
-            {!readOnly && !isBulkActionHidden && selectedCount > 0 ? (
-              <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
-                {selectedCount} selected
-              </span>
-            ) : null}
-          </div>
-          {!readOnly && !isBulkActionHidden ? (
-            <div className="flex flex-wrap items-center gap-2">
+    <div>
+      {!readOnly && !isBulkActionHidden && selectedCount > 0 ? (
+        <div className="m-3 rounded-lg border border-border bg-accent-muted/40 px-3 py-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-foreground">{selectedCount} selected</p>
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={submitBulkApprove}
@@ -465,16 +448,16 @@ export function FinanceApprovalsBulkTable({
                 </button>
               ) : null}
             </div>
-          ) : null}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {!readOnly &&
       !isBulkActionHidden &&
       isPageFullySelected &&
       !isGlobalSelect &&
       totalSelectableCount > actionableIds.length ? (
-        <div className="mx-5 mt-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-xs text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/20 dark:text-indigo-300">
+        <div className="mx-3 mb-3 rounded-lg border border-border bg-accent-muted/40 px-3 py-2 text-xs text-foreground">
           All {actionableIds.length} claims on this page are selected.{" "}
           <button
             type="button"
@@ -489,7 +472,7 @@ export function FinanceApprovalsBulkTable({
       ) : null}
 
       {!readOnly && !isBulkActionHidden && isGlobalSelect ? (
-        <div className="mx-5 mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300">
+        <div className="mx-3 mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300">
           All {totalSelectableCount} matching claims are selected.
           <button
             type="button"
@@ -505,8 +488,19 @@ export function FinanceApprovalsBulkTable({
       ) : null}
 
       <div className="nxt-scroll w-full overflow-x-auto">
-        <table className="min-w-430 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
-          <thead className="bg-zinc-50/80 text-[11px] uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
+        <table className="w-full table-fixed divide-y divide-border text-left text-sm">
+          <colgroup>
+            {!readOnly && !isBulkActionHidden ? <col className="w-[4%]" /> : null}
+            <col className="w-[19%]" />
+            <col className="w-[18%]" />
+            <col className="w-[8%]" />
+            <col className="w-[10%]" />
+            <col className="w-[9%]" />
+            <col className="w-[15%]" />
+            <col className="w-[11%]" />
+            <col className="w-[6%]" />
+          </colgroup>
+          <thead className="bg-background-secondary text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
             <tr>
               {!readOnly && !isBulkActionHidden ? (
                 <th className="px-3 py-2.5">
@@ -523,30 +517,19 @@ export function FinanceApprovalsBulkTable({
                   />
                 </th>
               ) : null}
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">CLAIM ID</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTER ID</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTER EMAIL</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">ON BEHALF ID</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">ON BEHALF EMAIL</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">DEPARTMENT</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">TYPE OF CLAIM</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">AMOUNT</th>
-              <th
-                className={`${CLAIM_STATUS_COLUMN_WIDTH_CLASSES} whitespace-nowrap px-3 py-2.5 font-semibold`}
-              >
-                STATUS
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">CLAIM</th>
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">
+                SUBMITTER / BENEFICIARY
               </th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTED ON</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">HOD DATE</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">FINANCE DATE</th>
-              <th
-                className={`${STICKY_ACTION_COLUMN_CLASSES} whitespace-nowrap px-3 py-2.5 text-right font-semibold`}
-              >
-                View
-              </th>
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">DEPT</th>
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">TYPE</th>
+              <th className="whitespace-nowrap px-3 py-2.5 text-right font-semibold">AMOUNT</th>
+              <th className="whitespace-nowrap px-3 py-2.5 text-center font-semibold">STATUS</th>
+              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTED</th>
+              <th className="whitespace-nowrap px-3 py-2.5 text-right font-semibold">ACTIONS</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
+          <tbody className="divide-y divide-border bg-card text-[13px] text-foreground">
             {claims.map((claim) => {
               const isChecked = isGlobalSelect || selectedIds.includes(claim.id);
               const userRole = approvalScope === "l1" ? "HOD" : "Finance";
@@ -555,11 +538,15 @@ export function FinanceApprovalsBulkTable({
               const canMarkPaid = availableActions.canMarkPaid;
               const isActionable = canApproveOrReject || canMarkPaid;
               const detailHref = appendReturnToParam(ROUTES.claims.detail(claim.id), returnToPath);
+              const primarySubmitter = claim.submitterEmail?.trim() || claim.submitter;
+              const onBehalfValue =
+                claim.onBehalfEmail?.trim() || claim.onBehalfEmployeeCode?.trim() || "";
+              const hasOnBehalf = onBehalfValue.length > 0;
 
               return (
                 <tr
                   key={claim.id}
-                  className="group transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
+                  className="group transition-colors hover:bg-background-secondary"
                 >
                   {!readOnly && !isBulkActionHidden ? (
                     <td className="px-3 py-2">
@@ -581,56 +568,63 @@ export function FinanceApprovalsBulkTable({
                       )}
                     </td>
                   ) : null}
-                  <td className="whitespace-nowrap px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
-                    <Link href={detailHref} className={CLAIM_ID_LINK_CLASSES}>
+                  <td className="px-3 py-2.5 font-medium text-foreground">
+                    <Link href={detailHref} className={CLAIM_ID_LINK_CLASSES} title={claim.id}>
                       {claim.id}
                     </Link>
+                    <div className="mt-0.5 text-[11px] text-muted-foreground">
+                      {claim.employeeId}
+                    </div>
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2">{claim.employeeId}</td>
-                  <td className="px-3 py-2">
-                    <span className="inline-block max-w-37.5 truncate align-bottom">
-                      {claim.submitterEmail?.trim() || claim.submitter}
+                  <td className="px-3 py-2.5">
+                    <span
+                      className="inline-block max-w-full truncate align-bottom"
+                      title={primarySubmitter}
+                    >
+                      {hasOnBehalf ? `Submitter: ${primarySubmitter}` : primarySubmitter}
                     </span>
+                    <div
+                      className="mt-0.5 max-w-full truncate text-xs text-muted-foreground"
+                      title={hasOnBehalf ? onBehalfValue : "On behalf: N/A"}
+                    >
+                      {hasOnBehalf ? `For: ${onBehalfValue}` : "On behalf: N/A"}
+                    </div>
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    <span className="inline-block max-w-30 truncate align-bottom">
-                      {claim.onBehalfEmployeeCode?.trim() || "N/A"}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">
-                    <span className="inline-block max-w-40 truncate align-bottom">
-                      {claim.onBehalfEmail?.trim() || "N/A"}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">
-                    <span className="inline-block max-w-32.5 truncate align-bottom">
+                  <td className="px-3 py-2.5">
+                    <span
+                      className="inline-block max-w-full truncate align-bottom"
+                      title={claim.departmentName ?? "Unknown Department"}
+                    >
                       {claim.departmentName ?? "Unknown Department"}
                     </span>
                   </td>
-                  <td className="px-3 py-2">
-                    <span className="inline-block max-w-35 truncate align-bottom">
+                  <td className="px-3 py-2.5">
+                    <span
+                      className="inline-block max-w-full truncate align-bottom"
+                      title={claim.paymentModeName}
+                    >
                       {claim.paymentModeName}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 font-semibold text-zinc-900 dark:text-zinc-100">
+                  <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold text-foreground">
                     {claim.formattedTotalAmount}
                   </td>
-                  <td className={`${CLAIM_STATUS_COLUMN_WIDTH_CLASSES} px-3 py-2 align-top`}>
-                    <ClaimStatusBadge status={claim.status} fullWidth />
+                  <td className="px-3 py-2.5 align-middle">
+                    <ClaimStatusBadge status={claim.status} fullWidth fullStatus />
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2">{claim.formattedSubmittedAt}</td>
-                  <td className="whitespace-nowrap px-3 py-2">{claim.formattedHodActionDate}</td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    {claim.formattedFinanceActionDate}
-                  </td>
-                  <td
-                    className={`${STICKY_ACTION_COLUMN_CLASSES} whitespace-nowrap px-3 py-2 text-right`}
-                  >
-                    <div className="flex min-w-28 justify-end">
-                      <Link href={detailHref} className={VIEW_LINK_CLASSES}>
-                        View
-                      </Link>
+                  <td className="px-3 py-2.5 text-[13px]">
+                    <span className="whitespace-nowrap">{claim.formattedSubmittedAt}</span>
+                    <div className="mt-0.5 max-w-full truncate text-xs text-muted-foreground">
+                      HOD: {claim.formattedHodActionDate}
                     </div>
+                    <div className="mt-0.5 max-w-full truncate text-xs text-muted-foreground">
+                      Finance: {claim.formattedFinanceActionDate}
+                    </div>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-right">
+                    <Link href={detailHref} className={VIEW_LINK_CLASSES}>
+                      View
+                    </Link>
                   </td>
                 </tr>
               );

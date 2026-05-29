@@ -115,4 +115,27 @@ describe("ClaimsFilterBar URL sync", () => {
       { scroll: false },
     );
   });
+
+  test("keeps primary filters visible and secondary filters collapsed by default", async () => {
+    const { rerender } = render(<ClaimsFilterBar {...sharedProps} exportScope="submissions" />);
+
+    await flushDebounceWindow();
+
+    expect(screen.getByLabelText("Search Category")).toBeVisible();
+    expect(screen.getByLabelText("Search")).toBeVisible();
+    expect(screen.getByLabelText("Status")).toBeVisible();
+    expect(screen.getByLabelText("From")).toBeVisible();
+    expect(screen.getByLabelText("To")).toBeVisible();
+    expect(screen.getByRole("button", { name: /More Filters/ })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Export Excel" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Clear All" })).toBeVisible();
+
+    expect(screen.getByLabelText("Submission Type")).not.toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: /More Filters/ }));
+    setCurrentUrl("filters=open");
+    rerender(<ClaimsFilterBar {...sharedProps} exportScope="submissions" />);
+
+    expect(screen.getByLabelText("Submission Type")).toBeVisible();
+  });
 });

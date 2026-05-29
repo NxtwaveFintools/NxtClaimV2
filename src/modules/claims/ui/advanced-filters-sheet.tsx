@@ -156,7 +156,7 @@ export function AdvancedFiltersSheet() {
         setIsOpen(nextOpen);
       }}
     >
-      <SheetTrigger className="inline-flex items-center gap-1.5 rounded-lg border border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-800 transition hover:bg-sky-100 dark:border-sky-700/70 dark:bg-sky-900/20 dark:text-sky-200 dark:hover:bg-sky-900/40">
+      <SheetTrigger className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-sky-300 bg-sky-50 px-3 text-xs font-semibold text-sky-800 transition hover:bg-sky-100 dark:border-sky-700/70 dark:bg-sky-900/20 dark:text-sky-200 dark:hover:bg-sky-900/40">
         <svg
           viewBox="0 0 24 24"
           aria-hidden="true"
