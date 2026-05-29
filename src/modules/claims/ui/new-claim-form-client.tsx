@@ -6,14 +6,12 @@ import {
   useRef,
   useState,
   useTransition,
-  useCallback,
   type BaseSyntheticEvent,
 } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch, type FieldErrors } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { GripVertical } from "lucide-react";
 
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -412,38 +410,6 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAiParsing, setIsAiParsing] = useState(false);
   const originalAiExpenseSnapshotRef = useRef<AiExpenseSnapshot | null>(null);
-
-  const [panelWidth, setPanelWidth] = useState(360);
-  const isDraggingRef = useRef(false);
-
-  const startResize = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    isDraggingRef.current = true;
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-  }, []);
-
-  const onMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDraggingRef.current) return;
-    const newWidth = window.innerWidth - e.clientX - 32;
-    const clamped = Math.min(Math.max(newWidth, 320), 560);
-    setPanelWidth(clamped);
-  }, []);
-
-  const onMouseUp = useCallback(() => {
-    isDraggingRef.current = false;
-    document.body.style.cursor = "default";
-    document.body.style.userSelect = "auto";
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-    };
-  }, [onMouseMove, onMouseUp]);
 
   const defaultPaymentMode = options.paymentModes[0];
 
@@ -1421,7 +1387,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       <input type="hidden" {...register("hodEmail")} />
 
       <div className="flex flex-col items-start gap-5 lg:flex-row">
-        <div className="grid w-full min-w-0 flex-1 gap-4 sm:gap-5 lg:min-w-[620px]">
+        <div className="grid w-full min-w-0 gap-4 sm:gap-5 lg:w-1/2">
           {/* ── Left column: Employee + Submission Context ── */}
           <section className="grid gap-3 rounded-xl border border-zinc-200 p-4 sm:p-5">
             <div className="flex items-center justify-between">
@@ -2249,24 +2215,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
         {detailType === "expense" ? (
           <>
-            <div
-              className="hidden lg:flex w-2 cursor-col-resize flex-col items-center justify-center self-stretch rounded-md transition-colors hover:bg-zinc-100 active:bg-[var(--accent)] group"
-              onMouseDown={startResize}
-              aria-label="Resize evidence panel — drag to adjust width"
-              role="separator"
-            >
-              <span
-                className="flex h-full w-0.5 flex-col items-center justify-center rounded-full bg-zinc-300 group-hover:bg-zinc-400"
-                aria-hidden="true"
-              >
-                <GripVertical className="h-4 w-4 text-zinc-400 group-hover:text-zinc-500" />
-              </span>
-            </div>
-
-            <aside
-              className="grid w-full lg:w-auto gap-4 rounded-xl border border-border bg-card p-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-48px)] lg:overflow-y-auto"
-              style={{ flexBasis: panelWidth, flexShrink: 0 }}
-            >
+            <aside className="grid w-full gap-4 rounded-xl border border-border bg-card p-4 lg:w-1/2 lg:sticky lg:top-6 lg:max-h-[calc(100vh-48px)] lg:overflow-y-auto">
               <div>
                 <h2 className="dashboard-font-display text-base font-semibold text-foreground">
                   Evidence & Review
