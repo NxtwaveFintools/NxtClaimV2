@@ -407,6 +407,8 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   const [bankStatementFile, setBankStatementFile] = useState<File | null>(null);
   const [advanceSupportingFile, setAdvanceSupportingFile] = useState<File | null>(null);
   const [invoicePreviewUrl, setInvoicePreviewUrl] = useState<string | null>(null);
+  const [bankStatementPreviewUrl, setBankStatementPreviewUrl] = useState<string | null>(null);
+  const [activePreviewTab, setActivePreviewTab] = useState<"invoice" | "bank-statement">("invoice");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAiParsing, setIsAiParsing] = useState(false);
   const originalAiExpenseSnapshotRef = useRef<AiExpenseSnapshot | null>(null);
@@ -462,9 +464,9 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       expense: {
         billNo: "",
         purpose: "",
-        expenseCategoryId: options.expenseCategories[0]?.id ?? "",
-        productId: options.products[0]?.id ?? "",
-        locationId: options.locations[0]?.id ?? "",
+        expenseCategoryId: "",
+        productId: "",
+        locationId: "",
         locationType: null,
         locationDetails: null,
         gstNumber: null,
@@ -561,6 +563,12 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   }, [detailType, options.paymentModes, paymentModeId, setValue]);
 
   useEffect(() => {
+    if (!isBankStatementRequired) {
+      setBankStatementError(null);
+    }
+  }, [isBankStatementRequired]);
+
+  useEffect(() => {
     if (!invoiceFile || typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
       setInvoicePreviewUrl(null);
       return;
@@ -571,6 +579,28 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
     return () => URL.revokeObjectURL(objectUrl);
   }, [invoiceFile]);
+
+  useEffect(() => {
+    if (
+      !bankStatementFile ||
+      typeof URL === "undefined" ||
+      typeof URL.createObjectURL !== "function"
+    ) {
+      setBankStatementPreviewUrl(null);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(bankStatementFile);
+    setBankStatementPreviewUrl(objectUrl);
+
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [bankStatementFile]);
+
+  useEffect(() => {
+    if (!bankStatementFile && activePreviewTab === "bank-statement") {
+      setActivePreviewTab("invoice");
+    }
+  }, [bankStatementFile, activePreviewTab]);
 
   useEffect(() => {
     if (submissionType === "Self") {
@@ -1122,14 +1152,12 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   };
 
   const applyParsedBankStatementToForm = (parsed: Record<string, unknown>): void => {
-    const matchedAmount = toNumber(parsed.basicAmount ?? parsed.basic_amount);
+    const matchedAmount = toNumber(
+      parsed.basicAmount ?? parsed.basic_amount ?? parsed.totalAmount ?? parsed.total_amount,
+    );
     const matchedDate = toNullableString(parsed.transactionDate ?? parsed.transaction_date);
     const matchedVendorName = toNullableString(parsed.vendorName ?? parsed.vendor_name);
     const expenseValues = getValues("expense");
-    const isForeignExpense =
-      expenseValues.foreignCurrencyCode !== "INR" ||
-      toNumber(expenseValues.foreignBasicAmount) > 0 ||
-      toNumber(expenseValues.foreignTotalAmount) > 0;
 
     setValue("expense.basicAmount", matchedAmount, {
       shouldDirty: true,
@@ -1137,28 +1165,51 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       shouldValidate: true,
     });
 
-    if (isForeignExpense) {
-      setValue("expense.cgstAmount", 0, {
-        shouldDirty: true,
-        shouldTouch: true,
-        shouldValidate: true,
-      });
-      setValue("expense.sgstAmount", 0, {
-        shouldDirty: true,
-        shouldTouch: true,
-        shouldValidate: true,
-      });
-      setValue("expense.igstAmount", 0, {
-        shouldDirty: true,
-        shouldTouch: true,
-        shouldValidate: true,
-      });
-      setValue("expense.totalAmount", matchedAmount, {
-        shouldDirty: true,
-        shouldTouch: true,
-        shouldValidate: true,
-      });
-    }
+    setValue("expense.totalAmount", matchedAmount, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("expense.gstNumber", null, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("expense.cgstAmount", 0, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("expense.sgstAmount", 0, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("expense.igstAmount", 0, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("expense.foreignCurrencyCode", "INR", {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("expense.foreignBasicAmount", null, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("expense.foreignGstAmount", null, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("expense.foreignTotalAmount", null, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
 
     if (!expenseValues.vendorName && matchedVendorName) {
       setValue("expense.vendorName", matchedVendorName, {
@@ -1675,6 +1726,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     className="h-9 w-full rounded-lg border border-zinc-300 px-3 text-sm"
                     {...register("expense.productId")}
                   >
+                    <option value="">Select Product type</option>
                     {options.products.map((option) => (
                       <option key={option.id} value={option.id}>
                         {option.name}
@@ -1700,6 +1752,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     className="h-9 w-full rounded-lg border border-zinc-300 px-3 text-sm"
                     {...register("expense.locationId")}
                   >
+                    <option value="">Please Select Location</option>
                     {options.locations.map((option) => (
                       <option key={option.id} value={option.id}>
                         {option.name}
@@ -2268,72 +2321,137 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
               </Button>
               <AIDisclaimer />
 
-              {isBankStatementRequired ? (
-                <div className="grid gap-2 rounded-lg border border-border bg-background-secondary p-3">
-                  <div>
-                    <h3 className="text-sm font-semibold text-foreground">
-                      Bank statement required <span className="text-rose-600">*</span>
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      This category requires bank evidence before submission.
-                    </p>
-                  </div>
-                  <input
-                    id="bankStatementFile"
-                    type="file"
-                    accept="application/pdf,image/jpeg,image/png,image/webp"
-                    aria-label="Bank statement file upload"
-                    className="hidden"
-                    onChange={(event) => {
-                      const selectedFile = event.target.files?.[0] ?? null;
-                      void handleBankStatementUploadSuccess(selectedFile);
-                    }}
-                  />
-                  <label
-                    htmlFor="bankStatementFile"
-                    className="inline-flex h-9 cursor-pointer items-center justify-center rounded-lg border border-border bg-card px-3 text-sm font-medium text-foreground transition-colors hover:bg-background"
-                  >
-                    Choose file
-                  </label>
-                  <p className="text-xs text-muted-foreground">PDF, JPG, PNG, WEBP · Max 25MB</p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {bankStatementFile
-                      ? `${bankStatementFile.name} · ${formatFileSize(bankStatementFile.size)}`
-                      : "No file selected"}
-                  </p>
-                  {bankStatementError ? (
-                    <p className="text-xs text-rose-600">{bankStatementError}</p>
-                  ) : null}
+              <div className="grid gap-2 rounded-lg border border-border bg-background-secondary p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-foreground">Bank Statement</h3>
+                  {isBankStatementRequired ? (
+                    <span className="text-xs font-medium text-rose-600">Required</span>
+                  ) : (
+                    <span className="text-xs font-medium text-muted-foreground">Optional</span>
+                  )}
                 </div>
-              ) : null}
+                <p className="text-xs text-muted-foreground">
+                  {isBankStatementRequired
+                    ? "Bank statement is required for this expense category."
+                    : "Upload only if this claim needs bank evidence."}
+                </p>
+                <input
+                  id="bankStatementFile"
+                  type="file"
+                  accept="application/pdf,image/jpeg,image/png,image/webp"
+                  aria-label="Bank statement file upload"
+                  className="hidden"
+                  onChange={(event) => {
+                    const selectedFile = event.target.files?.[0] ?? null;
+                    void handleBankStatementUploadSuccess(selectedFile);
+                  }}
+                />
+                <label
+                  htmlFor="bankStatementFile"
+                  className="inline-flex h-9 cursor-pointer items-center justify-center rounded-lg border border-border bg-card px-3 text-sm font-medium text-foreground transition-colors hover:bg-background"
+                >
+                  Choose file
+                </label>
+                <p className="text-xs text-muted-foreground">PDF, JPG, PNG, WEBP · Max 25MB</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {bankStatementFile
+                    ? `${bankStatementFile.name} · ${formatFileSize(bankStatementFile.size)}`
+                    : "No file selected"}
+                </p>
+                {bankStatementError ? (
+                  <p className="text-xs text-rose-600">{bankStatementError}</p>
+                ) : null}
+              </div>
 
               <div className="grid gap-2">
                 <div>
-                  <h3 className="text-sm font-semibold text-foreground">Uploaded invoice</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Uploaded evidence</h3>
                   <p className="text-xs text-muted-foreground">
-                    Compare this with the fields you enter.
+                    Compare uploaded files with the fields you enter.
                   </p>
                 </div>
+
+                <div
+                  className="flex rounded-lg border border-border p-0.5"
+                  role="tablist"
+                  aria-label="Evidence preview tabs"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activePreviewTab === "invoice"}
+                    onClick={() => setActivePreviewTab("invoice")}
+                    disabled={!invoiceFile}
+                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
+                      activePreviewTab === "invoice"
+                        ? "bg-[var(--accent-muted)] text-[var(--accent)]"
+                        : "text-[var(--muted-foreground)] hover:bg-[var(--background-secondary)] disabled:opacity-40 disabled:pointer-events-none"
+                    }`}
+                  >
+                    Invoice
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activePreviewTab === "bank-statement"}
+                    onClick={() => setActivePreviewTab("bank-statement")}
+                    disabled={!bankStatementFile}
+                    title={!bankStatementFile ? "No bank statement uploaded." : undefined}
+                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
+                      activePreviewTab === "bank-statement"
+                        ? "bg-[var(--accent-muted)] text-[var(--accent)]"
+                        : "text-[var(--muted-foreground)] hover:bg-[var(--background-secondary)] disabled:opacity-40 disabled:pointer-events-none"
+                    }`}
+                  >
+                    Bank Statement
+                  </button>
+                </div>
+
                 <div className="flex min-h-[280px] items-center justify-center overflow-hidden rounded-lg border border-border bg-background-secondary p-3 lg:min-h-[360px]">
-                  {!invoiceFile ? (
+                  {activePreviewTab === "invoice" ? (
+                    !invoiceFile ? (
+                      <p className="text-center text-sm text-muted-foreground">
+                        Upload an invoice to preview it here.
+                      </p>
+                    ) : invoicePreviewUrl && invoiceFile.type.startsWith("image/") ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={invoicePreviewUrl}
+                        alt={`Uploaded invoice preview: ${invoiceFile.name}`}
+                        className="max-h-[440px] w-full object-contain"
+                      />
+                    ) : invoicePreviewUrl && invoiceFile.type === "application/pdf" ? (
+                      <iframe
+                        src={invoicePreviewUrl}
+                        title={`Uploaded invoice preview: ${invoiceFile.name}`}
+                        className="h-[360px] w-full rounded border-0"
+                      />
+                    ) : (
+                      <p className="text-center text-sm text-muted-foreground">
+                        {invoiceFile.name}
+                      </p>
+                    )
+                  ) : !bankStatementFile ? (
                     <p className="text-center text-sm text-muted-foreground">
-                      Upload an invoice to preview it here.
+                      Upload a bank statement to preview it here.
                     </p>
-                  ) : invoicePreviewUrl && invoiceFile.type.startsWith("image/") ? (
+                  ) : bankStatementPreviewUrl && bankStatementFile.type.startsWith("image/") ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={invoicePreviewUrl}
-                      alt={`Uploaded invoice preview: ${invoiceFile.name}`}
+                      src={bankStatementPreviewUrl}
+                      alt={`Uploaded bank statement preview: ${bankStatementFile.name}`}
                       className="max-h-[440px] w-full object-contain"
                     />
-                  ) : invoicePreviewUrl && invoiceFile.type === "application/pdf" ? (
+                  ) : bankStatementPreviewUrl && bankStatementFile.type === "application/pdf" ? (
                     <iframe
-                      src={invoicePreviewUrl}
-                      title={`Uploaded invoice preview: ${invoiceFile.name}`}
+                      src={bankStatementPreviewUrl}
+                      title={`Uploaded bank statement preview: ${bankStatementFile.name}`}
                       className="h-[360px] w-full rounded border-0"
                     />
                   ) : (
-                    <p className="text-center text-sm text-muted-foreground">{invoiceFile.name}</p>
+                    <p className="text-center text-sm text-muted-foreground">
+                      {bankStatementFile.name}
+                    </p>
                   )}
                 </div>
               </div>

@@ -449,6 +449,8 @@ function buildBankStatementSystemInstruction(matchContext: BankStatementMatchCon
   return `
 ROLE:
 You are a financial document parser specializing in bank statements.
+Bank statements are payment evidence only. They do not contain invoice GST breakup, expense
+category, or foreign-currency invoice details.
 
 GOAL:
 Find the single settled INR debit/deduction that best matches the expense claim.
@@ -471,12 +473,12 @@ SELECTION RULES:
 
 OUTPUT RULES:
 - Return the actual INR amount charged from the statement as basicAmount.
+- Set totalAmount to the same settled INR debit amount as basicAmount.
 - Return the matched statement date as transactionDate if visible.
 - Return the matched merchant descriptor as vendorName if clear.
-- Set totalAmount = 0.
-- Set cgst_amount = 0, sgst_amount = 0, igst_amount = 0.
-- Set category_name = null.
-- Set foreign_currency_code = null, foreign_basic_amount = 0, foreign_gst_amount = 0, foreign_total_amount = 0.
+- GST/tax fields must always be zero/null: gst_number = null, cgst_amount = 0, sgst_amount = 0, igst_amount = 0.
+- Do not decide category_name. Always set category_name = null.
+- Do not extract or preserve foreign currency invoice fields. Always set foreign_currency_code = null, foreign_basic_amount = 0, foreign_gst_amount = 0, foreign_total_amount = 0.
 - Keep billNo null unless the statement line contains a clear transaction/reference identifier.
 - Confidence should be high only when the match is clear; reduce it when multiple similar debits remain or key hints are missing.
 
@@ -788,12 +790,31 @@ function normalizeGeminiResult(raw: z.infer<typeof geminiParseResultSchema>): Pa
   };
 }
 
+function normalizeBankStatementExtraction(data: ParsedReceiptResult): ParsedReceiptResult {
+  const amount = normalizeAmount(data.basicAmount || data.totalAmount || 0);
+
+  return {
+    ...data,
+    basicAmount: amount,
+    totalAmount: amount,
+    gstNumber: null,
+    cgstAmount: 0,
+    sgstAmount: 0,
+    igstAmount: 0,
+    category_name: null,
+    foreignCurrencyCode: null,
+    foreignBasicAmount: 0,
+    foreignGstAmount: 0,
+    foreignTotalAmount: 0,
+  };
+}
+
 function createGeminiModel(
   systemInstruction: string,
 ): ReturnType<GoogleGenerativeAI["getGenerativeModel"]> {
   const client = new GoogleGenerativeAI(serverEnv.GEMINI_API_KEY);
   return client.getGenerativeModel({
-    model: "gemini-2.5-flash-lite",
+    model: "gemini-3.5-flash",
     systemInstruction,
     generationConfig: {
       temperature: 0,
@@ -933,7 +954,10 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
       };
     }
 
-    const normalized = normalizeGeminiResult(parsedSchemaResult.data);
+    const normalized =
+      documentType === "bank_statement"
+        ? normalizeBankStatementExtraction(normalizeGeminiResult(parsedSchemaResult.data))
+        : normalizeGeminiResult(parsedSchemaResult.data);
 
     const hasPartialData =
       documentType === "bank_statement"

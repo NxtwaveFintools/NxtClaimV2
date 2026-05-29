@@ -34,6 +34,23 @@ function createReceiptFormData(
   return formData;
 }
 
+function createBankStatementFormData(): FormData {
+  const formData = new FormData();
+  formData.append(
+    "receiptFile",
+    new File(["fake statement payload"], "statement.pdf", { type: "application/pdf" }),
+  );
+  formData.append("documentType", "bank_statement");
+  formData.append("bankStatementMatchVendorName", "Openai Llc");
+  formData.append("bankStatementMatchTransactionDate", "2026-05-27");
+  formData.append("bankStatementMatchBillNo", "INV-OPENAI-1");
+  formData.append("bankStatementMatchForeignCurrencyCode", "USD");
+  formData.append("bankStatementMatchForeignTotalAmount", "20");
+  formData.append("bankStatementMatchCategoryName", "Overseas Subscription");
+
+  return formData;
+}
+
 describe("parseReceiptAction", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -302,7 +319,7 @@ describe("parseReceiptAction", () => {
     expect(mockGoogleGenerativeAI).toHaveBeenCalledWith("test-gemini-key");
     expect(mockGetGenerativeModel).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: "gemini-2.5-flash-lite",
+        model: "gemini-3.5-flash",
         systemInstruction: expect.stringContaining("Travel Domestic"),
       }),
     );
@@ -388,5 +405,132 @@ describe("parseReceiptAction", () => {
       "Only fall back to Ride ID when no bill-style identifier is present",
     );
     expect(systemInstruction).toContain("UBER-7788");
+  });
+
+  test("preserves invoice GST and foreign currency extraction", async () => {
+    mockGenerateContent.mockResolvedValue({
+      response: {
+        text: () =>
+          JSON.stringify({
+            billNo: "INV-FOREIGN-1",
+            transactionDate: "2026-05-27",
+            vendorName: "Openai Llc",
+            basicAmount: 0,
+            gst_number: "36ABCDE1234F1Z5",
+            cgst_amount: 0,
+            sgst_amount: 0,
+            igst_amount: 180,
+            totalAmount: 1180,
+            category_name: "Internet Expense",
+            confidenceScore: 96,
+            foreign_currency_code: "USD",
+            foreign_basic_amount: 10,
+            foreign_gst_amount: 2,
+            foreign_total_amount: 12,
+          }),
+      },
+    });
+
+    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
+    const result = await parseReceiptAction(createReceiptFormData());
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual(
+      expect.objectContaining({
+        gstNumber: "36ABCDE1234F1Z5",
+        igstAmount: 180,
+        totalAmount: 1180,
+        category_name: "Internet Expense",
+        foreignCurrencyCode: "USD",
+        foreignBasicAmount: 10,
+        foreignGstAmount: 2,
+        foreignTotalAmount: 12,
+      }),
+    );
+  });
+
+  test("normalizes bank statements as payment evidence with no tax, category, or foreign fields", async () => {
+    mockGenerateContent.mockResolvedValue({
+      response: {
+        text: () =>
+          JSON.stringify({
+            billNo: "614757120563",
+            transactionDate: "2026-05-27",
+            vendorName: "Openai Llc",
+            basicAmount: 1999,
+            gst_number: "36ABCDE1234F1Z5",
+            cgst_amount: 90,
+            sgst_amount: 90,
+            igst_amount: 180,
+            totalAmount: 0,
+            category_name: "Overseas Subscription",
+            confidenceScore: 95,
+            foreign_currency_code: "USD",
+            foreign_basic_amount: 20,
+            foreign_gst_amount: 0,
+            foreign_total_amount: 20,
+          }),
+      },
+    });
+
+    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
+    const result = await parseReceiptAction(createBankStatementFormData());
+
+    expect(result.ok).toBe(true);
+    expect(result.autoFillAllowed).toBe(true);
+    expect(result.data).toEqual({
+      billNo: "614757120563",
+      transactionDate: "2026-05-27",
+      vendorName: "Openai Llc",
+      basicAmount: 1999,
+      gstNumber: null,
+      cgstAmount: 0,
+      sgstAmount: 0,
+      igstAmount: 0,
+      totalAmount: 1999,
+      category_name: null,
+      confidenceScore: 95,
+      foreignCurrencyCode: null,
+      foreignBasicAmount: 0,
+      foreignGstAmount: 0,
+      foreignTotalAmount: 0,
+    });
+  });
+
+  test("instructs bank statement extraction to set totalAmount to settled INR debit and clear invoice-only fields", async () => {
+    mockGenerateContent.mockResolvedValue({
+      response: {
+        text: () =>
+          JSON.stringify({
+            billNo: "614757120563",
+            transactionDate: "2026-05-27",
+            vendorName: "Openai Llc",
+            basicAmount: 1999,
+            gst_number: null,
+            cgst_amount: 0,
+            sgst_amount: 0,
+            igst_amount: 0,
+            totalAmount: 1999,
+            category_name: null,
+            confidenceScore: 95,
+          }),
+      },
+    });
+
+    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
+    await parseReceiptAction(createBankStatementFormData());
+
+    const modelConfig = (mockGetGenerativeModel as jest.Mock).mock.calls[0]?.[0] as
+      | { systemInstruction?: string }
+      | undefined;
+    const systemInstruction = modelConfig?.systemInstruction ?? "";
+
+    expect(systemInstruction).toContain("payment evidence only");
+    expect(systemInstruction).toContain("Set totalAmount to the same settled INR debit amount");
+    expect(systemInstruction).toContain("GST/tax fields must always be zero/null");
+    expect(systemInstruction).toContain(
+      "Do not extract or preserve foreign currency invoice fields",
+    );
+    expect(systemInstruction).toContain("Do not decide category_name");
   });
 });

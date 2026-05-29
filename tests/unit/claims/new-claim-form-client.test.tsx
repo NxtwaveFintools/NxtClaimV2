@@ -143,7 +143,7 @@ describe("NewClaimFormClient", () => {
     expect(screen.getByRole("heading", { name: /Evidence & Review/i })).toBeInTheDocument();
     expect(screen.getByText(/Upload an invoice to preview it here/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/Review invoice, amounts, and routing before submitting/i),
+      screen.getByText(/Keep evidence visible while you complete the claim/i),
     ).toBeInTheDocument();
   });
 
@@ -416,5 +416,95 @@ describe("NewClaimFormClient", () => {
 
     expect(screen.getByText(/Bank statement required/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Bank statement file upload/i)).toBeInTheDocument();
+  });
+
+  test("bank statement autofill after invoice clears tax and foreign invoice fields without changing category", async () => {
+    const user = userEvent.setup();
+    mockParseReceiptAction
+      .mockResolvedValueOnce({
+        ok: true,
+        autoFillAllowed: true,
+        message: null,
+        data: {
+          billNo: "OPENAI-INV-1",
+          transactionDate: "2026-05-27",
+          vendorName: "Openai Llc",
+          gstNumber: "36ABCDE1234F1Z5",
+          basicAmount: 0,
+          cgstAmount: 10,
+          sgstAmount: 20,
+          igstAmount: 180,
+          totalAmount: 0,
+          category_name: "Overseas Subscription",
+          confidenceScore: 95,
+          foreignCurrencyCode: "USD",
+          foreignBasicAmount: 20,
+          foreignGstAmount: 0,
+          foreignTotalAmount: 20,
+        },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        autoFillAllowed: true,
+        message: null,
+        data: {
+          billNo: "614757120563",
+          transactionDate: "2026-05-27",
+          vendorName: "Openai Llc",
+          gstNumber: null,
+          basicAmount: 1999,
+          cgstAmount: 0,
+          sgstAmount: 0,
+          igstAmount: 0,
+          totalAmount: 1999,
+          category_name: null,
+          confidenceScore: 95,
+          foreignCurrencyCode: null,
+          foreignBasicAmount: 0,
+          foreignGstAmount: 0,
+          foreignTotalAmount: 0,
+        },
+      });
+
+    render(<NewClaimFormClient currentUser={currentUser} options={options} />);
+
+    await user.upload(
+      screen.getByLabelText(/Invoice\/Bill/i),
+      new File(["invoice"], "invoice.pdf", { type: "application/pdf" }),
+    );
+
+    await waitFor(() => {
+      expect((screen.getByLabelText(/GST Number/i) as HTMLInputElement).value).toBe(
+        "36ABCDE1234F1Z5",
+      );
+    });
+
+    await waitFor(() => {
+      expect((screen.getByLabelText(/Expense Category/i) as HTMLSelectElement).value).toBe(
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      );
+    });
+
+    await user.upload(
+      screen.getByLabelText(/Bank statement file upload/i),
+      new File(["statement"], "statement.pdf", { type: "application/pdf" }),
+    );
+
+    await waitFor(() => {
+      expect((screen.getByLabelText(/^Basic Amount/i) as HTMLInputElement).value).toBe("1999");
+    });
+
+    expect((screen.getByLabelText(/^Total Amount/i) as HTMLInputElement).value).toBe("1999.00");
+    expect((screen.getByLabelText(/GST Number/i) as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText(/CGST Amount/i) as HTMLInputElement).value).toBe("0");
+    expect((screen.getByLabelText(/SGST Amount/i) as HTMLInputElement).value).toBe("0");
+    expect((screen.getByLabelText(/IGST Amount/i) as HTMLInputElement).value).toBe("0");
+    expect((screen.getByLabelText(/Expense Category/i) as HTMLSelectElement).value).toBe(
+      "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    );
+    expect((screen.getByLabelText(/Foreign Currency/i) as HTMLSelectElement).value).toBe("INR");
+    expect((screen.getByLabelText(/Foreign Basic Amount/i) as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText(/Foreign GST Amount/i) as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText(/Foreign Total Amount/i) as HTMLInputElement).value).toBe("");
   });
 });
