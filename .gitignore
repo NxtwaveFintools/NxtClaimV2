@@ -77,3 +77,6 @@ yarn-error.log*
 
 # ── Claude Code ───────────────────────────────────────────────────────────────
 skills-lock.json
+
+# Postman local-override environments (may contain real bearer tokens / secrets)
+docs/api/postman/*.local.json

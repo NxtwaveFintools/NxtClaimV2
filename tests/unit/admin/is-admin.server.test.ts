@@ -2,33 +2,18 @@
 
 export {};
 
-const mockCookies = jest.fn();
-const mockCreateServerClient = jest.fn();
-const mockGetUser = jest.fn();
-const mockFrom = jest.fn();
+const mockGetCachedRequestAuthUser = jest.fn();
 const mockGetServiceRoleSupabaseClient = jest.fn();
 const mockServiceRoleFrom = jest.fn();
 const mockLoggerWarn = jest.fn();
 const mockLoggerDebug = jest.fn();
-const mockIsAllowedEmailDomainInDb = jest.fn();
 
-jest.mock("next/headers", () => ({
-  cookies: (...args: unknown[]) => mockCookies(...args),
-}));
-
-jest.mock("@supabase/ssr", () => ({
-  createServerClient: (...args: unknown[]) => mockCreateServerClient(...args),
+jest.mock("@/modules/auth/server/get-request-auth-user", () => ({
+  getCachedRequestAuthUser: (...args: unknown[]) => mockGetCachedRequestAuthUser(...args),
 }));
 
 jest.mock("@/core/infra/supabase/server-client", () => ({
   getServiceRoleSupabaseClient: (...args: unknown[]) => mockGetServiceRoleSupabaseClient(...args),
-}));
-
-jest.mock("@/core/config/server-env", () => ({
-  serverEnv: {
-    NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
-  },
 }));
 
 jest.mock("@/core/infra/logging/logger", () => ({
@@ -41,10 +26,6 @@ jest.mock("@/core/infra/logging/logger", () => ({
   },
 }));
 
-jest.mock("@/core/infra/auth/allowed-auth-domains", () => ({
-  isAllowedEmailDomainInDb: (...args: unknown[]) => mockIsAllowedEmailDomainInDb(...args),
-}));
-
 jest.mock("next/cache", () => ({
   unstable_cache:
     (fn: (...args: unknown[]) => unknown) =>
@@ -53,33 +34,25 @@ jest.mock("next/cache", () => ({
   revalidateTag: jest.fn(),
 }));
 
-describe("isAdmin", () => {
-  const cookieStore = {
-    getAll: jest.fn(() => []),
-    set: jest.fn(),
-  };
+jest.mock("@/modules/auth/server/user-role-cache", () => ({
+  getUserRoleCacheTag: (userId: string) => `user-role:${userId}`,
+  USER_ROLE_CACHE_TAG: "user-role",
+}));
 
+describe("isAdmin", () => {
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
 
-    mockCookies.mockResolvedValue(cookieStore);
-    mockCreateServerClient.mockReturnValue({
-      auth: { getUser: mockGetUser },
-      from: mockFrom,
-    });
     mockGetServiceRoleSupabaseClient.mockReturnValue({
       from: mockServiceRoleFrom,
     });
-    // getCachedRequestAuthUser now requires user.email and a domain check.
-    // Tests below set mock user accordingly; the domain check defaults to allowed.
-    mockIsAllowedEmailDomainInDb.mockResolvedValue({ isAllowed: true, errorMessage: null });
   });
 
   test("returns false when auth user is unavailable", async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: null },
-      error: { message: "invalid token" },
+    mockGetCachedRequestAuthUser.mockResolvedValue({
+      user: null,
+      errorMessage: "invalid token",
     });
 
     const { isAdmin } = await import("@/modules/admin/server/is-admin");
@@ -87,9 +60,9 @@ describe("isAdmin", () => {
   });
 
   test("returns false and logs warning when admins table query fails", async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: "user-1", email: "user-1@nxtwave.co.in" } },
-      error: null,
+    mockGetCachedRequestAuthUser.mockResolvedValue({
+      user: { id: "user-1", app_metadata: {} },
+      errorMessage: null,
     });
 
     const query = {
@@ -110,9 +83,9 @@ describe("isAdmin", () => {
   });
 
   test("returns true when admin count is positive", async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: "user-1", email: "user-1@nxtwave.co.in" } },
-      error: null,
+    mockGetCachedRequestAuthUser.mockResolvedValue({
+      user: { id: "user-1", app_metadata: {} },
+      errorMessage: null,
     });
 
     const query = {
@@ -129,7 +102,7 @@ describe("isAdmin", () => {
   });
 
   test("returns false when an unexpected exception occurs", async () => {
-    mockCookies.mockRejectedValueOnce(new Error("headers unavailable"));
+    mockGetCachedRequestAuthUser.mockRejectedValueOnce(new Error("headers unavailable"));
 
     const { isAdmin } = await import("@/modules/admin/server/is-admin");
     await expect(isAdmin()).resolves.toBe(false);

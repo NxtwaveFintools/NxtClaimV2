@@ -4,12 +4,11 @@ export {};
 
 const mockCookies = jest.fn();
 const mockCreateServerClient = jest.fn();
-const mockGetUser = jest.fn();
+const mockGetCachedRequestAuthUser = jest.fn();
 const mockFrom = jest.fn();
 const mockGetServiceRoleSupabaseClient = jest.fn();
 const mockServiceRoleFrom = jest.fn();
 const mockLoggerWarn = jest.fn();
-const mockIsAllowedEmailDomainInDb = jest.fn();
 
 jest.mock("next/headers", () => ({
   cookies: (...args: unknown[]) => mockCookies(...args),
@@ -17,6 +16,10 @@ jest.mock("next/headers", () => ({
 
 jest.mock("@supabase/ssr", () => ({
   createServerClient: (...args: unknown[]) => mockCreateServerClient(...args),
+}));
+
+jest.mock("@/modules/auth/server/get-request-auth-user", () => ({
+  getCachedRequestAuthUser: (...args: unknown[]) => mockGetCachedRequestAuthUser(...args),
 }));
 
 jest.mock("@/core/infra/supabase/server-client", () => ({
@@ -40,16 +43,17 @@ jest.mock("@/core/infra/logging/logger", () => ({
   },
 }));
 
-jest.mock("@/core/infra/auth/allowed-auth-domains", () => ({
-  isAllowedEmailDomainInDb: (...args: unknown[]) => mockIsAllowedEmailDomainInDb(...args),
-}));
-
 jest.mock("next/cache", () => ({
   unstable_cache:
     (fn: (...args: unknown[]) => unknown) =>
     (...args: unknown[]) =>
       fn(...args),
   revalidateTag: jest.fn(),
+}));
+
+jest.mock("@/modules/auth/server/user-role-cache", () => ({
+  getUserRoleCacheTag: (userId: string) => `user-role:${userId}`,
+  USER_ROLE_CACHE_TAG: "user-role",
 }));
 
 function createTwoEqSelect(finalResult: unknown) {
@@ -72,27 +76,24 @@ describe("department viewer server helpers", () => {
 
     mockCookies.mockResolvedValue(cookieStore);
     mockCreateServerClient.mockReturnValue({
-      auth: { getUser: mockGetUser },
       from: mockFrom,
     });
     mockGetServiceRoleSupabaseClient.mockReturnValue({
       from: mockServiceRoleFrom,
     });
-    // getCachedRequestAuthUser now requires user.email and a domain check.
-    mockIsAllowedEmailDomainInDb.mockResolvedValue({ isAllowed: true, errorMessage: null });
   });
 
   test("isDepartmentViewer returns false when auth user is missing", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+    mockGetCachedRequestAuthUser.mockResolvedValue({ user: null, errorMessage: null });
 
     const { isDepartmentViewer } = await import("@/modules/claims/server/is-department-viewer");
     await expect(isDepartmentViewer()).resolves.toBe(false);
   });
 
   test("isDepartmentViewer returns true when assignment count is positive", async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: "user-1", email: "user-1@nxtwave.co.in" } },
-      error: null,
+    mockGetCachedRequestAuthUser.mockResolvedValue({
+      user: { id: "user-1", app_metadata: {} },
+      errorMessage: null,
     });
 
     const query = createTwoEqSelect({ count: 2, error: null });
@@ -106,9 +107,9 @@ describe("department viewer server helpers", () => {
   });
 
   test("isDepartmentViewer returns false and logs when query fails", async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: "user-1", email: "user-1@nxtwave.co.in" } },
-      error: null,
+    mockGetCachedRequestAuthUser.mockResolvedValue({
+      user: { id: "user-1", app_metadata: {} },
+      errorMessage: null,
     });
 
     const query = createTwoEqSelect({
@@ -131,9 +132,9 @@ describe("department viewer server helpers", () => {
   });
 
   test("getViewerDepartmentIds returns empty array when user mismatch", async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: "different-user" } },
-      error: null,
+    mockGetCachedRequestAuthUser.mockResolvedValue({
+      user: { id: "different-user" },
+      errorMessage: null,
     });
 
     const { getViewerDepartmentIds } = await import("@/modules/claims/server/is-department-viewer");
@@ -142,9 +143,9 @@ describe("department viewer server helpers", () => {
   });
 
   test("getViewerDepartmentIds maps department ids and handles query errors", async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: "user-1", email: "user-1@nxtwave.co.in" } },
-      error: null,
+    mockGetCachedRequestAuthUser.mockResolvedValue({
+      user: { id: "user-1" },
+      errorMessage: null,
     });
 
     const successQuery = createTwoEqSelect({

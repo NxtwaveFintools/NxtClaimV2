@@ -348,6 +348,68 @@ async function resolveRoleCredentials(): Promise<ResolvedRoleCredentials> {
   };
 }
 
+async function ensureFinanceApprovablePettyCashRequestClaim(): Promise<void> {
+  const client = getAdminClient();
+
+  // Check if a PCR claim is already in the Finance-approvable state.
+  const { data: existing, error: existingError } = await client
+    .from("claims")
+    .select("id, status, payment_mode_id, master_payment_modes!inner(name)")
+    .eq("status", "HOD approved - Awaiting finance approval")
+    .eq("master_payment_modes.name", "Petty Cash Request")
+    .eq("is_active", true)
+    .limit(1);
+
+  if (existingError) {
+    throw new Error(`Failed to query existing PCR claim state: ${existingError.message}`);
+  }
+
+  if (existing && existing.length > 0) {
+    return; // Idempotent: nothing to seed.
+  }
+
+  // No PCR claim is currently Finance-approvable. Transition one
+  // "Submitted - Awaiting HOD approval" PCR claim forward by setting
+  // status + hod_action_at.
+  const { data: candidates, error: candidateError } = await client
+    .from("claims")
+    .select("id, status, payment_mode_id, master_payment_modes!inner(name)")
+    .eq("status", "Submitted - Awaiting HOD approval")
+    .eq("master_payment_modes.name", "Petty Cash Request")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (candidateError) {
+    throw new Error(`Failed to query PCR candidates to transition: ${candidateError.message}`);
+  }
+
+  if (!candidates || candidates.length === 0) {
+    // No candidate to transition — leave the Playwright PCR scenario
+    // to skip rather than fail the whole setup.
+    console.warn(
+      "[playwright/setup] No Petty Cash Request candidate available to transition into HOD-approved state. PCR e2e scenario will skip.",
+    );
+    return;
+  }
+
+  const targetId = candidates[0].id as string;
+  const { error: updateError } = await client
+    .from("claims")
+    .update({
+      status: "HOD approved - Awaiting finance approval",
+      hod_action_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", targetId);
+
+  if (updateError) {
+    throw new Error(
+      `Failed to transition PCR claim ${targetId} to HOD-approved: ${updateError.message}`,
+    );
+  }
+}
+
 async function verifyAuthUsersExist(emails: string[]): Promise<void> {
   const expected = new Set(emails.map((email) => email.toLowerCase()));
   const found = await findExistingAuthEmails(emails);
@@ -424,6 +486,7 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
 
   const roleCredentials = await resolveRoleCredentials();
   await verifyAuthUsersExist(Object.values(roleCredentials).map((credential) => credential.email));
+  await ensureFinanceApprovablePettyCashRequestClaim();
 
   for (const [role, credential] of Object.entries(roleCredentials) as Array<
     [AuthStateRole, RoleCredential]

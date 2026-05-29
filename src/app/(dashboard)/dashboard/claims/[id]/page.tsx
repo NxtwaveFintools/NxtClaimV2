@@ -449,7 +449,10 @@ async function EvidenceGallerySection({ evidencePaths }: { evidencePaths: Eviden
     const uniquePaths = Array.from(new Set(validItems.map((item) => item.path)));
     const signedUrlsResult = await claimRepository.createBulkSignedUrls({
       filePaths: uniquePaths,
-      expiresInSeconds: 60 * 10,
+      // 10 years — keeps in-app links consistent with BC remarks links.
+      // Trade-off: a leaked URL exposes the file for 10 years; acceptable since
+      // these URLs only render behind authenticated routes.
+      expiresInSeconds: 60 * 60 * 24 * 365 * 10,
     });
 
     if (signedUrlsResult.errorMessage) {
@@ -1153,6 +1156,8 @@ async function ClaimDetailCore({
                       successMessage="Finance decision approved."
                       errorMessage="Unable to approve finance step."
                       redirectToHref={returnToPath}
+                      claimId={claim.id}
+                      paymentModeName={claim.paymentModeName}
                     />
                     <ClaimRejectWithReasonForm
                       action={rejectFinanceFromDetail}
