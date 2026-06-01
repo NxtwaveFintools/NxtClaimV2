@@ -507,11 +507,6 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     [expenseCategoryId, options.expenseCategories],
   );
 
-  const selectedPaymentMode = useMemo(
-    () => options.paymentModes.find((mode) => mode.id === paymentModeId) ?? null,
-    [options.paymentModes, paymentModeId],
-  );
-
   const isBankStatementRequired = selectedExpenseCategory
     ? BANK_STATEMENT_REQUIRED_CATEGORIES.has(selectedExpenseCategory.name)
     : false;
@@ -1156,27 +1151,6 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       shouldTouch: true,
       shouldValidate: true,
     });
-    setValue("expense.foreignCurrencyCode", "INR", {
-      shouldDirty: true,
-      shouldTouch: true,
-      shouldValidate: true,
-    });
-    setValue("expense.foreignBasicAmount", null, {
-      shouldDirty: true,
-      shouldTouch: true,
-      shouldValidate: true,
-    });
-    setValue("expense.foreignGstAmount", null, {
-      shouldDirty: true,
-      shouldTouch: true,
-      shouldValidate: true,
-    });
-    setValue("expense.foreignTotalAmount", null, {
-      shouldDirty: true,
-      shouldTouch: true,
-      shouldValidate: true,
-    });
-
     if (!expenseValues.vendorName && matchedVendorName) {
       setValue("expense.vendorName", matchedVendorName, {
         shouldDirty: true,

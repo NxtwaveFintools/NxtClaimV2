@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import type { CompanyPolicyState } from "@/components/company-policy-button";
@@ -10,7 +10,6 @@ export type DashboardNavItem = {
   href: string;
   label: string;
   iconName: string;
-  isActive: boolean;
 };
 
 type AppLayoutProps = {
@@ -55,17 +54,24 @@ export function AppLayout({
 
   const sidebarWidth = collapsed ? (isMobile ? 0 : 56) : 240;
   const mainMargin = isMobile && collapsed ? 0 : sidebarWidth;
-  const activeNavigationItems = navigationItems.map((item) => ({
-    ...item,
-    isActive: isDashboardNavItemActive(item.href, pathname),
-  }));
+  const activeNavigationItems = useMemo(
+    () =>
+      navigationItems.map((item) => ({
+        ...item,
+        isActive: isDashboardNavItemActive(item.href, pathname),
+      })),
+    [navigationItems, pathname],
+  );
+  const handleSidebarToggle = useCallback(() => {
+    setCollapsed((current) => !current);
+  }, []);
 
   return (
     <>
       <Sidebar
         collapsed={isMobile ? true : collapsed}
         hidden={isMobile && collapsed}
-        onToggle={() => setCollapsed((c) => !c)}
+        onToggle={handleSidebarToggle}
         navigationItems={activeNavigationItems}
         userEmail={userEmail}
         avatarInitial={avatarInitial}

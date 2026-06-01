@@ -19,19 +19,16 @@ export function getDashboardNavItems(permissions: DashboardNavPermissions): Dash
       href: ROUTES.dashboard,
       label: "Dashboard",
       iconName: "LayoutDashboard",
-      isActive: false,
     },
     {
       href: ROUTES.claims.new,
       label: "New Claim",
       iconName: "CirclePlus",
-      isActive: false,
     },
     {
       href: ROUTES.claims.myClaims,
       label: "Claims",
       iconName: "FileText",
-      isActive: false,
     },
     ...(permissions.canViewHodPendingClaims
       ? [
@@ -39,7 +36,6 @@ export function getDashboardNavItems(permissions: DashboardNavPermissions): Dash
             href: buildHodPendingNavHref(),
             label: "HOD Pending",
             iconName: "CalendarDays",
-            isActive: false,
           },
         ]
       : []),
@@ -49,7 +45,6 @@ export function getDashboardNavItems(permissions: DashboardNavPermissions): Dash
             href: ROUTES.dashboardAnalytics,
             label: "Analytics",
             iconName: "BarChart3",
-            isActive: false,
           },
         ]
       : []),
@@ -59,7 +54,6 @@ export function getDashboardNavItems(permissions: DashboardNavPermissions): Dash
             href: ROUTES.admin.settings,
             label: "System Settings",
             iconName: "Settings",
-            isActive: false,
           },
         ]
       : []),

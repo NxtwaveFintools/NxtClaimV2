@@ -64,17 +64,14 @@ export function DeleteClaimButton({
   };
 
   const modal = isModalOpen ? (
-    <div
-      className="fixed inset-0 z-[260] bg-zinc-950/50 backdrop-blur-sm"
-      onClick={handleModalClose}
-    >
+    <div className="fixed inset-0 z-[260] bg-zinc-950/50" onClick={handleModalClose}>
       <div className="flex min-h-full items-center justify-center">
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby="delete-claim-title"
           aria-describedby="delete-claim-description"
-          className="mx-4 w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 text-center shadow-2xl dark:border-zinc-800 dark:bg-zinc-900"
+          className="mx-4 w-full max-w-md rounded-xl border border-border bg-card p-6 text-center shadow-none"
           onClick={(event) => event.stopPropagation()}
         >
           <div className="mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400">

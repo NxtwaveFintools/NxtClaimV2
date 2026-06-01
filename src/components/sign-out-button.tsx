@@ -29,7 +29,19 @@ export function SignOutButton() {
         color: "var(--muted-foreground)",
       }}
     >
-      <LogOut className="h-4 w-4" aria-hidden="true" />
+      {isPending ? (
+        <svg className="h-4 w-4 animate-spin" viewBox="0 0 20 20" aria-hidden="true" fill="none">
+          <circle cx="10" cy="10" r="7" stroke="currentColor" strokeOpacity="0.3" strokeWidth="2" />
+          <path
+            d="M10 3a7 7 0 0 1 7 7"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+      ) : (
+        <LogOut className="h-4 w-4" aria-hidden="true" />
+      )}
       <span>{isPending ? "Signing Out..." : "Sign Out"}</span>
     </button>
   );

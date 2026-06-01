@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Download, Filter, SlidersHorizontal, XCircle } from "lucide-react";
@@ -10,12 +11,25 @@ import { ROUTES } from "@/core/config/route-registry";
 import { DB_CLAIM_STATUSES, type DbClaimStatus } from "@/core/constants/statuses";
 import { normalizeIsoDateOnly } from "@/lib/date-only";
 import { getAccessTokenAction } from "@/modules/auth/actions";
-import { AdvancedFiltersSheet } from "@/modules/claims/ui/advanced-filters-sheet";
 import type {
   ClaimDateTarget,
   ClaimSearchField,
   ClaimSubmissionType,
 } from "@/core/domain/claims/contracts";
+
+const AdvancedFiltersSheet = dynamic(
+  () =>
+    import("@/modules/claims/ui/advanced-filters-sheet").then(
+      (module) => module.AdvancedFiltersSheet,
+    ),
+  {
+    loading: () => (
+      <div className="inline-flex h-9 w-36 items-center rounded-lg border border-border bg-card px-3 text-xs font-semibold text-muted-foreground">
+        Advanced Filters
+      </div>
+    ),
+  },
+);
 
 function getFileNameFromContentDisposition(headerValue: string | null): string | null {
   if (!headerValue) {
@@ -704,6 +718,51 @@ export function ClaimsFilterBar({
   const hasActiveFilters = hasActiveFilterParams(currentParams);
   const renderedStatusValue = lockedStatus ?? localStatus;
   const statusOptions = lockedStatus ? [lockedStatus] : DB_CLAIM_STATUSES;
+  const paymentModeOptions = useMemo(
+    () =>
+      paymentModes.map((mode) => (
+        <option key={mode.id} value={mode.id}>
+          {mode.name}
+        </option>
+      )),
+    [paymentModes],
+  );
+  const departmentOptions = useMemo(
+    () =>
+      departments.map((department) => (
+        <option key={department.id} value={department.id}>
+          {department.name}
+        </option>
+      )),
+    [departments],
+  );
+  const locationOptions = useMemo(
+    () =>
+      locations.map((location) => (
+        <option key={location.id} value={location.id}>
+          {location.name}
+        </option>
+      )),
+    [locations],
+  );
+  const productOptions = useMemo(
+    () =>
+      products.map((product) => (
+        <option key={product.id} value={product.id}>
+          {product.name}
+        </option>
+      )),
+    [products],
+  );
+  const expenseCategoryOptions = useMemo(
+    () =>
+      expenseCategories.map((category) => (
+        <option key={category.id} value={category.id}>
+          {category.name}
+        </option>
+      )),
+    [expenseCategories],
+  );
   const advancedFilterCount = [
     localSubmissionType,
     localPaymentModeId,
@@ -725,7 +784,7 @@ export function ClaimsFilterBar({
   return (
     <section className="relative rounded-xl border border-border bg-card p-3 transition-colors">
       {isPending ? (
-        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-card/80 backdrop-blur-[1px]">
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-card/90">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <svg
               className="h-4 w-4 animate-spin"
@@ -959,11 +1018,7 @@ export function ClaimsFilterBar({
                 className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
               >
                 <option value="">All</option>
-                {paymentModes.map((mode) => (
-                  <option key={mode.id} value={mode.id}>
-                    {mode.name}
-                  </option>
-                ))}
+                {paymentModeOptions}
               </select>
             </label>
 
@@ -977,11 +1032,7 @@ export function ClaimsFilterBar({
                 className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
               >
                 <option value="">All</option>
-                {departments.map((department) => (
-                  <option key={department.id} value={department.id}>
-                    {department.name}
-                  </option>
-                ))}
+                {departmentOptions}
               </select>
             </label>
 
@@ -995,11 +1046,7 @@ export function ClaimsFilterBar({
                 className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
               >
                 <option value="">All</option>
-                {locations.map((location) => (
-                  <option key={location.id} value={location.id}>
-                    {location.name}
-                  </option>
-                ))}
+                {locationOptions}
               </select>
             </label>
 
@@ -1013,11 +1060,7 @@ export function ClaimsFilterBar({
                 className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
               >
                 <option value="">All</option>
-                {products.map((product) => (
-                  <option key={product.id} value={product.id}>
-                    {product.name}
-                  </option>
-                ))}
+                {productOptions}
               </select>
             </label>
 
@@ -1031,16 +1074,12 @@ export function ClaimsFilterBar({
                 className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
               >
                 <option value="">All</option>
-                {expenseCategories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
+                {expenseCategoryOptions}
               </select>
             </label>
 
-            {isAdmin ? (
-              <div className="flex items-end justify-start px-5">
+            {isAdmin && isFiltersExpanded ? (
+              <div className="flex items-end ml-15">
                 <AdvancedFiltersSheet />
               </div>
             ) : null}

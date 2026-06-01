@@ -1,5 +1,6 @@
 "use client";
 
+import { memo, useMemo, type CSSProperties } from "react";
 import {
   Bar,
   BarChart,
@@ -163,7 +164,7 @@ function EfficiencyTable({ title, data }: EfficiencyTableProps) {
   );
 }
 
-export function AnalyticsCharts({
+export const AnalyticsCharts = memo(function AnalyticsCharts({
   statusBreakdown,
   paymentModeBreakdown,
   efficiencyByDepartment,
@@ -172,34 +173,50 @@ export function AnalyticsCharts({
   overallFinanceTatAverage,
   overallFinanceTatSampleCount,
 }: AnalyticsChartsProps) {
-  const statusChartData = statusBreakdown
-    .map((item) => ({
-      name: item.status,
-      count: item.count,
-    }))
-    .sort((a, b) => b.count - a.count);
+  const statusChartData = useMemo(
+    () =>
+      statusBreakdown
+        .map((item) => ({
+          name: item.status,
+          count: item.count,
+        }))
+        .sort((a, b) => b.count - a.count),
+    [statusBreakdown],
+  );
 
-  const paymentChartData = paymentModeBreakdown.map((item) => ({
-    name: item.paymentModeName,
-    count: item.count,
-  }));
+  const paymentChartData = useMemo(
+    () =>
+      paymentModeBreakdown.map((item) => ({
+        name: item.paymentModeName,
+        count: item.count,
+      })),
+    [paymentModeBreakdown],
+  );
 
-  const efficiencyChartData = efficiencyByDepartment.map((item) => ({
-    name: item.departmentName,
-    avgDays: item.averageDaysToApproval,
-    sampleCount: item.sampleCount,
-  }));
+  const efficiencyChartData = useMemo(
+    () =>
+      efficiencyByDepartment.map((item) => ({
+        name: item.departmentName,
+        avgDays: item.averageDaysToApproval,
+        sampleCount: item.sampleCount,
+      })),
+    [efficiencyByDepartment],
+  );
 
-  const financeTatChartData = financeApproverTatBreakdown.map((item) => ({
-    name: item.financeApproverName,
-    avgDays: item.averageDaysToApproval,
-    sampleCount: item.sampleCount,
-  }));
+  const financeTatChartData = useMemo(
+    () =>
+      financeApproverTatBreakdown.map((item) => ({
+        name: item.financeApproverName,
+        avgDays: item.averageDaysToApproval,
+        sampleCount: item.sampleCount,
+      })),
+    [financeApproverTatBreakdown],
+  );
 
   const cardStyle = {
     backgroundColor: "var(--card)",
     borderColor: "var(--border)",
-  } as React.CSSProperties;
+  } as CSSProperties;
 
   return (
     <div className="space-y-4">
@@ -218,6 +235,7 @@ export function AnalyticsCharts({
                     nameKey="name"
                     innerRadius={50}
                     outerRadius={80}
+                    isAnimationActive={false}
                   >
                     {paymentChartData.map((entry, index) => (
                       <Cell
@@ -267,7 +285,7 @@ export function AnalyticsCharts({
                     width={220}
                   />
                   <Tooltip formatter={(value) => formatNumber(Number(value))} />
-                  <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                  <Bar dataKey="count" radius={[0, 4, 4, 0]} isAnimationActive={false}>
                     {statusChartData.map((entry, index) => (
                       <Cell
                         key={`${entry.name}-${index}`}
@@ -323,4 +341,4 @@ export function AnalyticsCharts({
       ) : null}
     </div>
   );
-}
+});

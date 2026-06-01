@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, type FormEvent } from "react";
+import { memo, useMemo, useState, type FormEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { TableEmptyState } from "@/components/ui/table-empty-state";
@@ -74,7 +74,7 @@ function normalizeFilters(filters: GetMyClaimsFilters): GetMyClaimsFilters {
   };
 }
 
-export function FinanceApprovalsBulkTable({
+export const FinanceApprovalsBulkTable = memo(function FinanceApprovalsBulkTable({
   claims,
   actionableIds,
   totalSelectableCount,
@@ -89,14 +89,20 @@ export function FinanceApprovalsBulkTable({
     () => buildPathWithSearchParams(pathname, searchParams.toString()),
     [pathname, searchParams],
   );
-  const normalizedFilters = normalizeFilters(filters);
-  const actionFilters = normalizedFilters as Parameters<typeof bulkApprove>[0]["filters"];
-  const isBulkActionHidden =
-    !normalizedFilters.status ||
-    (normalizedFilters.status as DbClaimStatus[]).length === 0 ||
-    (normalizedFilters.status as DbClaimStatus[]).includes(
-      DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
-    );
+  const normalizedFilters = useMemo(() => normalizeFilters(filters), [filters]);
+  const actionFilters = useMemo(
+    () => normalizedFilters as Parameters<typeof bulkApprove>[0]["filters"],
+    [normalizedFilters],
+  );
+  const isBulkActionHidden = useMemo(
+    () =>
+      !normalizedFilters.status ||
+      (normalizedFilters.status as DbClaimStatus[]).length === 0 ||
+      (normalizedFilters.status as DbClaimStatus[]).includes(
+        DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
+      ),
+    [normalizedFilters],
+  );
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isGlobalSelect, setIsGlobalSelect] = useState(false);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
@@ -644,7 +650,7 @@ export function FinanceApprovalsBulkTable({
               setIsRejectModalOpen(false);
             }}
           />
-          <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 sm:p-6">
+          <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-5 shadow-none sm:p-6">
             <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
               Bulk Reject Claims
             </h3>
@@ -714,4 +720,4 @@ export function FinanceApprovalsBulkTable({
       ) : null}
     </div>
   );
-}
+});

@@ -158,7 +158,7 @@ export function SheetContent({
       <div className="fixed inset-0 z-[120]">
         <button
           type="button"
-          className="absolute inset-0 bg-zinc-950/35 backdrop-blur-[1px]"
+          className="absolute inset-0 bg-zinc-950/35"
           aria-label="Close panel"
           onClick={() => {
             setOpen(false);
@@ -171,7 +171,7 @@ export function SheetContent({
           aria-labelledby={titleId}
           aria-describedby={descriptionId}
           className={joinClasses(
-            "absolute top-0 h-full w-full max-w-md border-zinc-200 bg-white p-5 shadow-2xl transition-colors dark:border-zinc-800 dark:bg-zinc-950",
+            "absolute top-0 h-full w-full max-w-md border-zinc-200 bg-white p-5 shadow-none transition-colors dark:border-zinc-800 dark:bg-zinc-950",
             side === "right" ? "right-0 border-l" : "left-0 border-r",
             className,
           )}

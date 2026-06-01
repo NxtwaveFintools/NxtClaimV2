@@ -221,7 +221,7 @@ export function AnalyticsFilters({
   return (
     <div className="relative w-full space-y-2 rounded-xl border border-border bg-card p-3">
       {isPending ? (
-        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-card/80 backdrop-blur-[1px]">
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-card/90">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <svg
               className="h-4 w-4 animate-spin"
@@ -287,7 +287,6 @@ export function AnalyticsFilters({
               const nextFromDate = event.target.value;
               setDraftFromDate(nextFromDate);
               setSelectedPreset("custom");
-              pushDateRange(nextFromDate, draftToDate);
             }}
             className={`${ANALYTICS_FIELD_CLASS_NAME} ${ANALYTICS_COLOR_SCHEME_CLASS_NAME}`}
           />
@@ -302,7 +301,6 @@ export function AnalyticsFilters({
               const nextToDate = event.target.value;
               setDraftToDate(nextToDate);
               setSelectedPreset("custom");
-              pushDateRange(draftFromDate, nextToDate);
             }}
             className={`${ANALYTICS_FIELD_CLASS_NAME} ${ANALYTICS_COLOR_SCHEME_CLASS_NAME}`}
           />

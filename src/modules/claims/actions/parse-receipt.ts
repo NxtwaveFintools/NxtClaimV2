@@ -479,6 +479,7 @@ OUTPUT RULES:
 - GST/tax fields must always be zero/null: gst_number = null, cgst_amount = 0, sgst_amount = 0, igst_amount = 0.
 - Do not decide category_name. Always set category_name = null.
 - Do not extract or preserve foreign currency invoice fields. Always set foreign_currency_code = null, foreign_basic_amount = 0, foreign_gst_amount = 0, foreign_total_amount = 0.
+- Important: The client-side merge logic preserves invoice-derived foreign expense details when applying a bank-statement result. The AI should not attempt to preserve or carry forward any invoice-only fields.
 - Keep billNo null unless the statement line contains a clear transaction/reference identifier.
 - Confidence should be high only when the match is clear; reduce it when multiple similar debits remain or key hints are missing.
 

@@ -532,5 +532,8 @@ describe("parseReceiptAction", () => {
       "Do not extract or preserve foreign currency invoice fields",
     );
     expect(systemInstruction).toContain("Do not decide category_name");
+    expect(systemInstruction).toContain(
+      "client-side merge logic preserves invoice-derived foreign expense details",
+    );
   });
 });

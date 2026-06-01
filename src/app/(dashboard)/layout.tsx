@@ -1,8 +1,6 @@
-import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { AppLayout } from "@/components/app-layout";
 import { PolicyGate } from "@/components/layout/PolicyGate";
-import { AppShellSkeleton, PageHeaderSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { ROUTES } from "@/core/config/route-registry";
 import { resolveDashboardAnalyticsScope } from "@/core/domain/dashboard/resolve-analytics-scope";
 import { logger } from "@/core/infra/logging/logger";
@@ -16,26 +14,6 @@ import { getPolicyGateState } from "@/modules/policies/server/get-policy-gate-st
 import type { CompanyPolicyState } from "@/components/company-policy-button";
 
 const dashboardRepository = new SupabaseDashboardRepository();
-
-function DashboardGroupLayoutFallback() {
-  return (
-    <AppShellSkeleton>
-      <main className="mx-auto max-w-7xl space-y-5">
-        <section className="rounded-xl border border-border bg-card p-4">
-          <PageHeaderSkeleton actions={0} />
-        </section>
-
-        <section className="rounded-xl border border-border bg-card p-4">
-          <div className="space-y-3">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <Skeleton key={`dashboard-layout-fallback-row-${index}`} className="h-4 w-full" />
-            ))}
-          </div>
-        </section>
-      </main>
-    </AppShellSkeleton>
-  );
-}
 
 async function DashboardGroupPolicyGate({
   children,
@@ -113,9 +91,5 @@ export default function DashboardGroupLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
-    <Suspense fallback={<DashboardGroupLayoutFallback />}>
-      <DashboardGroupPolicyGate>{children}</DashboardGroupPolicyGate>
-    </Suspense>
-  );
+  return <DashboardGroupPolicyGate>{children}</DashboardGroupPolicyGate>;
 }

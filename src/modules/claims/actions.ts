@@ -33,6 +33,8 @@ import type {
 import { GetActiveDepartmentsService } from "@/core/domain/departments/GetActiveDepartmentsService";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
 import { SupabaseDepartmentRepository } from "@/modules/departments/repositories/SupabaseDepartmentRepository";
+import { isAdmin } from "@/modules/admin/server/is-admin";
+import { getViewerDepartmentIds } from "@/modules/claims/server/is-department-viewer";
 import { newClaimSubmitSchema } from "@/modules/claims/validators/new-claim-schema";
 import { financeEditSchema } from "@/modules/claims/validators/finance-edit-schema";
 import { ownEditSchema } from "@/modules/claims/validators/own-edit-schema";
@@ -60,6 +62,10 @@ const claimsStorageBucket = "claims";
 type ClaimStorageFolder = "expenses" | "petty_cash_requests";
 type ClaimStorageFileKind = "receipt" | "bankstatement" | "supporting";
 const claimIdSchema = z.string().trim().min(1, "Claim ID is required");
+const claimEvidenceSignedUrlSchema = z.object({
+  claimId: claimIdSchema,
+  filePath: z.string().trim().min(1, "Evidence path is required"),
+});
 const claimDecisionSchema = z.object({
   claimId: claimIdSchema,
   redirectToApprovalsView: z.boolean().optional(),
@@ -2395,4 +2401,88 @@ export async function bulkMarkPaid(input: {
     message: `${result.processedCount} claim(s) marked as paid.`,
     processedCount: result.processedCount,
   };
+}
+
+export async function getClaimEvidenceSignedUrlAction(input: {
+  claimId: string;
+  filePath: string;
+}): Promise<{ ok: boolean; signedUrl: string | null; message: string | null }> {
+  const parseResult = claimEvidenceSignedUrlSchema.safeParse(input);
+  if (!parseResult.success) {
+    return { ok: false, signedUrl: null, message: "Invalid evidence request." };
+  }
+
+  const [currentUserResult, isAdminUser] = await Promise.all([
+    authRepository.getCurrentUser(),
+    isAdmin(),
+  ]);
+
+  if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
+    return {
+      ok: false,
+      signedUrl: null,
+      message: currentUserResult.errorMessage ?? "Unauthorized session.",
+    };
+  }
+
+  const claimResult = await repository.getClaimDetailById(parseResult.data.claimId, {
+    includeInactive: isAdminUser,
+  });
+
+  if (claimResult.errorMessage || !claimResult.data) {
+    return {
+      ok: false,
+      signedUrl: null,
+      message: claimResult.errorMessage ?? "Claim not found.",
+    };
+  }
+
+  const claim = claimResult.data;
+  const currentUserId = currentUserResult.user.id;
+  const [financeApproverIdsResult, viewerDepartmentIds] = await Promise.all([
+    repository.getFinanceApproverIdsForUser(currentUserId),
+    getViewerDepartmentIds(currentUserId),
+  ]);
+  const isFinanceActor =
+    !financeApproverIdsResult.errorMessage && financeApproverIdsResult.data.length > 0;
+  const canView =
+    isAdminUser ||
+    currentUserId === claim.submittedBy ||
+    currentUserId === claim.onBehalfOfId ||
+    currentUserId === claim.assignedL1ApproverId ||
+    currentUserId === claim.assignedL2ApproverId ||
+    isFinanceActor ||
+    viewerDepartmentIds.includes(claim.departmentId);
+
+  if (!canView) {
+    return { ok: false, signedUrl: null, message: "Evidence is not available for this session." };
+  }
+
+  const allowedPaths = new Set(
+    [
+      claim.expense?.receiptFilePath,
+      claim.expense?.bankStatementFilePath,
+      claim.advance?.supportingDocumentPath,
+    ].filter((path): path is string => Boolean(path && path.trim().length > 0 && path !== "N/A")),
+  );
+
+  if (!allowedPaths.has(parseResult.data.filePath)) {
+    return { ok: false, signedUrl: null, message: "Evidence file is not attached to this claim." };
+  }
+
+  const signedUrlsResult = await repository.createBulkSignedUrls({
+    filePaths: [parseResult.data.filePath],
+    expiresInSeconds: 60 * 10,
+  });
+
+  if (signedUrlsResult.errorMessage) {
+    return { ok: false, signedUrl: null, message: signedUrlsResult.errorMessage };
+  }
+
+  const signedUrl = signedUrlsResult.data[parseResult.data.filePath] ?? null;
+  if (!signedUrl) {
+    return { ok: false, signedUrl: null, message: "Evidence file is not available." };
+  }
+
+  return { ok: true, signedUrl, message: null };
 }

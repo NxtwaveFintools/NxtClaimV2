@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useTransition } from "react";
+import { memo, useMemo, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ROUTES } from "@/core/config/route-registry";
 import { RouterLink } from "@/components/ui/router-link";
@@ -41,6 +41,13 @@ function resolveRoleLabel(role: string | null): string {
 }
 
 export function AdminClaimsTable({ claims }: Props) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const returnToPath = useMemo(
+    () => buildPathWithSearchParams(pathname, searchParams.toString()),
+    [pathname, searchParams],
+  );
+
   if (claims.length === 0) {
     return (
       <TableEmptyState title="No claims found" description="Adjust filters or check back later." />
@@ -74,7 +81,7 @@ export function AdminClaimsTable({ claims }: Props) {
         </thead>
         <tbody className="divide-y divide-border bg-card text-[13px] text-foreground">
           {claims.map((claim) => (
-            <AdminClaimRow key={claim.claimId} claim={claim} />
+            <AdminClaimRow key={claim.claimId} claim={claim} returnToPath={returnToPath} />
           ))}
         </tbody>
       </table>
@@ -82,14 +89,14 @@ export function AdminClaimsTable({ claims }: Props) {
   );
 }
 
-function AdminClaimRow({ claim }: { claim: AdminClaimRecord }) {
+const AdminClaimRow = memo(function AdminClaimRow({
+  claim,
+  returnToPath,
+}: {
+  claim: AdminClaimRecord;
+  returnToPath: string;
+}) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const returnToPath = useMemo(
-    () => buildPathWithSearchParams(pathname, searchParams.toString()),
-    [pathname, searchParams],
-  );
   const [isPending, startTransition] = useTransition();
   const detailHref = appendReturnToParam(ROUTES.claims.detail(claim.claimId), returnToPath);
   const primarySubmitter = claim.submitterEmail?.trim() || claim.employeeName;
@@ -172,4 +179,4 @@ function AdminClaimRow({ claim }: { claim: AdminClaimRecord }) {
       </td>
     </tr>
   );
-}
+});

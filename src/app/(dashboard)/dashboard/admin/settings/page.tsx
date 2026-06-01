@@ -1,3 +1,4 @@
+import dynamic from "next/dynamic";
 import { notFound } from "next/navigation";
 import {
   ArrowRight,
@@ -18,14 +19,7 @@ import { ManageActorsService } from "@/core/domain/admin/ManageActorsService";
 import { ManageAdminsService } from "@/core/domain/admin/ManageAdminsService";
 import { ManageDepartmentViewersService } from "@/core/domain/admin/ManageDepartmentViewersService";
 import { SupabaseAdminRepository } from "@/modules/admin/repositories/SupabaseAdminRepository";
-import { MasterDataTable } from "@/modules/admin/ui/settings/master-data-table";
-import { DepartmentsManagement } from "@/modules/admin/ui/settings/departments-management";
-import { FinanceApproversManagement } from "@/modules/admin/ui/settings/finance-approvers-management";
-import { AdminsManagement } from "@/modules/admin/ui/settings/admins-management";
-import { DepartmentViewersManagement } from "@/modules/admin/ui/settings/department-viewers-management";
-import { PolicyManagement } from "@/modules/admin/ui/settings/policy-management";
-import { AdminClaimOverride } from "@/modules/admin/ui/settings/admin-claim-override";
-import { AdminPaymentModeOverride } from "@/modules/admin/ui/settings/admin-payment-mode-override";
+import { Skeleton } from "@/components/ui/skeleton";
 import { BackButton } from "@/components/ui/back-button";
 import type { MasterDataTableName } from "@/core/domain/admin/contracts";
 import { getPolicyGateState } from "@/modules/policies/server/get-policy-gate-state";
@@ -34,6 +28,70 @@ import { isAdminPaymentModeOverrideAllowedName } from "@/core/constants/payment-
 export const metadata = {
   title: "System Settings | NxtClaim",
 };
+
+const MasterDataTable = dynamic(
+  () =>
+    import("@/modules/admin/ui/settings/master-data-table").then(
+      (module) => module.MasterDataTable,
+    ),
+  { loading: () => <SettingsPanelSkeleton /> },
+);
+
+const DepartmentsManagement = dynamic(
+  () =>
+    import("@/modules/admin/ui/settings/departments-management").then(
+      (module) => module.DepartmentsManagement,
+    ),
+  { loading: () => <SettingsPanelSkeleton /> },
+);
+
+const FinanceApproversManagement = dynamic(
+  () =>
+    import("@/modules/admin/ui/settings/finance-approvers-management").then(
+      (module) => module.FinanceApproversManagement,
+    ),
+  { loading: () => <SettingsPanelSkeleton /> },
+);
+
+const AdminsManagement = dynamic(
+  () =>
+    import("@/modules/admin/ui/settings/admins-management").then(
+      (module) => module.AdminsManagement,
+    ),
+  { loading: () => <SettingsPanelSkeleton /> },
+);
+
+const DepartmentViewersManagement = dynamic(
+  () =>
+    import("@/modules/admin/ui/settings/department-viewers-management").then(
+      (module) => module.DepartmentViewersManagement,
+    ),
+  { loading: () => <SettingsPanelSkeleton /> },
+);
+
+const PolicyManagement = dynamic(
+  () =>
+    import("@/modules/admin/ui/settings/policy-management").then(
+      (module) => module.PolicyManagement,
+    ),
+  { loading: () => <SettingsPanelSkeleton /> },
+);
+
+const AdminClaimOverride = dynamic(
+  () =>
+    import("@/modules/admin/ui/settings/admin-claim-override").then(
+      (module) => module.AdminClaimOverride,
+    ),
+  { loading: () => <SettingsPanelSkeleton /> },
+);
+
+const AdminPaymentModeOverride = dynamic(
+  () =>
+    import("@/modules/admin/ui/settings/admin-payment-mode-override").then(
+      (module) => module.AdminPaymentModeOverride,
+    ),
+  { loading: () => <SettingsPanelSkeleton /> },
+);
 
 type SearchParamsValue = string | string[] | undefined;
 
@@ -437,5 +495,18 @@ function ErrorBox({ message }: { message: string }) {
     <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-200">
       {message}
     </p>
+  );
+}
+
+function SettingsPanelSkeleton() {
+  return (
+    <div className="space-y-3 rounded-xl border border-border bg-card p-4" aria-busy="true">
+      <Skeleton className="h-5 w-44" />
+      <div className="grid gap-3 sm:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Skeleton key={`settings-panel-skeleton-${index}`} className="h-10 w-full" />
+        ))}
+      </div>
+    </div>
   );
 }

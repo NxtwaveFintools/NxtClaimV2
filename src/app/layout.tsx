@@ -33,7 +33,7 @@ export default function RootLayout({
             richColors
             expand={true}
             toastOptions={{
-              className: "backdrop-blur-md bg-background/90 shadow-lg border-muted",
+              className: "bg-background border-muted shadow-none",
             }}
           />
         </ThemeProvider>

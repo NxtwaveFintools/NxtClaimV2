@@ -1,9 +1,8 @@
-import Image from "next/image";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
-import { ExternalLink, X } from "lucide-react";
+import { X } from "lucide-react";
 import { BackButton } from "@/components/ui/back-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -13,7 +12,6 @@ import {
   AccordionTrigger,
 } from "../../../../../components/ui/accordion";
 import { SheetClose, Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../../../components/ui/tabs";
 import { ROUTES } from "@/core/config/route-registry";
 import {
   DB_HOD_APPROVED_AWAITING_FINANCE_APPROVAL_STATUS,
@@ -56,15 +54,19 @@ const FinanceEditClaimForm = dynamic(
   },
 );
 
+const ClaimEvidenceViewer = dynamic(
+  () =>
+    import("@/modules/claims/ui/claim-evidence-viewer").then(
+      (module) => module.ClaimEvidenceViewer,
+    ),
+  {
+    loading: () => <EvidenceGallerySkeleton />,
+  },
+);
+
 type PageProps = {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ view?: string | string[]; returnTo?: string | string[] }>;
-};
-
-type EvidenceItem = {
-  label: string;
-  path: string;
-  signedUrl: string;
 };
 
 type EvidencePath = {
@@ -72,41 +74,9 @@ type EvidencePath = {
   path: string;
 };
 
-type EvidenceTabValue = "receipt" | "bank-statement" | "supporting-document";
-
 type ClaimDetailRecord = NonNullable<
   Awaited<ReturnType<SupabaseClaimRepository["getClaimDetailById"]>>["data"]
 >;
-
-function EvidenceTabPanel({ item, value }: { item: EvidenceItem; value: EvidenceTabValue }) {
-  return (
-    <TabsContent
-      value={value}
-      className="relative mt-0 flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col"
-    >
-      <div className="flex-1 min-h-0 overflow-auto bg-background-secondary p-2 sm:p-3">
-        {isPdf(item.path) ? (
-          <iframe
-            title={item.label}
-            src={item.signedUrl}
-            className="h-full w-full rounded-lg border border-border bg-card"
-          />
-        ) : (
-          <div className="grid min-h-full place-items-center rounded-lg border border-border bg-card p-2">
-            <Image
-              src={item.signedUrl}
-              alt={item.label}
-              width={1800}
-              height={2200}
-              unoptimized
-              className="max-h-full w-auto max-w-full rounded-md object-contain"
-            />
-          </div>
-        )}
-      </div>
-    </TabsContent>
-  );
-}
 
 function firstSearchParamValue(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) {
@@ -123,10 +93,6 @@ function formatOptionalText(value: string | null | undefined, fallback = "N/A"):
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : fallback;
-}
-
-function isPdf(path: string): boolean {
-  return path.toLowerCase().endsWith(".pdf");
 }
 
 function isRenderableEvidencePath(path: string | null | undefined): path is string {
@@ -416,125 +382,20 @@ async function ClaimAuditHistorySection({ claimId }: { claimId: string }) {
   );
 }
 
-async function EvidenceGallerySection({ evidencePaths }: { evidencePaths: EvidencePath[] }) {
-  const claimRepository = new SupabaseClaimRepository();
+function EvidenceGallerySection({
+  claimId,
+  evidencePaths,
+}: {
+  claimId: string;
+  evidencePaths: EvidencePath[];
+}) {
   const validItems = evidencePaths.filter((item) => isRenderableEvidencePath(item.path));
 
-  let evidenceItems: EvidenceItem[] = [];
-  let evidenceErrorMessage: string | null = null;
-
-  if (validItems.length > 0) {
-    const uniquePaths = Array.from(new Set(validItems.map((item) => item.path)));
-    const signedUrlsResult = await claimRepository.createBulkSignedUrls({
-      filePaths: uniquePaths,
-      expiresInSeconds: 60 * 10,
-    });
-
-    if (signedUrlsResult.errorMessage) {
-      evidenceErrorMessage = signedUrlsResult.errorMessage;
-    } else {
-      evidenceItems = validItems
-        .map((item) => {
-          const signedUrl = signedUrlsResult.data[item.path];
-          if (!signedUrl) {
-            return null;
-          }
-
-          return {
-            label: item.label,
-            path: item.path,
-            signedUrl,
-          };
-        })
-        .filter((item): item is EvidenceItem => item !== null);
-    }
-  }
-
-  const receiptItem = evidenceItems.find((item) => item.label === "Receipt");
-  const bankStatementItem = evidenceItems.find((item) => item.label === "Bank Statement");
-  const supportingDocumentItem = evidenceItems.find((item) => item.label === "Supporting Document");
-  const defaultTabValue = receiptItem
-    ? "receipt"
-    : bankStatementItem
-      ? "bank-statement"
-      : supportingDocumentItem
-        ? "supporting-document"
-        : null;
-
-  if (!defaultTabValue) {
-    return (
-      <div className="flex h-full flex-col">
-        <div className="flex items-center border-b border-border px-4 py-2">
-          <p className="text-sm font-semibold text-foreground">Evidence</p>
-        </div>
-        <p className="px-4 py-4 text-sm text-muted-foreground">
-          {evidenceErrorMessage
-            ? `Unable to load evidence files right now. ${evidenceErrorMessage}`
-            : "No evidence files attached to this claim."}
-        </p>
-      </div>
-    );
-  }
-
-  const activeSignedUrl =
-    receiptItem?.signedUrl ?? bankStatementItem?.signedUrl ?? supportingDocumentItem?.signedUrl;
-
   return (
-    <Tabs defaultValue={defaultTabValue} className="flex h-full w-full flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <p className="text-sm font-semibold text-foreground">Evidence</p>
-          <TabsList className="h-auto justify-start gap-1 rounded-lg border border-border bg-card p-1">
-            {receiptItem ? (
-              <TabsTrigger
-                value="receipt"
-                className="h-8 rounded-md px-3 text-xs text-muted-foreground data-[state=active]:bg-[var(--accent-muted)] data-[state=active]:text-[var(--accent)]"
-              >
-                Receipt
-              </TabsTrigger>
-            ) : null}
-
-            {bankStatementItem ? (
-              <TabsTrigger
-                value="bank-statement"
-                className="h-8 rounded-md px-3 text-xs text-muted-foreground data-[state=active]:bg-[var(--accent-muted)] data-[state=active]:text-[var(--accent)]"
-              >
-                Bank Statement
-              </TabsTrigger>
-            ) : null}
-
-            {supportingDocumentItem ? (
-              <TabsTrigger
-                value="supporting-document"
-                className="h-8 rounded-md px-3 text-xs text-muted-foreground data-[state=active]:bg-[var(--accent-muted)] data-[state=active]:text-[var(--accent)]"
-              >
-                Supporting Document
-              </TabsTrigger>
-            ) : null}
-          </TabsList>
-        </div>
-
-        {activeSignedUrl ? (
-          <a
-            href={activeSignedUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex h-[32px] shrink-0 items-center gap-1.5 rounded-md border border-border bg-card px-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-background-secondary"
-          >
-            Open in New Tab
-            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-          </a>
-        ) : null}
-      </div>
-
-      {receiptItem ? <EvidenceTabPanel item={receiptItem} value="receipt" /> : null}
-      {bankStatementItem ? (
-        <EvidenceTabPanel item={bankStatementItem} value="bank-statement" />
-      ) : null}
-      {supportingDocumentItem ? (
-        <EvidenceTabPanel item={supportingDocumentItem} value="supporting-document" />
-      ) : null}
-    </Tabs>
+    <ClaimEvidenceViewer
+      claimId={claimId}
+      items={validItems.map((item) => ({ label: item.label, path: item.path }))}
+    />
   );
 }
 
@@ -1231,7 +1092,7 @@ async function ClaimDetailCore({
 
         <aside className="order-first h-[460px] overflow-hidden rounded-xl border border-border bg-card sm:h-[520px] lg:order-2 lg:sticky lg:top-[76px] lg:h-[calc(100vh-92px)]">
           <Suspense fallback={<EvidenceGallerySkeleton />}>
-            <EvidenceGallerySection evidencePaths={evidencePaths} />
+            <EvidenceGallerySection claimId={claim.id} evidencePaths={evidencePaths} />
           </Suspense>
         </aside>
       </div>

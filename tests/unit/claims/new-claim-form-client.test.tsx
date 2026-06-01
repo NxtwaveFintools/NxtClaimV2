@@ -418,7 +418,7 @@ describe("NewClaimFormClient", () => {
     expect(screen.getByLabelText(/Bank statement file upload/i)).toBeInTheDocument();
   });
 
-  test("bank statement autofill after invoice clears tax and foreign invoice fields without changing category", async () => {
+  test("bank statement autofill preserves foreign invoice fields while updating local INR amounts", async () => {
     const user = userEvent.setup();
     mockParseReceiptAction
       .mockResolvedValueOnce({
@@ -502,9 +502,9 @@ describe("NewClaimFormClient", () => {
     expect((screen.getByLabelText(/Expense Category/i) as HTMLSelectElement).value).toBe(
       "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     );
-    expect((screen.getByLabelText(/Foreign Currency/i) as HTMLSelectElement).value).toBe("INR");
-    expect((screen.getByLabelText(/Foreign Basic Amount/i) as HTMLInputElement).value).toBe("");
-    expect((screen.getByLabelText(/Foreign GST Amount/i) as HTMLInputElement).value).toBe("");
-    expect((screen.getByLabelText(/Foreign Total Amount/i) as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText(/Foreign Currency/i) as HTMLSelectElement).value).toBe("USD");
+    expect((screen.getByLabelText(/Foreign Basic Amount/i) as HTMLInputElement).value).toBe("20");
+    expect((screen.getByLabelText(/Foreign GST Amount/i) as HTMLInputElement).value).toBe("0");
+    expect((screen.getByLabelText(/Foreign Total Amount/i) as HTMLInputElement).value).toBe("20");
   });
 });

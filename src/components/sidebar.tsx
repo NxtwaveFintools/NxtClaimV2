@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { memo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
@@ -61,7 +61,7 @@ function SidebarTooltip({ label, collapsed }: { label: string; collapsed: boolea
   );
 }
 
-export function Sidebar({
+function SidebarComponent({
   collapsed,
   onToggle,
   navigationItems,
@@ -389,7 +389,31 @@ export function Sidebar({
                     e.currentTarget.style.color = "var(--muted-foreground)";
                   }}
                 >
-                  <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
+                  {isSigningOut ? (
+                    <svg
+                      className="h-3.5 w-3.5 animate-spin"
+                      viewBox="0 0 20 20"
+                      aria-hidden="true"
+                      fill="none"
+                    >
+                      <circle
+                        cx="10"
+                        cy="10"
+                        r="7"
+                        stroke="currentColor"
+                        strokeOpacity="0.3"
+                        strokeWidth="2"
+                      />
+                      <path
+                        d="M10 3a7 7 0 0 1 7 7"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  ) : (
+                    <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
+                  )}
                 </button>
               </>
             )}
@@ -409,3 +433,5 @@ export function Sidebar({
     </aside>
   );
 }
+
+export const Sidebar = memo(SidebarComponent);

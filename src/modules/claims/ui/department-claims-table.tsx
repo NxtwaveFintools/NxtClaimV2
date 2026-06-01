@@ -1,7 +1,7 @@
 "use client";
 
 import { ROUTES } from "@/core/config/route-registry";
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { RouterLink } from "@/components/ui/router-link";
 import { TableEmptyState } from "@/components/ui/table-empty-state";
@@ -19,6 +19,13 @@ const VIEW_LINK_CLASSES =
   "inline-flex h-8 items-center justify-center rounded-md border border-border bg-card px-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-background-secondary";
 
 export function DepartmentClaimsTable({ claims }: Props) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const returnToPath = useMemo(
+    () => buildPathWithSearchParams(pathname, searchParams.toString()),
+    [pathname, searchParams],
+  );
+
   if (claims.length === 0) {
     return (
       <TableEmptyState title="No claims found" description="Adjust filters or check back later." />
@@ -52,7 +59,7 @@ export function DepartmentClaimsTable({ claims }: Props) {
         </thead>
         <tbody className="divide-y divide-border bg-card text-[13px] text-foreground">
           {claims.map((claim) => (
-            <DepartmentClaimRow key={claim.claimId} claim={claim} />
+            <DepartmentClaimRow key={claim.claimId} claim={claim} returnToPath={returnToPath} />
           ))}
         </tbody>
       </table>
@@ -60,13 +67,13 @@ export function DepartmentClaimsTable({ claims }: Props) {
   );
 }
 
-function DepartmentClaimRow({ claim }: { claim: DepartmentViewerClaimRecord }) {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const returnToPath = useMemo(
-    () => buildPathWithSearchParams(pathname, searchParams.toString()),
-    [pathname, searchParams],
-  );
+const DepartmentClaimRow = memo(function DepartmentClaimRow({
+  claim,
+  returnToPath,
+}: {
+  claim: DepartmentViewerClaimRecord;
+  returnToPath: string;
+}) {
   const detailHref = appendReturnToParam(ROUTES.claims.detail(claim.claimId), returnToPath);
   const primarySubmitter = claim.submitterEmail?.trim() || claim.employeeName;
   const onBehalfValue = claim.onBehalfEmail?.trim() || claim.onBehalfEmployeeCode?.trim() || "";
@@ -118,4 +125,4 @@ function DepartmentClaimRow({ claim }: { claim: DepartmentViewerClaimRecord }) {
       </td>
     </tr>
   );
-}
+});
