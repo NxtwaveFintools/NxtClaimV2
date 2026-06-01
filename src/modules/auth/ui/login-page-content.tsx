@@ -21,11 +21,11 @@ export function LoginPageContent() {
   const queryErrorCode = params.get("error");
   const queryError =
     queryErrorCode === "unauthorized_domain"
-      ? "Your email domain is not authorized for this workspace."
+      ? "Please sign in using an approved company email address."
       : queryErrorCode === "sso-failed" || queryErrorCode === "sso_failed"
-        ? "Microsoft sign-in failed. Please try again."
+        ? "We couldn't complete sign-in with this provider. Please try again."
         : queryErrorCode === "session_expired"
-          ? "Your session expired. Please sign in again."
+          ? "Your session has expired. Please sign in again."
           : null;
 
   useEffect(() => {
@@ -36,7 +36,7 @@ export function LoginPageContent() {
       if (!isMounted) return;
 
       if (!domainResult.valid) {
-        setError(domainResult.message ?? "Unauthorized domain.");
+        setError(domainResult.message ?? "Please sign in using an approved company email address.");
         return;
       }
 
@@ -58,7 +58,7 @@ export function LoginPageContent() {
 
     const result = await loginWithEmailAction(values);
     if (!result.ok) {
-      setError(result.message ?? "Unable to sign in.");
+      setError(result.message ?? "We couldn't sign you in. Please try again.");
       setLoading(false);
       return;
     }
@@ -71,7 +71,9 @@ export function LoginPageContent() {
     setError(null);
     const result = await loginWithMicrosoftAction();
     if (!result.ok) {
-      setError(result.message ?? "Unable to continue with Microsoft.");
+      setError(
+        result.message ?? "We couldn't complete sign-in with this provider. Please try again.",
+      );
       setLoading(false);
     }
   };

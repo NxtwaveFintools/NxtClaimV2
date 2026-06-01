@@ -45,7 +45,7 @@ export function PolicyManagement({ initialState }: PolicyManagementProps) {
     setMessage(null);
 
     if (!policyFile) {
-      setErrorMessage("Policy PDF file is required.");
+      setErrorMessage("Please upload the company policy as a PDF file.");
       return;
     }
 
@@ -57,7 +57,10 @@ export function PolicyManagement({ initialState }: PolicyManagementProps) {
       const publishResult = await publishNewPolicyAction(formData);
 
       if (!publishResult.ok) {
-        setErrorMessage(publishResult.message ?? "Failed to publish policy.");
+        setErrorMessage(
+          publishResult.message ??
+            "We couldn't publish the company policy. Please review the file and try again.",
+        );
         return;
       }
 
@@ -96,7 +99,9 @@ export function PolicyManagement({ initialState }: PolicyManagementProps) {
               title={`Active policy ${activeVersionName ?? "version"}`}
               className="w-full h-[70vh] rounded-lg border-none"
               onError={() => {
-                setErrorMessage("Unable to load active policy PDF preview.");
+                setErrorMessage(
+                  "We couldn't load the company policy document. Please try again later.",
+                );
               }}
             />
           </div>

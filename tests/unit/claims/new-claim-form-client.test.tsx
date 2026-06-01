@@ -90,6 +90,18 @@ async function fillRequiredExpenseFields(user: ReturnType<typeof userEvent.setup
   await user.type(screen.getByLabelText(/Employee ID/i), "EMP-100");
   await user.type(screen.getByLabelText(/Bill No/i), "BILL-100");
   await user.type(screen.getByLabelText(/Purpose/i), "Client visit");
+  await user.selectOptions(
+    screen.getByLabelText(/Expense Category/i),
+    "66666666-6666-4666-8666-666666666666",
+  );
+  await user.selectOptions(
+    screen.getByLabelText(/^Product/i),
+    "77777777-7777-4777-8777-777777777777",
+  );
+  await user.selectOptions(
+    screen.getByLabelText(/^Location/i),
+    "88888888-8888-4888-8888-888888888888",
+  );
   await user.clear(screen.getByLabelText(/^Basic Amount/i));
   await user.type(screen.getByLabelText(/^Basic Amount/i), "100");
   await user.type(screen.getByLabelText(/Transaction Date/i), "2026-03-14");
@@ -234,7 +246,9 @@ describe("NewClaimFormClient", () => {
     await user.click(screen.getByRole("button", { name: /submit claim/i }));
 
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith("Failed to submit claim.");
+      expect(mockToastError).toHaveBeenCalledWith(
+        "We couldn't submit this claim. Please review the details and try again.",
+      );
       expect(mockPush).not.toHaveBeenCalled();
     });
   });
@@ -319,7 +333,7 @@ describe("NewClaimFormClient", () => {
     render(<NewClaimFormClient currentUser={currentUser} options={options} />);
 
     const categorySelect = screen.getByLabelText(/Expense Category/i) as HTMLSelectElement;
-    expect(categorySelect.value).toBe("66666666-6666-4666-8666-666666666666");
+    expect(categorySelect.value).toBe("");
 
     await user.upload(
       screen.getByLabelText(/Invoice\/Bill/i),
@@ -388,9 +402,12 @@ describe("NewClaimFormClient", () => {
     });
 
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith("Failed to fetch AI details.", {
-        id: firstToastId,
-      });
+      expect(mockToastError).toHaveBeenCalledWith(
+        "We couldn't extract details from this file. Please enter the details manually.",
+        {
+          id: firstToastId,
+        },
+      );
     });
 
     await user.click(screen.getByRole("button", { name: /extract from invoice/i }));
@@ -406,15 +423,14 @@ describe("NewClaimFormClient", () => {
     const user = userEvent.setup();
     render(<NewClaimFormClient currentUser={currentUser} options={options} />);
 
-    expect(screen.queryByLabelText(/Bank statement file upload/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Bank statement required/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Bank statement is required/i)).not.toBeInTheDocument();
 
     await user.selectOptions(
       screen.getByLabelText(/Expense Category/i),
       "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     );
 
-    expect(screen.getByText(/Bank statement required/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Bank statement is required/i).length).toBeGreaterThan(0);
     expect(screen.getByLabelText(/Bank statement file upload/i)).toBeInTheDocument();
   });
 
@@ -505,6 +521,8 @@ describe("NewClaimFormClient", () => {
     expect((screen.getByLabelText(/Foreign Currency/i) as HTMLSelectElement).value).toBe("USD");
     expect((screen.getByLabelText(/Foreign Basic Amount/i) as HTMLInputElement).value).toBe("20");
     expect((screen.getByLabelText(/Foreign GST Amount/i) as HTMLInputElement).value).toBe("0");
-    expect((screen.getByLabelText(/Foreign Total Amount/i) as HTMLInputElement).value).toBe("20");
+    expect((screen.getByLabelText(/Foreign Total Amount/i) as HTMLInputElement).value).toBe(
+      "20.00",
+    );
   });
 });

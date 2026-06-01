@@ -23,6 +23,7 @@ import { withAuth, type AuthenticatedContext } from "@/core/http/with-auth";
 import { logger } from "@/core/infra/logging/logger";
 import { normalizeIsoDateOnly } from "@/lib/date-only";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 const scopeSchema = z.enum([
   "submissions",
@@ -134,8 +135,7 @@ const exportClaimsHandler = async (request: NextRequest, context: AuthenticatedC
         data: null,
         error: {
           code: "INVALID_EXPORT_SCOPE",
-          message:
-            "scope must be one of: submissions, approvals, finance_hod_pending, admin, department",
+          message: "You don't have permission to export this claim view.",
         },
         meta: { correlationId: context.correlationId },
       },
@@ -189,7 +189,7 @@ const exportClaimsHandler = async (request: NextRequest, context: AuthenticatedC
         data: null,
         error: {
           code: "EXPORT_FAILED",
-          message: result.errorMessage,
+          message: getUserFriendlyErrorMessage(result.errorMessage, "export"),
         },
         meta: { correlationId: context.correlationId },
       },

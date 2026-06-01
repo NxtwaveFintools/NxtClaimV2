@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const uuidSchema = z.uuid("Invalid UUID value");
+const uuidSchema = z.uuid("Please choose a valid option.");
 const isoDateSchema = z
   .string()
   .trim()

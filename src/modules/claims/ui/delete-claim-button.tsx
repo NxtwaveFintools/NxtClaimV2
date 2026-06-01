@@ -6,6 +6,7 @@ import { AlertTriangle } from "lucide-react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { deleteClaimAction } from "@/modules/claims/actions";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 type DeleteClaimButtonProps = {
   claimId: string;
@@ -47,7 +48,7 @@ export function DeleteClaimButton({
       const result = await deleteClaimAction(claimId);
 
       if (!result.ok) {
-        toast.error(result.message ?? "Failed to delete claim.");
+        toast.error(getUserFriendlyErrorMessage(result.message, "claim-delete"));
         return;
       }
 

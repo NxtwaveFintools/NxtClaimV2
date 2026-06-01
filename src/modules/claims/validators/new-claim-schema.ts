@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { LOCATION_TYPES } from "@/core/constants/location-types";
 
-const uuidSchema = z.uuid("Invalid UUID value");
+const uuidSchema = z.uuid("Please choose a valid option.");
 const emailSchema = z.email("Enter a valid on-behalf email");
 
 export const ON_BEHALF_EMAIL_DOMAIN = "@nxtwave.co.in";

@@ -23,7 +23,10 @@ export function AdminSoftDeletePanel({ claimId, isActive }: Props) {
       if (result.ok) {
         router.push(`${ROUTES.claims.myClaims}?view=admin`);
       } else {
-        setError(result.message ?? "Failed to soft-delete claim.");
+        setError(
+          result.message ??
+            "We couldn't delete this claim. It may no longer be eligible for deletion.",
+        );
         setConfirming(false);
       }
     });

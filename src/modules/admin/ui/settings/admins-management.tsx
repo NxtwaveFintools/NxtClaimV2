@@ -30,7 +30,7 @@ export function AdminsManagement({ admins }: Props) {
         setNewEmail("");
         router.refresh();
       } else {
-        setAddError(result.message ?? "Failed to add admin.");
+        setAddError(result.message ?? "We couldn't update administrator access. Please try again.");
       }
     });
   }

@@ -22,6 +22,7 @@ import {
 import type { GetMyClaimsFilters } from "@/core/domain/claims/contracts";
 import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
 import { getAvailableClaimActions } from "@/modules/claims/utils/get-available-claim-actions";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 const CLAIM_ID_LINK_CLASSES =
   "block max-w-full break-words text-primary hover:underline font-medium cursor-pointer leading-snug";
@@ -240,7 +241,7 @@ export const FinanceApprovalsBulkTable = memo(function FinanceApprovalsBulkTable
         {
           loading: "Bulk approving claims...",
           success: (message) => message,
-          error: (error) => (error instanceof Error ? error.message : "Bulk approve failed."),
+          error: (error) => getUserFriendlyErrorMessage(error, "bulk-action"),
         },
       );
     } finally {
@@ -280,7 +281,7 @@ export const FinanceApprovalsBulkTable = memo(function FinanceApprovalsBulkTable
         {
           loading: "Bulk marking claims as paid...",
           success: (message) => message,
-          error: (error) => (error instanceof Error ? error.message : "Bulk mark as paid failed."),
+          error: (error) => getUserFriendlyErrorMessage(error, "bulk-action"),
         },
       );
     } finally {
@@ -345,7 +346,7 @@ export const FinanceApprovalsBulkTable = memo(function FinanceApprovalsBulkTable
         {
           loading: "Bulk rejecting claims...",
           success: (message) => message,
-          error: (error) => (error instanceof Error ? error.message : "Bulk reject failed."),
+          error: (error) => getUserFriendlyErrorMessage(error, "bulk-action"),
         },
       );
     } finally {

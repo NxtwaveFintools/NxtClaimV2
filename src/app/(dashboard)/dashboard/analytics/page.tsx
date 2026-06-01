@@ -8,6 +8,7 @@ import { logger } from "@/core/infra/logging/logger";
 import { normalizeIsoDateOnly } from "@/lib/date-only";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
 import { SupabaseDashboardRepository } from "@/modules/dashboard/repositories/SupabaseDashboardRepository";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 type SearchParamsValue = string | string[] | undefined;
 
@@ -194,7 +195,7 @@ async function AnalyticsErrorBannerFetcher({
   return (
     <div className="rounded-xl border border-rose-200/70 bg-rose-50/70 p-4 dark:border-rose-900/60 dark:bg-rose-950/20">
       <p className="text-sm text-rose-700 dark:text-rose-300">
-        Unable to load analytics. {analyticsResult.errorMessage}
+        {getUserFriendlyErrorMessage(analyticsResult.errorMessage, "analytics")}
       </p>
     </div>
   );

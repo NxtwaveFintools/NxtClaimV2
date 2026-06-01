@@ -62,7 +62,10 @@ describe("addDepartmentAction", () => {
       approver2Email: "approver2@nxtwave.co.in",
     });
 
-    expect(result).toEqual({ ok: false, message: "Forbidden: admin access required." });
+    expect(result).toEqual({
+      ok: false,
+      message: "You don't have permission to access system settings.",
+    });
     expect(mockCreateDepartment).not.toHaveBeenCalled();
   });
 
@@ -80,9 +83,9 @@ describe("addDepartmentAction", () => {
     });
 
     expect(invalidName.ok).toBe(false);
-    expect(invalidName.message).toBe("Department name is required.");
+    expect(invalidName.message).toBe("Please complete the required fields.");
     expect(invalidHod.ok).toBe(false);
-    expect(invalidHod.message).toBe("A valid Approver 1 email is required.");
+    expect(invalidHod.message).toBe("Please complete the required fields.");
     expect(mockCreateDepartment).not.toHaveBeenCalled();
   });
 
@@ -99,7 +102,10 @@ describe("addDepartmentAction", () => {
       approver2Email: "approver2@nxtwave.co.in",
     });
 
-    expect(result).toEqual({ ok: false, message: "duplicate key value" });
+    expect(result).toEqual({
+      ok: false,
+      message: "An item with this name already exists.",
+    });
   });
 
   test("calls service and revalidates on success", async () => {

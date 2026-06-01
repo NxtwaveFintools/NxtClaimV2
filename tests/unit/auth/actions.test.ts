@@ -76,7 +76,10 @@ describe("auth actions", () => {
       password: "bad-password",
     });
 
-    expect(result).toEqual({ ok: false, message: "Unable to sign in" });
+    expect(result).toEqual({
+      ok: false,
+      message: "We couldn't sign you in. Please try again.",
+    });
   });
 
   test("loginWithMicrosoftAction passes azure provider and callback URL", async () => {
@@ -97,7 +100,10 @@ describe("auth actions", () => {
 
     const result = await loginWithGoogleAction();
 
-    expect(result).toEqual({ ok: false, message: "Unable to continue with Google" });
+    expect(result).toEqual({
+      ok: false,
+      message: "We couldn't complete sign-in with this provider. Please try again.",
+    });
     expect(mockLoginWithOAuth).toHaveBeenCalledWith(
       "google",
       `${window.location.origin}/auth/callback`,
@@ -116,7 +122,7 @@ describe("auth actions", () => {
     expect(result).toEqual({
       valid: false,
       hasUser: false,
-      message: "Unauthorized domain",
+      message: "We couldn't sign you in. Please try again.",
     });
   });
 

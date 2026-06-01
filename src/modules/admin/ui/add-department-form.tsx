@@ -27,7 +27,8 @@ export function AddDepartmentForm() {
       });
 
       if (!result.ok) {
-        const message = result.message ?? "Failed to create department.";
+        const message =
+          result.message ?? "We couldn't save these settings. Please review and try again.";
         setError(message);
         toast.error(message);
         return;

@@ -6,6 +6,7 @@ import { ROUTES } from "@/core/config/route-registry";
 import { logger } from "@/core/infra/logging/logger";
 import { SupabaseAuthRepository } from "@/modules/auth/repositories/supabase-auth.repository";
 import type { LoginFormValues } from "@/modules/auth/validators/login-schema";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 const repository = new SupabaseAuthRepository();
 const authService = new AuthService({ repository, logger });
@@ -18,7 +19,7 @@ export async function loginWithEmailAction(
   if (result.errorCode) {
     return {
       ok: false,
-      message: result.errorMessage ?? "Unable to sign in",
+      message: getUserFriendlyErrorMessage(result.errorMessage ?? result.errorCode, "auth"),
     };
   }
 
@@ -30,7 +31,10 @@ export async function loginWithMicrosoftAction(): Promise<{ ok: boolean; message
   const result = await authService.loginWithOAuth(AUTH_PROVIDERS.microsoft, redirectTo);
 
   if (result.errorCode) {
-    return { ok: false, message: result.errorMessage ?? "Unable to continue with Microsoft" };
+    return {
+      ok: false,
+      message: "We couldn't complete sign-in with this provider. Please try again.",
+    };
   }
 
   return { ok: true };
@@ -41,7 +45,10 @@ export async function loginWithGoogleAction(): Promise<{ ok: boolean; message?: 
   const result = await authService.loginWithOAuth(AUTH_PROVIDERS.google, redirectTo);
 
   if (result.errorCode) {
-    return { ok: false, message: result.errorMessage ?? "Unable to continue with Google" };
+    return {
+      ok: false,
+      message: "We couldn't complete sign-in with this provider. Please try again.",
+    };
   }
 
   return { ok: true };
@@ -57,7 +64,7 @@ export async function enforceSessionDomainAction(): Promise<{
     return {
       valid: false,
       hasUser: false,
-      message: result.errorMessage ?? "Unauthorized domain",
+      message: getUserFriendlyErrorMessage(result.errorMessage, "auth"),
     };
   }
 

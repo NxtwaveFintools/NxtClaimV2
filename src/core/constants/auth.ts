@@ -12,6 +12,6 @@ export const AUTH_ERROR_CODES = {
 } as const;
 
 export const AUTH_ERROR_MESSAGES = {
-  domainNotAllowed: "Your email domain is not authorized for this workspace.",
-  domainValidationFailed: "Unable to validate your email domain.",
+  domainNotAllowed: "Please sign in using an approved company email address.",
+  domainValidationFailed: "We couldn't verify your session. Please sign in again.",
 } as const;

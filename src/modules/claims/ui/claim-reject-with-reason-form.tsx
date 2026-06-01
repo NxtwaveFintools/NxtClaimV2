@@ -4,6 +4,7 @@ import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createPortal } from "react-dom";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 type ClaimRejectWithReasonFormProps = {
   action: (formData: FormData) => Promise<void>;
@@ -44,7 +45,7 @@ export function ClaimRejectWithReasonForm({
       await toast.promise(action(formData), {
         loading: "Processing rejection...",
         success: "Claim rejected.",
-        error: (error) => (error instanceof Error ? error.message : "Unable to reject claim."),
+        error: (error) => getUserFriendlyErrorMessage(error, "claim-action"),
       });
       form.reset();
       setIsModalOpen(false);

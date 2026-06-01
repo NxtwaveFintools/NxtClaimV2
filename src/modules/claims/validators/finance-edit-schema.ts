@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { LOCATION_TYPES } from "@/core/constants/location-types";
 
-const uuidSchema = z.uuid("Invalid UUID value");
+const uuidSchema = z.uuid("Please choose a valid option.");
 
 const isoDateSchema = z
   .string()

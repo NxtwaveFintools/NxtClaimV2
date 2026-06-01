@@ -53,7 +53,7 @@ function DepartmentActorRow({ department }: { department: DepartmentWithActors }
         setSaved(true);
         router.refresh();
       } else {
-        setError(result.message ?? "Failed to update.");
+        setError(result.message ?? "We couldn't save these settings. Please review and try again.");
       }
     });
   }

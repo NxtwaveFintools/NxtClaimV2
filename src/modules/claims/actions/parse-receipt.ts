@@ -4,6 +4,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 import { serverEnv } from "@/core/config/server-env";
 import { logger } from "@/core/infra/logging/logger";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const CONFIDENCE_THRESHOLD = 80;
@@ -15,11 +16,11 @@ const BANK_STATEMENT_MATCH_FOREIGN_CURRENCY_FORM_KEY = "bankStatementMatchForeig
 const BANK_STATEMENT_MATCH_FOREIGN_TOTAL_FORM_KEY = "bankStatementMatchForeignTotalAmount";
 const BANK_STATEMENT_MATCH_CATEGORY_FORM_KEY = "bankStatementMatchCategoryName";
 const GENERIC_PARSE_FALLBACK_MESSAGE =
-  "AI could not read the text formatting in this document. Please fill the details manually.";
-const GEMINI_QUOTA_FALLBACK_PREFIX =
-  "AI auto-parse is temporarily unavailable due to usage limits.";
+  "We couldn't extract clear details from this file. Please enter the claim details manually.";
+const GEMINI_QUOTA_FALLBACK_MESSAGE =
+  "AI extraction is busy right now. Please try again later or enter the details manually.";
 const GEMINI_SERVICE_BUSY_MESSAGE =
-  "The AI service is currently busy. Please try again or fill the form manually.";
+  "AI extraction is temporarily unavailable. Please try again in a few minutes or enter the details manually.";
 const GEMINI_MAX_ATTEMPTS = 3;
 const GEMINI_RETRY_DELAY_MS = 1_000;
 const ALLOWED_UPLOAD_MIME_TYPES = new Set([
@@ -753,13 +754,7 @@ async function generateGeminiContentWithRetry(
 }
 
 function getQuotaExceededMessage(error: unknown): string {
-  const retryDelaySeconds = extractRetryDelaySeconds(error);
-  const retryHint =
-    retryDelaySeconds !== null
-      ? ` Please retry in about ${Math.ceil(retryDelaySeconds)} seconds.`
-      : " Please try again shortly.";
-
-  return `${GEMINI_QUOTA_FALLBACK_PREFIX}${retryHint} You can still fill the details manually.`;
+  return getUserFriendlyErrorMessage(error, "ai-extraction") || GEMINI_QUOTA_FALLBACK_MESSAGE;
 }
 
 function normalizeGeminiResult(raw: z.infer<typeof geminiParseResultSchema>): ParsedReceiptResult {
@@ -853,7 +848,7 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
         ok: false,
         data: null,
         autoFillAllowed: false,
-        message: "Receipt file is required.",
+        message: "Please upload a file before extracting details.",
       };
     }
 
@@ -862,7 +857,7 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
         ok: false,
         data: null,
         autoFillAllowed: false,
-        message: "Receipt file exceeds 25MB.",
+        message: "The file is too large for extraction. Please upload a file under 25 MB.",
       };
     }
 
@@ -871,7 +866,8 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
         ok: false,
         data: null,
         autoFillAllowed: false,
-        message: "Receipt file must be PDF, JPG, PNG, or WEBP.",
+        message:
+          "This file type is not supported for extraction. Please upload a PDF, JPG, PNG, or WEBP file.",
       };
     }
 
@@ -889,7 +885,8 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
         ok: false,
         data: null,
         autoFillAllowed: false,
-        message: "Could not auto-read receipt. Please fill manually.",
+        message:
+          "We couldn't extract clear details from this file. Please enter the claim details manually.",
       };
     }
 
@@ -988,7 +985,8 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
       message = "Extracted partial data. Please verify and fill the missing fields manually.";
     } else {
       autoFillAllowed = false;
-      message = "Low confidence parse. Please fill manually.";
+      message =
+        "Some extracted details may be inaccurate. Please review all fields before submitting.";
     }
 
     return {

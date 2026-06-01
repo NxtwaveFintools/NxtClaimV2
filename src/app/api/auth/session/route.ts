@@ -12,6 +12,7 @@ import {
 } from "@/core/infra/supabase/supabase-auth-cookie-utils";
 import { isSupabaseTerminalSessionError } from "@/core/infra/supabase/auth-error-utils";
 import { createErrorResponse, createSuccessResponse } from "@/types/api";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 const sessionSchema = z.object({
   accessToken: z.string().min(1, "Missing access token"),
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       createErrorResponse(
         AUTH_ERROR_CODES.validationError,
-        parsed.error.issues[0]?.message ?? "Invalid payload",
+        "We couldn't verify your session. Please sign in again.",
         correlationId,
       ),
       { status: 400 },
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json(
         createErrorResponse(
           AUTH_ERROR_CODES.sessionExpired,
-          "Session expired. Please sign in again.",
+          "Your session has expired. Please sign in again.",
           correlationId,
         ),
         { status: 401 },
@@ -105,7 +106,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     return NextResponse.json(
-      createErrorResponse(AUTH_ERROR_CODES.authFailed, error.message, correlationId),
+      createErrorResponse(
+        AUTH_ERROR_CODES.authFailed,
+        getUserFriendlyErrorMessage(error, "auth"),
+        correlationId,
+      ),
       { status: 401 },
     );
   }
@@ -126,7 +131,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       createErrorResponse(
         AUTH_ERROR_CODES.authFailed,
-        userError?.message ?? AUTH_ERROR_MESSAGES.domainValidationFailed,
+        getUserFriendlyErrorMessage(
+          userError ?? AUTH_ERROR_MESSAGES.domainValidationFailed,
+          "auth",
+        ),
         correlationId,
       ),
       { status: 401 },

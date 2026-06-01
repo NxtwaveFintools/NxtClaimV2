@@ -16,6 +16,7 @@ import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
 import { formatDate } from "@/lib/format";
 import { getUserFirstName } from "@/lib/user-name";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -176,7 +177,7 @@ async function DashboardPageContent({
             fontSize: 15,
           }}
         >
-          Unable to load wallet summary. {walletResult.errorMessage}
+          {getUserFriendlyErrorMessage(walletResult.errorMessage, "analytics")}
         </p>
       ) : null}
 

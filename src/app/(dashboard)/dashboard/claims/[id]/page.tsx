@@ -45,6 +45,7 @@ import { getClaimDetailActionPermissions } from "@/modules/claims/utils/get-avai
 import { isAdmin } from "@/modules/admin/server/is-admin";
 import { getViewerDepartmentIds } from "@/modules/claims/server/is-department-viewer";
 import { AdminSoftDeletePanel } from "@/modules/admin/ui/admin-soft-delete-panel";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 const FinanceEditClaimForm = dynamic(
   () =>
@@ -375,7 +376,7 @@ async function ClaimAuditHistorySection({ claimId }: { claimId: string }) {
       <ClaimAuditTimeline logs={claimAuditLogs} visualStyle="minimal" />
       {claimAuditLogsResult.errorMessage ? (
         <p className="mt-2 text-xs text-rose-600 dark:text-rose-300">
-          Unable to load complete audit history. {claimAuditLogsResult.errorMessage}
+          {getUserFriendlyErrorMessage(claimAuditLogsResult.errorMessage, "claim-detail")}
         </p>
       ) : null}
     </section>
@@ -428,7 +429,7 @@ async function ClaimDetailCore({
       <section className="mx-auto max-w-5xl rounded-2xl border border-rose-200 bg-white p-6 shadow-sm transition-colors dark:border-rose-900/40 dark:bg-slate-900">
         <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Claim Detail</h1>
         <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
-          Unable to load claim detail. {claimResult.errorMessage}
+          {getUserFriendlyErrorMessage(claimResult.errorMessage, "claim-detail")}
         </p>
         <Link
           href={returnToPath}

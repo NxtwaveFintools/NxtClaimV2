@@ -5,6 +5,7 @@ import { ROUTES } from "@/core/config/route-registry";
 import { Skeleton as BaseSkeleton } from "@/components/ui/skeleton";
 import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
 import { formatDate } from "@/lib/format";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 export type RecentClaimRecord = {
   id: string;
@@ -203,7 +204,7 @@ export function RecentClaims({ claims, errorMessage = null, loading = false }: R
               color: "#b91c1c",
             }}
           >
-            Unable to load recent claims. {errorMessage}
+            {getUserFriendlyErrorMessage(errorMessage, "claim-list")}
           </p>
         ) : null}
 

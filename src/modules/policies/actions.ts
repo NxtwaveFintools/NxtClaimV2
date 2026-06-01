@@ -9,6 +9,7 @@ import { logger } from "@/core/infra/logging/logger";
 import { isAdmin } from "@/modules/admin/server/is-admin";
 import { SupabaseServerAuthRepository } from "@/modules/auth/repositories/supabase-server-auth.repository";
 import { SupabasePolicyRepository } from "@/modules/policies/repositories/SupabasePolicyRepository";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 const authRepository = new SupabaseServerAuthRepository();
 const policyRepository = new SupabasePolicyRepository();
@@ -101,7 +102,7 @@ export async function getActivePolicyStateAction(): Promise<{
   const authGuard = await requireAuthenticatedUser();
 
   if ("unauthorized" in authGuard) {
-    return { ok: false, message: "Unauthorized." };
+    return { ok: false, message: getUserFriendlyErrorMessage("Missing session", "auth") };
   }
 
   const result = await policyService.getActivePolicy(authGuard.userId);
@@ -114,14 +115,14 @@ export async function getActivePolicyStateAction(): Promise<{
         accepted: false,
         acceptedAt: null,
       },
-      message: result.errorMessage ?? "No active company policy was found.",
+      message: "Company policy is currently unavailable. Please contact your administrator.",
     };
   }
 
   if (result.errorMessage || !result.data) {
     return {
       ok: false,
-      message: result.errorMessage ?? "Unable to load active company policy.",
+      message: getUserFriendlyErrorMessage(result.errorMessage, "policy"),
     };
   }
 
@@ -148,7 +149,7 @@ export async function acceptPolicyAction(policyId: string): Promise<{
   const authGuard = await requireAuthenticatedUser();
 
   if ("unauthorized" in authGuard) {
-    return { ok: false, message: "Unauthorized." };
+    return { ok: false, message: getUserFriendlyErrorMessage("Missing session", "auth") };
   }
 
   const parsedPolicyId = policyIdSchema.safeParse(policyId);
@@ -161,7 +162,7 @@ export async function acceptPolicyAction(policyId: string): Promise<{
   if (result.errorMessage) {
     return {
       ok: false,
-      message: result.errorMessage,
+      message: getUserFriendlyErrorMessage(result.errorMessage, "policy"),
     };
   }
 
@@ -177,7 +178,10 @@ export async function publishNewPolicyAction(formData: FormData): Promise<{
   const guard = await requireAdminUser();
 
   if ("forbidden" in guard) {
-    return { ok: false, message: "Forbidden: admin access required." };
+    return {
+      ok: false,
+      message: "You don't have permission to access system settings.",
+    };
   }
 
   const versionValue = formData.get("versionName");
@@ -194,17 +198,17 @@ export async function publishNewPolicyAction(formData: FormData): Promise<{
 
   const policyFile = getFileFromFormData(formData);
   if (!policyFile) {
-    return { ok: false, message: "Policy PDF file is required." };
+    return { ok: false, message: "Please upload the company policy as a PDF file." };
   }
 
   if (!isPdfFile(policyFile)) {
-    return { ok: false, message: "Only PDF files are supported." };
+    return { ok: false, message: "Please upload the company policy as a PDF file." };
   }
 
   if (policyFile.size > MAX_POLICY_FILE_SIZE_BYTES) {
     return {
       ok: false,
-      message: "PDF file is too large. Please upload a file up to 25MB.",
+      message: "The uploaded file is too large. Please upload a file under 25 MB.",
     };
   }
 
@@ -222,7 +226,7 @@ export async function publishNewPolicyAction(formData: FormData): Promise<{
     });
 
   if (uploadError) {
-    return { ok: false, message: uploadError.message };
+    return { ok: false, message: getUserFriendlyErrorMessage(uploadError, "file-upload") };
   }
 
   const { data: publicUrlResult } = supabaseClient.storage
@@ -238,7 +242,7 @@ export async function publishNewPolicyAction(formData: FormData): Promise<{
 
     return {
       ok: false,
-      message: publishResult.errorMessage,
+      message: "We couldn't publish the company policy. Please review the file and try again.",
     };
   }
 

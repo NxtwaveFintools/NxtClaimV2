@@ -41,6 +41,7 @@ import { ownEditSchema } from "@/modules/claims/validators/own-edit-schema";
 import { computeInrTotal } from "@/modules/claims/utils/compute-totals";
 import { sanitizeDashboardReturnToPath } from "@/lib/pagination-helpers";
 import { BANK_STATEMENT_REQUIRED_CATEGORIES } from "@/core/constants/bank-statement-categories";
+import { getUserFriendlyErrorMessage, type ErrorContext } from "@/core/errors/user-facing-errors";
 import { z } from "zod";
 
 const repository = new SupabaseClaimRepository();
@@ -107,7 +108,7 @@ const BULK_L1_PROCESS_CHUNK_SIZE = 10;
 const UNIQUE_VIOLATION_CODE = "23505";
 const DUPLICATE_ACTIVE_EXPENSE_BILL_CONSTRAINT = "uq_expense_details_active_bill";
 const DUPLICATE_ACTIVE_EXPENSE_BILL_MESSAGE =
-  "A claim with this exact Bill Number, Date, and Amount already exists in the system. Please change the Bill Number slightly (e.g., add '-FIX') to make it unique before saving.";
+  "A claim with the same bill number, date, and amount already exists.";
 const PRE_HOD_EDITABLE_STATUSES: readonly DbClaimStatus[] = [
   DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
   DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
@@ -413,12 +414,12 @@ function isDuplicateExpenseBillUniqueViolation(error: unknown): boolean {
   );
 }
 
-function buildDuplicateActiveExpenseBillMessage(duplicateClaimId?: string | null): string {
-  if (!duplicateClaimId) {
-    return DUPLICATE_ACTIVE_EXPENSE_BILL_MESSAGE;
-  }
+function buildDuplicateActiveExpenseBillMessage(): string {
+  return DUPLICATE_ACTIVE_EXPENSE_BILL_MESSAGE;
+}
 
-  return `${DUPLICATE_ACTIVE_EXPENSE_BILL_MESSAGE} Duplicate Claim ID: ${duplicateClaimId}.`;
+function userFacing(error: unknown, context: ErrorContext): string {
+  return getUserFriendlyErrorMessage(error, context);
 }
 
 function extractSubmissionInput(input: unknown): {
@@ -531,7 +532,7 @@ export async function getClaimFormHydrationAction(): Promise<{
   ) {
     return {
       data: null,
-      errorMessage: currentUserResult.errorMessage ?? "Unauthorized session.",
+      errorMessage: userFacing(currentUserResult.errorMessage ?? "Missing session", "auth"),
     };
   }
 
@@ -556,7 +557,7 @@ export async function getClaimFormHydrationAction(): Promise<{
   if (userSummaryResult.errorMessage) {
     return {
       data: null,
-      errorMessage: userSummaryResult.errorMessage,
+      errorMessage: userFacing(userSummaryResult.errorMessage, "claim-submission"),
     };
   }
 
@@ -571,7 +572,7 @@ export async function getClaimFormHydrationAction(): Promise<{
   if (globalHodResult.errorMessage) {
     return {
       data: null,
-      errorMessage: globalHodResult.errorMessage,
+      errorMessage: userFacing(globalHodResult.errorMessage, "claim-submission"),
     };
   }
 
@@ -583,7 +584,7 @@ export async function getClaimFormHydrationAction(): Promise<{
     locationsResult.errorMessage;
 
   if (firstError) {
-    return { data: null, errorMessage: firstError };
+    return { data: null, errorMessage: userFacing(firstError, "claim-submission") };
   }
 
   const departmentRouting = departmentsResult.departments.map((department) => ({
@@ -697,7 +698,7 @@ export async function submitClaimAction(input: unknown): Promise<{
   ) {
     return {
       ok: false,
-      message: currentUserResult.errorMessage ?? "Unauthorized session.",
+      message: userFacing(currentUserResult.errorMessage ?? "Missing session", "auth"),
     };
   }
 
@@ -705,7 +706,8 @@ export async function submitClaimAction(input: unknown): Promise<{
   if (departmentsResult.errorMessage) {
     return {
       ok: false,
-      message: departmentsResult.errorMessage,
+      message:
+        "We couldn't find an approver for this department. Please contact your administrator.",
     };
   }
 
@@ -728,7 +730,8 @@ export async function submitClaimAction(input: unknown): Promise<{
     if (beneficiaryLookup.errorMessage) {
       return {
         ok: false,
-        message: beneficiaryLookup.errorMessage,
+        message:
+          "Please enter a valid employee email and employee ID for the person you are claiming on behalf of.",
       };
     }
 
@@ -790,7 +793,11 @@ export async function submitClaimAction(input: unknown): Promise<{
         BANK_STATEMENT_REQUIRED_CATEGORIES.has(selectedCategory.name) &&
         !bankStatementFile
       ) {
-        return { ok: false, message: "Please upload bank statement" };
+        return {
+          ok: false,
+          message:
+            "This expense category requires a bank statement. Please upload it before submitting.",
+        };
       }
     }
 
@@ -810,7 +817,7 @@ export async function submitClaimAction(input: unknown): Promise<{
     if (duplicateTransactionResult.errorMessage) {
       return {
         ok: false,
-        message: duplicateTransactionResult.errorMessage,
+        message: userFacing(duplicateTransactionResult.errorMessage, "claim-submission"),
       };
     }
 
@@ -818,7 +825,7 @@ export async function submitClaimAction(input: unknown): Promise<{
       return {
         ok: false,
         errorCode: "DUPLICATE_TRANSACTION",
-        message: "A claim with this exact Bill No, Date, and Amount already exists.",
+        message: DUPLICATE_ACTIVE_EXPENSE_BILL_MESSAGE,
       };
     }
 
@@ -916,7 +923,10 @@ export async function submitClaimAction(input: unknown): Promise<{
   if (prepareResult.errorCode || !prepareResult.preparedSubmission) {
     return {
       ok: false,
-      message: prepareResult.errorMessage ?? "Failed to submit claim.",
+      message: userFacing(
+        prepareResult.errorMessage ?? prepareResult.errorCode,
+        "claim-submission",
+      ),
     };
   }
 
@@ -929,7 +939,7 @@ export async function submitClaimAction(input: unknown): Promise<{
       if (claimDraftResult.errorMessage || !claimDraftResult.claimId) {
         return {
           ok: false,
-          message: claimDraftResult.errorMessage ?? "Failed to create claim draft.",
+          message: userFacing(claimDraftResult.errorMessage, "claim-submission"),
         };
       }
 
@@ -988,7 +998,7 @@ export async function submitClaimAction(input: unknown): Promise<{
       if (claimDraftResult.errorMessage || !claimDraftResult.claimId) {
         return {
           ok: false,
-          message: claimDraftResult.errorMessage ?? "Failed to create claim draft.",
+          message: userFacing(claimDraftResult.errorMessage, "claim-submission"),
         };
       }
 
@@ -1067,10 +1077,7 @@ export async function submitClaimAction(input: unknown): Promise<{
       return {
         ok: false,
         errorCode: "DUPLICATE_TRANSACTION",
-        message:
-          error instanceof DuplicateTransactionError
-            ? error.message
-            : "A claim with this exact Bill Number, Date, and Amount already exists in the system. Please change the Bill Number slightly (e.g., add '-FIX') to make it unique before saving.",
+        message: DUPLICATE_ACTIVE_EXPENSE_BILL_MESSAGE,
       };
     }
 
@@ -1082,14 +1089,13 @@ export async function submitClaimAction(input: unknown): Promise<{
     ) {
       return {
         ok: false,
-        message:
-          "Expected Usage Date is optional in the app, but your database schema is still enforcing it as required. Please apply migration 20260315000100_advance_supporting_documents_and_strict_validation.sql.",
+        message: "We couldn't submit this claim. Please review the details and try again.",
       };
     }
 
     return {
       ok: false,
-      message: error instanceof Error ? error.message : "Failed to process claim submission files.",
+      message: userFacing(error, "claim-submission"),
     };
   }
 
@@ -1228,7 +1234,7 @@ export async function updateClaimByFinanceAction(input: {
   if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
     return {
       ok: false,
-      message: currentUserResult.errorMessage ?? "Unauthorized session.",
+      message: userFacing(currentUserResult.errorMessage ?? "Missing session", "auth"),
     };
   }
 
@@ -1240,14 +1246,14 @@ export async function updateClaimByFinanceAction(input: {
   if (claimSnapshotResult.errorMessage || !claimSnapshotResult.data) {
     return {
       ok: false,
-      message: claimSnapshotResult.errorMessage ?? "Claim not found.",
+      message: userFacing(claimSnapshotResult.errorMessage ?? "CLAIM_NOT_FOUND", "claim-detail"),
     };
   }
 
   if (approvalContextResult.errorMessage) {
     return {
       ok: false,
-      message: approvalContextResult.errorMessage,
+      message: userFacing(approvalContextResult.errorMessage, "claim-edit"),
     };
   }
 
@@ -1266,7 +1272,7 @@ export async function updateClaimByFinanceAction(input: {
   ) {
     return {
       ok: false,
-      message: "Routing context fields cannot be edited for an existing claim.",
+      message: "We couldn't save your changes. Please review the details and try again.",
     };
   }
 
@@ -1281,7 +1287,7 @@ export async function updateClaimByFinanceAction(input: {
   ) {
     return {
       ok: false,
-      message: "You are not authorized to edit this claim.",
+      message: "You don't have permission to perform this action.",
     };
   }
 
@@ -1290,14 +1296,15 @@ export async function updateClaimByFinanceAction(input: {
   if (!parseResult.success) {
     return {
       ok: false,
-      message: "Validation failed for claim edit payload.",
+      message: "Please review the form. Some required claim details are missing or invalid.",
     };
   }
 
   if (parseResult.data.detailType !== claimSnapshotResult.data.detailType) {
     return {
       ok: false,
-      message: "Claim detail type mismatch.",
+      message:
+        "The selected payment mode does not match the claim details. Please review the payment mode and try again.",
     };
   }
 
@@ -1305,7 +1312,7 @@ export async function updateClaimByFinanceAction(input: {
     if (!canEditPaymentMode) {
       return {
         ok: false,
-        message: "Routing context fields cannot be edited for an existing claim.",
+        message: "We couldn't save your changes. Please review the details and try again.",
       };
     }
 
@@ -1314,7 +1321,7 @@ export async function updateClaimByFinanceAction(input: {
     if (paymentModeResult.errorMessage) {
       return {
         ok: false,
-        message: paymentModeResult.errorMessage,
+        message: userFacing(paymentModeResult.errorMessage, "claim-edit"),
       };
     }
 
@@ -1361,7 +1368,7 @@ export async function updateClaimByFinanceAction(input: {
     if (receiptSizeError) {
       return {
         ok: false,
-        message: receiptSizeError,
+        message: userFacing(receiptSizeError, "file-upload"),
       };
     }
 
@@ -1379,11 +1386,7 @@ export async function updateClaimByFinanceAction(input: {
     if (uploadResult.errorMessage || !uploadResult.path) {
       return {
         ok: false,
-        message:
-          uploadResult.errorMessage ??
-          (parseResult.data.detailType === "expense"
-            ? "Failed to upload replacement receipt."
-            : "Failed to upload replacement supporting document."),
+        message: userFacing(uploadResult.errorMessage, "file-upload"),
       };
     }
 
@@ -1416,7 +1419,7 @@ export async function updateClaimByFinanceAction(input: {
       await removeClaimFiles(uploadedReplacementPaths);
       return {
         ok: false,
-        message: bankStatementSizeError,
+        message: userFacing(bankStatementSizeError, "file-upload"),
       };
     }
 
@@ -1435,7 +1438,7 @@ export async function updateClaimByFinanceAction(input: {
       await removeClaimFiles(uploadedReplacementPaths);
       return {
         ok: false,
-        message: uploadResult.errorMessage ?? "Failed to upload replacement bank statement.",
+        message: userFacing(uploadResult.errorMessage, "file-upload"),
       };
     }
 
@@ -1509,7 +1512,7 @@ export async function updateClaimByFinanceAction(input: {
       await removeClaimFiles(uploadedReplacementPaths);
       return {
         ok: false,
-        message: result.errorMessage ?? "Failed to update claim details.",
+        message: userFacing(result.errorMessage, "claim-edit"),
       };
     }
 
@@ -1529,7 +1532,10 @@ export async function updateClaimByFinanceAction(input: {
       actorUserId: currentUserResult.user.id,
       errorMessage: error instanceof Error ? error.message : "Unknown finance edit error",
     });
-    throw error;
+    return {
+      ok: false,
+      message: userFacing(error, "claim-edit"),
+    };
   }
 
   revalidatePath(ROUTES.claims.myClaims);
@@ -1560,7 +1566,7 @@ export async function updateOwnClaimAction(input: {
   if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
     return {
       ok: false,
-      message: currentUserResult.errorMessage ?? "Unauthorized session.",
+      message: userFacing(currentUserResult.errorMessage ?? "Missing session", "auth"),
     };
   }
 
@@ -1569,14 +1575,14 @@ export async function updateOwnClaimAction(input: {
   if (claimSnapshotResult.errorMessage || !claimSnapshotResult.data) {
     return {
       ok: false,
-      message: claimSnapshotResult.errorMessage ?? "Claim not found.",
+      message: userFacing(claimSnapshotResult.errorMessage ?? "CLAIM_NOT_FOUND", "claim-detail"),
     };
   }
 
   if (hasRoutingFieldMutationAttempt(input.formData, { allowPaymentModeMutation: false })) {
     return {
       ok: false,
-      message: "Routing context fields cannot be edited for an existing claim.",
+      message: "We couldn't save your changes. Please review the details and try again.",
     };
   }
 
@@ -1591,7 +1597,7 @@ export async function updateOwnClaimAction(input: {
   ) {
     return {
       ok: false,
-      message: "You are not authorized to edit this claim.",
+      message: "You don't have permission to perform this action.",
     };
   }
 
@@ -1600,14 +1606,15 @@ export async function updateOwnClaimAction(input: {
   if (!parseResult.success) {
     return {
       ok: false,
-      message: "Validation failed for claim edit payload.",
+      message: "Please review the form. Some required claim details are missing or invalid.",
     };
   }
 
   if (parseResult.data.detailType !== claimSnapshotResult.data.detailType) {
     return {
       ok: false,
-      message: "Claim detail type mismatch.",
+      message:
+        "The selected payment mode does not match the claim details. Please review the payment mode and try again.",
     };
   }
 
@@ -1623,7 +1630,7 @@ export async function updateOwnClaimAction(input: {
     if (receiptSizeError) {
       return {
         ok: false,
-        message: receiptSizeError,
+        message: userFacing(receiptSizeError, "file-upload"),
       };
     }
 
@@ -1642,7 +1649,7 @@ export async function updateOwnClaimAction(input: {
     if (uploadResult.errorMessage || !uploadResult.path) {
       return {
         ok: false,
-        message: uploadResult.errorMessage ?? "Failed to upload replacement receipt.",
+        message: userFacing(uploadResult.errorMessage, "file-upload"),
       };
     }
 
@@ -1677,7 +1684,7 @@ export async function updateOwnClaimAction(input: {
     if (bankStatementSizeError) {
       return {
         ok: false,
-        message: bankStatementSizeError,
+        message: userFacing(bankStatementSizeError, "file-upload"),
       };
     }
 
@@ -1696,7 +1703,7 @@ export async function updateOwnClaimAction(input: {
     if (uploadResult.errorMessage || !uploadResult.path) {
       return {
         ok: false,
-        message: uploadResult.errorMessage ?? "Failed to upload replacement bank statement.",
+        message: userFacing(uploadResult.errorMessage, "file-upload"),
       };
     }
 
@@ -1772,7 +1779,7 @@ export async function updateOwnClaimAction(input: {
       await removeClaimFiles(uploadedReplacementPaths);
       return {
         ok: false,
-        message: result.errorMessage ?? "Failed to update claim details.",
+        message: userFacing(result.errorMessage, "claim-edit"),
       };
     }
 
@@ -1792,7 +1799,10 @@ export async function updateOwnClaimAction(input: {
       actorUserId: currentUserResult.user.id,
       errorMessage: error instanceof Error ? error.message : "Unknown own-edit error",
     });
-    throw error;
+    return {
+      ok: false,
+      message: userFacing(error, "claim-edit"),
+    };
   }
 
   revalidatePath(ROUTES.claims.myClaims);
@@ -1821,7 +1831,7 @@ export async function deleteClaimAction(
   if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
     return {
       ok: false,
-      message: currentUserResult.errorMessage ?? "Unauthorized session.",
+      message: userFacing(currentUserResult.errorMessage ?? "Missing session", "auth"),
     };
   }
 
@@ -1833,7 +1843,7 @@ export async function deleteClaimAction(
   if (!result.ok) {
     return {
       ok: false,
-      message: result.errorMessage ?? "Failed to delete claim.",
+      message: userFacing(result.errorMessage, "claim-delete"),
     };
   }
 
@@ -1871,7 +1881,7 @@ async function processL1ClaimDecisionAction(input: {
   if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
     return {
       ok: false,
-      message: currentUserResult.errorMessage ?? "Unauthorized session.",
+      message: userFacing(currentUserResult.errorMessage ?? "Missing session", "auth"),
     };
   }
 
@@ -1886,7 +1896,7 @@ async function processL1ClaimDecisionAction(input: {
   if (!result.ok) {
     return {
       ok: false,
-      message: result.errorMessage ?? "Failed to process claim decision.",
+      message: userFacing(result.errorMessage, "claim-action"),
     };
   }
 
@@ -1932,7 +1942,7 @@ async function processL2ClaimDecisionAction(input: {
   if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
     return {
       ok: false,
-      message: currentUserResult.errorMessage ?? "Unauthorized session.",
+      message: userFacing(currentUserResult.errorMessage ?? "Missing session", "auth"),
     };
   }
 
@@ -1947,7 +1957,7 @@ async function processL2ClaimDecisionAction(input: {
   if (!result.ok) {
     return {
       ok: false,
-      message: result.errorMessage ?? "Failed to process claim decision.",
+      message: userFacing(result.errorMessage, "claim-action"),
     };
   }
 
@@ -2130,14 +2140,14 @@ export async function bulkApproveL1(input: {
 }): Promise<{ ok: boolean; message: string; processedCount: number }> {
   const parseResult = bulkActionInputSchema.safeParse(input);
   if (!parseResult.success) {
-    return { ok: false, message: "Invalid bulk approve request.", processedCount: 0 };
+    return { ok: false, message: "Please select at least one claim.", processedCount: 0 };
   }
 
   const currentUserResult = await authRepository.getCurrentUser();
   if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
     return {
       ok: false,
-      message: currentUserResult.errorMessage ?? "Unauthorized session.",
+      message: userFacing(currentUserResult.errorMessage ?? "Missing session", "auth"),
       processedCount: 0,
     };
   }
@@ -2152,7 +2162,7 @@ export async function bulkApproveL1(input: {
   if (claimIdsResult.errorMessage) {
     return {
       ok: false,
-      message: claimIdsResult.errorMessage,
+      message: userFacing(claimIdsResult.errorMessage, "bulk-action"),
       processedCount: 0,
     };
   }
@@ -2160,7 +2170,7 @@ export async function bulkApproveL1(input: {
   if (claimIdsResult.data.length === 0) {
     return {
       ok: false,
-      message: "No actionable claims selected.",
+      message: "Please select at least one claim.",
       processedCount: 0,
     };
   }
@@ -2175,8 +2185,8 @@ export async function bulkApproveL1(input: {
     return {
       ok: false,
       message:
-        decisionResult.firstFailureMessage ??
-        "No claims were approved. They may already be processed or unavailable.",
+        userFacing(decisionResult.firstFailureMessage, "bulk-action") ??
+        "We couldn't process the selected claims. Please refresh and try again.",
       processedCount: 0,
     };
   }
@@ -2202,14 +2212,18 @@ export async function bulkRejectL1(input: {
 }): Promise<{ ok: boolean; message: string; processedCount: number }> {
   const parseResult = bulkRejectInputSchema.safeParse(input);
   if (!parseResult.success) {
-    return { ok: false, message: "Invalid bulk reject request.", processedCount: 0 };
+    return {
+      ok: false,
+      message: "Please enter a reason before rejecting selected claims.",
+      processedCount: 0,
+    };
   }
 
   const currentUserResult = await authRepository.getCurrentUser();
   if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
     return {
       ok: false,
-      message: currentUserResult.errorMessage ?? "Unauthorized session.",
+      message: userFacing(currentUserResult.errorMessage ?? "Missing session", "auth"),
       processedCount: 0,
     };
   }
@@ -2224,7 +2238,7 @@ export async function bulkRejectL1(input: {
   if (claimIdsResult.errorMessage) {
     return {
       ok: false,
-      message: claimIdsResult.errorMessage,
+      message: userFacing(claimIdsResult.errorMessage, "bulk-action"),
       processedCount: 0,
     };
   }
@@ -2232,7 +2246,7 @@ export async function bulkRejectL1(input: {
   if (claimIdsResult.data.length === 0) {
     return {
       ok: false,
-      message: "No actionable claims selected.",
+      message: "Please select at least one claim.",
       processedCount: 0,
     };
   }
@@ -2249,8 +2263,8 @@ export async function bulkRejectL1(input: {
     return {
       ok: false,
       message:
-        decisionResult.firstFailureMessage ??
-        "No claims were rejected. They may already be processed or unavailable.",
+        userFacing(decisionResult.firstFailureMessage, "bulk-action") ??
+        "We couldn't process the selected claims. Please refresh and try again.",
       processedCount: 0,
     };
   }
@@ -2274,14 +2288,14 @@ export async function bulkApprove(input: {
 }): Promise<{ ok: boolean; message: string; processedCount: number }> {
   const parseResult = bulkActionInputSchema.safeParse(input);
   if (!parseResult.success) {
-    return { ok: false, message: "Invalid bulk approve request.", processedCount: 0 };
+    return { ok: false, message: "Please select at least one claim.", processedCount: 0 };
   }
 
   const currentUserResult = await authRepository.getCurrentUser();
   if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
     return {
       ok: false,
-      message: currentUserResult.errorMessage ?? "Unauthorized session.",
+      message: userFacing(currentUserResult.errorMessage ?? "Missing session", "auth"),
       processedCount: 0,
     };
   }
@@ -2297,7 +2311,7 @@ export async function bulkApprove(input: {
   if (!result.ok) {
     return {
       ok: false,
-      message: result.errorMessage ?? "Failed to bulk approve claims.",
+      message: userFacing(result.errorMessage, "bulk-action"),
       processedCount: 0,
     };
   }
@@ -2320,14 +2334,18 @@ export async function bulkReject(input: {
 }): Promise<{ ok: boolean; message: string; processedCount: number }> {
   const parseResult = bulkRejectInputSchema.safeParse(input);
   if (!parseResult.success) {
-    return { ok: false, message: "Invalid bulk reject request.", processedCount: 0 };
+    return {
+      ok: false,
+      message: "Please enter a reason before rejecting selected claims.",
+      processedCount: 0,
+    };
   }
 
   const currentUserResult = await authRepository.getCurrentUser();
   if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
     return {
       ok: false,
-      message: currentUserResult.errorMessage ?? "Unauthorized session.",
+      message: userFacing(currentUserResult.errorMessage ?? "Missing session", "auth"),
       processedCount: 0,
     };
   }
@@ -2345,7 +2363,7 @@ export async function bulkReject(input: {
   if (!result.ok) {
     return {
       ok: false,
-      message: result.errorMessage ?? "Failed to bulk reject claims.",
+      message: userFacing(result.errorMessage, "bulk-action"),
       processedCount: 0,
     };
   }
@@ -2366,14 +2384,14 @@ export async function bulkMarkPaid(input: {
 }): Promise<{ ok: boolean; message: string; processedCount: number }> {
   const parseResult = bulkActionInputSchema.safeParse(input);
   if (!parseResult.success) {
-    return { ok: false, message: "Invalid bulk mark-paid request.", processedCount: 0 };
+    return { ok: false, message: "Please select at least one claim.", processedCount: 0 };
   }
 
   const currentUserResult = await authRepository.getCurrentUser();
   if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
     return {
       ok: false,
-      message: currentUserResult.errorMessage ?? "Unauthorized session.",
+      message: userFacing(currentUserResult.errorMessage ?? "Missing session", "auth"),
       processedCount: 0,
     };
   }
@@ -2389,7 +2407,7 @@ export async function bulkMarkPaid(input: {
   if (!result.ok) {
     return {
       ok: false,
-      message: result.errorMessage ?? "Failed to bulk mark claims as paid.",
+      message: userFacing(result.errorMessage, "bulk-action"),
       processedCount: 0,
     };
   }
@@ -2421,7 +2439,7 @@ export async function getClaimEvidenceSignedUrlAction(input: {
     return {
       ok: false,
       signedUrl: null,
-      message: currentUserResult.errorMessage ?? "Unauthorized session.",
+      message: userFacing(currentUserResult.errorMessage ?? "Missing session", "auth"),
     };
   }
 
@@ -2433,7 +2451,7 @@ export async function getClaimEvidenceSignedUrlAction(input: {
     return {
       ok: false,
       signedUrl: null,
-      message: claimResult.errorMessage ?? "Claim not found.",
+      message: userFacing(claimResult.errorMessage ?? "CLAIM_NOT_FOUND", "claim-detail"),
     };
   }
 
@@ -2476,7 +2494,11 @@ export async function getClaimEvidenceSignedUrlAction(input: {
   });
 
   if (signedUrlsResult.errorMessage) {
-    return { ok: false, signedUrl: null, message: signedUrlsResult.errorMessage };
+    return {
+      ok: false,
+      signedUrl: null,
+      message: userFacing(signedUrlsResult.errorMessage, "claim-detail"),
+    };
   }
 
   const signedUrl = signedUrlsResult.data[parseResult.data.filePath] ?? null;

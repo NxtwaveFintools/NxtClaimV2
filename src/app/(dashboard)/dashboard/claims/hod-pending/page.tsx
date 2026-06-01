@@ -12,6 +12,7 @@ import { firstParamValue, toSearchParams } from "@/lib/pagination-helpers";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
 import { getCachedPendingApprovalsViewerContext } from "@/modules/claims/server/get-pending-approvals-viewer-context";
 import { ClaimsApprovalsSection } from "@/modules/claims/ui/claims-approvals-section";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 type SearchParamsValue = string | string[] | undefined;
 
@@ -167,7 +168,7 @@ export default async function FinanceHodPendingClaimsPage({
             HOD Pending Claims
           </h1>
           <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
-            Unable to load finance observability view. {viewerContext.errorMessage}
+            {getUserFriendlyErrorMessage(viewerContext.errorMessage, "claim-list")}
           </p>
         </section>
       </div>

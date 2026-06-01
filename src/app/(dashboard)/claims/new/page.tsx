@@ -1,6 +1,7 @@
 import dynamic from "next/dynamic";
 import { getClaimFormHydrationAction } from "@/modules/claims/actions";
 import { NewClaimFormSkeleton } from "@/modules/claims/ui/new-claim-form-skeleton";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 const NewClaimFormClient = dynamic(
   () => import("@/modules/claims/ui/new-claim-form-client").then((mod) => mod.NewClaimFormClient),
@@ -20,7 +21,7 @@ export default async function NewClaimPage() {
             New Claim
           </h1>
           <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200">
-            Unable to load claim form data. {hydrationResult.errorMessage ?? "Unknown error."}
+            {getUserFriendlyErrorMessage(hydrationResult.errorMessage, "claim-submission")}
           </p>
         </section>
       </main>

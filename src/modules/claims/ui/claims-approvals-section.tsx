@@ -12,6 +12,7 @@ import { logger } from "@/core/infra/logging/logger";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
 import { type ClaimsFilterBarExportScope } from "@/modules/claims/ui/claims-filter-bar";
 import { MyClaimsPaginationControls } from "@/modules/claims/ui/my-claims-pagination-controls";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 type SearchParamsValue = string | string[] | undefined;
 
@@ -205,7 +206,7 @@ export async function ClaimsApprovalsSection({
         {approvalsResult.errorMessage ? (
           <div className="px-4 py-6">
             <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
-              Unable to load approvals history. {approvalsResult.errorMessage}
+              {getUserFriendlyErrorMessage(approvalsResult.errorMessage, "claim-list")}
             </p>
           </div>
         ) : rows.length === 0 ? (

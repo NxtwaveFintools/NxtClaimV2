@@ -5,6 +5,7 @@ import { AUTH_ERROR_CODES, AUTH_ERROR_MESSAGES } from "@/core/constants/auth";
 import { logger } from "@/core/infra/logging/logger";
 import { getPublicServerSupabaseClient } from "@/core/infra/supabase/server-client";
 import { createErrorResponse, createSuccessResponse } from "@/types/api";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 const loginSchema = z.object({
   email: z.email("Enter a valid work email"),
@@ -20,7 +21,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json(
       createErrorResponse(
         AUTH_ERROR_CODES.validationError,
-        parsed.error.issues[0]?.message ?? "Invalid payload",
+        parsed.error.issues[0]?.message ?? "Please enter a valid email and password.",
         correlationId,
       ),
       { status: 400 },
@@ -73,7 +74,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json(
       createErrorResponse(
         AUTH_ERROR_CODES.authFailed,
-        error?.message ?? "Unable to sign in",
+        getUserFriendlyErrorMessage(error ?? "Invalid login credentials", "auth"),
         correlationId,
       ),
       { status: 401 },

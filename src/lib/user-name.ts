@@ -31,6 +31,7 @@ export function getUserInitials(email?: string | null): string {
 }
 
 export function getEmailDomain(email?: string | null): string {
-  if (!email || !email.includes("@")) return "";
-  return email.split("@")[1] || "";
+  const normalizedEmail = email?.trim().toLowerCase();
+  if (!normalizedEmail || !normalizedEmail.includes("@")) return "";
+  return normalizedEmail.split("@")[1] || "";
 }

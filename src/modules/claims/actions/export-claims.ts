@@ -14,6 +14,7 @@ import { logger } from "@/core/infra/logging/logger";
 import { normalizeIsoDateOnly } from "@/lib/date-only";
 import { SupabaseServerAuthRepository } from "@/modules/auth/repositories/supabase-server-auth.repository";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 const authRepository = new SupabaseServerAuthRepository();
 const repository = new SupabaseClaimRepository();
@@ -110,7 +111,7 @@ export async function exportClaimsCsvAction(input: {
       data: null,
       error: {
         code: "INVALID_EXPORT_INPUT",
-        message: "Invalid export request.",
+        message: "Please select a valid export date range.",
       },
       meta: { correlationId },
     };
@@ -122,7 +123,10 @@ export async function exportClaimsCsvAction(input: {
       data: null,
       error: {
         code: "UNAUTHORIZED",
-        message: currentUserResult.errorMessage ?? "Unauthorized session.",
+        message: getUserFriendlyErrorMessage(
+          currentUserResult.errorMessage ?? "Missing session",
+          "auth",
+        ),
       },
       meta: { correlationId },
     };
@@ -140,7 +144,7 @@ export async function exportClaimsCsvAction(input: {
       data: null,
       error: {
         code: "EXPORT_FAILED",
-        message: exportResult.errorMessage,
+        message: getUserFriendlyErrorMessage(exportResult.errorMessage, "export"),
       },
       meta: { correlationId },
     };

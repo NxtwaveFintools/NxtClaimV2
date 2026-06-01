@@ -46,7 +46,9 @@ export function DepartmentViewersManagement({ viewers, departments }: Props) {
         setEmail("");
         router.refresh();
       } else {
-        setAddError(result.message ?? "Failed to add viewer.");
+        setAddError(
+          result.message ?? "We couldn't update department viewer access. Please try again.",
+        );
       }
     });
   }

@@ -33,7 +33,9 @@ export function MasterDataTable({ tableName, displayName, items }: Props) {
         setAddName("");
         router.refresh();
       } else {
-        setAddError(result.message ?? "Failed to create item.");
+        setAddError(
+          result.message ?? "We couldn't save these settings. Please review and try again.",
+        );
       }
     });
   }

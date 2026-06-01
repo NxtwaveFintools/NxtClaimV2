@@ -11,6 +11,7 @@ import { ROUTES } from "@/core/config/route-registry";
 import { DB_CLAIM_STATUSES, type DbClaimStatus } from "@/core/constants/statuses";
 import { normalizeIsoDateOnly } from "@/lib/date-only";
 import { getAccessTokenAction } from "@/modules/auth/actions";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 import type {
   ClaimDateTarget,
   ClaimSearchField,
@@ -640,7 +641,7 @@ export function ClaimsFilterBar({
     const parsedEndDate = parseIsoDateOnly((searchParams.get("to") ?? "").trim());
 
     if (!parsedStartDate || !parsedEndDate || parsedEndDate < parsedStartDate) {
-      toast.error("Please apply a date range filter before exporting.");
+      toast.error("Please select a valid export date range.");
       return;
     }
 
@@ -659,7 +660,7 @@ export function ClaimsFilterBar({
 
       const accessToken = await getAccessTokenAction();
       if (!accessToken) {
-        throw new Error("Export failed. Unauthorized session.");
+        throw new Error("Missing session");
       }
 
       const response = await fetch(`${ROUTES.exportApi.claims}?${params.toString()}`, {
@@ -676,13 +677,9 @@ export function ClaimsFilterBar({
           meta?: { correlationId?: string };
         } | null;
 
-        const message = errorPayload?.error?.message ?? `Export failed. Status: ${response.status}`;
-        const correlationId = errorPayload?.meta?.correlationId;
-        const fullMessage = correlationId
-          ? `${message} (correlationId: ${correlationId})`
-          : message;
-
-        throw new Error(fullMessage);
+        throw new Error(
+          errorPayload?.error?.message ?? `Export failed. Status: ${response.status}`,
+        );
       }
 
       const xlsxBuffer = await response.arrayBuffer();
@@ -705,11 +702,7 @@ export function ClaimsFilterBar({
       anchor.remove();
       URL.revokeObjectURL(objectUrl);
     } catch (error) {
-      const fallbackMessage = "Could not export claims. Please try again.";
-      const message =
-        error instanceof Error && error.message.trim().length > 0 ? error.message : fallbackMessage;
-
-      toast.error(message);
+      toast.error(getUserFriendlyErrorMessage(error, "export"));
     } finally {
       setIsExporting(false);
     }

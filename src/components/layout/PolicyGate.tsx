@@ -92,7 +92,7 @@ export function PolicyGate({ initialState, children }: PolicyGateProps) {
       if (!result.ok) {
         setLocalMessage({
           policyId: currentPolicyId,
-          value: result.message ?? "Unable to record policy acceptance.",
+          value: result.message ?? "We couldn't record your policy acceptance. Please try again.",
         });
         return;
       }
@@ -139,7 +139,8 @@ export function PolicyGate({ initialState, children }: PolicyGateProps) {
                       onError={() => {
                         setLocalMessage({
                           policyId,
-                          value: "Unable to load policy PDF. Please try again.",
+                          value:
+                            "We couldn't load the company policy document. Please try again later.",
                         });
                       }}
                     />
@@ -152,7 +153,8 @@ export function PolicyGate({ initialState, children }: PolicyGateProps) {
                 </article>
               ) : (
                 <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
-                  {message ?? "No active company policy is available. Please contact admin."}
+                  {message ??
+                    "Company policy is currently unavailable. Please contact your administrator."}
                 </p>
               )}
 

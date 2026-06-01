@@ -32,7 +32,7 @@ export function FinanceApproversManagement({ approvers }: Props) {
         setEmail("");
         router.refresh();
       } else {
-        setAddError(result.message ?? "Failed to add approver.");
+        setAddError(result.message ?? "We couldn't update finance approvers. Please try again.");
       }
     });
   }

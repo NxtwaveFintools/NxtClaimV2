@@ -98,7 +98,10 @@ export function AdminClaimOverride() {
         );
 
         if (!result.ok) {
-          setErrorMessage(result.message ?? "Failed to update claim status.");
+          setErrorMessage(
+            result.message ??
+              "We couldn't apply the admin override. Please review the details and try again.",
+          );
           return;
         }
 
@@ -132,7 +135,10 @@ export function AdminClaimOverride() {
         const result = await softDeleteClaimAction(claimSummary.claimId);
 
         if (!result.ok) {
-          setErrorMessage(result.message ?? "Failed to soft-delete claim.");
+          setErrorMessage(
+            result.message ??
+              "We couldn't delete this claim. It may no longer be eligible for deletion.",
+          );
           return;
         }
 

@@ -13,7 +13,6 @@ import { ROUTES } from "@/core/config/route-registry";
 import {
   CLAIM_STATUSES,
   DB_CLAIM_STATUSES,
-  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
   isSubmitterDeletableClaimStatus,
   mapCanonicalStatusToDbStatuses,
   type ClaimStatus,
@@ -42,6 +41,7 @@ import { DepartmentClaimsSection } from "@/modules/claims/ui/department-claims-s
 import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
 import { MyClaimsPaginationControls } from "@/modules/claims/ui/my-claims-pagination-controls";
 import { DeleteClaimButton } from "@/modules/claims/ui/delete-claim-button";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 const PAGE_SIZE = 5;
 const CLAIM_ID_LINK_CLASSES =
@@ -364,7 +364,7 @@ async function ClaimsCommandCenterTable({
       {claimsResult.errorMessage ? (
         <div className="px-4 py-6">
           <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
-            Could not load claims. {claimsResult.errorMessage}
+            {getUserFriendlyErrorMessage(claimsResult.errorMessage, "claim-list")}
           </p>
         </div>
       ) : claimsResult.totalCount === 0 ? (

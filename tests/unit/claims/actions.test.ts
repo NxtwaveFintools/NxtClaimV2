@@ -609,7 +609,10 @@ describe("claims actions", () => {
 
     const result = await submitClaimAction(validExpensePayload);
 
-    expect(result).toEqual({ ok: false, message: "Unauthorized session." });
+    expect(result).toEqual({
+      ok: false,
+      message: "We couldn't verify your session. Please sign in again.",
+    });
   });
 
   test("submitClaimAction rejects inactive or missing department", async () => {
@@ -689,7 +692,10 @@ describe("claims actions", () => {
     const { submitClaimAction } = await import("@/modules/claims/actions");
     const result = await submitClaimAction(validExpensePayload);
 
-    expect(result).toEqual({ ok: false, message: "Database error" });
+    expect(result).toEqual({
+      ok: false,
+      message: "We couldn't submit this claim. Please review the details and try again.",
+    });
   });
 
   test("submitClaimAction returns duplicate transaction error", async () => {
@@ -704,7 +710,7 @@ describe("claims actions", () => {
     expect(result).toEqual({
       ok: false,
       errorCode: "DUPLICATE_TRANSACTION",
-      message: "A claim with this exact Bill No, Date, and Amount already exists.",
+      message: "A claim with the same bill number, date, and amount already exists.",
     });
   });
 
@@ -857,7 +863,10 @@ describe("claims actions", () => {
 
     const result = await deleteClaimAction("11111111-1111-4111-8111-111111111111");
 
-    expect(result).toEqual({ ok: false, message: "Unauthorized session." });
+    expect(result).toEqual({
+      ok: false,
+      message: "We couldn't verify your session. Please sign in again.",
+    });
     expect(mockDeleteOwnClaimExecute).not.toHaveBeenCalled();
   });
 
@@ -960,7 +969,7 @@ describe("claims actions", () => {
 
     expect(result).toEqual({
       ok: false,
-      message: "Routing context fields cannot be edited for an existing claim.",
+      message: "We couldn't save your changes. Please review the details and try again.",
     });
     expect(mockUpdateOwnClaimExecute).not.toHaveBeenCalled();
   });
@@ -1237,8 +1246,7 @@ describe("claims actions", () => {
 
     expect(result).toEqual({
       ok: false,
-      message:
-        "A claim with this exact Bill Number, Date, and Amount already exists in the system. Please change the Bill Number slightly (e.g., add '-FIX') to make it unique before saving.",
+      message: "A claim with the same bill number, date, and amount already exists.",
     });
     expect(mockFindActiveExpenseDuplicateClaimIdByCompositeKey).not.toHaveBeenCalled();
   });
@@ -1281,13 +1289,12 @@ describe("claims actions", () => {
 
     expect(result).toEqual({
       ok: false,
-      message:
-        "A claim with this exact Bill Number, Date, and Amount already exists in the system. Please change the Bill Number slightly (e.g., add '-FIX') to make it unique before saving.",
+      message: "A claim with the same bill number, date, and amount already exists.",
     });
     expect(mockFindActiveExpenseDuplicateClaimIdByCompositeKey).not.toHaveBeenCalled();
   });
 
-  test("updateClaimByFinanceAction rethrows non-duplicate unexpected errors", async () => {
+  test("updateClaimByFinanceAction maps non-duplicate unexpected errors", async () => {
     mockUpdateByFinanceExecute.mockRejectedValueOnce(new Error("database timeout"));
 
     const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
@@ -1297,7 +1304,10 @@ describe("claims actions", () => {
         claimId: "11111111-1111-4111-8111-111111111111",
         formData: createValidExpenseEditFormData(),
       }),
-    ).rejects.toThrow("database timeout");
+    ).resolves.toEqual({
+      ok: false,
+      message: "We couldn't save your changes. Please review the details and try again.",
+    });
   });
 
   test("updateClaimByFinanceAction blocks non-finance users at finance stage", async () => {
@@ -1314,7 +1324,7 @@ describe("claims actions", () => {
 
     expect(result).toEqual({
       ok: false,
-      message: "You are not authorized to edit this claim.",
+      message: "You don't have permission to perform this action.",
     });
     expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
   });
@@ -1410,7 +1420,7 @@ describe("claims actions", () => {
 
     expect(result).toEqual({
       ok: false,
-      message: "Routing context fields cannot be edited for an existing claim.",
+      message: "We couldn't save your changes. Please review the details and try again.",
     });
     expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
   });
@@ -1456,7 +1466,7 @@ describe("claims actions", () => {
 
     expect(result).toEqual({
       ok: false,
-      message: "Routing context fields cannot be edited for an existing claim.",
+      message: "We couldn't save your changes. Please review the details and try again.",
     });
     expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
   });

@@ -39,6 +39,7 @@ import {
 } from "@/core/constants/location-types";
 import { AIDisclaimer } from "@/components/ui/ai-disclaimer";
 import { BANK_STATEMENT_REQUIRED_CATEGORIES } from "@/core/constants/bank-statement-categories";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 type NewClaimFormClientProps = {
   currentUser: CurrentUserHydration;
@@ -228,13 +229,13 @@ const ALLOWED_UPLOAD_MIME_TYPES = new Set([
   "image/webp",
 ]);
 
-function validateUploadFile(file: File, fieldLabel: string): string | null {
+function validateUploadFile(file: File): string | null {
   if (file.size > MAX_FILE_SIZE_BYTES) {
-    return `${fieldLabel} exceeds 25MB.`;
+    return "The uploaded file is too large. Please upload a file under 25 MB.";
   }
 
   if (!ALLOWED_UPLOAD_MIME_TYPES.has(file.type)) {
-    return `${fieldLabel} must be an image or PDF.`;
+    return "This file type is not supported. Please upload a PDF, JPG, PNG, or WEBP file.";
   }
 
   return null;
@@ -748,7 +749,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
         return;
       }
 
-      const invoiceValidationError = validateUploadFile(invoiceFile, "Invoice/Bill file");
+      const invoiceValidationError = validateUploadFile(invoiceFile);
       if (invoiceValidationError) {
         setIsSubmitting(false);
         setFileError(invoiceValidationError);
@@ -757,14 +758,16 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       }
 
       if (isBankStatementRequired && !bankStatementFile) {
+        const message =
+          "This expense category requires a bank statement. Please upload it before submitting.";
         setIsSubmitting(false);
-        setBankStatementError("Please upload bank statement");
-        toast.error("Please upload bank statement");
+        setBankStatementError(message);
+        toast.error(message);
         return;
       }
 
       if (bankStatementFile) {
-        const bankValidationError = validateUploadFile(bankStatementFile, "Bank statement file");
+        const bankValidationError = validateUploadFile(bankStatementFile);
         if (bankValidationError) {
           setIsSubmitting(false);
           setFileError(bankValidationError);
@@ -773,10 +776,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
         }
       }
     } else if (advanceSupportingFile) {
-      const advanceValidationError = validateUploadFile(
-        advanceSupportingFile,
-        "Supporting document",
-      );
+      const advanceValidationError = validateUploadFile(advanceSupportingFile);
       if (advanceValidationError) {
         setIsSubmitting(false);
         setFileError(advanceValidationError);
@@ -898,11 +898,11 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       const result = await submitClaimAction(formData);
       if (!result.ok) {
         if (result.errorCode === "DUPLICATE_TRANSACTION") {
-          toast.error("A claim with this exact Bill No, Date, and Amount already exists.");
+          toast.error("A claim with the same bill number, date, and amount already exists.");
           return;
         }
 
-        toast.error(result.message ?? "Failed to submit claim.");
+        toast.error(getUserFriendlyErrorMessage(result.message, "claim-submission"));
         return;
       }
 
@@ -922,7 +922,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
           "Session cookies may be too large. Please sign out, sign in again, refresh the page, and retry submission.",
         );
       } else {
-        toast.error(errorMessage);
+        toast.error(getUserFriendlyErrorMessage(error, "claim-submission"));
       }
     } finally {
       setIsSubmitting(false);
@@ -1184,18 +1184,21 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
       const result = await parseReceiptAction(formData);
       if (!result.ok || !result.data) {
-        toast.error(result.message ?? "Failed to fetch AI details.", { id: toastId });
+        toast.error(getUserFriendlyErrorMessage(result.message, "ai-extraction"), { id: toastId });
         return;
       }
 
       if (!result.autoFillAllowed) {
-        toast.error(result.message ?? "Failed to fetch AI details.", { id: toastId });
+        toast.error(getUserFriendlyErrorMessage(result.message, "ai-extraction"), { id: toastId });
         return;
       }
 
       const aiData = parseAiPayload(result.data);
       if (!aiData) {
-        toast.error("AI returned invalid JSON. Please fill the fields manually.", { id: toastId });
+        toast.error(
+          "We couldn't extract clear details from this file. Please enter the claim details manually.",
+          { id: toastId },
+        );
         return;
       }
 
@@ -1206,8 +1209,8 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       applyParsedReceiptToForm(aiData);
 
       toast.success("Details fetched!", { id: toastId });
-    } catch {
-      toast.error("Failed to fetch AI details.", { id: toastId });
+    } catch (error) {
+      toast.error(getUserFriendlyErrorMessage(error, "ai-extraction"), { id: toastId });
     } finally {
       setIsAiParsing(false);
     }
@@ -1227,20 +1230,21 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
       const result = await parseReceiptAction(formData);
       if (!result.ok || !result.data) {
-        toast.error(result.message ?? "Failed to match bank statement amount.", { id: toastId });
+        toast.error(getUserFriendlyErrorMessage(result.message, "ai-extraction"), { id: toastId });
         return;
       }
 
       if (!result.autoFillAllowed) {
-        toast.error(result.message ?? "Failed to match bank statement amount.", { id: toastId });
+        toast.error(getUserFriendlyErrorMessage(result.message, "ai-extraction"), { id: toastId });
         return;
       }
 
       const aiData = parseAiPayload(result.data);
       if (!aiData) {
-        toast.error("AI returned invalid bank statement data. Please fill the amount manually.", {
-          id: toastId,
-        });
+        toast.error(
+          "We couldn't extract clear details from this file. Please enter the claim details manually.",
+          { id: toastId },
+        );
         return;
       }
 
@@ -1252,8 +1256,8 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
       applyParsedBankStatementToForm(aiData);
       toast.success("Matched INR amount from bank statement.", { id: toastId });
-    } catch {
-      toast.error("Failed to match bank statement amount.", { id: toastId });
+    } catch (error) {
+      toast.error(getUserFriendlyErrorMessage(error, "ai-extraction"), { id: toastId });
     } finally {
       setIsAiParsing(false);
     }
@@ -1273,7 +1277,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       return;
     }
 
-    const invoiceValidationError = validateUploadFile(selectedFile, "Invoice/Bill file");
+    const invoiceValidationError = validateUploadFile(selectedFile);
     if (invoiceValidationError) {
       setFileError(invoiceValidationError);
       toast.error(invoiceValidationError);
@@ -1312,7 +1316,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       return;
     }
 
-    const bankValidationError = validateUploadFile(selectedFile, "Bank statement file");
+    const bankValidationError = validateUploadFile(selectedFile);
     if (bankValidationError) {
       setBankStatementError(bankValidationError);
       toast.error(bankValidationError);
@@ -1333,7 +1337,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       return;
     }
 
-    const invoiceValidationError = validateUploadFile(invoiceFile, "Invoice/Bill file");
+    const invoiceValidationError = validateUploadFile(invoiceFile);
     if (invoiceValidationError) {
       setFileError(invoiceValidationError);
       toast.error(invoiceValidationError);

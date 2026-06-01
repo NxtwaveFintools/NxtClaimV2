@@ -8,6 +8,7 @@ import { logger } from "@/core/infra/logging/logger";
 import { SupabaseAdminRepository } from "@/modules/admin/repositories/SupabaseAdminRepository";
 import { isAdmin } from "@/modules/admin/server/is-admin";
 import { SupabaseServerAuthRepository } from "@/modules/auth/repositories/supabase-server-auth.repository";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 const adminRepository = new SupabaseAdminRepository();
 const authRepository = new SupabaseServerAuthRepository();
@@ -43,12 +44,12 @@ export async function addDepartmentAction(
 ): Promise<{ ok: boolean; message?: string }> {
   const guard = await requireAdmin();
   if ("forbidden" in guard) {
-    return { ok: false, message: "Forbidden: admin access required." };
+    return { ok: false, message: "You don't have permission to access system settings." };
   }
 
   const parsed = addDepartmentSchema.safeParse(payload);
   if (!parsed.success) {
-    return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid input." };
+    return { ok: false, message: "Please complete the required fields." };
   }
 
   const result = await createDepartmentService.createDepartment({
@@ -58,7 +59,7 @@ export async function addDepartmentAction(
   });
 
   if (result.errorMessage) {
-    return { ok: false, message: result.errorMessage };
+    return { ok: false, message: getUserFriendlyErrorMessage(result.errorMessage, "settings") };
   }
 
   revalidatePath(ROUTES.admin.settings);

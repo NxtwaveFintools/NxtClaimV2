@@ -5,6 +5,7 @@ import { useEffect, useMemo, useReducer, useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getClaimEvidenceSignedUrlAction } from "@/modules/claims/actions";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 export type ClaimEvidenceViewerItem = {
   label: string;
@@ -69,7 +70,7 @@ export function ClaimEvidenceViewer({ claimId, items }: ClaimEvidenceViewerProps
 
         if (!result.ok || !result.signedUrl) {
           dispatchFetch({
-            errorMessage: result.message ?? "Unable to load evidence file.",
+            errorMessage: getUserFriendlyErrorMessage(result.message, "claim-detail"),
             loadingPath: null,
           });
           return;
@@ -79,7 +80,10 @@ export function ClaimEvidenceViewer({ claimId, items }: ClaimEvidenceViewerProps
       })
       .catch(() => {
         if (isCurrent) {
-          dispatchFetch({ errorMessage: "Unable to load evidence file.", loadingPath: null });
+          dispatchFetch({
+            errorMessage: "We couldn't load this evidence file. Please try again.",
+            loadingPath: null,
+          });
         }
       })
       .finally(() => {

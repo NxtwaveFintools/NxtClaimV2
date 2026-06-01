@@ -130,7 +130,10 @@ describe("policies actions", () => {
 
     const result = await getActivePolicyStateAction();
 
-    expect(result).toEqual({ ok: false, message: "Unauthorized." });
+    expect(result).toEqual({
+      ok: false,
+      message: "Your session has expired. Please sign in again.",
+    });
     expect(mockGetActivePolicy).not.toHaveBeenCalled();
   });
 
@@ -179,7 +182,10 @@ describe("policies actions", () => {
 
     const result = await publishNewPolicyAction(createPolicyFormData());
 
-    expect(result).toEqual({ ok: false, message: "Forbidden: admin access required." });
+    expect(result).toEqual({
+      ok: false,
+      message: "You don't have permission to access system settings.",
+    });
     expect(mockPublishNewPolicy).not.toHaveBeenCalled();
     expect(mockGetServiceRoleSupabaseClient).not.toHaveBeenCalled();
   });
@@ -201,7 +207,7 @@ describe("policies actions", () => {
     const missingFileResult = await publishNewPolicyAction(createPolicyFormData({ file: null }));
 
     expect(missingFileResult.ok).toBe(false);
-    expect(missingFileResult.message).toBe("Policy PDF file is required.");
+    expect(missingFileResult.message).toBe("Please upload the company policy as a PDF file.");
     expect(mockUpload).not.toHaveBeenCalled();
 
     const invalidFileResult = await publishNewPolicyAction(
@@ -211,7 +217,7 @@ describe("policies actions", () => {
     );
 
     expect(invalidFileResult.ok).toBe(false);
-    expect(invalidFileResult.message).toBe("Only PDF files are supported.");
+    expect(invalidFileResult.message).toBe("Please upload the company policy as a PDF file.");
     expect(mockUpload).not.toHaveBeenCalled();
     expect(mockPublishNewPolicy).not.toHaveBeenCalled();
   });
@@ -268,7 +274,7 @@ describe("policies actions", () => {
 
     expect(result).toEqual({
       ok: false,
-      message: "Policy version already exists. Use a new version name.",
+      message: "We couldn't publish the company policy. Please review the file and try again.",
     });
     expect(mockRemove).toHaveBeenCalledWith(["user-1/1712102401234_policy.pdf"]);
   });

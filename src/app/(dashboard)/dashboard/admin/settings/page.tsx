@@ -24,6 +24,7 @@ import { BackButton } from "@/components/ui/back-button";
 import type { MasterDataTableName } from "@/core/domain/admin/contracts";
 import { getPolicyGateState } from "@/modules/policies/server/get-policy-gate-state";
 import { isAdminPaymentModeOverrideAllowedName } from "@/core/constants/payment-modes";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 export const metadata = {
   title: "System Settings | NxtClaim",
@@ -493,7 +494,7 @@ export default async function AdminSettingsPage({
 function ErrorBox({ message }: { message: string }) {
   return (
     <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-800/60 dark:bg-rose-950/40 dark:text-rose-200">
-      {message}
+      {getUserFriendlyErrorMessage(message, "settings")}
     </p>
   );
 }

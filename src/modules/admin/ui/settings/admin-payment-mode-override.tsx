@@ -68,7 +68,10 @@ export function AdminPaymentModeOverride({ paymentModes }: AdminPaymentModeOverr
       );
 
       if (!result.ok) {
-        setErrorMessage(result.message ?? "Failed to force-update payment mode.");
+        setErrorMessage(
+          result.message ??
+            "We couldn't apply the admin override. Please review the details and try again.",
+        );
         return;
       }
 

@@ -211,7 +211,10 @@ describe("admin actions", () => {
       "Need to restore workflow",
     );
 
-    expect(result).toEqual({ ok: false, message: "Forbidden: admin access required." });
+    expect(result).toEqual({
+      ok: false,
+      message: "You don't have permission to access system settings.",
+    });
     expect(mockForceUpdateClaimStatus).not.toHaveBeenCalled();
   });
 
@@ -244,7 +247,10 @@ describe("admin actions", () => {
 
     const result = await forceUpdatePaymentMode("claim-1", "mode-1", "Fixing incorrect mode");
 
-    expect(result).toEqual({ ok: false, message: "Forbidden: admin access required." });
+    expect(result).toEqual({
+      ok: false,
+      message: "You don't have permission to access system settings.",
+    });
     expect(mockForceUpdatePaymentMode).not.toHaveBeenCalled();
   });
 
@@ -253,7 +259,10 @@ describe("admin actions", () => {
 
     const result = await softDeleteClaimAction("claim-1");
 
-    expect(result).toEqual({ ok: false, message: "Forbidden: admin access required." });
+    expect(result).toEqual({
+      ok: false,
+      message: "You don't have permission to access system settings.",
+    });
     expect(mockSoftDeleteExecute).not.toHaveBeenCalled();
   });
 
@@ -288,7 +297,7 @@ describe("admin actions", () => {
     const invalidPayload = await updateMasterDataItemAction("master_locations", "item-1", {});
     expect(invalidPayload).toEqual({
       ok: false,
-      message: "At least one field to update is required.",
+      message: "Please complete the required fields.",
     });
 
     const success = await updateMasterDataItemAction("master_locations", "item-1", {
@@ -306,14 +315,17 @@ describe("admin actions", () => {
 
   test("updateDepartmentActorsAction handles validation and service failures", async () => {
     const invalid = await updateDepartmentActorsAction("", "approver-1", "approver-2");
-    expect(invalid).toEqual({ ok: false, message: "ID is required" });
+    expect(invalid).toEqual({ ok: false, message: "Please complete the required fields." });
 
     mockUpdateDepartmentActors.mockResolvedValueOnce({
       success: false,
       errorMessage: "cannot update",
     });
     const failed = await updateDepartmentActorsAction("dep-1", "approver-1", "approver-2");
-    expect(failed).toEqual({ ok: false, message: "cannot update" });
+    expect(failed).toEqual({
+      ok: false,
+      message: "We couldn't save these settings. Please review and try again.",
+    });
 
     const success = await updateDepartmentActorsAction("dep-1", "approver-1", "approver-2");
     expect(success).toEqual({ ok: true });
@@ -353,7 +365,10 @@ describe("admin actions", () => {
 
   test("addFinanceApproverByEmailAction validates email and creates approver", async () => {
     const invalid = await addFinanceApproverByEmailAction("not-an-email");
-    expect(invalid).toEqual({ ok: false, message: "Invalid email address." });
+    expect(invalid).toEqual({
+      ok: false,
+      message: "Please enter a valid company email address.",
+    });
 
     const success = await addFinanceApproverByEmailAction("finance@nxtwave.co.in");
     expect(success).toEqual({ ok: true });
@@ -366,7 +381,7 @@ describe("admin actions", () => {
     const invalid = await updateFinanceApproverAction("approver-1", {});
     expect(invalid).toEqual({
       ok: false,
-      message: "At least one field to update is required.",
+      message: "Please complete the required fields.",
     });
 
     const success = await updateFinanceApproverAction("approver-1", {
@@ -383,7 +398,10 @@ describe("admin actions", () => {
 
   test("addAdminAction validates email and adds admin", async () => {
     const invalid = await addAdminAction("bad");
-    expect(invalid).toEqual({ ok: false, message: "Invalid email address." });
+    expect(invalid).toEqual({
+      ok: false,
+      message: "Please enter a valid company email address.",
+    });
 
     const success = await addAdminAction("admin2@nxtwave.co.in");
     expect(success).toEqual({ ok: true });
@@ -404,7 +422,10 @@ describe("admin actions", () => {
     expect(invalidDept).toEqual({ ok: false, message: "Invalid department ID." });
 
     const invalidEmail = await addDepartmentViewerAction("dep-1", "invalid");
-    expect(invalidEmail).toEqual({ ok: false, message: "Invalid email address." });
+    expect(invalidEmail).toEqual({
+      ok: false,
+      message: "Please enter a valid company email address.",
+    });
 
     const success = await addDepartmentViewerAction("dep-1", "viewer@nxtwave.co.in");
     expect(success).toEqual({ ok: true });

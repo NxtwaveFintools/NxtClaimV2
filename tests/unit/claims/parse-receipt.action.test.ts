@@ -183,7 +183,7 @@ describe("parseReceiptAction", () => {
       data: null,
       autoFillAllowed: false,
       message:
-        "AI could not read the text formatting in this document. Please fill the details manually.",
+        "We couldn't extract clear details from this file. Please enter the claim details manually.",
     });
   });
 
@@ -209,7 +209,7 @@ describe("parseReceiptAction", () => {
       data: null,
       autoFillAllowed: false,
       message:
-        "AI auto-parse is temporarily unavailable due to usage limits. Please retry in about 32 seconds. You can still fill the details manually.",
+        "AI extraction is busy right now. Please try again later or enter the details manually.",
     });
     expect(mockGenerateContent).toHaveBeenCalledTimes(1);
   });
@@ -288,7 +288,8 @@ describe("parseReceiptAction", () => {
       ok: false,
       data: null,
       autoFillAllowed: false,
-      message: "The AI service is currently busy. Please try again or fill the form manually.",
+      message:
+        "AI extraction is temporarily unavailable. Please try again in a few minutes or enter the details manually.",
     });
     expect(mockGenerateContent).toHaveBeenCalledTimes(3);
   });

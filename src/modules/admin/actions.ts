@@ -18,6 +18,7 @@ import {
   revalidateAllUserRoleChecks,
   revalidateUserRoleChecks,
 } from "@/modules/auth/server/user-role-cache";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 // ----------------------------------------------------------------
 // Shared instances (singleton-per-request via module scope)
@@ -52,6 +53,11 @@ const masterDataTableSchema = z.enum([
 
 const claimStatusSchema = z.enum(DB_CLAIM_STATUSES);
 const claimOverrideReasonSchema = z.string().trim().min(5, "Reason must be at least 5 characters.");
+const ADMIN_PERMISSION_MESSAGE = "You don't have permission to access system settings.";
+
+function adminMessage(error: unknown): string {
+  return getUserFriendlyErrorMessage(error, "settings");
+}
 
 // ----------------------------------------------------------------
 // Admin guard helper
@@ -85,7 +91,7 @@ export async function softDeleteClaimAction(
 ): Promise<{ ok: boolean; message?: string }> {
   const guard = await requireAdmin();
   if ("forbidden" in guard) {
-    return { ok: false, message: "Forbidden: admin access required." };
+    return { ok: false, message: ADMIN_PERMISSION_MESSAGE };
   }
 
   const parsed = idSchema.safeParse(claimId);
@@ -99,7 +105,7 @@ export async function softDeleteClaimAction(
   });
 
   if (!result.success) {
-    return { ok: false, message: result.errorMessage ?? "Failed to soft-delete claim." };
+    return { ok: false, message: getUserFriendlyErrorMessage(result.errorMessage, "claim-delete") };
   }
 
   revalidatePath(ROUTES.claims.myClaims);
@@ -113,7 +119,7 @@ export async function adminGetClaimOverrideSummaryAction(
 ): Promise<{ ok: boolean; message?: string; data?: AdminClaimOverrideSummary }> {
   const guard = await requireAdmin();
   if ("forbidden" in guard) {
-    return { ok: false, message: "Forbidden: admin access required." };
+    return { ok: false, message: ADMIN_PERMISSION_MESSAGE };
   }
 
   const parsed = idSchema.safeParse(claimReference);
@@ -124,7 +130,7 @@ export async function adminGetClaimOverrideSummaryAction(
   const result = await adminRepository.getClaimOverrideSummary(parsed.data);
 
   if (result.errorMessage) {
-    return { ok: false, message: result.errorMessage };
+    return { ok: false, message: getUserFriendlyErrorMessage(result.errorMessage, "claim-detail") };
   }
 
   if (!result.data) {
@@ -141,7 +147,7 @@ export async function adminForceUpdateClaimStatusAction(
 ): Promise<{ ok: boolean; message?: string }> {
   const guard = await requireAdmin();
   if ("forbidden" in guard) {
-    return { ok: false, message: "Forbidden: admin access required." };
+    return { ok: false, message: ADMIN_PERMISSION_MESSAGE };
   }
 
   const claimIdResult = idSchema.safeParse(claimId);
@@ -167,7 +173,7 @@ export async function adminForceUpdateClaimStatusAction(
   });
 
   if (!result.success) {
-    return { ok: false, message: result.errorMessage ?? "Failed to update claim status." };
+    return { ok: false, message: getUserFriendlyErrorMessage(result.errorMessage, "claim-action") };
   }
 
   revalidatePath(ROUTES.admin.settings);
@@ -184,7 +190,7 @@ export async function forceUpdatePaymentMode(
 ): Promise<{ ok: boolean; message?: string }> {
   const guard = await requireAdmin();
   if ("forbidden" in guard) {
-    return { ok: false, message: "Forbidden: admin access required." };
+    return { ok: false, message: ADMIN_PERMISSION_MESSAGE };
   }
 
   const claimIdResult = idSchema.safeParse(claimId);
@@ -215,7 +221,7 @@ export async function forceUpdatePaymentMode(
   if (!result.success) {
     return {
       ok: false,
-      message: result.errorMessage ?? "Failed to force-update payment mode.",
+      message: "We couldn't apply the admin override. Please review the details and try again.",
     };
   }
 
@@ -232,7 +238,7 @@ export async function createMasterDataItemAction(
 ): Promise<{ ok: boolean; message?: string }> {
   const guard = await requireAdmin();
   if ("forbidden" in guard) {
-    return { ok: false, message: "Forbidden: admin access required." };
+    return { ok: false, message: ADMIN_PERMISSION_MESSAGE };
   }
 
   const tableResult = masterDataTableSchema.safeParse(tableName);
@@ -251,7 +257,7 @@ export async function createMasterDataItemAction(
   });
 
   if (result.errorMessage) {
-    return { ok: false, message: result.errorMessage };
+    return { ok: false, message: adminMessage(result.errorMessage) };
   }
 
   revalidatePath(ROUTES.admin.settings);
@@ -266,7 +272,7 @@ export async function updateMasterDataItemAction(
 ): Promise<{ ok: boolean; message?: string }> {
   const guard = await requireAdmin();
   if ("forbidden" in guard) {
-    return { ok: false, message: "Forbidden: admin access required." };
+    return { ok: false, message: ADMIN_PERMISSION_MESSAGE };
   }
 
   const tableResult = masterDataTableSchema.safeParse(tableName);
@@ -292,7 +298,7 @@ export async function updateMasterDataItemAction(
   if (!payloadResult.success) {
     return {
       ok: false,
-      message: payloadResult.error.issues[0]?.message ?? "Invalid payload.",
+      message: "Please complete the required fields.",
     };
   }
 
@@ -303,7 +309,7 @@ export async function updateMasterDataItemAction(
   });
 
   if (result.errorMessage) {
-    return { ok: false, message: result.errorMessage };
+    return { ok: false, message: adminMessage(result.errorMessage) };
   }
 
   revalidatePath(ROUTES.admin.settings);
@@ -318,7 +324,7 @@ export async function updateDepartmentActorsAction(
 ): Promise<{ ok: boolean; message?: string }> {
   const guard = await requireAdmin();
   if ("forbidden" in guard) {
-    return { ok: false, message: "Forbidden: admin access required." };
+    return { ok: false, message: ADMIN_PERMISSION_MESSAGE };
   }
 
   const schema = z.object({
@@ -329,13 +335,13 @@ export async function updateDepartmentActorsAction(
 
   const parsed = schema.safeParse({ departmentId, approver1Id, approver2Id });
   if (!parsed.success) {
-    return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid input." };
+    return { ok: false, message: "Please complete the required fields." };
   }
 
   const result = await manageActorsService.updateDepartmentActors(parsed.data);
 
   if (!result.success) {
-    return { ok: false, message: result.errorMessage ?? "Failed to update department actors." };
+    return { ok: false, message: "We couldn't save these settings. Please review and try again." };
   }
 
   revalidatePath(ROUTES.admin.settings);
@@ -350,7 +356,7 @@ export async function updateDepartmentActorsByEmailAction(
 ): Promise<{ ok: boolean; message?: string }> {
   const guard = await requireAdmin();
   if ("forbidden" in guard) {
-    return { ok: false, message: "Forbidden: admin access required." };
+    return { ok: false, message: ADMIN_PERMISSION_MESSAGE };
   }
 
   const schema = z.object({
@@ -361,7 +367,7 @@ export async function updateDepartmentActorsByEmailAction(
 
   const parsed = schema.safeParse({ departmentId, approver1Email, approver2Email });
   if (!parsed.success) {
-    return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid input." };
+    return { ok: false, message: "Please enter valid company email addresses." };
   }
 
   const result = await manageActorsService.updateDepartmentActorsByEmail({
@@ -371,7 +377,7 @@ export async function updateDepartmentActorsByEmailAction(
   });
 
   if (!result.success) {
-    return { ok: false, message: result.errorMessage ?? "Failed to update department actors." };
+    return { ok: false, message: adminMessage(result.errorMessage) };
   }
 
   revalidatePath(ROUTES.admin.settings);
@@ -384,7 +390,7 @@ export async function createFinanceApproverAction(
 ): Promise<{ ok: boolean; message?: string }> {
   const guard = await requireAdmin();
   if ("forbidden" in guard) {
-    return { ok: false, message: "Forbidden: admin access required." };
+    return { ok: false, message: ADMIN_PERMISSION_MESSAGE };
   }
 
   const parsed = idSchema.safeParse(userId);
@@ -395,7 +401,7 @@ export async function createFinanceApproverAction(
   const result = await manageActorsService.createFinanceApprover({ userId: parsed.data });
 
   if (result.errorMessage) {
-    return { ok: false, message: result.errorMessage };
+    return { ok: false, message: adminMessage(result.errorMessage) };
   }
 
   revalidatePath(ROUTES.admin.settings);
@@ -408,18 +414,18 @@ export async function addFinanceApproverByEmailAction(
 ): Promise<{ ok: boolean; message?: string }> {
   const guard = await requireAdmin();
   if ("forbidden" in guard) {
-    return { ok: false, message: "Forbidden: admin access required." };
+    return { ok: false, message: ADMIN_PERMISSION_MESSAGE };
   }
 
   const emailResult = z.string().trim().email("Invalid email address.").safeParse(email);
   if (!emailResult.success) {
-    return { ok: false, message: emailResult.error.issues[0]?.message ?? "Invalid email." };
+    return { ok: false, message: "Please enter a valid company email address." };
   }
 
   const result = await manageActorsService.addFinanceApproverByEmail({ email: emailResult.data });
 
   if (result.errorMessage) {
-    return { ok: false, message: result.errorMessage };
+    return { ok: false, message: adminMessage(result.errorMessage) };
   }
 
   revalidatePath(ROUTES.admin.settings);
@@ -433,7 +439,7 @@ export async function updateFinanceApproverAction(
 ): Promise<{ ok: boolean; message?: string }> {
   const guard = await requireAdmin();
   if ("forbidden" in guard) {
-    return { ok: false, message: "Forbidden: admin access required." };
+    return { ok: false, message: ADMIN_PERMISSION_MESSAGE };
   }
 
   const idResult = idSchema.safeParse(id);
@@ -452,7 +458,7 @@ export async function updateFinanceApproverAction(
 
   const payloadResult = payloadSchema.safeParse(payload);
   if (!payloadResult.success) {
-    return { ok: false, message: payloadResult.error.issues[0]?.message ?? "Invalid payload." };
+    return { ok: false, message: "Please complete the required fields." };
   }
 
   const result = await manageActorsService.updateFinanceApprover({
@@ -461,7 +467,7 @@ export async function updateFinanceApproverAction(
   });
 
   if (result.errorMessage) {
-    return { ok: false, message: result.errorMessage };
+    return { ok: false, message: adminMessage(result.errorMessage) };
   }
 
   revalidatePath(ROUTES.admin.settings);
@@ -472,18 +478,18 @@ export async function updateFinanceApproverAction(
 export async function addAdminAction(email: string): Promise<{ ok: boolean; message?: string }> {
   const guard = await requireAdmin();
   if ("forbidden" in guard) {
-    return { ok: false, message: "Forbidden: admin access required." };
+    return { ok: false, message: ADMIN_PERMISSION_MESSAGE };
   }
 
   const parsed = z.string().trim().email("Invalid email address.").safeParse(email);
   if (!parsed.success) {
-    return { ok: false, message: parsed.error.flatten().formErrors[0] ?? "Invalid email address." };
+    return { ok: false, message: "Please enter a valid company email address." };
   }
 
   const result = await manageAdminsService.addAdminByEmail(parsed.data);
 
   if (result.errorMessage) {
-    return { ok: false, message: result.errorMessage };
+    return { ok: false, message: adminMessage(result.errorMessage) };
   }
 
   revalidateRoleChecksForUser(result.data?.userId);
@@ -497,7 +503,7 @@ export async function removeAdminAction(
 ): Promise<{ ok: boolean; message?: string }> {
   const guard = await requireAdmin();
   if ("forbidden" in guard) {
-    return { ok: false, message: "Forbidden: admin access required." };
+    return { ok: false, message: ADMIN_PERMISSION_MESSAGE };
   }
 
   const parsed = idSchema.safeParse(adminId);
@@ -508,7 +514,7 @@ export async function removeAdminAction(
   const result = await manageAdminsService.removeAdmin(parsed.data);
 
   if (!result.success) {
-    return { ok: false, message: result.errorMessage ?? "Failed to remove admin." };
+    return { ok: false, message: adminMessage(result.errorMessage) };
   }
 
   revalidateAllUserRoleChecks();
@@ -527,7 +533,7 @@ export async function addDepartmentViewerAction(
 ): Promise<{ ok: boolean; message?: string }> {
   const guard = await requireAdmin();
   if ("forbidden" in guard) {
-    return { ok: false, message: "Forbidden: admin access required." };
+    return { ok: false, message: ADMIN_PERMISSION_MESSAGE };
   }
 
   const parsedDeptId = idSchema.safeParse(departmentId);
@@ -539,7 +545,7 @@ export async function addDepartmentViewerAction(
   if (!parsedEmail.success) {
     return {
       ok: false,
-      message: parsedEmail.error.flatten().formErrors[0] ?? "Invalid email address.",
+      message: "Please enter a valid company email address.",
     };
   }
 
@@ -549,7 +555,7 @@ export async function addDepartmentViewerAction(
   );
 
   if (result.errorMessage) {
-    return { ok: false, message: result.errorMessage };
+    return { ok: false, message: adminMessage(result.errorMessage) };
   }
 
   revalidateRoleChecksForUser(result.data?.userId);
@@ -562,7 +568,7 @@ export async function removeDepartmentViewerAction(
 ): Promise<{ ok: boolean; message?: string }> {
   const guard = await requireAdmin();
   if ("forbidden" in guard) {
-    return { ok: false, message: "Forbidden: admin access required." };
+    return { ok: false, message: ADMIN_PERMISSION_MESSAGE };
   }
 
   const parsed = idSchema.safeParse(viewerId);
@@ -573,7 +579,7 @@ export async function removeDepartmentViewerAction(
   const result = await manageDepartmentViewersService.removeViewer(parsed.data);
 
   if (!result.success) {
-    return { ok: false, message: result.errorMessage ?? "Failed to remove viewer." };
+    return { ok: false, message: adminMessage(result.errorMessage) };
   }
 
   revalidateAllUserRoleChecks();

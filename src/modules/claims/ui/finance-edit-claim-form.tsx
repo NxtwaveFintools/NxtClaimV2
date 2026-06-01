@@ -19,6 +19,7 @@ import {
 } from "@/core/constants/payment-modes";
 import type { ClaimExpenseAiMetadata } from "@/core/domain/claims/contracts";
 import { computeForeignTotal } from "@/modules/claims/utils/compute-totals";
+import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 type DropdownOption = {
   id: string;
@@ -349,7 +350,7 @@ export function FinanceEditClaimForm({
       const result = await action(formData);
 
       if (!result.ok) {
-        toast.error(result.error ?? "Unable to save claim edits.");
+        toast.error(getUserFriendlyErrorMessage(result.error, "claim-edit"));
         return;
       }
 
@@ -363,7 +364,7 @@ export function FinanceEditClaimForm({
 
       await onSuccess?.();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to save claim edits.");
+      toast.error(getUserFriendlyErrorMessage(error, "claim-edit"));
     } finally {
       setIsSubmitting(false);
     }
