@@ -168,7 +168,7 @@ const AdminClaimRow = memo(function AdminClaimRow({
               type="button"
               onClick={handleSoftDelete}
               disabled={isPending}
-              className="inline-flex h-8 items-center rounded-md border border-rose-300 bg-rose-50 px-2 text-[11px] font-semibold text-rose-700 transition-colors hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-700 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-950/60"
+              className="inline-flex h-8 items-center rounded-lg border border-danger/30 bg-danger-muted px-2 text-[11px] font-semibold text-danger transition-colors hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isPending ? "Deleting..." : "Delete"}
             </button>

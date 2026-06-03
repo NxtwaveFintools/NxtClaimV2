@@ -43,11 +43,11 @@ export function AddDepartmentForm() {
   }
 
   return (
-    <div className="overflow-hidden rounded-[26px] border border-zinc-200/80 bg-zinc-50/60 p-5 dark:border-zinc-800/80 dark:bg-zinc-950/40">
-      <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-700 dark:text-zinc-300">
+    <div className="overflow-hidden rounded-[26px] border border-border/80 bg-background-secondary/60 p-5">
+      <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-foreground">
         Add Department
       </h3>
-      <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+      <p className="mt-2 text-sm text-muted-foreground">
         Enter a department and approver emails. Missing users are auto-created with default
         credentials and linked immediately.
       </p>
@@ -58,7 +58,7 @@ export function AddDepartmentForm() {
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="Department name"
-          className="nxt-input w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+          className="nxt-input w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none"
         />
 
         <input
@@ -66,7 +66,7 @@ export function AddDepartmentForm() {
           value={approver1Email}
           onChange={(event) => setApprover1Email(event.target.value)}
           placeholder="Approver 1 email"
-          className="nxt-input w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+          className="nxt-input w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none"
         />
 
         <input
@@ -74,7 +74,7 @@ export function AddDepartmentForm() {
           value={approver2Email}
           onChange={(event) => setApprover2Email(event.target.value)}
           placeholder="Approver 2 email"
-          className="nxt-input w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+          className="nxt-input w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none"
         />
 
         <div className="md:col-span-3 flex items-center gap-3">
@@ -86,7 +86,7 @@ export function AddDepartmentForm() {
           >
             {isPending ? "Creating..." : "Create Department"}
           </Button>
-          {error ? <p className="text-xs text-rose-600">{error}</p> : null}
+          {error ? <p className="text-xs text-danger">{error}</p> : null}
         </div>
       </form>
     </div>

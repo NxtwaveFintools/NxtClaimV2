@@ -67,44 +67,46 @@ export function DepartmentViewersManagement({ viewers, departments }: Props) {
   return (
     <div className="space-y-6">
       {/* Existing viewers grouped by department */}
-      <div className="overflow-hidden rounded-[26px] border border-zinc-200/80 bg-zinc-50/50 dark:border-zinc-800/80 dark:bg-zinc-950/40">
-        <div className="border-b border-zinc-200/80 px-5 py-4 dark:border-zinc-800/80">
-          <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-700 dark:text-zinc-300">
+      <div className="overflow-hidden rounded-[26px] border border-border/80 bg-background-secondary/50">
+        <div className="border-b border-border/80 px-5 py-4">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-foreground">
             Department Viewers (POC)
           </h3>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-xs text-muted-foreground">
             Users assigned as viewers can see all claims for their assigned departments (read-only).
           </p>
         </div>
 
         {deptsWithViewers.length === 0 ? (
-          <p className="px-4 py-6 text-sm text-zinc-500">No department viewers assigned yet.</p>
+          <p className="px-4 py-6 text-sm text-muted-foreground">
+            No department viewers assigned yet.
+          </p>
         ) : (
           <div className="divide-y divide-zinc-100/80 dark:divide-zinc-800/80">
             {deptsWithViewers.map((dept) => {
               const deptViewers = viewersByDept.get(dept.id) ?? [];
               return (
                 <div key={dept.id} className="px-5 py-4">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {dept.name}
                   </p>
                   <div className="space-y-1.5">
                     {deptViewers.map((viewer) => (
                       <div
                         key={viewer.id}
-                        className="flex flex-col gap-3 rounded-2xl border border-zinc-200/80 bg-white/80 px-4 py-3 dark:border-zinc-800/80 dark:bg-zinc-900/70 sm:flex-row sm:items-center sm:justify-between"
+                        className="flex flex-col gap-3 rounded-xl border border-border/80 bg-card/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div>
-                          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                          <p className="text-sm font-medium text-foreground">
                             {viewer.fullName ?? "—"}
                           </p>
-                          <p className="text-xs text-zinc-500">{viewer.email}</p>
+                          <p className="text-xs text-muted-foreground">{viewer.email}</p>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
                           {confirmRemoveId === viewer.id ? (
                             <>
-                              <span className="text-xs text-zinc-500">Remove?</span>
+                              <span className="text-xs text-muted-foreground">Remove?</span>
                               <Button
                                 disabled={isPending}
                                 onClick={() => handleRemove(viewer.id)}
@@ -129,7 +131,7 @@ export function DepartmentViewersManagement({ viewers, departments }: Props) {
                               type="button"
                               variant="secondary"
                               size="sm"
-                              className="border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-300 dark:hover:bg-rose-950/30"
+                              className="border-danger/40 text-danger hover:bg-danger/10"
                             >
                               Remove
                             </Button>
@@ -145,11 +147,11 @@ export function DepartmentViewersManagement({ viewers, departments }: Props) {
         )}
 
         {/* Add new viewer */}
-        <div className="border-t border-zinc-200/80 bg-white/70 px-5 py-4 dark:border-zinc-800/80 dark:bg-zinc-950/40">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+        <div className="border-t border-border/80 bg-card/70 px-5 py-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Assign a Department Viewer
           </p>
-          <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mb-2 text-xs text-muted-foreground">
             Select a department and enter the user&apos;s email. The user must have signed in at
             least once.
           </p>
@@ -157,7 +159,7 @@ export function DepartmentViewersManagement({ viewers, departments }: Props) {
             <select
               value={selectedDeptId}
               onChange={(e) => setSelectedDeptId(e.target.value)}
-              className="nxt-input rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none dark:border-zinc-700 dark:bg-zinc-900"
+              className="nxt-input rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
             >
               <option value="">Select department…</option>
               {departments.map((dept) => (
@@ -172,7 +174,7 @@ export function DepartmentViewersManagement({ viewers, departments }: Props) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-              className="nxt-input flex-1 rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none dark:border-zinc-700 dark:bg-zinc-900"
+              className="nxt-input flex-1 rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
             />
             <Button
               disabled={isPending || !selectedDeptId || !email.trim()}
@@ -184,7 +186,7 @@ export function DepartmentViewersManagement({ viewers, departments }: Props) {
               Assign
             </Button>
           </div>
-          {addError ? <p className="mt-1 text-xs text-rose-600">{addError}</p> : null}
+          {addError ? <p className="mt-1 text-xs text-danger">{addError}</p> : null}
         </div>
       </div>
     </div>

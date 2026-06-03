@@ -257,16 +257,16 @@ async function FinanceEditClaimSection({
 
   return (
     <Sheet>
-      <SheetTrigger className="inline-flex h-[34px] items-center rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground transition-all duration-200 hover:bg-background-secondary active:scale-[0.98]">
+      <SheetTrigger className="inline-flex h-8 items-center rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground transition-all hover:bg-background-secondary">
         Edit Claim
       </SheetTrigger>
 
       <SheetContent
         side="right"
         hideDefaultCloseButton
-        className="fixed inset-y-0 right-0 h-full w-full max-w-none sm:max-w-[600px] md:max-w-[700px] flex flex-col p-0 border-l border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
+        className="fixed inset-y-0 right-0 h-full w-full max-w-none sm:max-w-[600px] md:max-w-[700px] flex flex-col p-0 border-l border-border bg-card"
       >
-        <SheetClose className="absolute right-5 top-5 z-30 inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 bg-white/90 text-zinc-700 shadow-sm transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950/90 dark:text-zinc-200 dark:hover:bg-zinc-900">
+        <SheetClose className="absolute right-5 top-5 z-30 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition hover:bg-background-secondary">
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </SheetClose>
@@ -375,7 +375,7 @@ async function ClaimAuditHistorySection({ claimId }: { claimId: string }) {
     <section>
       <ClaimAuditTimeline logs={claimAuditLogs} visualStyle="minimal" />
       {claimAuditLogsResult.errorMessage ? (
-        <p className="mt-2 text-xs text-rose-600 dark:text-rose-300">
+        <p className="mt-2 text-xs text-danger">
           {getUserFriendlyErrorMessage(claimAuditLogsResult.errorMessage, "claim-detail")}
         </p>
       ) : null}
@@ -426,14 +426,14 @@ async function ClaimDetailCore({
 
   if (claimResult.errorMessage) {
     return (
-      <section className="mx-auto max-w-5xl rounded-2xl border border-rose-200 bg-white p-6 shadow-sm transition-colors dark:border-rose-900/40 dark:bg-slate-900">
-        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Claim Detail</h1>
-        <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
+      <section className="mx-auto max-w-5xl rounded-xl border border-danger/30 bg-card p-6">
+        <h1 className="text-xl font-semibold text-foreground">Claim Detail</h1>
+        <p className="mt-3 rounded-lg border border-danger/30 bg-danger-muted px-3 py-2 text-sm text-danger">
           {getUserFriendlyErrorMessage(claimResult.errorMessage, "claim-detail")}
         </p>
         <Link
           href={returnToPath}
-          className="mt-4 inline-flex text-sm font-medium text-[var(--accent)] hover:text-[var(--accent-hover)]"
+          className="mt-4 inline-flex text-sm font-medium text-accent hover:text-accent-hover"
         >
           Back to approvals
         </Link>
@@ -634,7 +634,7 @@ async function ClaimDetailCore({
       <section className="sticky top-0 z-20 -mx-4 flex flex-col gap-2 border-b border-border bg-background px-6 py-2.5 sm:-mx-6 sm:px-6 lg:-mx-8 lg:flex-row lg:items-center lg:justify-between lg:px-8">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <BackButton
-            className="!h-[34px] !rounded-md !border-border !bg-card !px-2.5 !py-0 !text-xs !font-semibold !text-foreground hover:!bg-background-secondary"
+            className="!h-8 !rounded-lg !border-border !bg-card !px-2.5 !py-0 !text-xs !font-semibold !text-foreground hover:!bg-background-secondary"
             fallbackHref={returnToPath}
           />
           <div className="flex min-w-0 items-baseline gap-2">
@@ -780,13 +780,11 @@ async function ClaimDetailCore({
         <section className="relative z-10 flex flex-col gap-3 lg:order-1">
           {DB_REJECTED_STATUSES.some((status) => status === claim.status) &&
           claim.rejectionReason ? (
-            <section className="rounded-xl border border-rose-200 bg-rose-50/55 px-4 py-3 dark:border-rose-900/60 dark:bg-rose-950/20">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-rose-700 dark:text-rose-300">
+            <section className="rounded-xl border border-danger/30 bg-danger-muted px-4 py-3">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-danger">
                 Rejection Reason
               </h2>
-              <p className="mt-1 text-sm text-rose-700 dark:text-rose-200">
-                {claim.rejectionReason}
-              </p>
+              <p className="mt-1 text-sm text-danger">{claim.rejectionReason}</p>
             </section>
           ) : null}
 

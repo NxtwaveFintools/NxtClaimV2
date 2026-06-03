@@ -52,19 +52,19 @@ export function FinanceApproversManagement({ approvers }: Props) {
   }
 
   return (
-    <div className="overflow-hidden rounded-[26px] border border-zinc-200/80 bg-zinc-50/50 dark:border-zinc-800/80 dark:bg-zinc-950/40">
-      <div className="border-b border-zinc-200/80 px-5 py-4 dark:border-zinc-800/80">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-700 dark:text-zinc-300">
+    <div className="overflow-hidden rounded-[26px] border border-border/80 bg-background-secondary/50">
+      <div className="border-b border-border/80 px-5 py-4">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-foreground">
           Finance Approvers
         </h3>
-        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-muted-foreground">
           Configure the active finance reviewers and keep one approver designated as the primary
           processing owner.
         </p>
       </div>
 
       {approvers.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-zinc-500">No finance approvers configured.</p>
+        <p className="px-4 py-6 text-sm text-muted-foreground">No finance approvers configured.</p>
       ) : (
         <div className="divide-y divide-zinc-100/80 dark:divide-zinc-800/80">
           {approvers.map((approver) => (
@@ -73,11 +73,9 @@ export function FinanceApproversManagement({ approvers }: Props) {
               className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
             >
               <div>
-                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                <p className="text-sm font-medium text-foreground">
                   {approver.provisionalEmail ? (
-                    <span className="italic text-zinc-500 dark:text-zinc-400">
-                      {approver.email}
-                    </span>
+                    <span className="italic text-muted-foreground">{approver.email}</span>
                   ) : (
                     (approver.fullName ?? "—")
                   )}
@@ -87,12 +85,12 @@ export function FinanceApproversManagement({ approvers }: Props) {
                     </span>
                   ) : null}
                   {approver.provisionalEmail ? (
-                    <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                    <span className="ml-2 inline-flex items-center rounded-full bg-warning-muted px-2 py-0.5 text-xs font-semibold text-warning">
                       Pending first login
                     </span>
                   ) : null}
                 </p>
-                <p className="text-xs text-zinc-500">{approver.email}</p>
+                <p className="text-xs text-muted-foreground">{approver.email}</p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -118,7 +116,7 @@ export function FinanceApproversManagement({ approvers }: Props) {
                   className={
                     approver.isActive
                       ? undefined
-                      : "border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
+                      : "border-success/40 text-success hover:bg-success/10"
                   }
                 >
                   {approver.isActive ? "Deactivate" : "Activate"}
@@ -129,11 +127,11 @@ export function FinanceApproversManagement({ approvers }: Props) {
         </div>
       )}
 
-      <div className="border-t border-zinc-200/80 bg-white/70 px-5 py-4 dark:border-zinc-800/80 dark:bg-zinc-950/40">
-        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+      <div className="border-t border-border/80 bg-card/70 px-5 py-4">
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Add Finance Approver
         </p>
-        <p className="mb-2 text-xs text-zinc-400 dark:text-zinc-500">
+        <p className="mb-2 text-xs text-muted-foreground">
           Enter their email. If they haven&apos;t logged in yet, they&apos;ll be granted access
           automatically when they do.
         </p>
@@ -146,7 +144,7 @@ export function FinanceApproversManagement({ approvers }: Props) {
               if (e.key === "Enter") handleAdd();
             }}
             placeholder="finance@example.com"
-            className="nxt-input flex-1 rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+            className="nxt-input flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none"
           />
           <Button
             disabled={isPending || !email.trim()}
@@ -158,7 +156,7 @@ export function FinanceApproversManagement({ approvers }: Props) {
             Add
           </Button>
         </div>
-        {addError ? <p className="mt-1 text-xs text-rose-600">{addError}</p> : null}
+        {addError ? <p className="mt-1 text-xs text-danger">{addError}</p> : null}
       </div>
     </div>
   );

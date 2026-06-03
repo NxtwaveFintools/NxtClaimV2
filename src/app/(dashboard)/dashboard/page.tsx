@@ -112,8 +112,7 @@ async function DashboardPageContent({
             color: "var(--muted-foreground)",
           }}
         >
-          Manage submissions, approvals, and payment progress from a single finance workspace with a
-          cleaner, more focused review surface.
+          Manage submissions, approvals, and payment progress from a single finance workspace.
         </p>
 
         <div className="mt-2 flex items-center gap-1.5">
@@ -137,13 +136,7 @@ async function DashboardPageContent({
 
           <RouterLink
             href={ROUTES.claims.myClaims}
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border px-4 font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
-            style={{
-              backgroundColor: "transparent",
-              borderColor: "var(--border)",
-              color: "var(--muted-foreground)",
-              fontSize: 14,
-            }}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-background-secondary"
           >
             <FileText className="h-3.5 w-3.5" aria-hidden="true" />
             Claims
@@ -152,13 +145,7 @@ async function DashboardPageContent({
           {isAdminUser ? (
             <Link
               href={ROUTES.admin.settings}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border px-4 font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              style={{
-                backgroundColor: "transparent",
-                borderColor: "var(--border)",
-                color: "var(--muted-foreground)",
-                fontSize: 14,
-              }}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-background-secondary"
             >
               <Settings className="h-3.5 w-3.5" aria-hidden="true" />
               System Settings
@@ -168,15 +155,7 @@ async function DashboardPageContent({
       </section>
 
       {walletResult.errorMessage ? (
-        <p
-          className="mb-4 rounded-md border px-4 py-3"
-          style={{
-            borderColor: "#fecaca",
-            backgroundColor: "#fef2f2",
-            color: "#b91c1c",
-            fontSize: 15,
-          }}
-        >
+        <p className="mb-4 rounded-lg border border-danger/30 bg-danger-muted px-4 py-3 text-sm text-danger">
           {getUserFriendlyErrorMessage(walletResult.errorMessage, "analytics")}
         </p>
       ) : null}
@@ -207,14 +186,16 @@ export default async function DashboardPage() {
   const currentDateLabel = formatDate(currentDate);
 
   return (
-    <Suspense fallback={<DashboardSkeleton />}>
-      <DashboardPageContent
-        userId={userId}
-        userEmail={userEmail}
-        isAdminUser={isAdminUser}
-        greeting={greeting}
-        currentDateLabel={currentDateLabel}
-      />
-    </Suspense>
+    <div className="mx-auto w-full max-w-[1600px]">
+      <Suspense fallback={<DashboardSkeleton />}>
+        <DashboardPageContent
+          userId={userId}
+          userEmail={userEmail}
+          isAdminUser={isAdminUser}
+          greeting={greeting}
+          currentDateLabel={currentDateLabel}
+        />
+      </Suspense>
+    </div>
   );
 }

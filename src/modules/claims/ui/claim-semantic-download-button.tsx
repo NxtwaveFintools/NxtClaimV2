@@ -42,7 +42,7 @@ export function ClaimSemanticDownloadButton({
   };
 
   const baseClassName =
-    "inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-2.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
+    "inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-background-secondary disabled:cursor-not-allowed disabled:opacity-60";
 
   if (compact) {
     return (
@@ -56,7 +56,7 @@ export function ClaimSemanticDownloadButton({
         aria-label={`${label} download`}
         className={
           className ??
-          "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-300 bg-white text-zinc-700 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-foreground transition-colors hover:bg-background-secondary disabled:cursor-not-allowed disabled:opacity-60"
         }
       >
         <Download className="h-3.5 w-3.5" aria-hidden="true" />

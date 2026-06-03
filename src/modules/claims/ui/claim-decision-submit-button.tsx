@@ -24,17 +24,14 @@ export function ClaimDecisionSubmitButton({
       : "inline-flex h-[34px] items-center justify-center rounded-lg border px-3 text-xs font-semibold"
     : "inline-flex items-center justify-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-semibold";
 
-  let toneClasses =
-    "border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-700/60 dark:bg-rose-950/20 dark:text-rose-300 dark:hover:bg-rose-950/40";
+  let toneClasses = "border-danger/40 bg-danger-muted text-danger hover:bg-danger/10";
 
   if (isApprove) {
-    toneClasses =
-      "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700/60 dark:bg-emerald-950/20 dark:text-emerald-300 dark:hover:bg-emerald-950/40";
+    toneClasses = "border-success/40 bg-success-muted text-success hover:bg-success/10";
   }
 
   if (isMarkPaid) {
-    toneClasses =
-      "border-green-300 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-700/60 dark:bg-green-950/20 dark:text-green-300 dark:hover:bg-green-950/40";
+    toneClasses = "border-info/40 bg-info-muted text-info hover:bg-info/10";
   }
 
   let label = isPending

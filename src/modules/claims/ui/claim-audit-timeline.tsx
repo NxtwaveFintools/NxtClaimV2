@@ -53,50 +53,50 @@ function actionAccentClasses(actionType: ClaimAuditLogRecord["actionType"]): {
 } {
   if (actionType === "SUBMITTED") {
     return {
-      labelClassName: "text-amber-800 dark:text-amber-200",
-      dotClassName: "bg-amber-600 dark:bg-amber-400",
+      labelClassName: "text-warning",
+      dotClassName: "bg-warning",
     };
   }
 
   if (actionType === "L1_REJECTED" || actionType === "L2_REJECTED") {
     return {
-      labelClassName: "text-rose-700 dark:text-rose-300",
-      dotClassName: "bg-rose-600 dark:bg-rose-400",
+      labelClassName: "text-danger",
+      dotClassName: "bg-danger",
     };
   }
 
   if (actionType === "L2_MARK_PAID") {
     return {
-      labelClassName: "text-emerald-700 dark:text-emerald-300",
-      dotClassName: "bg-emerald-600 dark:bg-emerald-400",
+      labelClassName: "text-success",
+      dotClassName: "bg-success",
     };
   }
 
   if (actionType === "ADMIN_SOFT_DELETED") {
     return {
-      labelClassName: "text-rose-700 dark:text-rose-300",
-      dotClassName: "bg-rose-600 dark:bg-rose-400",
+      labelClassName: "text-danger",
+      dotClassName: "bg-danger",
     };
   }
 
   if (actionType === "ADMIN_PAYMENT_MODE_OVERRIDDEN") {
     return {
-      labelClassName: "text-amber-800 dark:text-amber-200",
-      dotClassName: "bg-amber-600 dark:bg-amber-400",
+      labelClassName: "text-warning",
+      dotClassName: "bg-warning",
     };
   }
 
   if (actionType === "FINANCE_EDITED") {
     return {
-      labelClassName: "text-amber-800 dark:text-amber-200",
-      dotClassName: "bg-amber-600 dark:bg-amber-400",
+      labelClassName: "text-warning",
+      dotClassName: "bg-warning",
     };
   }
 
   if (actionType === "UPDATED") {
     return {
-      labelClassName: "text-teal-800 dark:text-teal-200",
-      dotClassName: "bg-teal-600 dark:bg-teal-400",
+      labelClassName: "text-info",
+      dotClassName: "bg-info",
     };
   }
 
@@ -140,7 +140,7 @@ export function ClaimAuditTimeline({
   const isMinimalVisual = visualStyle === "minimal";
   const containerClassName = isMinimalVisual
     ? "rounded-xl border border-border bg-card p-4"
-    : "rounded-2xl border border-border bg-card p-5";
+    : "rounded-xl border border-border bg-card p-4";
   const itemClassName = isMinimalVisual
     ? "relative border-b border-border py-2.5 pl-4 last:border-b-0"
     : "relative overflow-hidden rounded-xl border border-border bg-background-secondary/60 p-3.5 pl-4";

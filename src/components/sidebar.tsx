@@ -173,7 +173,7 @@ function SidebarComponent({
         <button
           type="button"
           onClick={onToggle}
-          className="absolute flex items-center justify-center rounded-full border shadow-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+          className="absolute flex items-center justify-center rounded-full border border-border bg-card shadow-none transition-colors hover:bg-background-secondary"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           style={{
             width: 24,
@@ -184,7 +184,7 @@ function SidebarComponent({
             zIndex: 10,
             backgroundColor: "var(--card)",
             borderColor: "var(--border)",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
           }}
         >
           <ChevronLeft
@@ -379,11 +379,11 @@ function SidebarComponent({
                   type="button"
                   onClick={handleSignOut}
                   disabled={isSigningOut}
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-red-50 dark:hover:bg-red-950/30"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-danger-muted"
                   aria-label="Sign Out"
                   style={{ color: "var(--muted-foreground)" }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.color = "#dc2626";
+                    e.currentTarget.style.color = "var(--danger)";
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.color = "var(--muted-foreground)";

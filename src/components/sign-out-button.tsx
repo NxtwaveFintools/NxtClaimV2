@@ -20,7 +20,7 @@ export function SignOutButton() {
         });
       }}
       disabled={isPending}
-      className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
+      className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors hover:bg-background-secondary ${
         isPending ? "opacity-50 cursor-not-allowed" : ""
       }`}
       style={{

@@ -205,18 +205,18 @@ export async function ClaimsApprovalsSection({
         </div>
         {approvalsResult.errorMessage ? (
           <div className="px-4 py-6">
-            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
+            <p className="rounded-lg border border-danger/30 bg-danger-muted px-3 py-2 text-sm text-danger">
               {getUserFriendlyErrorMessage(approvalsResult.errorMessage, "claim-list")}
             </p>
           </div>
         ) : rows.length === 0 ? (
           <div className="grid place-items-center px-4 py-14 text-center">
-            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <p className="text-sm font-medium text-foreground">
               {dataMode === "finance_hod_pending"
                 ? "No HOD pending claims found"
                 : "No approvals history found."}
             </p>
-            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               {dataMode === "finance_hod_pending"
                 ? "Claims awaiting L1 approval will appear here."
                 : "Claims routed to your approval scope will appear here."}
@@ -278,10 +278,8 @@ export async function ClaimsApprovalsSection({
           </>
         ) : (
           <div className="grid place-items-center px-4 py-14 text-center">
-            <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              No approvals history found.
-            </p>
-            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
+            <p className="text-sm font-medium text-foreground">No approvals history found.</p>
+            <p className="mt-1 text-xs text-muted-foreground">
               Claims routed to your approval scope will appear here.
             </p>
           </div>

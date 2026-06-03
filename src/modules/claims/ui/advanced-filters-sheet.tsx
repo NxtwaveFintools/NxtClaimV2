@@ -156,7 +156,7 @@ export function AdvancedFiltersSheet() {
         setIsOpen(nextOpen);
       }}
     >
-      <SheetTrigger className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-sky-300 bg-sky-50 px-3 text-xs font-semibold text-sky-800 transition hover:bg-sky-100 dark:border-sky-700/70 dark:bg-sky-900/20 dark:text-sky-200 dark:hover:bg-sky-900/40">
+      <SheetTrigger className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-info/40 bg-info-muted px-3 text-xs font-semibold text-info transition hover:bg-info/10">
         <svg
           viewBox="0 0 24 24"
           aria-hidden="true"
@@ -171,7 +171,7 @@ export function AdvancedFiltersSheet() {
         </svg>
         Advanced Filters
         {activeCount > 0 ? (
-          <span className="rounded-full bg-sky-700 px-1.5 py-0.5 text-[10px] font-semibold text-white dark:bg-sky-500">
+          <span className="rounded-full bg-info px-1.5 py-0.5 text-[10px] font-semibold text-white">
             {activeCount}
           </span>
         ) : null}
@@ -187,12 +187,12 @@ export function AdvancedFiltersSheet() {
         </SheetHeader>
 
         <div className="nxt-scroll max-h-[calc(100vh-170px)] space-y-5 overflow-y-auto pr-1">
-          <section className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">
+          <section className="rounded-xl border border-border p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground">
               Submitted Date
             </h3>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">
                 From
                 <input
                   type="date"
@@ -200,10 +200,10 @@ export function AdvancedFiltersSheet() {
                   onChange={(event) => {
                     setSubmittedFrom(event.target.value);
                   }}
-                  className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="nxt-input h-8 rounded-lg border border-border bg-card px-2.5 text-xs text-foreground"
                 />
               </label>
-              <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">
                 To
                 <input
                   type="date"
@@ -211,18 +211,18 @@ export function AdvancedFiltersSheet() {
                   onChange={(event) => {
                     setSubmittedTo(event.target.value);
                   }}
-                  className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="nxt-input h-8 rounded-lg border border-border bg-card px-2.5 text-xs text-foreground"
                 />
               </label>
             </div>
           </section>
 
-          <section className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">
+          <section className="rounded-xl border border-border p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground">
               HOD Action Date
             </h3>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">
                 From
                 <input
                   type="date"
@@ -230,10 +230,10 @@ export function AdvancedFiltersSheet() {
                   onChange={(event) => {
                     setHodFrom(event.target.value);
                   }}
-                  className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="nxt-input h-8 rounded-lg border border-border bg-card px-2.5 text-xs text-foreground"
                 />
               </label>
-              <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">
                 To
                 <input
                   type="date"
@@ -241,18 +241,18 @@ export function AdvancedFiltersSheet() {
                   onChange={(event) => {
                     setHodTo(event.target.value);
                   }}
-                  className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="nxt-input h-8 rounded-lg border border-border bg-card px-2.5 text-xs text-foreground"
                 />
               </label>
             </div>
           </section>
 
-          <section className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">
+          <section className="rounded-xl border border-border p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground">
               Finance Action Date
             </h3>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">
                 From
                 <input
                   type="date"
@@ -260,10 +260,10 @@ export function AdvancedFiltersSheet() {
                   onChange={(event) => {
                     setFinanceFrom(event.target.value);
                   }}
-                  className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="nxt-input h-8 rounded-lg border border-border bg-card px-2.5 text-xs text-foreground"
                 />
               </label>
-              <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">
                 To
                 <input
                   type="date"
@@ -271,18 +271,18 @@ export function AdvancedFiltersSheet() {
                   onChange={(event) => {
                     setFinanceTo(event.target.value);
                   }}
-                  className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="nxt-input h-8 rounded-lg border border-border bg-card px-2.5 text-xs text-foreground"
                 />
               </label>
             </div>
           </section>
 
-          <section className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">
+          <section className="rounded-xl border border-border p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground">
               Amount Range
             </h3>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">
                 Min Amount
                 <input
                   type="number"
@@ -293,10 +293,10 @@ export function AdvancedFiltersSheet() {
                   onChange={(event) => {
                     setMinAmount(event.target.value);
                   }}
-                  className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="nxt-input h-8 rounded-lg border border-border bg-card px-2.5 text-xs text-foreground"
                 />
               </label>
-              <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">
                 Max Amount
                 <input
                   type="number"
@@ -307,7 +307,7 @@ export function AdvancedFiltersSheet() {
                   onChange={(event) => {
                     setMaxAmount(event.target.value);
                   }}
-                  className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                  className="nxt-input h-8 rounded-lg border border-border bg-card px-2.5 text-xs text-foreground"
                 />
               </label>
             </div>

@@ -84,12 +84,12 @@ export function AdminPaymentModeOverride({ paymentModes }: AdminPaymentModeOverr
   }
 
   return (
-    <section className="space-y-4 rounded-[26px] border border-zinc-200/80 bg-zinc-50/60 p-5 dark:border-zinc-800/80 dark:bg-zinc-950/40">
+    <section className="space-y-4 rounded-[26px] border border-border/80 bg-background-secondary/60 p-5">
       <header>
-        <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-700 dark:text-zinc-300">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-foreground">
           Admin Payment Mode Override
         </h3>
-        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-muted-foreground">
           Production hotfix control for claims in Finance Approved - Payment under process. Closed
           claims are blocked and every override is audited.
         </p>
@@ -107,7 +107,7 @@ export function AdminPaymentModeOverride({ paymentModes }: AdminPaymentModeOverr
 
       <div className="grid gap-3 md:grid-cols-2">
         <label className="grid gap-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
+          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
             Claim ID
           </span>
           <input
@@ -116,19 +116,19 @@ export function AdminPaymentModeOverride({ paymentModes }: AdminPaymentModeOverr
             onChange={(event) => setClaimId(event.target.value)}
             placeholder="CLAIM-EMP123-20260408-0001"
             disabled={isPending}
-            className="nxt-input rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+            className="nxt-input rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none disabled:cursor-not-allowed disabled:opacity-60"
           />
         </label>
 
         <label className="grid gap-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
+          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
             New Payment Mode
           </span>
           <select
             value={effectiveSelectedPaymentModeId}
             onChange={(event) => setSelectedPaymentModeId(event.target.value)}
             disabled={isPending || !hasPaymentModes}
-            className="nxt-input rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+            className="nxt-input rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none disabled:cursor-not-allowed disabled:opacity-60"
           >
             {paymentModes.map((paymentMode) => (
               <option key={paymentMode.id} value={paymentMode.id}>
@@ -140,7 +140,7 @@ export function AdminPaymentModeOverride({ paymentModes }: AdminPaymentModeOverr
       </div>
 
       <label className="grid gap-2">
-        <span className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
+        <span className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
           Reason for Edit
         </span>
         <textarea
@@ -151,7 +151,7 @@ export function AdminPaymentModeOverride({ paymentModes }: AdminPaymentModeOverr
           required
           minLength={5}
           disabled={isPending}
-          className="nxt-input rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+          className="nxt-input rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none disabled:cursor-not-allowed disabled:opacity-60"
         />
       </label>
 
@@ -167,7 +167,7 @@ export function AdminPaymentModeOverride({ paymentModes }: AdminPaymentModeOverr
         </Button>
       </div>
 
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+      <p className="text-xs text-muted-foreground">
         Allowed targets are restricted to Reimbursement and Petty Cash.
       </p>
     </section>

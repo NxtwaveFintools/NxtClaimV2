@@ -17,7 +17,7 @@ export function DepartmentsManagement({ departments }: Props) {
       <AddDepartmentForm />
 
       {departments.length === 0 ? (
-        <p className="rounded-xl border border-zinc-200 bg-white px-4 py-6 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900">
+        <p className="rounded-xl border border-border bg-card px-4 py-6 text-sm text-muted-foreground">
           No departments found.
         </p>
       ) : (
@@ -64,14 +64,12 @@ function DepartmentActorRow({ department }: { department: DepartmentWithActors }
     !department.approver2Id && Boolean(department.approver2ProvisionalEmail);
 
   return (
-    <div className="rounded-[26px] border border-zinc-200/80 bg-zinc-50/60 p-5 dark:border-zinc-800/80 dark:bg-zinc-950/40">
+    <div className="rounded-[26px] border border-border/80 bg-background-secondary/60 p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <span className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-            {department.name}
-          </span>
+          <span className="text-base font-semibold text-foreground">{department.name}</span>
           {!department.isActive ? (
-            <span className="ml-2 inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+            <span className="ml-2 inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
               Inactive
             </span>
           ) : null}
@@ -80,10 +78,10 @@ function DepartmentActorRow({ department }: { department: DepartmentWithActors }
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+          <label className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Approver 1
             {approver1IsPending ? (
-              <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+              <span className="inline-flex items-center rounded-full bg-warning-muted px-2 py-0.5 text-xs font-semibold text-warning">
                 Pending first login
               </span>
             ) : null}
@@ -96,15 +94,15 @@ function DepartmentActorRow({ department }: { department: DepartmentWithActors }
               setSaved(false);
             }}
             placeholder="approver1@company.com"
-            className="nxt-input w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+            className="nxt-input w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none"
           />
         </div>
 
         <div>
-          <label className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+          <label className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Approver 2
             {approver2IsPending ? (
-              <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+              <span className="inline-flex items-center rounded-full bg-warning-muted px-2 py-0.5 text-xs font-semibold text-warning">
                 Pending first login
               </span>
             ) : null}
@@ -117,7 +115,7 @@ function DepartmentActorRow({ department }: { department: DepartmentWithActors }
               setSaved(false);
             }}
             placeholder="approver2@company.com"
-            className="nxt-input w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+            className="nxt-input w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none"
           />
         </div>
       </div>
@@ -132,12 +130,8 @@ function DepartmentActorRow({ department }: { department: DepartmentWithActors }
         >
           {isPending ? "Saving…" : "Save Approvers"}
         </Button>
-        {saved ? (
-          <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-            Saved ✓
-          </span>
-        ) : null}
-        {error ? <p className="text-xs text-rose-600">{error}</p> : null}
+        {saved ? <span className="text-xs font-semibold text-success">Saved ✓</span> : null}
+        {error ? <p className="text-xs text-danger">{error}</p> : null}
       </div>
     </div>
   );

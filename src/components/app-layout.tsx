@@ -83,8 +83,7 @@ export function AppLayout({
       {/* Mobile overlay backdrop */}
       {isMobile && !collapsed && (
         <div
-          className="fixed inset-0 z-20"
-          style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+          className="fixed inset-0 z-20 bg-black/40 dark:bg-black/60"
           onClick={() => setCollapsed(true)}
           aria-hidden="true"
         />

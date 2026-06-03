@@ -114,7 +114,7 @@ export function PolicyGate({ initialState, children }: PolicyGateProps) {
       {children}
 
       {showOverlay ? (
-        <div className="fixed inset-0 z-[180] flex items-center justify-center bg-zinc-950/65">
+        <div className="fixed inset-0 z-[180] flex items-center justify-center bg-black/65">
           <div className="mx-4 flex h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-lg sm:h-[90vh]">
             <header className="flex items-center gap-3 border-b border-border bg-background-secondary px-5 py-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-accent">
@@ -151,18 +151,16 @@ export function PolicyGate({ initialState, children }: PolicyGateProps) {
                     </p>
                   ) : null}
                 </article>
-              ) : (
-                <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
+              ) : message ? (
+                <p className="rounded-xl border border-warning/30 bg-warning-muted px-4 py-3 text-sm text-warning">
                   {message ??
                     "Company policy is currently unavailable. Please contact your administrator."}
                 </p>
-              )}
-
-              {message ? (
-                <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-800/60 dark:bg-rose-950/30 dark:text-rose-200">
+              ) : (
+                <p className="rounded-xl border border-danger/30 bg-danger-muted px-4 py-3 text-sm text-danger">
                   {message}
                 </p>
-              ) : null}
+              )}
             </div>
 
             <footer className="border-t border-border bg-background-secondary px-5 py-4">

@@ -97,7 +97,7 @@ async function DepartmentClaimsTableSection({
           <p className="text-xs text-muted-foreground">Showing 0 claims</p>
         </div>
         <div className="px-4 py-6">
-          <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
+          <p className="rounded-lg border border-danger/30 bg-danger-muted px-3 py-2 text-sm text-danger">
             {getUserFriendlyErrorMessage(result.errorMessage, "claim-list")}
           </p>
         </div>
@@ -178,7 +178,7 @@ export function DepartmentClaimsSection({
       </Suspense>
       <div className="overflow-hidden rounded-xl border border-border bg-card transition-colors">
         <div className="hidden">
-          <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             Department Overview — Assigned Claims
           </h2>
         </div>

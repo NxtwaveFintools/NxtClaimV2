@@ -2,27 +2,27 @@ import { render, screen } from "@testing-library/react";
 import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
 
 describe("ClaimStatusBadge", () => {
-  test("renders Submitted - Awaiting HOD approval with blue styling", () => {
+  test("renders Submitted - Awaiting HOD approval with info styling", () => {
     render(<ClaimStatusBadge status="Submitted - Awaiting HOD approval" />);
 
     const badge = screen.getByText("Awaiting HOD");
 
-    expect(badge).toHaveClass("border-sky-300");
-    expect(badge).toHaveClass("bg-sky-50/80");
-    expect(badge).toHaveClass("text-sky-800");
-    expect(badge).not.toHaveClass("border-amber-300");
+    expect(badge).toHaveClass("border-info/40");
+    expect(badge).toHaveClass("bg-info-muted");
+    expect(badge).toHaveClass("text-info");
+    expect(badge).not.toHaveClass("border-warning/40");
     expect(badge).toHaveAttribute("title", "Submitted - Awaiting HOD approval");
   });
 
-  test("keeps HOD approved status with amber styling", () => {
+  test("keeps HOD approved status with warning styling", () => {
     render(<ClaimStatusBadge status="HOD approved - Awaiting finance approval" />);
 
     const badge = screen.getByText("Awaiting Finance");
 
-    expect(badge).toHaveClass("border-amber-300");
-    expect(badge).toHaveClass("bg-amber-50/80");
-    expect(badge).toHaveClass("text-amber-800");
-    expect(badge).not.toHaveClass("border-sky-300");
+    expect(badge).toHaveClass("border-warning/40");
+    expect(badge).toHaveClass("bg-warning-muted");
+    expect(badge).toHaveClass("text-warning");
+    expect(badge).not.toHaveClass("border-info/40");
   });
 
   test("renders full finance processing status when fullStatus is enabled", () => {

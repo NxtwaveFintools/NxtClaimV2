@@ -61,12 +61,12 @@ export function MasterDataTable({ tableName, displayName, items }: Props) {
   }
 
   return (
-    <div className="overflow-hidden rounded-[26px] border border-zinc-200/80 bg-zinc-50/50 dark:border-zinc-800/80 dark:bg-zinc-950/40">
-      <div className="border-b border-zinc-200/80 px-5 py-4 dark:border-zinc-800/80">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-700 dark:text-zinc-300">
+    <div className="overflow-hidden rounded-[26px] border border-border/80 bg-background-secondary/50">
+      <div className="border-b border-border/80 px-5 py-4">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-foreground">
           {displayName}
         </h3>
-        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-muted-foreground">
           Active items stay visible in claim forms. Retired items remain intact for historical
           records and reporting.
         </p>
@@ -74,7 +74,7 @@ export function MasterDataTable({ tableName, displayName, items }: Props) {
 
       <div className="divide-y divide-zinc-100/80 dark:divide-zinc-800/80">
         {items.length === 0 ? (
-          <p className="px-5 py-10 text-sm text-zinc-500 dark:text-zinc-400">No items yet.</p>
+          <p className="px-5 py-10 text-sm text-muted-foreground">No items yet.</p>
         ) : (
           items.map((item) => (
             <div
@@ -94,9 +94,7 @@ export function MasterDataTable({ tableName, displayName, items }: Props) {
                 <div className="flex min-w-0 flex-1 items-center gap-3">
                   <span
                     className={`min-w-0 truncate text-sm font-medium ${
-                      item.isActive
-                        ? "text-zinc-800 dark:text-zinc-200"
-                        : "text-zinc-400 line-through dark:text-zinc-500"
+                      item.isActive ? "text-foreground" : "text-muted-foreground line-through"
                     }`}
                   >
                     {item.name}
@@ -104,8 +102,8 @@ export function MasterDataTable({ tableName, displayName, items }: Props) {
                   <span
                     className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                       item.isActive
-                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-                        : "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                        ? "bg-success-muted text-success"
+                        : "bg-background-secondary text-muted-foreground"
                     }`}
                   >
                     {item.isActive ? "Active" : "Inactive"}
@@ -156,9 +154,7 @@ export function MasterDataTable({ tableName, displayName, items }: Props) {
                   size="sm"
                   variant="secondary"
                   className={
-                    item.isActive
-                      ? undefined
-                      : "border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
+                    item.isActive ? undefined : "border-success/40 text-success hover:bg-success/10"
                   }
                 >
                   {item.isActive ? "Deactivate" : "Activate"}
@@ -169,7 +165,7 @@ export function MasterDataTable({ tableName, displayName, items }: Props) {
         )}
       </div>
 
-      <div className="border-t border-zinc-200/80 bg-white/70 px-5 py-4 dark:border-zinc-800/80 dark:bg-zinc-950/40">
+      <div className="border-t border-border/80 bg-card/70 px-5 py-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <input
             type="text"
@@ -177,7 +173,7 @@ export function MasterDataTable({ tableName, displayName, items }: Props) {
             value={addName}
             onChange={(e) => setAddName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-            className="nxt-input flex-1 rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none dark:border-zinc-700 dark:bg-zinc-900"
+            className="nxt-input flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none"
           />
           <Button
             disabled={isPending}
@@ -189,7 +185,7 @@ export function MasterDataTable({ tableName, displayName, items }: Props) {
             Add
           </Button>
         </div>
-        {addError ? <p className="mt-1 text-xs text-rose-600">{addError}</p> : null}
+        {addError ? <p className="mt-1 text-xs text-danger">{addError}</p> : null}
       </div>
     </div>
   );

@@ -41,13 +41,11 @@ export function EmailLoginForm({ loading, onSubmit }: EmailLoginFormProps) {
           className={cn(
             "h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground",
             "focus:border-accent focus:ring-2 focus:ring-accent/20",
-            errors.email && "border-rose-400 focus:border-rose-500 focus:ring-rose-500/20",
+            errors.email && "border-danger/50 focus:border-danger focus:ring-danger/20",
           )}
           {...register("email")}
         />
-        {errors.email ? (
-          <p className="text-xs text-rose-600 dark:text-rose-400">{errors.email.message}</p>
-        ) : null}
+        {errors.email ? <p className="text-xs text-danger">{errors.email.message}</p> : null}
       </div>
 
       <div className="grid gap-1.5">
@@ -63,7 +61,7 @@ export function EmailLoginForm({ loading, onSubmit }: EmailLoginFormProps) {
             className={cn(
               "h-10 w-full rounded-lg border border-border bg-card px-3 pr-9 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground",
               "focus:border-accent focus:ring-2 focus:ring-accent/20",
-              errors.password && "border-rose-400 focus:border-rose-500 focus:ring-rose-500/20",
+              errors.password && "border-danger/50 focus:border-danger focus:ring-danger/20",
             )}
             {...register("password")}
           />
@@ -77,9 +75,7 @@ export function EmailLoginForm({ loading, onSubmit }: EmailLoginFormProps) {
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
-        {errors.password ? (
-          <p className="text-xs text-rose-600 dark:text-rose-400">{errors.password.message}</p>
-        ) : null}
+        {errors.password ? <p className="text-xs text-danger">{errors.password.message}</p> : null}
       </div>
 
       <button

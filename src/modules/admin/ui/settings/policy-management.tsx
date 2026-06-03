@@ -72,18 +72,18 @@ export function PolicyManagement({ initialState }: PolicyManagementProps) {
   };
 
   return (
-    <section className="space-y-4 rounded-[26px] border border-zinc-200/80 bg-zinc-50/60 p-5 dark:border-zinc-800/80 dark:bg-zinc-950/40">
+    <section className="space-y-4 rounded-[26px] border border-border/80 bg-background-secondary/60 p-5">
       <header>
-        <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-700 dark:text-zinc-300">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-foreground">
           Update Company Policy
         </h3>
-        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-muted-foreground">
           Publishing a new policy will force all users to re-accept it upon their next login.
         </p>
       </header>
 
       <>
-        <div className="rounded-xl border border-zinc-200 bg-white/90 px-4 py-3 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/80 dark:text-zinc-300">
+        <div className="rounded-xl border border-border bg-card/90 px-4 py-3 text-sm text-muted-foreground">
           <p>
             Active Version: <span className="font-semibold">{activeVersionName ?? "None"}</span>
           </p>
@@ -93,7 +93,7 @@ export function PolicyManagement({ initialState }: PolicyManagementProps) {
         </div>
 
         {activeFileUrl ? (
-          <div className="relative overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900/70">
+          <div className="relative overflow-hidden rounded-xl border border-border bg-background-secondary">
             <iframe
               src={activeFileUrl}
               title={`Active policy ${activeVersionName ?? "version"}`}
@@ -110,7 +110,7 @@ export function PolicyManagement({ initialState }: PolicyManagementProps) {
         <div className="grid gap-2">
           <label
             htmlFor="policy-version-name"
-            className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400"
+            className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
           >
             New Policy Version Name
           </label>
@@ -120,14 +120,14 @@ export function PolicyManagement({ initialState }: PolicyManagementProps) {
             value={versionName}
             onChange={(event) => setVersionName(event.target.value)}
             placeholder="Example: FIN-POL-002 v1.2"
-            className="nxt-input rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+            className="nxt-input rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none"
           />
         </div>
 
         <div className="grid gap-2">
           <label
             htmlFor="policy-file"
-            className="text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400"
+            className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground"
           >
             Policy PDF File
           </label>
@@ -142,9 +142,7 @@ export function PolicyManagement({ initialState }: PolicyManagementProps) {
             }}
             className="nxt-input rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-accent-hover"
           />
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Upload a PDF file only. Max size 25MB.
-          </p>
+          <p className="text-xs text-muted-foreground">Upload a PDF file only. Max size 25MB.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -158,11 +156,7 @@ export function PolicyManagement({ initialState }: PolicyManagementProps) {
             {isPending ? "Publishing..." : "Publish New Policy"}
           </Button>
 
-          {message ? (
-            <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
-              {message}
-            </span>
-          ) : null}
+          {message ? <span className="text-sm font-medium text-success">{message}</span> : null}
         </div>
 
         {errorMessage ? <Alert tone="error" description={errorMessage} /> : null}

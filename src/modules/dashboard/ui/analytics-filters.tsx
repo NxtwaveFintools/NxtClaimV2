@@ -31,11 +31,11 @@ const QUICK_PRESET_OPTIONS: Array<{ value: QuickPresetValue; label: string; mont
 ];
 
 const ANALYTICS_FIELD_CLASS_NAME =
-  "h-[38px] rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-hidden ring-0 transition focus:border-accent focus:shadow-[0_0_0_3px_rgba(37,99,235,0.16)]";
+  "h-[38px] rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none ring-0 transition focus:border-accent focus:ring-[3px] focus:ring-accent/20";
 
 const ANALYTICS_COLOR_SCHEME_CLASS_NAME = "[color-scheme:light] dark:[color-scheme:dark]";
 
-const ANALYTICS_NATIVE_SELECT_CLASS_NAME = `${ANALYTICS_COLOR_SCHEME_CLASS_NAME} dark:[&_option]:bg-zinc-950 dark:[&_option]:text-zinc-100`;
+const ANALYTICS_NATIVE_SELECT_CLASS_NAME = `${ANALYTICS_COLOR_SCHEME_CLASS_NAME} dark:[&_option]:bg-card dark:[&_option]:text-foreground`;
 
 function formatDateForInput(date: Date): string {
   const year = date.getUTCFullYear();
@@ -384,7 +384,7 @@ export function AnalyticsFilters({
           type="button"
           onClick={resetFilters}
           disabled={isPending}
-          className="h-[36px] rounded-lg border border-border bg-card px-4 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground transition hover:bg-background-secondary disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground transition hover:bg-background-secondary disabled:cursor-not-allowed disabled:opacity-60"
         >
           Reset
         </button>
@@ -392,7 +392,7 @@ export function AnalyticsFilters({
           type="button"
           onClick={applyFilters}
           disabled={isPending}
-          className="h-[36px] rounded-lg bg-accent px-5 text-xs font-semibold uppercase tracking-[0.1em] text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-9 items-center justify-center rounded-lg bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? "Applying..." : "Apply Filters"}
         </button>

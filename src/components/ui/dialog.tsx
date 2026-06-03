@@ -17,7 +17,7 @@ const DialogOverlay = React.forwardRef<
   return (
     <DialogPrimitive.Overlay
       ref={ref}
-      className={cn("fixed inset-0 z-[210] bg-zinc-950/55", className)}
+      className={cn("fixed inset-0 z-[210] bg-black/40 dark:bg-black/60", className)}
       {...props}
     />
   );
@@ -40,7 +40,7 @@ const DialogContent = React.forwardRef<
       >
         {children}
         <DialogPrimitive.Close
-          className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 text-zinc-600 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+          className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-background-secondary"
           aria-label="Close dialog"
         >
           <X className="h-4 w-4" aria-hidden="true" />
@@ -65,7 +65,7 @@ const DialogTitle = React.forwardRef<
   return (
     <DialogPrimitive.Title
       ref={ref}
-      className={cn("text-base font-semibold text-zinc-900 dark:text-zinc-100", className)}
+      className={cn("text-base font-semibold text-foreground", className)}
       {...props}
     />
   );
@@ -78,7 +78,7 @@ const DialogDescription = React.forwardRef<
   return (
     <DialogPrimitive.Description
       ref={ref}
-      className={cn("text-sm text-zinc-500 dark:text-zinc-400", className)}
+      className={cn("text-sm text-muted-foreground", className)}
       {...props}
     />
   );

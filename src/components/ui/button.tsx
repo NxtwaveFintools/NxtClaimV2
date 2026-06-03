@@ -5,18 +5,16 @@ const VARIANT_CLASSES = {
   primary: "bg-accent text-white shadow-none hover:bg-accent-hover",
   secondary:
     "border border-border bg-card text-foreground shadow-none hover:bg-background-secondary",
-  danger:
-    "border border-rose-200 bg-rose-50 text-rose-700 shadow-none hover:bg-rose-100 dark:border-rose-800/60 dark:bg-rose-950/30 dark:text-rose-200 dark:hover:bg-rose-950/50",
-  success:
-    "border border-emerald-200 bg-emerald-600 text-white shadow-none hover:bg-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-700 dark:hover:bg-emerald-600",
+  danger: "border border-danger/30 bg-danger-muted text-danger shadow-none hover:bg-danger/10",
+  success: "border border-success/30 bg-success text-white shadow-none hover:bg-success/90",
   ghost: "text-foreground hover:bg-background-secondary",
 } as const;
 
 const SIZE_CLASSES = {
-  xs: "h-7 px-2.5 text-xs",
-  sm: "h-8 px-3 text-xs",
-  md: "h-9 px-4 text-sm",
-  lg: "h-11 px-5 text-sm",
+  xs: "h-7 px-2.5 text-xs rounded-md",
+  sm: "h-8 px-3 text-xs rounded-lg",
+  md: "h-9 px-4 text-sm rounded-lg",
+  lg: "h-11 px-5 text-sm rounded-lg",
 } as const;
 
 export type ButtonVariant = keyof typeof VARIANT_CLASSES;

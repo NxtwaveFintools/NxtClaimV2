@@ -22,8 +22,8 @@ function formatClaimCount(count: number): string {
 }
 
 function getBalanceColor(balance: number): string {
-  if (balance < 0) return "#dc2626";
-  if (balance > 0) return "#16a34a";
+  if (balance < 0) return "var(--danger)";
+  if (balance > 0) return "var(--success)";
   return "var(--foreground)";
 }
 
@@ -80,8 +80,8 @@ export function WalletSummary({ summary }: WalletSummaryProps) {
         <div className="nxt-card p-4 flex flex-col gap-3" style={{ borderRadius: 12 }}>
           <div className="flex items-center justify-between">
             <p style={labelStyle}>PETTY CASH BALANCE</p>
-            <div style={{ ...iconWrapperStyle, backgroundColor: "#eff6ff" }}>
-              <Wallet className="h-4 w-4" style={{ color: "#2563eb" }} aria-hidden="true" />
+            <div style={{ ...iconWrapperStyle, backgroundColor: "var(--accent-muted)" }}>
+              <Wallet className="h-4 w-4" style={{ color: "var(--accent)" }} aria-hidden="true" />
             </div>
           </div>
           <p style={{ ...valueStyle, color: getBalanceColor(summary.pettyCashBalance) }}>
@@ -94,15 +94,17 @@ export function WalletSummary({ summary }: WalletSummaryProps) {
         <div className="nxt-card p-4 flex flex-col gap-3" style={{ borderRadius: 12 }}>
           <div className="flex items-center justify-between">
             <p style={labelStyle}>AMOUNT RECEIVED</p>
-            <div style={{ ...iconWrapperStyle, backgroundColor: "#f0fdf4" }}>
+            <div style={{ ...iconWrapperStyle, backgroundColor: "var(--success-muted)" }}>
               <ArrowDownCircle
                 className="h-4 w-4"
-                style={{ color: "#16a34a" }}
+                style={{ color: "var(--success)" }}
                 aria-hidden="true"
               />
             </div>
           </div>
-          <p style={{ ...valueStyle, color: "#16a34a" }}>{formatInr(summary.amountReceived)}</p>
+          <p style={{ ...valueStyle, color: "var(--success)" }}>
+            {formatInr(summary.amountReceived)}
+          </p>
           <div style={subTextStyle}>
             <p>Petty Cash &middot; {formatInr(summary.totalPettyCashReceived)}</p>
             <p>Reimbursements &middot; {formatInr(summary.totalReimbursements)}</p>
@@ -113,11 +115,15 @@ export function WalletSummary({ summary }: WalletSummaryProps) {
         <div className="nxt-card p-4 flex flex-col gap-3" style={{ borderRadius: 12 }}>
           <div className="flex items-center justify-between">
             <p style={labelStyle}>AMOUNT SPENT</p>
-            <div style={{ ...iconWrapperStyle, backgroundColor: "#fffbeb" }}>
-              <ArrowUpCircle className="h-4 w-4" style={{ color: "#d97706" }} aria-hidden="true" />
+            <div style={{ ...iconWrapperStyle, backgroundColor: "var(--warning-muted)" }}>
+              <ArrowUpCircle
+                className="h-4 w-4"
+                style={{ color: "var(--warning)" }}
+                aria-hidden="true"
+              />
             </div>
           </div>
-          <p style={{ ...valueStyle, color: "#d97706" }}>{formatInr(summary.amountSpent)}</p>
+          <p style={{ ...valueStyle, color: "var(--warning)" }}>{formatInr(summary.amountSpent)}</p>
           <div style={subTextStyle}>
             <p>Petty cash utilized</p>
             <p>{formatClaimCount(summary.amountSpentClaimCount)}</p>
@@ -128,14 +134,14 @@ export function WalletSummary({ summary }: WalletSummaryProps) {
         <div className="nxt-card p-4 flex flex-col gap-3" style={{ borderRadius: 12 }}>
           <div className="flex items-center justify-between">
             <p style={labelStyle}>PENDING REIMBURSEMENT</p>
-            <div style={{ ...iconWrapperStyle, backgroundColor: "#fff7ed" }}>
-              <Clock className="h-4 w-4" style={{ color: "#ea580c" }} aria-hidden="true" />
+            <div style={{ ...iconWrapperStyle, backgroundColor: "var(--pending-muted)" }}>
+              <Clock className="h-4 w-4" style={{ color: "var(--pending)" }} aria-hidden="true" />
             </div>
           </div>
           <p
             style={{
               ...valueStyle,
-              color: hasPendingReimbursement ? "#ea580c" : "var(--muted-foreground)",
+              color: hasPendingReimbursement ? "var(--pending)" : "var(--muted-foreground)",
             }}
           >
             {formatInr(summary.pendingReimbursementAmount)}

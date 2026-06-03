@@ -158,7 +158,7 @@ export function SheetContent({
       <div className="fixed inset-0 z-[120]">
         <button
           type="button"
-          className="absolute inset-0 bg-zinc-950/35"
+          className="absolute inset-0 bg-black/30 dark:bg-black/50"
           aria-label="Close panel"
           onClick={() => {
             setOpen(false);
@@ -171,7 +171,7 @@ export function SheetContent({
           aria-labelledby={titleId}
           aria-describedby={descriptionId}
           className={joinClasses(
-            "absolute top-0 h-full w-full max-w-md border-zinc-200 bg-white p-5 shadow-none transition-colors dark:border-zinc-800 dark:bg-zinc-950",
+            "absolute top-0 h-full w-full max-w-md border-border bg-card p-5 shadow-lg shadow-black/5 transition-colors",
             side === "right" ? "right-0 border-l" : "left-0 border-r",
             className,
           )}
@@ -180,7 +180,7 @@ export function SheetContent({
           {!hideDefaultCloseButton ? (
             <button
               type="button"
-              className="absolute right-4 top-4 z-20 inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 text-zinc-600 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+              className="absolute right-4 top-4 z-20 inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground transition hover:bg-background-secondary"
               aria-label="Close panel"
               onClick={() => {
                 setOpen(false);
@@ -239,7 +239,7 @@ export function SheetTitle({ className, ...props }: SheetTitleProps) {
   return (
     <h2
       id={titleId}
-      className={joinClasses("text-base font-semibold text-zinc-900 dark:text-zinc-100", className)}
+      className={joinClasses("text-base font-semibold text-foreground", className)}
       {...props}
     />
   );
@@ -253,7 +253,7 @@ export function SheetDescription({ className, ...props }: SheetDescriptionProps)
   return (
     <p
       id={descriptionId}
-      className={joinClasses("text-xs text-zinc-500 dark:text-zinc-400", className)}
+      className={joinClasses("text-xs text-muted-foreground", className)}
       {...props}
     />
   );

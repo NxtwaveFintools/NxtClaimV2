@@ -11,7 +11,7 @@ export function OAuthButtons({ loading, onMicrosoftClick }: OAuthButtonsProps) {
       type="button"
       disabled={loading}
       onClick={() => void onMicrosoftClick()}
-      className="flex h-10 w-full items-center justify-center gap-3 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-background-secondary disabled:cursor-not-allowed disabled:opacity-60"
+      className="flex h-10 w-full items-center justify-center gap-3 rounded-lg border border-border bg-card px-4 text-sm font-semibold text-foreground transition-colors hover:bg-background-secondary disabled:cursor-not-allowed disabled:opacity-60"
     >
       <svg className="h-[18px] w-[18px]" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
         <path d="M10 0H0V10H10V0Z" fill="#F25022" />

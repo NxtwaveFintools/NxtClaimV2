@@ -33,7 +33,7 @@ export function ThemeToggle() {
       onClick={() => {
         setTheme(isDark ? "light" : "dark");
       }}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background-secondary"
     >
       {isDark ? (
         <svg

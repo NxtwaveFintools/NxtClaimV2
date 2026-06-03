@@ -11,7 +11,7 @@ export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(function F
     <input
       ref={ref}
       className={cn(
-        "nxt-input h-9 w-full rounded-xl border border-zinc-300 bg-white px-3 text-sm text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100",
+        "nxt-input h-9 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground",
         className,
       )}
       {...props}

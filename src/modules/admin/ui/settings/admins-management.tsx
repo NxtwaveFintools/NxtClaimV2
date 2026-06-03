@@ -44,18 +44,18 @@ export function AdminsManagement({ admins }: Props) {
   }
 
   return (
-    <div className="overflow-hidden rounded-[26px] border border-zinc-200/80 bg-zinc-50/50 dark:border-zinc-800/80 dark:bg-zinc-950/40">
-      <div className="border-b border-zinc-200/80 px-5 py-4 dark:border-zinc-800/80">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-zinc-700 dark:text-zinc-300">
+    <div className="overflow-hidden rounded-[26px] border border-border/80 bg-background-secondary/50">
+      <div className="border-b border-border/80 px-5 py-4">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-foreground">
           Administrators
         </h3>
-        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-sm text-muted-foreground">
           Keep privileged access intentional by limiting who can manage the admin workspace.
         </p>
       </div>
 
       {admins.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-zinc-500">No admins configured yet.</p>
+        <p className="px-4 py-6 text-sm text-muted-foreground">No admins configured yet.</p>
       ) : (
         <div className="divide-y divide-zinc-100/80 dark:divide-zinc-800/80">
           {admins.map((admin) => (
@@ -64,12 +64,12 @@ export function AdminsManagement({ admins }: Props) {
               className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
             >
               <div>
-                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                <p className="text-sm font-medium text-foreground">
                   {admin.fullName ?? (admin.provisionalEmail ? "Pending first login" : "—")}
                 </p>
-                <p className="text-xs text-zinc-500">{admin.email}</p>
+                <p className="text-xs text-muted-foreground">{admin.email}</p>
                 {admin.provisionalEmail ? (
-                  <span className="mt-0.5 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                  <span className="mt-0.5 inline-block rounded-full bg-warning-muted px-2 py-0.5 text-[10px] font-semibold text-warning">
                     Pending login
                   </span>
                 ) : null}
@@ -78,7 +78,7 @@ export function AdminsManagement({ admins }: Props) {
               <div className="flex flex-wrap items-center gap-2">
                 {confirmRemoveId === admin.id ? (
                   <>
-                    <span className="text-xs text-zinc-500">Remove this admin?</span>
+                    <span className="text-xs text-muted-foreground">Remove this admin?</span>
                     <Button
                       disabled={isPending}
                       onClick={() => handleRemove(admin.id)}
@@ -103,7 +103,7 @@ export function AdminsManagement({ admins }: Props) {
                     type="button"
                     variant="secondary"
                     size="sm"
-                    className="border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-700 dark:text-rose-300 dark:hover:bg-rose-950/30"
+                    className="border-danger/40 text-danger hover:bg-danger/10"
                   >
                     Remove
                   </Button>
@@ -114,11 +114,11 @@ export function AdminsManagement({ admins }: Props) {
         </div>
       )}
 
-      <div className="border-t border-zinc-200/80 bg-white/70 px-5 py-4 dark:border-zinc-800/80 dark:bg-zinc-950/40">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+      <div className="border-t border-border/80 bg-card/70 px-5 py-4">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Promote user to Admin
         </p>
-        <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mb-2 text-xs text-muted-foreground">
           Enter the user&apos;s email address. If they haven&apos;t signed in yet, they will be
           granted admin access automatically on their first login.
         </p>
@@ -129,7 +129,7 @@ export function AdminsManagement({ admins }: Props) {
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-            className="nxt-input flex-1 rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none dark:border-zinc-700 dark:bg-zinc-900"
+            className="nxt-input flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none"
           />
           <Button
             disabled={isPending}
@@ -141,7 +141,7 @@ export function AdminsManagement({ admins }: Props) {
             Promote
           </Button>
         </div>
-        {addError ? <p className="mt-1 text-xs text-rose-600">{addError}</p> : null}
+        {addError ? <p className="mt-1 text-xs text-danger">{addError}</p> : null}
       </div>
     </div>
   );

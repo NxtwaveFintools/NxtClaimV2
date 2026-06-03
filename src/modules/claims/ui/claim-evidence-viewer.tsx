@@ -153,9 +153,7 @@ export function ClaimEvidenceViewer({ claimId, items }: ClaimEvidenceViewerProps
       </div>
 
       {fetchState.errorMessage ? (
-        <div className="px-4 py-4 text-sm text-rose-700 dark:text-rose-300">
-          {fetchState.errorMessage}
-        </div>
+        <div className="px-4 py-4 text-sm text-danger">{fetchState.errorMessage}</div>
       ) : fetchState.loadingPath === activeItem?.path || !activeSignedUrl ? (
         <EvidencePreviewSkeleton />
       ) : isPdf(activeItem.path) ? (

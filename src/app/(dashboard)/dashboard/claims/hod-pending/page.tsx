@@ -163,11 +163,11 @@ export default async function FinanceHodPendingClaimsPage({
   if (viewerContext.errorMessage) {
     return (
       <div className="mx-auto w-full max-w-[1600px] pb-16">
-        <section className="rounded-xl border border-rose-200 bg-card px-4 py-5 dark:border-rose-900/50">
+        <section className="rounded-xl border border-danger/30 bg-card px-4 py-5">
           <h1 className="dashboard-font-display text-xl font-bold text-foreground">
             HOD Pending Claims
           </h1>
-          <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
+          <p className="mt-3 rounded-lg bg-danger-muted px-3 py-2 text-sm text-danger">
             {getUserFriendlyErrorMessage(viewerContext.errorMessage, "claim-list")}
           </p>
         </section>
@@ -192,7 +192,7 @@ export default async function FinanceHodPendingClaimsPage({
             Read-only finance observability for claims still awaiting L1 approval
           </p>
         </div>
-        <span className="inline-flex h-[28px] items-center rounded-full border border-amber-200 bg-amber-50 px-[10px] text-xs font-semibold text-amber-700 dark:border-amber-700/50 dark:bg-amber-950/20 dark:text-amber-300">
+        <span className="inline-flex h-[28px] items-center rounded-full border border-warning/40 bg-warning-muted px-[10px] text-xs font-semibold text-warning">
           Read Only
         </span>
       </div>

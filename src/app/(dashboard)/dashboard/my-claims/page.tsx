@@ -45,9 +45,9 @@ import { getUserFriendlyErrorMessage } from "@/core/errors/user-facing-errors";
 
 const PAGE_SIZE = 5;
 const CLAIM_ID_LINK_CLASSES =
-  "block max-w-full break-words text-primary hover:underline font-medium cursor-pointer leading-snug";
+  "block max-w-full break-words text-accent hover:underline font-medium cursor-pointer leading-snug";
 const VIEW_LINK_CLASSES =
-  "inline-flex h-8 items-center justify-center rounded-md border border-border bg-card px-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-background-secondary";
+  "inline-flex h-8 items-center justify-center rounded-lg border border-border bg-card px-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-background-secondary";
 type SearchParamsValue = string | string[] | undefined;
 type ViewMode = "submissions" | "approvals" | "admin" | "admin-deleted" | "department";
 
@@ -295,15 +295,17 @@ function TableHeader({ showActions }: { showActions: boolean }) {
   return (
     <thead className="bg-background-secondary text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
       <tr>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">CLAIM</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTER / BENEFICIARY</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">DEPARTMENT</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">TYPE</th>
-        <th className="whitespace-nowrap px-3 py-2.5 text-right font-semibold">AMOUNT</th>
-        <th className="whitespace-nowrap px-3 py-2.5 text-center font-semibold">STATUS</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTED</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold text-left">Claim</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold text-left">
+          Submitter / Beneficiary
+        </th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold text-left">Department</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold text-left">Type</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold text-right">Amount</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold text-center">Status</th>
+        <th className="whitespace-nowrap px-3 py-2.5 font-semibold text-left">Submitted</th>
         {showActions ? (
-          <th className="whitespace-nowrap px-3 py-2.5 text-right font-semibold">Actions</th>
+          <th className="whitespace-nowrap px-3 py-2.5 font-semibold text-right">Actions</th>
         ) : null}
       </tr>
     </thead>
@@ -363,7 +365,7 @@ async function ClaimsCommandCenterTable({
 
       {claimsResult.errorMessage ? (
         <div className="px-4 py-6">
-          <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200">
+          <p className="rounded-lg border border-danger/30 bg-danger-muted px-3 py-2 text-sm text-danger">
             {getUserFriendlyErrorMessage(claimsResult.errorMessage, "claim-list")}
           </p>
         </div>
@@ -376,8 +378,7 @@ async function ClaimsCommandCenterTable({
           <Link
             href={ROUTES.claims.new}
             prefetch={false}
-            className="mt-4 inline-flex h-9 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium text-white transition hover:opacity-90"
-            style={{ backgroundColor: "var(--accent)" }}
+            className="mt-4 inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 text-sm font-medium text-white transition hover:bg-accent-hover"
           >
             <CirclePlus className="h-4 w-4" aria-hidden="true" />
             New Claim
@@ -759,8 +760,7 @@ async function MyClaimsDashboardResolvedContent({
           <Link
             href={ROUTES.claims.new}
             prefetch={false}
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md px-4 text-sm font-medium text-white transition hover:opacity-90"
-            style={{ backgroundColor: "var(--accent)" }}
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover"
           >
             <CirclePlus className="h-4 w-4" aria-hidden="true" />
             New Claim
@@ -769,7 +769,7 @@ async function MyClaimsDashboardResolvedContent({
 
         {availableViewModes.length > 1 ? (
           <div
-            className="inline-flex max-w-full flex-wrap gap-1 rounded-lg border border-border bg-card p-1"
+            className="inline-flex max-w-full rounded-[10px] border border-border bg-card p-1"
             role="tablist"
             aria-label="Claim views"
           >
@@ -781,10 +781,10 @@ async function MyClaimsDashboardResolvedContent({
                 role="tab"
                 aria-selected={activeView === item.mode}
                 aria-current={activeView === item.mode ? "page" : undefined}
-                className={`inline-flex h-[34px] items-center whitespace-nowrap rounded-md border px-3 text-sm font-medium transition-colors ${
+                className={`inline-flex h-[34px] items-center whitespace-nowrap rounded-[7px] px-3 text-sm font-medium transition-colors ${
                   activeView === item.mode
-                    ? "border-[var(--accent)] bg-[var(--accent)] text-white"
-                    : "border-border bg-card text-muted-foreground hover:bg-background-secondary hover:text-foreground"
+                    ? "bg-accent text-white"
+                    : "bg-card text-muted-foreground hover:bg-background-secondary hover:text-foreground"
                 }`}
               >
                 {item.label}

@@ -68,7 +68,7 @@ export function CompanyPolicyButton({
       <SheetTrigger
         className={
           triggerClassName ??
-          "inline-flex h-8 items-center justify-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+          "inline-flex h-8 items-center justify-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors hover:bg-background-secondary"
         }
         style={
           triggerStyle ??
@@ -121,7 +121,7 @@ export function CompanyPolicyButton({
                 </div>
               </article>
             ) : (
-              <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
+              <p className="rounded-xl border border-warning/30 bg-warning-muted px-4 py-3 text-sm text-warning">
                 {message ?? "No active company policy was found."}
               </p>
             )}

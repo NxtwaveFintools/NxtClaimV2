@@ -260,7 +260,7 @@ export function FinanceEditClaimForm({
     "text-xs uppercase tracking-wider text-muted-foreground font-bold mb-4";
   const groupedGridClassName = "grid grid-cols-1 md:grid-cols-2 gap-4";
   const lockedFieldClassName =
-    "rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400";
+    "rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground";
 
   useEffect(() => {
     const nextExpenseAmounts = buildExpenseAmountState({
@@ -436,34 +436,34 @@ export function FinanceEditClaimForm({
             <div className={groupedWrapperClassName}>
               <h4 className={groupedTitleClassName}>General Info</h4>
               <div className={groupedGridClassName}>
-                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                <label className="grid gap-1 text-sm text-foreground">
                   Claim ID (Read-only)
                   <FormInput
                     value={claim.id}
                     disabled
-                    className="rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
+                    className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground"
                   />
                 </label>
 
-                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                <label className="grid gap-1 text-sm text-foreground">
                   Employee Name (Read-only)
                   <FormInput
                     value={claim.employeeName}
                     disabled
-                    className="rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
+                    className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground"
                   />
                 </label>
 
-                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                <label className="grid gap-1 text-sm text-foreground">
                   Employee Email (Read-only)
                   <FormInput
                     value={claim.employeeEmail ?? "N/A"}
                     disabled
-                    className="rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
+                    className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground"
                   />
                 </label>
 
-                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                <label className="grid gap-1 text-sm text-foreground">
                   Submission Type (Read-only)
                   <FormInput
                     value={claim.submissionType}
@@ -475,7 +475,7 @@ export function FinanceEditClaimForm({
 
                 {claim.submissionType === "On Behalf" ? (
                   <>
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                    <label className="grid gap-1 text-sm text-foreground">
                       On Behalf Email (Read-only)
                       <FormInput
                         value={claim.onBehalfEmail ?? "N/A"}
@@ -485,7 +485,7 @@ export function FinanceEditClaimForm({
                       />
                     </label>
 
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                    <label className="grid gap-1 text-sm text-foreground">
                       On Behalf Employee ID (Read-only)
                       <FormInput
                         value={claim.onBehalfEmployeeCode ?? "N/A"}
@@ -502,7 +502,7 @@ export function FinanceEditClaimForm({
             <div className={groupedWrapperClassName}>
               <h4 className={groupedTitleClassName}>Routing Context</h4>
               <div className={groupedGridClassName}>
-                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                <label className="grid gap-1 text-sm text-foreground">
                   Department
                   <FormSelect
                     name="departmentId"
@@ -512,7 +512,7 @@ export function FinanceEditClaimForm({
                     className={
                       isDepartmentFieldLocked
                         ? lockedFieldClassName
-                        : "rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        : "rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                     }
                   >
                     {departments.map((department) => (
@@ -523,7 +523,7 @@ export function FinanceEditClaimForm({
                   </FormSelect>
                 </label>
 
-                <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                <label className="grid gap-1 text-sm text-foreground">
                   Payment Mode
                   {isFinanceEdit && isPaymentModeFieldLocked ? (
                     <input type="hidden" name="paymentModeId" value={claim.paymentModeId} />
@@ -536,7 +536,7 @@ export function FinanceEditClaimForm({
                     className={
                       isPaymentModeFieldLocked
                         ? lockedFieldClassName
-                        : "rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        : "rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                     }
                   >
                     {filteredPaymentModes.map((paymentMode) => (
@@ -555,7 +555,7 @@ export function FinanceEditClaimForm({
                   <div className={groupedWrapperClassName}>
                     <h4 className={groupedTitleClassName}>Finance Approval</h4>
                     <div className={groupedGridClassName}>
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Total Amount
                         <input
                           type="hidden"
@@ -579,24 +579,24 @@ export function FinanceEditClaimForm({
                   <div className={groupedWrapperClassName}>
                     <h4 className={groupedTitleClassName}>Vendor Details</h4>
                     <div className={groupedGridClassName}>
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Bill No
                         <FormInput
                           name="billNo"
                           required
                           defaultValue={expense?.billNo ?? ""}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                         <AiAuditCaption aiMetadata={aiMetadata} fieldKey="bill_no" />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Expense Category
                         <FormSelect
                           name="expenseCategoryId"
                           required
                           defaultValue={expense?.expenseCategoryId ?? ""}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         >
                           <option value="" disabled>
                             Select expense category
@@ -609,23 +609,23 @@ export function FinanceEditClaimForm({
                         </FormSelect>
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Vendor Name
                         <FormInput
                           name="vendorName"
                           defaultValue={expense?.vendorName ?? ""}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                         <AiAuditCaption aiMetadata={aiMetadata} fieldKey="vendor_name" />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Location
                         <FormSelect
                           name="locationId"
                           required
                           defaultValue={expense?.locationId ?? ""}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         >
                           <option value="" disabled>
                             Select location
@@ -638,12 +638,12 @@ export function FinanceEditClaimForm({
                         </FormSelect>
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Location Type
                         <FormSelect
                           name="locationType"
                           defaultValue={expense?.locationType ?? ""}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         >
                           <option value="">Not specified</option>
                           {LOCATION_TYPE_OPTIONS.map((option) => (
@@ -654,45 +654,45 @@ export function FinanceEditClaimForm({
                         </FormSelect>
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Location Details
                         <FormInput
                           name="locationDetails"
                           defaultValue={expense?.locationDetails ?? ""}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Transaction Date
                         <DateInput
                           name="transactionDate"
                           required
                           defaultValue={toDateInputValue(expense?.transactionDate)}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                         <AiAuditCaption aiMetadata={aiMetadata} fieldKey="transaction_date" />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         GST Applicable
                         <FormSelect
                           name="isGstApplicable"
                           required
                           defaultValue={expense?.isGstApplicable ? "true" : "false"}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         >
                           <option value="true">Yes</option>
                           <option value="false">No</option>
                         </FormSelect>
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         GST Number
                         <FormInput
                           name="gstNumber"
                           defaultValue={expense?.gstNumber ?? ""}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                         <AiAuditCaption aiMetadata={aiMetadata} fieldKey="gst_number" />
                       </label>
@@ -702,22 +702,22 @@ export function FinanceEditClaimForm({
                   <div className={groupedWrapperClassName}>
                     <h4 className={groupedTitleClassName}>Additional Details</h4>
                     <div className={groupedGridClassName}>
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                      <label className="grid gap-1 text-sm text-foreground md:col-span-2">
                         Purpose
                         <FormInput
                           name="purpose"
                           required
                           defaultValue={expense?.purpose ?? ""}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Product
                         <FormSelect
                           name="productId"
                           defaultValue={expense?.productId ?? ""}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         >
                           <option value="">None</option>
                           {products.map((product) => (
@@ -728,22 +728,22 @@ export function FinanceEditClaimForm({
                         </FormSelect>
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         People Involved
                         <FormInput
                           name="peopleInvolved"
                           defaultValue={expense?.peopleInvolved ?? ""}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                      <label className="grid gap-1 text-sm text-foreground md:col-span-2">
                         Remarks
                         <FormTextarea
                           name="remarks"
                           rows={3}
                           defaultValue={expense?.remarks ?? ""}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                       </label>
                     </div>
@@ -752,7 +752,7 @@ export function FinanceEditClaimForm({
                   <div className={groupedWrapperClassName}>
                     <h4 className={groupedTitleClassName}>Amount Details</h4>
                     <div className={groupedGridClassName}>
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Basic Amount
                         <CurrencyInput
                           name="basicAmount"
@@ -763,12 +763,12 @@ export function FinanceEditClaimForm({
                           onValueChange={(value) => {
                             handleExpenseComponentAmountChange("basicAmount", value);
                           }}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                         <AiAuditCaption aiMetadata={aiMetadata} fieldKey="basic_amount" />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         CGST Amount
                         <CurrencyInput
                           name="cgstAmount"
@@ -778,12 +778,12 @@ export function FinanceEditClaimForm({
                           onValueChange={(value) => {
                             handleExpenseComponentAmountChange("cgstAmount", value);
                           }}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                         <AiAuditCaption aiMetadata={aiMetadata} fieldKey="cgst_amount" />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         SGST Amount
                         <CurrencyInput
                           name="sgstAmount"
@@ -793,12 +793,12 @@ export function FinanceEditClaimForm({
                           onValueChange={(value) => {
                             handleExpenseComponentAmountChange("sgstAmount", value);
                           }}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                         <AiAuditCaption aiMetadata={aiMetadata} fieldKey="sgst_amount" />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         IGST Amount
                         <CurrencyInput
                           name="igstAmount"
@@ -808,7 +808,7 @@ export function FinanceEditClaimForm({
                           onValueChange={(value) => {
                             handleExpenseComponentAmountChange("igstAmount", value);
                           }}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                         <AiAuditCaption aiMetadata={aiMetadata} fieldKey="igst_amount" />
                       </label>
@@ -818,14 +818,14 @@ export function FinanceEditClaimForm({
                   <div className={groupedWrapperClassName}>
                     <h4 className={groupedTitleClassName}>Foreign Expense Details</h4>
                     <div className={groupedGridClassName}>
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Foreign Currency
                         <FormSelect
                           value={foreignAmounts.foreignCurrencyCode}
                           onChange={(e) => {
                             handleForeignCurrencyCodeChange(e.target.value as ForeignCurrencyCode);
                           }}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         >
                           <option value="INR">INR</option>
                           <option value="USD">USD</option>
@@ -834,7 +834,7 @@ export function FinanceEditClaimForm({
                         </FormSelect>
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Foreign Basic Amount
                         <CurrencyInput
                           min="0"
@@ -843,11 +843,11 @@ export function FinanceEditClaimForm({
                           onValueChange={(value) => {
                             handleForeignAmountChange("foreignBasicAmount", value);
                           }}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Foreign GST Amount
                         <CurrencyInput
                           min="0"
@@ -856,11 +856,11 @@ export function FinanceEditClaimForm({
                           onValueChange={(value) => {
                             handleForeignAmountChange("foreignGstAmount", value);
                           }}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Foreign Total Amount
                         <CurrencyInput
                           value={foreignAmounts.foreignTotalAmount}
@@ -877,23 +877,23 @@ export function FinanceEditClaimForm({
                   <div className={groupedWrapperClassName}>
                     <h4 className={groupedTitleClassName}>Vendor Details</h4>
                     <div className={groupedGridClassName}>
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Bill No
                         <FormInput
                           name="billNo"
                           required
                           defaultValue={expense?.billNo ?? ""}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Expense Category
                         <FormSelect
                           name="expenseCategoryId"
                           required
                           defaultValue={expense?.expenseCategoryId ?? ""}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         >
                           <option value="" disabled>
                             Select expense category
@@ -906,22 +906,22 @@ export function FinanceEditClaimForm({
                         </FormSelect>
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Vendor Name
                         <FormInput
                           name="vendorName"
                           defaultValue={expense?.vendorName ?? ""}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Location
                         <FormSelect
                           name="locationId"
                           required
                           defaultValue={expense?.locationId ?? ""}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         >
                           <option value="" disabled>
                             Select location
@@ -934,35 +934,35 @@ export function FinanceEditClaimForm({
                         </FormSelect>
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Transaction Date
                         <DateInput
                           name="transactionDate"
                           required
                           defaultValue={toDateInputValue(expense?.transactionDate)}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         GST Applicable
                         <FormSelect
                           name="isGstApplicable"
                           required
                           defaultValue={expense?.isGstApplicable ? "true" : "false"}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         >
                           <option value="true">Yes</option>
                           <option value="false">No</option>
                         </FormSelect>
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         GST Number
                         <FormInput
                           name="gstNumber"
                           defaultValue={expense?.gstNumber ?? ""}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                       </label>
                     </div>
@@ -971,22 +971,22 @@ export function FinanceEditClaimForm({
                   <div className={groupedWrapperClassName}>
                     <h4 className={groupedTitleClassName}>Additional Details</h4>
                     <div className={groupedGridClassName}>
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                      <label className="grid gap-1 text-sm text-foreground md:col-span-2">
                         Purpose
                         <FormInput
                           name="purpose"
                           required
                           defaultValue={expense?.purpose ?? ""}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Product
                         <FormSelect
                           name="productId"
                           defaultValue={expense?.productId ?? ""}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         >
                           <option value="">None</option>
                           {products.map((product) => (
@@ -997,22 +997,22 @@ export function FinanceEditClaimForm({
                         </FormSelect>
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         People Involved
                         <FormInput
                           name="peopleInvolved"
                           defaultValue={expense?.peopleInvolved ?? ""}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                      <label className="grid gap-1 text-sm text-foreground md:col-span-2">
                         Remarks
                         <FormTextarea
                           name="remarks"
                           rows={3}
                           defaultValue={expense?.remarks ?? ""}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                       </label>
                     </div>
@@ -1021,7 +1021,7 @@ export function FinanceEditClaimForm({
                   <div className={groupedWrapperClassName}>
                     <h4 className={groupedTitleClassName}>Amount Details</h4>
                     <div className={groupedGridClassName}>
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Basic Amount
                         <CurrencyInput
                           name="basicAmount"
@@ -1032,11 +1032,11 @@ export function FinanceEditClaimForm({
                           onValueChange={(value) => {
                             handleExpenseComponentAmountChange("basicAmount", value);
                           }}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         CGST Amount
                         <CurrencyInput
                           name="cgstAmount"
@@ -1046,11 +1046,11 @@ export function FinanceEditClaimForm({
                           onValueChange={(value) => {
                             handleExpenseComponentAmountChange("cgstAmount", value);
                           }}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         SGST Amount
                         <CurrencyInput
                           name="sgstAmount"
@@ -1060,11 +1060,11 @@ export function FinanceEditClaimForm({
                           onValueChange={(value) => {
                             handleExpenseComponentAmountChange("sgstAmount", value);
                           }}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         IGST Amount
                         <CurrencyInput
                           name="igstAmount"
@@ -1074,11 +1074,11 @@ export function FinanceEditClaimForm({
                           onValueChange={(value) => {
                             handleExpenseComponentAmountChange("igstAmount", value);
                           }}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Total Amount
                         <CurrencyInput
                           value={totalAmountInputValue}
@@ -1092,14 +1092,14 @@ export function FinanceEditClaimForm({
                   <div className={groupedWrapperClassName}>
                     <h4 className={groupedTitleClassName}>Foreign Expense Details</h4>
                     <div className={groupedGridClassName}>
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Foreign Currency
                         <FormSelect
                           value={foreignAmounts.foreignCurrencyCode}
                           onChange={(e) => {
                             handleForeignCurrencyCodeChange(e.target.value as ForeignCurrencyCode);
                           }}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         >
                           <option value="INR">INR</option>
                           <option value="USD">USD</option>
@@ -1108,7 +1108,7 @@ export function FinanceEditClaimForm({
                         </FormSelect>
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Foreign Basic Amount
                         <CurrencyInput
                           min="0"
@@ -1117,11 +1117,11 @@ export function FinanceEditClaimForm({
                           onValueChange={(value) => {
                             handleForeignAmountChange("foreignBasicAmount", value);
                           }}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Foreign GST Amount
                         <CurrencyInput
                           min="0"
@@ -1130,11 +1130,11 @@ export function FinanceEditClaimForm({
                           onValueChange={(value) => {
                             handleForeignAmountChange("foreignGstAmount", value);
                           }}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                       </label>
 
-                      <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                      <label className="grid gap-1 text-sm text-foreground">
                         Foreign Total Amount
                         <CurrencyInput
                           value={foreignAmounts.foreignTotalAmount}
@@ -1152,7 +1152,7 @@ export function FinanceEditClaimForm({
                 <div className={groupedWrapperClassName}>
                   <h4 className={groupedTitleClassName}>Finance Approval</h4>
                   <div className={groupedGridClassName}>
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                    <label className="grid gap-1 text-sm text-foreground">
                       Total Amount
                       {canEditAdvanceTotalAmount ? (
                         <CurrencyInput
@@ -1164,7 +1164,7 @@ export function FinanceEditClaimForm({
                           onValueChange={(value) => {
                             setAdvanceTotalAmount(toNonNegativeCurrency(value));
                           }}
-                          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                         />
                       ) : (
                         <>
@@ -1193,23 +1193,23 @@ export function FinanceEditClaimForm({
                 <div className={groupedWrapperClassName}>
                   <h4 className={groupedTitleClassName}>Advance Details</h4>
                   <div className={groupedGridClassName}>
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                    <label className="grid gap-1 text-sm text-foreground md:col-span-2">
                       Purpose
                       <FormInput
                         name="purpose"
                         required
                         defaultValue={advance?.purpose ?? ""}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                       />
                     </label>
 
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                    <label className="grid gap-1 text-sm text-foreground">
                       Expected Usage Date
                       <DateInput
                         name="expectedUsageDate"
                         required
                         defaultValue={toDateInputValue(advance?.expectedUsageDate)}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                       />
                     </label>
                   </div>
@@ -1218,12 +1218,12 @@ export function FinanceEditClaimForm({
                 <div className={groupedWrapperClassName}>
                   <h4 className={groupedTitleClassName}>Additional Details</h4>
                   <div className={groupedGridClassName}>
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                    <label className="grid gap-1 text-sm text-foreground">
                       Product
                       <FormSelect
                         name="productId"
                         defaultValue={advance?.productId ?? ""}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                       >
                         <option value="">None</option>
                         {products.map((product) => (
@@ -1234,12 +1234,12 @@ export function FinanceEditClaimForm({
                       </FormSelect>
                     </label>
 
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                    <label className="grid gap-1 text-sm text-foreground">
                       Location
                       <FormSelect
                         name="locationId"
                         defaultValue={advance?.locationId ?? ""}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                       >
                         <option value="">None</option>
                         {locations.map((location) => (
@@ -1250,13 +1250,13 @@ export function FinanceEditClaimForm({
                       </FormSelect>
                     </label>
 
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                    <label className="grid gap-1 text-sm text-foreground md:col-span-2">
                       Remarks
                       <FormTextarea
                         name="remarks"
                         rows={3}
                         defaultValue={advance?.remarks ?? ""}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                       />
                     </label>
                   </div>
@@ -1267,17 +1267,17 @@ export function FinanceEditClaimForm({
                 <div className={groupedWrapperClassName}>
                   <h4 className={groupedTitleClassName}>Advance Details</h4>
                   <div className={groupedGridClassName}>
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                    <label className="grid gap-1 text-sm text-foreground md:col-span-2">
                       Purpose
                       <FormInput
                         name="purpose"
                         required
                         defaultValue={advance?.purpose ?? ""}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                       />
                     </label>
 
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                    <label className="grid gap-1 text-sm text-foreground">
                       Total Amount
                       <CurrencyInput
                         value={advance?.totalAmount ?? ""}
@@ -1286,13 +1286,13 @@ export function FinanceEditClaimForm({
                       />
                     </label>
 
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                    <label className="grid gap-1 text-sm text-foreground">
                       Expected Usage Date
                       <DateInput
                         name="expectedUsageDate"
                         required
                         defaultValue={toDateInputValue(advance?.expectedUsageDate)}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                       />
                     </label>
                   </div>
@@ -1301,12 +1301,12 @@ export function FinanceEditClaimForm({
                 <div className={groupedWrapperClassName}>
                   <h4 className={groupedTitleClassName}>Additional Details</h4>
                   <div className={groupedGridClassName}>
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                    <label className="grid gap-1 text-sm text-foreground">
                       Product
                       <FormSelect
                         name="productId"
                         defaultValue={advance?.productId ?? ""}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                       >
                         <option value="">None</option>
                         {products.map((product) => (
@@ -1317,12 +1317,12 @@ export function FinanceEditClaimForm({
                       </FormSelect>
                     </label>
 
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+                    <label className="grid gap-1 text-sm text-foreground">
                       Location
                       <FormSelect
                         name="locationId"
                         defaultValue={advance?.locationId ?? ""}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                       >
                         <option value="">None</option>
                         {locations.map((location) => (
@@ -1333,13 +1333,13 @@ export function FinanceEditClaimForm({
                       </FormSelect>
                     </label>
 
-                    <label className="grid gap-1 text-sm text-zinc-700 dark:text-zinc-300 md:col-span-2">
+                    <label className="grid gap-1 text-sm text-foreground md:col-span-2">
                       Remarks
                       <FormTextarea
                         name="remarks"
                         rows={3}
                         defaultValue={advance?.remarks ?? ""}
-                        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
                       />
                     </label>
                   </div>
@@ -1351,7 +1351,7 @@ export function FinanceEditClaimForm({
               <div className={groupedWrapperClassName}>
                 <h4 className={groupedTitleClassName}>Attachments</h4>
 
-                <label className="col-span-full grid gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                <label className="col-span-full grid gap-2 text-sm text-foreground">
                   {claim.detailType === "expense"
                     ? "Replace Receipt File"
                     : "Replace Supporting Document"}
@@ -1363,13 +1363,13 @@ export function FinanceEditClaimForm({
                       name="receiptFile"
                       type="file"
                       accept=".pdf,.png,.jpg,.jpeg,.webp"
-                      className="w-full max-w-md text-sm text-zinc-900 dark:text-zinc-100 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-zinc-700 dark:file:bg-zinc-700 dark:file:text-zinc-100"
+                      className="w-full max-w-md text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-background-secondary file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-foreground"
                     />
                   </span>
                 </label>
 
                 {claim.detailType === "expense" ? (
-                  <label className="col-span-full grid gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                  <label className="col-span-full grid gap-2 text-sm text-foreground">
                     Replace Bank Statement File
                     <span className="border-2 border-dashed border-border/60 rounded-lg p-6 flex flex-col items-center justify-center bg-muted/10">
                       <span className="mb-2 text-xs text-muted-foreground">
@@ -1379,7 +1379,7 @@ export function FinanceEditClaimForm({
                         name="bankStatementFile"
                         type="file"
                         accept=".pdf,.png,.jpg,.jpeg,.webp"
-                        className="w-full max-w-md text-sm text-zinc-900 dark:text-zinc-100 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-zinc-700 dark:file:bg-zinc-700 dark:file:text-zinc-100"
+                        className="w-full max-w-md text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-background-secondary file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-foreground"
                       />
                     </span>
                   </label>
@@ -1390,7 +1390,7 @@ export function FinanceEditClaimForm({
             {requireEditReason ? (
               <div className={groupedWrapperClassName}>
                 <h4 className={groupedTitleClassName}>Audit Reason</h4>
-                <label className="col-span-full grid gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                <label className="col-span-full grid gap-2 text-sm text-foreground">
                   Reason for Edit
                   <FormTextarea
                     name="editReason"
@@ -1398,7 +1398,7 @@ export function FinanceEditClaimForm({
                     required
                     minLength={5}
                     placeholder="Explain why this claim edit is required for audit tracking."
-                    className="col-span-full rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                    className="col-span-full rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground"
                   />
                 </label>
               </div>
@@ -1470,7 +1470,7 @@ export function FinanceEditClaimForm({
                   type="button"
                   variant="secondary"
                   size="md"
-                  className="dark:border-zinc-600"
+                  className="dark:border-border"
                 >
                   Cancel
                 </Button>

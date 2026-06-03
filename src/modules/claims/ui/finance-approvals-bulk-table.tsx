@@ -372,7 +372,7 @@ export const FinanceApprovalsBulkTable = memo(function FinanceApprovalsBulkTable
                 onClick={submitBulkApprove}
                 disabled={!isApproveValid || isAnyBulkSubmitting}
                 title={approveTitle}
-                className="inline-flex h-8 items-center justify-center rounded-lg border border-emerald-300 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 transition-all duration-200 enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-700/60 dark:bg-emerald-950/20 dark:text-emerald-300 dark:enabled:hover:bg-emerald-950/40"
+                className="inline-flex h-8 items-center justify-center rounded-lg border border-success/40 bg-success-muted px-3 text-xs font-semibold text-success transition-all duration-200 enabled:hover:bg-success/10 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSubmittingBulkApprove ? (
                   <>
@@ -412,7 +412,7 @@ export const FinanceApprovalsBulkTable = memo(function FinanceApprovalsBulkTable
                 }}
                 disabled={!isRejectValid || isAnyBulkSubmitting}
                 title={rejectTitle}
-                className="inline-flex h-8 items-center justify-center rounded-lg border border-rose-300 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition-all duration-200 enabled:hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-700/60 dark:bg-rose-950/20 dark:text-rose-300 dark:enabled:hover:bg-rose-950/40"
+                className="inline-flex h-8 items-center justify-center rounded-lg border border-danger/40 bg-danger-muted px-3 text-xs font-semibold text-danger transition-all duration-200 enabled:hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Bulk Reject
               </button>
@@ -479,7 +479,7 @@ export const FinanceApprovalsBulkTable = memo(function FinanceApprovalsBulkTable
       ) : null}
 
       {!readOnly && !isBulkActionHidden && isGlobalSelect ? (
-        <div className="mx-3 mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300">
+        <div className="mx-3 mb-3 rounded-lg border border-success/30 bg-success-muted px-3 py-2 text-xs text-success">
           All {totalSelectableCount} matching claims are selected.
           <button
             type="button"
@@ -645,17 +645,15 @@ export const FinanceApprovalsBulkTable = memo(function FinanceApprovalsBulkTable
           <button
             type="button"
             aria-label="Close bulk reject dialog"
-            className="absolute inset-0 bg-zinc-900/50"
+            className="absolute inset-0 bg-black/50"
             disabled={isSubmittingBulkReject}
             onClick={() => {
               setIsRejectModalOpen(false);
             }}
           />
           <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-5 shadow-none sm:p-6">
-            <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-              Bulk Reject Claims
-            </h3>
-            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+            <h3 className="text-base font-semibold text-foreground">Bulk Reject Claims</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
               One rejection reason will be applied to all selected claims.
             </p>
 
@@ -663,7 +661,7 @@ export const FinanceApprovalsBulkTable = memo(function FinanceApprovalsBulkTable
               <div className="grid gap-1.5">
                 <label
                   htmlFor="bulkRejectionReason"
-                  className="text-xs font-medium uppercase tracking-[0.08em] text-zinc-600 dark:text-zinc-300"
+                  className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
                 >
                   Shared Rejection Reason
                 </label>
@@ -688,10 +686,7 @@ export const FinanceApprovalsBulkTable = memo(function FinanceApprovalsBulkTable
                   disabled={isSubmittingBulkReject}
                   className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
                 />
-                <label
-                  htmlFor="bulkAllowResubmission"
-                  className="text-sm text-zinc-700 dark:text-zinc-300"
-                >
+                <label htmlFor="bulkAllowResubmission" className="text-sm text-foreground">
                   Allow resubmission for all selected claims
                 </label>
               </div>
@@ -703,14 +698,14 @@ export const FinanceApprovalsBulkTable = memo(function FinanceApprovalsBulkTable
                   onClick={() => {
                     setIsRejectModalOpen(false);
                   }}
-                  className="inline-flex items-center justify-center rounded-xl border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 transition-all duration-200 hover:bg-zinc-100 active:scale-[0.98] disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  className="inline-flex items-center justify-center rounded-lg border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground transition-all duration-200 hover:bg-background-secondary active:scale-[0.98] disabled:opacity-60"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingBulkReject}
-                  className="inline-flex items-center justify-center rounded-xl border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition-all duration-200 hover:bg-rose-100 active:scale-[0.98] disabled:opacity-60 dark:border-rose-700/60 dark:bg-rose-950/20 dark:text-rose-300 dark:hover:bg-rose-950/40"
+                  className="inline-flex items-center justify-center rounded-lg border border-danger/40 bg-danger-muted px-4 py-2 text-sm font-semibold text-danger transition-all duration-200 hover:bg-danger/10 active:scale-[0.98] disabled:opacity-60"
                 >
                   {isSubmittingBulkReject ? "Processing..." : "Confirm Bulk Rejection"}
                 </button>

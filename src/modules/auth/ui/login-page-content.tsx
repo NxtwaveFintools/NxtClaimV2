@@ -87,7 +87,7 @@ export function LoginPageContent() {
       </div>
 
       {/* Theme toggle */}
-      <div className="absolute right-5 top-5 z-20 flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card transition-colors hover:bg-background-secondary">
+      <div className="absolute right-5 top-5 z-20 flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card transition-colors hover:bg-background-secondary">
         <ThemeToggle />
       </div>
 
@@ -105,13 +105,13 @@ export function LoginPageContent() {
 
         {/* Error Banner */}
         {error || queryError ? (
-          <div className="mb-5 w-full rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-center text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300">
+          <div className="mb-5 w-full rounded-lg border border-danger/30 bg-danger-muted px-4 py-3 text-center text-sm text-danger">
             {error ?? queryError}
           </div>
         ) : null}
 
         {/* Login Card */}
-        <div className="w-full rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div className="w-full rounded-xl border border-border bg-card p-6">
           <OAuthButtons loading={loading} onMicrosoftClick={handleMicrosoftLogin} />
 
           <div className="relative my-5">

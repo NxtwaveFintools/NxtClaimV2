@@ -65,7 +65,7 @@ export function DeleteClaimButton({
   };
 
   const modal = isModalOpen ? (
-    <div className="fixed inset-0 z-[260] bg-zinc-950/50" onClick={handleModalClose}>
+    <div className="fixed inset-0 z-[260] bg-black/50" onClick={handleModalClose}>
       <div className="flex min-h-full items-center justify-center">
         <div
           role="dialog"
@@ -75,19 +75,16 @@ export function DeleteClaimButton({
           className="mx-4 w-full max-w-md rounded-xl border border-border bg-card p-6 text-center shadow-none"
           onClick={(event) => event.stopPropagation()}
         >
-          <div className="mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400">
+          <div className="mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-danger-muted text-danger">
             <AlertTriangle className="h-5 w-5" aria-hidden="true" />
           </div>
 
-          <h2
-            id="delete-claim-title"
-            className="text-lg font-semibold text-zinc-900 dark:text-zinc-100"
-          >
+          <h2 id="delete-claim-title" className="text-lg font-semibold text-foreground">
             Delete Claim
           </h2>
           <p
             id="delete-claim-description"
-            className="mx-auto mt-2 max-w-sm text-sm text-zinc-500 dark:text-zinc-400"
+            className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground"
           >
             Are you sure you want to delete this claim? This action will remove it from your queue.
           </p>
@@ -97,7 +94,7 @@ export function DeleteClaimButton({
               type="button"
               onClick={handleModalClose}
               disabled={isPending}
-              className="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900"
+              className="inline-flex h-10 flex-1 items-center justify-center rounded-lg border border-border bg-card px-4 text-sm font-semibold text-foreground transition-colors hover:bg-background-secondary disabled:cursor-not-allowed disabled:opacity-50"
             >
               Cancel
             </button>
@@ -105,7 +102,7 @@ export function DeleteClaimButton({
               type="button"
               onClick={handleConfirmDelete}
               disabled={isPending}
-              className="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-transparent bg-rose-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-10 flex-1 items-center justify-center rounded-lg border border-transparent bg-danger px-4 text-sm font-semibold text-white transition-colors hover:bg-danger/80 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isPending ? "Deleting..." : "Delete"}
             </button>
@@ -123,8 +120,8 @@ export function DeleteClaimButton({
         disabled={isPending}
         className={
           compact
-            ? "inline-flex h-8 items-center justify-center rounded-md border border-rose-200 px-2 text-[11px] font-semibold text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-700/60 dark:text-rose-300 dark:hover:bg-rose-950/40"
-            : "inline-flex h-9 items-center justify-center rounded-xl border border-rose-200 px-3 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-700/60 dark:text-rose-300 dark:hover:bg-rose-950/40"
+            ? "inline-flex h-8 items-center justify-center rounded-lg border border-danger/30 px-2 text-[11px] font-semibold text-danger transition-colors hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50"
+            : "inline-flex h-9 items-center justify-center rounded-lg border border-danger/30 px-3 text-sm font-semibold text-danger transition-colors hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50"
         }
       >
         {isPending ? "Deleting..." : compact ? "Delete" : "Delete Claim"}

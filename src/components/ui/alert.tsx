@@ -2,13 +2,10 @@ import type { HTMLAttributes } from "react";
 import { cn } from "@/lib/cn";
 
 const ALERT_TONE_CLASSES = {
-  error:
-    "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800/60 dark:bg-rose-950/30 dark:text-rose-200",
-  warning:
-    "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200",
-  success:
-    "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-950/30 dark:text-emerald-200",
-  info: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800/60 dark:bg-sky-950/30 dark:text-sky-200",
+  error: "border-danger/30 bg-danger-muted text-danger",
+  warning: "border-warning/30 bg-warning-muted text-warning",
+  success: "border-success/30 bg-success-muted text-success",
+  info: "border-info/30 bg-info-muted text-info",
 } as const;
 
 export type AlertTone = keyof typeof ALERT_TONE_CLASSES;

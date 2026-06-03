@@ -70,7 +70,7 @@ export function MyClaimsPaginationControls({
 
       <div className="flex items-center justify-end gap-2">
         {isPending ? (
-          <span className="mr-2 inline-flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+          <span className="mr-2 inline-flex items-center gap-1 text-xs text-muted-foreground">
             <svg
               className="h-3.5 w-3.5 animate-spin"
               viewBox="0 0 24 24"

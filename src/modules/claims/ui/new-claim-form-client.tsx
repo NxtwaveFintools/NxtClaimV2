@@ -1365,12 +1365,14 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       <input type="hidden" {...register("hodEmail")} />
 
       <div className="flex flex-col items-start gap-5 lg:flex-row">
-        <div className="grid w-full min-w-0 gap-4 sm:gap-5 lg:w-1/2">
+        <div
+          className={`grid w-full min-w-0 gap-4 sm:gap-5 ${detailType === "advance" ? "lg:flex-1" : "lg:w-1/2"}`}
+        >
           {/* ── Left column: Employee + Submission Context ── */}
-          <section className="grid gap-3 rounded-xl border border-zinc-200 p-4 sm:p-5">
+          <section className="grid gap-3 rounded-xl border border-border p-4 sm:p-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <h2 className="dashboard-font-display text-sm font-semibold tracking-[-0.01em] text-zinc-950 dark:text-zinc-50">
+                <h2 className="dashboard-font-display text-sm font-semibold tracking-[-0.01em] text-foreground">
                   Submission Context
                 </h2>
               </div>
@@ -1394,33 +1396,30 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
             <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
               <div className="grid gap-1">
-                <label
-                  htmlFor="employeeId"
-                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                >
-                  Employee ID <span className="text-rose-600">*</span>
+                <label htmlFor="employeeId" className="text-xs font-medium text-muted-foreground">
+                  Employee ID <span className="text-danger">*</span>
                 </label>
                 <FormInput
                   id="employeeId"
                   type="text"
-                  className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                  className="h-9 rounded-lg border border-border px-3 text-sm"
                   {...register("employeeId")}
                 />
                 {errors.employeeId ? (
-                  <p className="text-xs text-rose-600">{errors.employeeId.message}</p>
+                  <p className="text-xs text-danger">{errors.employeeId.message}</p>
                 ) : null}
               </div>
 
               <div className="grid gap-1">
                 <label
                   htmlFor="submissionType"
-                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  className="text-xs font-medium text-muted-foreground"
                 >
-                  Submission Type <span className="text-rose-600">*</span>
+                  Submission Type <span className="text-danger">*</span>
                 </label>
                 <FormSelect
                   id="submissionType"
-                  className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                  className="h-9 rounded-lg border border-border px-3 text-sm"
                   {...register("submissionType")}
                 >
                   <option value="Self">Self</option>
@@ -1434,41 +1433,41 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                 <div className="grid gap-1">
                   <label
                     htmlFor="onBehalfEmail"
-                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    className="text-xs font-medium text-muted-foreground"
                   >
-                    On Behalf Email <span className="text-rose-600">*</span>
+                    On Behalf Email <span className="text-danger">*</span>
                   </label>
                   <FormInput
                     id="onBehalfEmail"
                     type="email"
                     placeholder={`e.g., user${ON_BEHALF_EMAIL_DOMAIN}`}
-                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    className="h-9 rounded-lg border border-border px-3 text-sm"
                     {...register("onBehalfEmail", {
                       setValueAs: (value) => toNullable(String(value ?? "")),
                     })}
                   />
                   {errors.onBehalfEmail ? (
-                    <p className="text-xs text-rose-600">{errors.onBehalfEmail.message}</p>
+                    <p className="text-xs text-danger">{errors.onBehalfEmail.message}</p>
                   ) : null}
                 </div>
 
                 <div className="grid gap-1">
                   <label
                     htmlFor="onBehalfEmployeeCode"
-                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    className="text-xs font-medium text-muted-foreground"
                   >
-                    On Behalf Employee ID <span className="text-rose-600">*</span>
+                    On Behalf Employee ID <span className="text-danger">*</span>
                   </label>
                   <FormInput
                     id="onBehalfEmployeeCode"
                     type="text"
-                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    className="h-9 rounded-lg border border-border px-3 text-sm"
                     {...register("onBehalfEmployeeCode", {
                       setValueAs: (value) => toNullable(String(value ?? "")),
                     })}
                   />
                   {errors.onBehalfEmployeeCode ? (
-                    <p className="text-xs text-rose-600">{errors.onBehalfEmployeeCode.message}</p>
+                    <p className="text-xs text-danger">{errors.onBehalfEmployeeCode.message}</p>
                   ) : null}
                 </div>
               </div>
@@ -1476,15 +1475,12 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
             <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
               <div className="grid gap-1">
-                <label
-                  htmlFor="departmentId"
-                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                >
-                  Department <span className="text-rose-600">*</span>
+                <label htmlFor="departmentId" className="text-xs font-medium text-muted-foreground">
+                  Department <span className="text-danger">*</span>
                 </label>
                 <FormSelect
                   id="departmentId"
-                  className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                  className="h-9 rounded-lg border border-border px-3 text-sm"
                   {...register("departmentId")}
                 >
                   {options.departments.map((option) => (
@@ -1494,21 +1490,18 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   ))}
                 </FormSelect>
                 {errors.departmentId ? (
-                  <p className="text-xs text-rose-600">{errors.departmentId.message}</p>
+                  <p className="text-xs text-danger">{errors.departmentId.message}</p>
                 ) : null}
               </div>
 
               <div className="grid gap-1">
-                <label
-                  htmlFor="ccEmails"
-                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                >
+                <label htmlFor="ccEmails" className="text-xs font-medium text-muted-foreground">
                   CC Emails (Optional)
                 </label>
                 <FormInput
                   id="ccEmails"
                   type="text"
-                  className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                  className="h-9 rounded-lg border border-border px-3 text-sm"
                   placeholder="user1@example.com, user2@example.com"
                   {...register("ccEmails", {
                     setValueAs: (value) => toOptional(String(value ?? "")),
@@ -1521,7 +1514,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
               <div className="grid gap-1">
                 <label
                   htmlFor="l1ApproverNameReadOnly"
-                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  className="text-xs font-medium text-muted-foreground"
                 >
                   {displayApproverLabel}
                 </label>
@@ -1529,17 +1522,17 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   id="l1ApproverNameReadOnly"
                   value={displayApprover?.fullName ?? displayApprover?.email ?? "Not available"}
                   readOnly
-                  className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
+                  className="h-9 rounded-lg border border-border bg-background-secondary px-3 text-sm text-muted-foreground"
                 />
                 {errors.hodName ? (
-                  <p className="text-xs text-rose-600">{errors.hodName.message}</p>
+                  <p className="text-xs text-danger">{errors.hodName.message}</p>
                 ) : null}
               </div>
 
               <div className="grid gap-1">
                 <label
                   htmlFor="l1ApproverEmailReadOnly"
-                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  className="text-xs font-medium text-muted-foreground"
                 >
                   {displayApproverLabel} Email
                 </label>
@@ -1547,10 +1540,10 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   id="l1ApproverEmailReadOnly"
                   value={displayApproverEmail || "Not available"}
                   readOnly
-                  className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
+                  className="h-9 rounded-lg border border-border bg-background-secondary px-3 text-sm text-muted-foreground"
                 />
                 {errors.hodEmail ? (
-                  <p className="text-xs text-rose-600">{errors.hodEmail.message}</p>
+                  <p className="text-xs text-danger">{errors.hodEmail.message}</p>
                 ) : null}
               </div>
             </div>
@@ -1559,16 +1552,16 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
               <div className="grid gap-1">
                 <label
                   htmlFor="paymentModeId"
-                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  className="text-xs font-medium text-muted-foreground"
                 >
-                  Payment Mode <span className="text-rose-600">*</span>{" "}
-                  <span className="text-xs font-normal text-zinc-400">
+                  Payment Mode <span className="text-danger">*</span>{" "}
+                  <span className="text-xs font-normal text-muted-foreground">
                     ({detailType === "expense" ? "Expense" : "Advance"})
                   </span>
                 </label>
                 <FormSelect
                   id="paymentModeId"
-                  className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                  className="h-9 rounded-lg border border-border px-3 text-sm"
                   {...register("paymentModeId")}
                 >
                   {options.paymentModes.map((option) => (
@@ -1578,15 +1571,15 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   ))}
                 </FormSelect>
                 {errors.paymentModeId ? (
-                  <p className="text-xs text-rose-600">{errors.paymentModeId.message}</p>
+                  <p className="text-xs text-danger">{errors.paymentModeId.message}</p>
                 ) : null}
               </div>
             </div>
           </section>
           {detailType === "expense" ? (
-            <section className="grid gap-x-4 gap-y-3 rounded-xl border border-zinc-200 p-4 sm:p-[18px] [&_label]:!text-[13px]">
+            <section className="grid gap-x-4 gap-y-3 rounded-xl border border-border p-4 sm:p-[18px] [&_label]:!text-[13px]">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="dashboard-font-display text-sm font-semibold tracking-[-0.01em] text-zinc-950 dark:text-zinc-50">
+                <h2 className="dashboard-font-display text-sm font-semibold tracking-[-0.01em] text-foreground">
                   Expense Details
                 </h2>
               </div>
@@ -1595,38 +1588,35 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
               <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
                 <div className="grid gap-1">
-                  <label
-                    htmlFor="billNo"
-                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                  >
-                    Bill No <span className="text-rose-600">*</span>
+                  <label htmlFor="billNo" className="text-xs font-medium text-muted-foreground">
+                    Bill No <span className="text-danger">*</span>
                   </label>
                   <FormInput
                     id="billNo"
                     type="text"
-                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    className="h-9 rounded-lg border border-border px-3 text-sm"
                     {...register("expense.billNo")}
                   />
                   {errors.expense?.billNo ? (
-                    <p className="text-xs text-rose-600">{errors.expense.billNo.message}</p>
+                    <p className="text-xs text-danger">{errors.expense.billNo.message}</p>
                   ) : null}
                 </div>
 
                 <div className="grid gap-1">
                   <label
                     htmlFor="expensePurpose"
-                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    className="text-xs font-medium text-muted-foreground"
                   >
-                    Purpose <span className="text-rose-600">*</span>
+                    Purpose <span className="text-danger">*</span>
                   </label>
                   <FormInput
                     id="expensePurpose"
                     type="text"
-                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    className="h-9 rounded-lg border border-border px-3 text-sm"
                     {...register("expense.purpose")}
                   />
                   {errors.expense?.purpose ? (
-                    <p className="text-xs text-rose-600">{errors.expense.purpose.message}</p>
+                    <p className="text-xs text-danger">{errors.expense.purpose.message}</p>
                   ) : null}
                 </div>
               </div>
@@ -1635,13 +1625,13 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                 <div className="grid gap-1">
                   <label
                     htmlFor="expenseCategoryId"
-                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    className="text-xs font-medium text-muted-foreground"
                   >
-                    Expense Category <span className="text-rose-600">*</span>
+                    Expense Category <span className="text-danger">*</span>
                   </label>
                   <FormSelect
                     id="expenseCategoryId"
-                    className="h-9 w-full rounded-lg border border-zinc-300 px-3 text-sm"
+                    className="h-9 w-full rounded-lg border border-border px-3 text-sm"
                     {...register("expense.expenseCategoryId")}
                   >
                     <option value="">Select Expense Category</option>
@@ -1661,13 +1651,13 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                 <div className="grid gap-1">
                   <label
                     htmlFor="expenseProductId"
-                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    className="text-xs font-medium text-muted-foreground"
                   >
-                    Product <span className="text-rose-600">*</span>
+                    Product <span className="text-danger">*</span>
                   </label>
                   <FormSelect
                     id="expenseProductId"
-                    className="h-9 w-full rounded-lg border border-zinc-300 px-3 text-sm"
+                    className="h-9 w-full rounded-lg border border-border px-3 text-sm"
                     {...register("expense.productId")}
                   >
                     <option value="">Select Product type</option>
@@ -1678,7 +1668,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     ))}
                   </FormSelect>
                   {errors.expense?.productId ? (
-                    <p className="text-xs text-rose-600">{errors.expense.productId.message}</p>
+                    <p className="text-xs text-danger">{errors.expense.productId.message}</p>
                   ) : null}
                 </div>
               </div>
@@ -1687,13 +1677,13 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                 <div className="grid gap-1">
                   <label
                     htmlFor="expenseLocationId"
-                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    className="text-xs font-medium text-muted-foreground"
                   >
-                    Location <span className="text-rose-600">*</span>
+                    Location <span className="text-danger">*</span>
                   </label>
                   <FormSelect
                     id="expenseLocationId"
-                    className="h-9 w-full rounded-lg border border-zinc-300 px-3 text-sm"
+                    className="h-9 w-full rounded-lg border border-border px-3 text-sm"
                     {...register("expense.locationId")}
                   >
                     <option value="">Please Select Location</option>
@@ -1706,16 +1696,13 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                 </div>
 
                 <div className="grid gap-1">
-                  <label
-                    htmlFor="vendorName"
-                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                  >
+                  <label htmlFor="vendorName" className="text-xs font-medium text-muted-foreground">
                     Vendor (Optional)
                   </label>
                   <FormInput
                     id="vendorName"
                     type="text"
-                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    className="h-9 rounded-lg border border-border px-3 text-sm"
                     {...register("expense.vendorName", {
                       setValueAs: (value) => toNullable(String(value ?? "")),
                     })}
@@ -1728,13 +1715,13 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   <div className="grid gap-1">
                     <label
                       htmlFor="expenseLocationType"
-                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                      className="text-xs font-medium text-muted-foreground"
                     >
-                      Location Type <span className="text-rose-600">*</span>
+                      Location Type <span className="text-danger">*</span>
                     </label>
                     <FormSelect
                       id="expenseLocationType"
-                      className="h-9 w-full rounded-lg border border-zinc-300 px-3 text-sm"
+                      className="h-9 w-full rounded-lg border border-border px-3 text-sm"
                       {...register("expense.locationType")}
                     >
                       <option value="">Select location type</option>
@@ -1745,26 +1732,26 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                       ))}
                     </FormSelect>
                     {errors.expense?.locationType ? (
-                      <p className="text-xs text-rose-600">{errors.expense.locationType.message}</p>
+                      <p className="text-xs text-danger">{errors.expense.locationType.message}</p>
                     ) : null}
                   </div>
                   {locationType === LOCATION_TYPES.OUT_STATION ? (
                     <div className="grid gap-1">
                       <label
                         htmlFor="expenseLocationDetails"
-                        className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                        className="text-xs font-medium text-muted-foreground"
                       >
-                        Location Details <span className="text-rose-600">*</span>
+                        Location Details <span className="text-danger">*</span>
                       </label>
                       <FormInput
                         id="expenseLocationDetails"
                         type="text"
                         placeholder="Enter out-station location details"
-                        className="h-9 w-full rounded-lg border border-zinc-300 px-3 text-sm"
+                        className="h-9 w-full rounded-lg border border-border px-3 text-sm"
                         {...register("expense.locationDetails")}
                       />
                       {errors.expense?.locationDetails ? (
-                        <p className="text-xs text-rose-600">
+                        <p className="text-xs text-danger">
                           {errors.expense.locationDetails.message}
                         </p>
                       ) : null}
@@ -1777,20 +1764,20 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                 <div className="grid gap-1">
                   <label
                     htmlFor="transactionDate"
-                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    className="text-xs font-medium text-muted-foreground"
                   >
-                    Transaction Date <span className="text-rose-600">*</span>
+                    Transaction Date <span className="text-danger">*</span>
                   </label>
                   <DateInput
                     id="transactionDate"
-                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    className="h-9 rounded-lg border border-border px-3 text-sm"
                     {...register("expense.transactionDate")}
                   />
                 </div>
               </div>
 
-              <div className="grid gap-x-4 gap-y-3 rounded-xl border border-zinc-200/80 bg-zinc-100/30 p-3 dark:border-zinc-700 dark:bg-zinc-800/20">
-                <p className="text-[11px] font-medium tracking-wide text-zinc-500 dark:text-zinc-400">
+              <div className="grid gap-x-4 gap-y-3 rounded-xl border border-border/80 bg-background-secondary/50 p-3">
+                <p className="text-[11px] font-medium tracking-wide text-muted-foreground dark:text-muted-foreground">
                   Tax Details
                 </p>
 
@@ -1798,14 +1785,14 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   <div className="grid gap-1">
                     <label
                       htmlFor="gstNumber"
-                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                      className="text-xs font-medium text-muted-foreground"
                     >
                       GST Number
                     </label>
                     <FormInput
                       id="gstNumber"
                       type="text"
-                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                      className="h-9 rounded-lg border border-border px-3 text-sm"
                       {...register("expense.gstNumber", {
                         setValueAs: (value) => toNullable(String(value ?? "")),
                       })}
@@ -1815,13 +1802,13 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   <div className="grid gap-1">
                     <label
                       htmlFor="igstAmount"
-                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                      className="text-xs font-medium text-muted-foreground"
                     >
                       IGST Amount
                     </label>
                     <CurrencyInput
                       id="igstAmount"
-                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                      className="h-9 rounded-lg border border-border px-3 text-sm"
                       {...register("expense.igstAmount", {
                         setValueAs: toNumberOrZero,
                       })}
@@ -1833,13 +1820,13 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   <div className="grid gap-1">
                     <label
                       htmlFor="cgstAmount"
-                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                      className="text-xs font-medium text-muted-foreground"
                     >
                       CGST Amount
                     </label>
                     <CurrencyInput
                       id="cgstAmount"
-                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                      className="h-9 rounded-lg border border-border px-3 text-sm"
                       {...register("expense.cgstAmount", {
                         setValueAs: toNumberOrZero,
                       })}
@@ -1849,13 +1836,13 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   <div className="grid gap-1">
                     <label
                       htmlFor="sgstAmount"
-                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                      className="text-xs font-medium text-muted-foreground"
                     >
                       SGST Amount
                     </label>
                     <CurrencyInput
                       id="sgstAmount"
-                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                      className="h-9 rounded-lg border border-border px-3 text-sm"
                       {...register("expense.sgstAmount", {
                         setValueAs: toNumberOrZero,
                       })}
@@ -1867,26 +1854,26 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   <div className="grid gap-1">
                     <label
                       htmlFor="basicAmount"
-                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                      className="text-xs font-medium text-muted-foreground"
                     >
-                      Basic Amount <span className="text-rose-600">*</span>
+                      Basic Amount <span className="text-danger">*</span>
                     </label>
                     <CurrencyInput
                       id="basicAmount"
-                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                      className="h-9 rounded-lg border border-border px-3 text-sm"
                       {...register("expense.basicAmount", {
                         setValueAs: toNumberOrZero,
                       })}
                     />
                     {errors.expense?.basicAmount ? (
-                      <p className="text-xs text-rose-600">{errors.expense.basicAmount.message}</p>
+                      <p className="text-xs text-danger">{errors.expense.basicAmount.message}</p>
                     ) : null}
                   </div>
 
                   <div className="grid gap-1">
                     <label
                       htmlFor="totalAmount"
-                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                      className="text-xs font-medium text-muted-foreground"
                     >
                       Total Amount
                     </label>
@@ -1894,18 +1881,18 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                       id="totalAmount"
                       readOnly
                       disabled
-                      className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
+                      className="h-9 rounded-lg border border-border bg-background-secondary px-3 text-sm text-muted-foreground"
                       value={Number(watchedTotalAmount ?? calculatedTotalAmount).toFixed(2)}
                     />
                     {errors.expense?.totalAmount ? (
-                      <p className="text-xs text-rose-600">{errors.expense.totalAmount.message}</p>
+                      <p className="text-xs text-danger">{errors.expense.totalAmount.message}</p>
                     ) : null}
                   </div>
                 </div>
               </div>
 
-              <div className="grid gap-x-4 gap-y-3 rounded-xl border border-zinc-200/80 bg-zinc-100/30 p-3 dark:border-zinc-700 dark:bg-zinc-800/20">
-                <p className="text-[11px] font-medium tracking-wide text-zinc-500 dark:text-zinc-400">
+              <div className="grid gap-x-4 gap-y-3 rounded-xl border border-border/80 bg-background-secondary/50 p-3">
+                <p className="text-[11px] font-medium tracking-wide text-muted-foreground dark:text-muted-foreground">
                   Foreign Expense Details
                 </p>
 
@@ -1913,13 +1900,13 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   <div className="grid gap-1">
                     <label
                       htmlFor="foreignCurrencyCode"
-                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                      className="text-xs font-medium text-muted-foreground"
                     >
                       Foreign Currency
                     </label>
                     <FormSelect
                       id="foreignCurrencyCode"
-                      className="h-9 w-full rounded-lg border border-zinc-300 px-3 text-sm"
+                      className="h-9 w-full rounded-lg border border-border px-3 text-sm"
                       {...register("expense.foreignCurrencyCode")}
                     >
                       <option value="INR">INR</option>
@@ -1932,19 +1919,19 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   <div className="grid gap-1">
                     <label
                       htmlFor="foreignBasicAmount"
-                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                      className="text-xs font-medium text-muted-foreground"
                     >
                       Foreign Basic Amount
                     </label>
                     <CurrencyInput
                       id="foreignBasicAmount"
-                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                      className="h-9 rounded-lg border border-border px-3 text-sm"
                       {...register("expense.foreignBasicAmount", {
                         setValueAs: clientToNullableNumber,
                       })}
                     />
                     {errors.expense?.foreignBasicAmount ? (
-                      <p className="text-xs text-rose-600">
+                      <p className="text-xs text-danger">
                         {errors.expense.foreignBasicAmount.message}
                       </p>
                     ) : null}
@@ -1955,13 +1942,13 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   <div className="grid gap-1">
                     <label
                       htmlFor="foreignGstAmount"
-                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                      className="text-xs font-medium text-muted-foreground"
                     >
                       Foreign GST Amount
                     </label>
                     <CurrencyInput
                       id="foreignGstAmount"
-                      className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                      className="h-9 rounded-lg border border-border px-3 text-sm"
                       {...register("expense.foreignGstAmount", {
                         setValueAs: clientToNullableNumber,
                       })}
@@ -1971,7 +1958,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   <div className="grid gap-1">
                     <label
                       htmlFor="foreignTotalAmount"
-                      className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                      className="text-xs font-medium text-muted-foreground"
                     >
                       Foreign Total Amount
                     </label>
@@ -1979,7 +1966,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                       id="foreignTotalAmount"
                       readOnly
                       disabled
-                      className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
+                      className="h-9 rounded-lg border border-border bg-background-secondary px-3 text-sm text-muted-foreground"
                       value={
                         calculatedForeignTotalAmount !== null
                           ? Number(
@@ -1996,14 +1983,14 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                 <div className="grid gap-1">
                   <label
                     htmlFor="expenseRemarks"
-                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    className="text-xs font-medium text-muted-foreground"
                   >
                     Remarks (Optional)
                   </label>
                   <FormTextarea
                     id="expenseRemarks"
                     rows={2}
-                    className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                    className="rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground"
                     {...register("expense.remarks", {
                       setValueAs: (value) => toNullable(String(value ?? "")),
                     })}
@@ -2013,14 +2000,14 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                 <div className="grid gap-1">
                   <label
                     htmlFor="peopleInvolved"
-                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    className="text-xs font-medium text-muted-foreground"
                   >
                     People Involved (Optional)
                   </label>
                   <FormTextarea
                     id="peopleInvolved"
                     rows={2}
-                    className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                    className="rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground"
                     {...register("expense.peopleInvolved", {
                       setValueAs: (value) => toNullable(String(value ?? "")),
                     })}
@@ -2031,8 +2018,8 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
           ) : null}
 
           {detailType === "advance" ? (
-            <section className="grid gap-3 rounded-xl border border-zinc-200 p-4 sm:p-5">
-              <h2 className="dashboard-font-display text-sm font-semibold tracking-[-0.01em] text-zinc-950 dark:text-zinc-50">
+            <section className="grid gap-3 rounded-xl border border-border p-4 sm:p-5">
+              <h2 className="dashboard-font-display text-sm font-semibold tracking-[-0.01em] text-foreground">
                 Petty Cash Request Details
               </h2>
 
@@ -2041,7 +2028,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
               <div className="grid gap-1">
                 <label
                   htmlFor="advanceReceiptFile"
-                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                  className="text-xs font-medium text-muted-foreground"
                 >
                   Upload File (Optional)
                 </label>
@@ -2063,52 +2050,52 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                 />
                 <label
                   htmlFor="advanceReceiptFile"
-                  className="flex h-11 cursor-pointer items-center justify-center rounded-lg border border-zinc-300 bg-zinc-50 px-4 text-base font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  className="flex h-10 cursor-pointer items-center justify-center rounded-lg border border-border bg-background-secondary px-4 text-sm font-medium text-foreground transition-colors hover:bg-background-secondary/80"
                 >
                   Choose Supporting Document
                 </label>
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-muted-foreground">
                   <span className="block truncate">
                     {advanceSupportingFile ? advanceSupportingFile.name : "No file selected"}
                   </span>
                 </p>
-                <p className="text-[10px] text-zinc-500">PDF, JPG, PNG, WEBP. Max: 25MB.</p>
+                <p className="text-[10px] text-muted-foreground">PDF, JPG, PNG, WEBP. Max 25 MB.</p>
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="grid gap-1">
                   <label
                     htmlFor="totalAmount"
-                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    className="text-xs font-medium text-muted-foreground"
                   >
-                    Total Amount (₹) <span className="text-rose-600">*</span>
+                    Total Amount (₹) <span className="text-danger">*</span>
                   </label>
                   <CurrencyInput
                     id="totalAmount"
-                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    className="h-9 rounded-lg border border-border px-3 text-sm"
                     {...register("advance.totalAmount", { valueAsNumber: true })}
                   />
                   {errors.advance?.totalAmount ? (
-                    <p className="text-xs text-rose-600">{errors.advance.totalAmount.message}</p>
+                    <p className="text-xs text-danger">{errors.advance.totalAmount.message}</p>
                   ) : null}
                 </div>
 
                 <div className="grid gap-1">
                   <label
                     htmlFor="expectedUsageDate"
-                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    className="text-xs font-medium text-muted-foreground"
                   >
                     Expected Usage Date (Optional)
                   </label>
                   <DateInput
                     id="expectedUsageDate"
-                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    className="h-9 rounded-lg border border-border px-3 text-sm"
                     {...register("advance.expectedUsageDate", {
                       setValueAs: (value) => toNullable(String(value ?? "")),
                     })}
                   />
                   {errors.advance?.expectedUsageDate ? (
-                    <p className="text-xs text-rose-600">
+                    <p className="text-xs text-danger">
                       {errors.advance.expectedUsageDate.message}
                     </p>
                   ) : null}
@@ -2119,13 +2106,13 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                 <div className="grid gap-1">
                   <label
                     htmlFor="budgetMonth"
-                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                    className="text-xs font-medium text-muted-foreground"
                   >
-                    Budget Request Month <span className="text-rose-600">*</span>
+                    Budget Request Month <span className="text-danger">*</span>
                   </label>
                   <FormSelect
                     id="budgetMonth"
-                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    className="h-9 rounded-lg border border-border px-3 text-sm"
                     {...register("advance.budgetMonth", {
                       setValueAs: (value) => Number(value),
                     })}
@@ -2137,20 +2124,17 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     ))}
                   </FormSelect>
                   {errors.advance?.budgetMonth ? (
-                    <p className="text-xs text-rose-600">{errors.advance.budgetMonth.message}</p>
+                    <p className="text-xs text-danger">{errors.advance.budgetMonth.message}</p>
                   ) : null}
                 </div>
 
                 <div className="grid gap-1">
-                  <label
-                    htmlFor="budgetYear"
-                    className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                  >
-                    Budget Request Year <span className="text-rose-600">*</span>
+                  <label htmlFor="budgetYear" className="text-xs font-medium text-muted-foreground">
+                    Budget Request Year <span className="text-danger">*</span>
                   </label>
                   <FormSelect
                     id="budgetYear"
-                    className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
+                    className="h-9 rounded-lg border border-border px-3 text-sm"
                     {...register("advance.budgetYear", {
                       setValueAs: (value) => Number(value),
                     })}
@@ -2165,26 +2149,23 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     })}
                   </FormSelect>
                   {errors.advance?.budgetYear ? (
-                    <p className="text-xs text-rose-600">{errors.advance.budgetYear.message}</p>
+                    <p className="text-xs text-danger">{errors.advance.budgetYear.message}</p>
                   ) : null}
                 </div>
               </div>
 
               <div className="grid gap-1">
-                <label
-                  htmlFor="purpose"
-                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                >
-                  Purpose/Reason <span className="text-rose-600">*</span>
+                <label htmlFor="purpose" className="text-xs font-medium text-muted-foreground">
+                  Purpose/Reason <span className="text-danger">*</span>
                 </label>
                 <FormTextarea
                   id="purpose"
                   rows={2}
-                  className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                  className="rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground"
                   {...register("advance.purpose")}
                 />
                 {errors.advance?.purpose ? (
-                  <p className="text-xs text-rose-600">{errors.advance.purpose.message}</p>
+                  <p className="text-xs text-danger">{errors.advance.purpose.message}</p>
                 ) : null}
               </div>
             </section>
@@ -2208,7 +2189,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   <label htmlFor="receiptFile" className="text-sm font-medium text-foreground">
                     Invoice/Bill
                   </label>
-                  <span className="text-xs font-medium text-rose-600">Required</span>
+                  <span className="text-xs font-medium text-danger">Required</span>
                 </div>
                 <input
                   id="receiptFile"
@@ -2233,7 +2214,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     ? `${invoiceFile.name} · ${formatFileSize(invoiceFile.size)}`
                     : "No file selected"}
                 </p>
-                {fileError ? <p className="text-xs text-rose-600">{fileError}</p> : null}
+                {fileError ? <p className="text-xs text-danger">{fileError}</p> : null}
               </div>
 
               <Button
@@ -2252,7 +2233,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="text-sm font-semibold text-foreground">Bank Statement</h3>
                   {isBankStatementRequired ? (
-                    <span className="text-xs font-medium text-rose-600">Required</span>
+                    <span className="text-xs font-medium text-danger">Required</span>
                   ) : (
                     <span className="text-xs font-medium text-muted-foreground">Optional</span>
                   )}
@@ -2286,7 +2267,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     : "No file selected"}
                 </p>
                 {bankStatementError ? (
-                  <p className="text-xs text-rose-600">{bankStatementError}</p>
+                  <p className="text-xs text-danger">{bankStatementError}</p>
                 ) : null}
               </div>
 

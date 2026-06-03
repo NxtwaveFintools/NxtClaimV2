@@ -812,7 +812,7 @@ export function ClaimsFilterBar({
             onChange={(event) => {
               handleSearchFieldChange(event.target.value);
             }}
-            className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
+            className="nxt-input h-9 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground"
           >
             {SEARCH_FIELD_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -830,7 +830,7 @@ export function ClaimsFilterBar({
               setSearchInput(event.target.value);
             }}
             placeholder={searchPlaceholder}
-            className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
+            className="nxt-input h-9 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground"
           />
         </label>
 
@@ -864,7 +864,7 @@ export function ClaimsFilterBar({
             onChange={(event) => {
               setParam("from", event.target.value, setLocalFromDate);
             }}
-            className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
+            className="nxt-input h-9 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground"
           />
         </label>
 
@@ -876,7 +876,7 @@ export function ClaimsFilterBar({
             onChange={(event) => {
               setParam("to", event.target.value, setLocalToDate);
             }}
-            className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
+            className="nxt-input h-9 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground"
           />
         </label>
       </div>
@@ -894,7 +894,7 @@ export function ClaimsFilterBar({
               updateUrlWithMutation(nextParams, pathname, router);
             });
           }}
-          className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-md border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-background-secondary"
+          className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-background-secondary"
           {...(isFiltersExpanded
             ? ({ "aria-expanded": "true" } as const)
             : ({ "aria-expanded": "false" } as const))}
@@ -916,7 +916,7 @@ export function ClaimsFilterBar({
               void handleExportXlsx();
             }}
             disabled={isExporting}
-            className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-md border border-emerald-300 bg-emerald-50 px-3 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-70 dark:border-emerald-700/60 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
+            className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-success/30 bg-success-muted px-3 text-sm font-semibold text-success transition hover:bg-success-muted/80 disabled:cursor-not-allowed disabled:opacity-70"
           >
             <Download className="h-4 w-4" aria-hidden="true" />
             {isExporting ? "Exporting..." : "Export Excel"}
@@ -958,7 +958,7 @@ export function ClaimsFilterBar({
               updateUrlWithMutation(nextParams, pathname, router);
             });
           }}
-          className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-md border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-background-secondary"
+          className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-background-secondary"
         >
           <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
           Clear All
@@ -990,7 +990,7 @@ export function ClaimsFilterBar({
                 onChange={(event) => {
                   setParam("submission_type", event.target.value, setLocalSubmissionType);
                 }}
-                className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
+                className="nxt-input h-9 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground"
               >
                 <option value="">All</option>
                 {SUBMISSION_TYPE_OPTIONS.map((option) => (
@@ -1008,7 +1008,7 @@ export function ClaimsFilterBar({
                 onChange={(event) => {
                   setParam("payment_mode_id", event.target.value, setLocalPaymentModeId);
                 }}
-                className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
+                className="nxt-input h-9 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground"
               >
                 <option value="">All</option>
                 {paymentModeOptions}
@@ -1022,7 +1022,7 @@ export function ClaimsFilterBar({
                 onChange={(event) => {
                   setParam("department_id", event.target.value, setLocalDepartmentId);
                 }}
-                className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
+                className="nxt-input h-9 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground"
               >
                 <option value="">All</option>
                 {departmentOptions}
@@ -1036,7 +1036,7 @@ export function ClaimsFilterBar({
                 onChange={(event) => {
                   setParam("location_id", event.target.value, setLocalLocationId);
                 }}
-                className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
+                className="nxt-input h-9 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground"
               >
                 <option value="">All</option>
                 {locationOptions}
@@ -1050,7 +1050,7 @@ export function ClaimsFilterBar({
                 onChange={(event) => {
                   setParam("product_id", event.target.value, setLocalProductId);
                 }}
-                className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
+                className="nxt-input h-9 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground"
               >
                 <option value="">All</option>
                 {productOptions}
@@ -1064,7 +1064,7 @@ export function ClaimsFilterBar({
                 onChange={(event) => {
                   setParam("expense_category_id", event.target.value, setLocalExpenseCategoryId);
                 }}
-                className="nxt-input h-9 rounded-md border border-border bg-background px-2.5 text-sm text-foreground"
+                className="nxt-input h-9 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground"
               >
                 <option value="">All</option>
                 {expenseCategoryOptions}

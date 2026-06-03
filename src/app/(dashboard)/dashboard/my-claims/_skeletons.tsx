@@ -90,7 +90,7 @@ export function MyClaimsFilterSkeleton() {
         {["w-24", "w-12", "w-12", "w-10", "w-6"].map((labelWidth, index) => (
           <div key={`claims-filter-field-${index}`} className="grid gap-1">
             <Skeleton className={`h-3 ${labelWidth}`} />
-            <Skeleton className="h-9 w-full rounded-md" />
+            <Skeleton className="h-9 w-full rounded-lg" />
           </div>
         ))}
       </div>

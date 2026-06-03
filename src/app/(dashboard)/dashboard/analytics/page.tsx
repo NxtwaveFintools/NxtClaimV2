@@ -193,8 +193,8 @@ async function AnalyticsErrorBannerFetcher({
   }
 
   return (
-    <div className="rounded-xl border border-rose-200/70 bg-rose-50/70 p-4 dark:border-rose-900/60 dark:bg-rose-950/20">
-      <p className="text-sm text-rose-700 dark:text-rose-300">
+    <div className="rounded-xl border border-danger/30 bg-danger-muted p-4">
+      <p className="text-sm text-danger">
         {getUserFriendlyErrorMessage(analyticsResult.errorMessage, "analytics")}
       </p>
     </div>

@@ -63,69 +63,48 @@ export function RecentClaimsSkeleton() {
             </colgroup>
             <thead>
               <tr
-                className="border-b border-slate-200 dark:border-zinc-700"
+                className="border-b border-border"
                 style={{ backgroundColor: "var(--background-secondary)" }}
               >
-                <th
-                  className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em]"
-                  style={{ color: "var(--muted-foreground)" }}
-                >
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                   Claim ID
                 </th>
-                <th
-                  className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em]"
-                  style={{ color: "var(--muted-foreground)" }}
-                >
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                   Date
                 </th>
-                <th
-                  className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em]"
-                  style={{ color: "var(--muted-foreground)" }}
-                >
+                <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                   Category
                 </th>
-                <th
-                  className="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.06em]"
-                  style={{ color: "var(--muted-foreground)" }}
-                >
+                <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                   Amount
                 </th>
-                <th
-                  className="px-5 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.06em]"
-                  style={{ color: "var(--muted-foreground)" }}
-                >
+                <th className="px-4 py-2.5 text-center text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                   Status
                 </th>
-                <th
-                  className="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.06em]"
-                  style={{ color: "var(--muted-foreground)" }}
-                >
+                <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                   Action
                 </th>
               </tr>
             </thead>
             <tbody>
               {Array.from({ length: 5 }).map((_, index) => (
-                <tr
-                  key={`skeleton-row-${index}`}
-                  className="h-14 border-b border-slate-200 dark:border-zinc-800"
-                >
-                  <td className="px-5 py-3">
+                <tr key={`skeleton-row-${index}`} className="h-14 border-b border-border">
+                  <td className="px-4 py-3">
                     <Skeleton className="h-4 w-[90%]" />
                   </td>
-                  <td className="px-5 py-3">
+                  <td className="px-4 py-3">
                     <Skeleton className="h-4 w-[80%]" />
                   </td>
-                  <td className="px-5 py-3">
+                  <td className="px-4 py-3">
                     <Skeleton className="h-4 w-[80%]" />
                   </td>
-                  <td className="px-5 py-3 text-right">
+                  <td className="px-4 py-3 text-right">
                     <Skeleton className="ml-auto h-4 w-[70%]" />
                   </td>
-                  <td className="px-5 py-3 text-center">
+                  <td className="px-4 py-3 text-center">
                     <Skeleton className="mx-auto h-7 w-[85%] rounded-full" />
                   </td>
-                  <td className="px-5 py-3 text-right">
+                  <td className="px-4 py-3 text-right">
                     <Skeleton className="ml-auto h-8 w-[70%] rounded-lg" />
                   </td>
                 </tr>
@@ -161,26 +140,23 @@ function SkeletonRows() {
   return (
     <>
       {Array.from({ length: 5 }).map((_, index) => (
-        <tr
-          key={`skeleton-row-${index}`}
-          className="h-14 border-b border-slate-200 dark:border-zinc-800"
-        >
-          <td className="px-5 py-3">
+        <tr key={`skeleton-row-${index}`} className="h-14 border-b border-border">
+          <td className="px-4 py-3">
             <Skeleton className="h-4 w-[90%]" />
           </td>
-          <td className="px-5 py-3">
+          <td className="px-4 py-3">
             <Skeleton className="h-4 w-[80%]" />
           </td>
-          <td className="px-5 py-3">
+          <td className="px-4 py-3">
             <Skeleton className="h-4 w-[80%]" />
           </td>
-          <td className="px-5 py-3 text-right">
+          <td className="px-4 py-3 text-right">
             <Skeleton className="ml-auto h-4 w-[70%]" />
           </td>
-          <td className="px-5 py-3 text-center">
+          <td className="px-4 py-3 text-center">
             <Skeleton className="mx-auto h-7 w-[85%] rounded-full" />
           </td>
-          <td className="px-5 py-3 text-right">
+          <td className="px-4 py-3 text-right">
             <Skeleton className="ml-auto h-8 w-[70%] rounded-lg" />
           </td>
         </tr>
@@ -196,14 +172,7 @@ export function RecentClaims({ claims, errorMessage = null, loading = false }: R
 
       <div className="nxt-card overflow-hidden" style={{ borderRadius: 12 }}>
         {errorMessage ? (
-          <p
-            className="border-b px-5 py-3 text-sm"
-            style={{
-              borderColor: "var(--border)",
-              backgroundColor: "#fef2f2",
-              color: "#b91c1c",
-            }}
-          >
+          <p className="border-b border-border bg-danger-muted px-4 py-3 text-sm text-danger">
             {getUserFriendlyErrorMessage(errorMessage, "claim-list")}
           </p>
         ) : null}
@@ -222,43 +191,25 @@ export function RecentClaims({ claims, errorMessage = null, loading = false }: R
                 </colgroup>
                 <thead>
                   <tr
-                    className="border-b border-slate-200 dark:border-zinc-700"
+                    className="border-b border-border"
                     style={{ backgroundColor: "var(--background-secondary)" }}
                   >
-                    <th
-                      className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em]"
-                      style={{ color: "var(--muted-foreground)" }}
-                    >
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                       Claim ID
                     </th>
-                    <th
-                      className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em]"
-                      style={{ color: "var(--muted-foreground)" }}
-                    >
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                       Date
                     </th>
-                    <th
-                      className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em]"
-                      style={{ color: "var(--muted-foreground)" }}
-                    >
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                       Category
                     </th>
-                    <th
-                      className="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.06em]"
-                      style={{ color: "var(--muted-foreground)" }}
-                    >
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                       Amount
                     </th>
-                    <th
-                      className="px-5 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.06em]"
-                      style={{ color: "var(--muted-foreground)" }}
-                    >
+                    <th className="px-4 py-2.5 text-center text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                       Status
                     </th>
-                    <th
-                      className="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.06em]"
-                      style={{ color: "var(--muted-foreground)" }}
-                    >
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                       Action
                     </th>
                   </tr>
@@ -310,43 +261,25 @@ export function RecentClaims({ claims, errorMessage = null, loading = false }: R
                 </colgroup>
                 <thead>
                   <tr
-                    className="border-b border-slate-200 dark:border-zinc-700"
+                    className="border-b border-border"
                     style={{ backgroundColor: "var(--background-secondary)" }}
                   >
-                    <th
-                      className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em]"
-                      style={{ color: "var(--muted-foreground)" }}
-                    >
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                       Claim ID
                     </th>
-                    <th
-                      className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em]"
-                      style={{ color: "var(--muted-foreground)" }}
-                    >
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                       Date
                     </th>
-                    <th
-                      className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.06em]"
-                      style={{ color: "var(--muted-foreground)" }}
-                    >
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                       Category
                     </th>
-                    <th
-                      className="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.06em]"
-                      style={{ color: "var(--muted-foreground)" }}
-                    >
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                       Amount
                     </th>
-                    <th
-                      className="px-5 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.06em]"
-                      style={{ color: "var(--muted-foreground)" }}
-                    >
+                    <th className="px-4 py-2.5 text-center text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                       Status
                     </th>
-                    <th
-                      className="px-5 py-3 text-right text-[11px] font-semibold uppercase tracking-[0.06em]"
-                      style={{ color: "var(--muted-foreground)" }}
-                    >
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
                       Action
                     </th>
                   </tr>
@@ -355,48 +288,36 @@ export function RecentClaims({ claims, errorMessage = null, loading = false }: R
                   {claims.map((claim) => (
                     <tr
                       key={claim.id}
-                      className="h-14 border-b border-slate-200 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900/40"
+                      className="h-14 border-b border-border transition-colors hover:bg-background-secondary"
                     >
-                      <td
-                        className="truncate whitespace-nowrap overflow-hidden px-5 py-3 text-left font-medium"
-                        style={{ color: "var(--foreground)" }}
-                      >
+                      <td className="truncate whitespace-nowrap overflow-hidden px-4 py-3 text-left font-medium text-foreground">
                         <Link
                           href={ROUTES.claims.detail(claim.id)}
                           title={claim.claimId}
-                          className="truncate hover:underline"
-                          style={{ color: "var(--accent)" }}
+                          className="truncate hover:underline text-accent"
                         >
                           {claim.claimId}
                         </Link>
                       </td>
-                      <td
-                        className="whitespace-nowrap px-5 py-3 text-left"
-                        style={{ color: "var(--muted-foreground)" }}
-                      >
+                      <td className="whitespace-nowrap px-4 py-3 text-left text-muted-foreground">
                         {formatDate(claim.date)}
                       </td>
                       <td
-                        className="truncate whitespace-nowrap overflow-hidden px-5 py-3 text-left"
-                        style={{ color: "var(--foreground)" }}
+                        className="truncate whitespace-nowrap overflow-hidden px-4 py-3 text-left text-foreground"
                         title={claim.category}
                       >
                         {claim.category}
                       </td>
-                      <td
-                        className="px-5 py-3 text-right font-semibold"
-                        style={{ color: "var(--foreground)" }}
-                      >
+                      <td className="px-4 py-3 text-right font-semibold text-foreground">
                         {formatInr(claim.amount)}
                       </td>
-                      <td className="px-5 py-3 text-center">
+                      <td className="px-4 py-3 text-center">
                         <ClaimStatusBadge status={claim.status} />
                       </td>
-                      <td className="px-5 py-3 text-right">
+                      <td className="px-4 py-3 text-right">
                         <Link
                           href={ROUTES.claims.detail(claim.id)}
-                          className="inline-flex h-8 items-center gap-1 text-sm font-medium hover:underline"
-                          style={{ color: "var(--accent)" }}
+                          className="inline-flex h-8 items-center gap-1 text-sm font-medium hover:underline text-accent"
                         >
                           View
                           <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
