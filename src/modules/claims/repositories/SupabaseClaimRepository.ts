@@ -246,6 +246,8 @@ type ClaimDetailRow = {
   beneficiary_user: ClaimSubmitterRow | ClaimSubmitterRow[] | null;
   master_departments: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
   master_payment_modes: ClaimRelationNameRow | ClaimRelationNameRow[] | null;
+  l1_approver_user: ExportClaimUserRow | ExportClaimUserRow[] | null;
+  l2_finance_approver: ExportClaimFinanceApproverRow | ExportClaimFinanceApproverRow[] | null;
   expense_details: ClaimDetailExpenseRow | ClaimDetailExpenseRow[] | null;
   advance_details: ClaimDetailAdvanceRow | ClaimDetailAdvanceRow[] | null;
 };
@@ -1789,7 +1791,11 @@ export class SupabaseClaimRepository implements ClaimRepository {
       departmentName: string | null;
       paymentModeName: string | null;
       assignedL1ApproverId: string;
+      assignedL1ApproverName: string | null;
+      assignedL1ApproverEmail: string | null;
       assignedL2ApproverId: string | null;
+      assignedL2ApproverName: string | null;
+      assignedL2ApproverEmail: string | null;
       submittedBy: string;
       submitter: string;
       submitterName: string | null;
@@ -1844,7 +1850,7 @@ export class SupabaseClaimRepository implements ClaimRepository {
     let query = client
       .from("claims")
       .select(
-        "id, employee_id, submission_type, detail_type, on_behalf_of_id, on_behalf_email, on_behalf_employee_code, status, is_active, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, bc_claim_details_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), master_departments(name), master_payment_modes(name), expense_details(id, bill_no, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, ai_metadata, receipt_file_path, bank_statement_file_path, foreign_currency_code, foreign_basic_amount, foreign_gst_amount, foreign_total_amount, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(id, purpose, total_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
+        "id, employee_id, submission_type, detail_type, on_behalf_of_id, on_behalf_email, on_behalf_employee_code, status, is_active, rejection_reason, is_resubmission_allowed, submitted_at, department_id, payment_mode_id, bc_claim_details_id, assigned_l1_approver_id, assigned_l2_approver_id, submitted_by, submitter_user:users!claims_submitted_by_fkey(full_name, email), beneficiary_user:users!claims_on_behalf_of_id_fkey(full_name, email), master_departments(name), master_payment_modes(name), l1_approver_user:users!claims_assigned_l1_approver_id_fkey(full_name, email), l2_finance_approver:master_finance_approvers!claims_assigned_l2_approver_id_fkey(approver_user:users!master_finance_approvers_user_id_fkey(full_name, email)), expense_details(id, bill_no, purpose, expense_category_id, product_id, location_id, location_type, location_details, is_gst_applicable, gst_number, transaction_date, basic_amount, cgst_amount, sgst_amount, igst_amount, total_amount, vendor_name, people_involved, remarks, ai_metadata, receipt_file_path, bank_statement_file_path, foreign_currency_code, foreign_basic_amount, foreign_gst_amount, foreign_total_amount, master_expense_categories(name), master_products(name), master_locations(name)), advance_details(id, purpose, total_amount, expected_usage_date, product_id, location_id, remarks, supporting_document_path)",
       )
       .eq("id", claimId);
 
@@ -1869,6 +1875,9 @@ export class SupabaseClaimRepository implements ClaimRepository {
     const submitterEmail = submitter?.email?.trim();
     const beneficiaryName = beneficiary?.full_name?.trim();
     const beneficiaryEmail = beneficiary?.email?.trim();
+    const l1Approver = getSingleRelation(row.l1_approver_user);
+    const l2FinanceApprover = getSingleRelation(row.l2_finance_approver);
+    const l2Approver = getSingleRelation(l2FinanceApprover?.approver_user);
     const submitterLabel =
       submitterName && submitterEmail
         ? `${submitterName} (${submitterEmail})`
@@ -1901,7 +1910,11 @@ export class SupabaseClaimRepository implements ClaimRepository {
         departmentName: department?.name ?? null,
         paymentModeName: paymentMode?.name ?? null,
         assignedL1ApproverId: row.assigned_l1_approver_id,
+        assignedL1ApproverName: l1Approver?.full_name ?? null,
+        assignedL1ApproverEmail: l1Approver?.email ?? null,
         assignedL2ApproverId: row.assigned_l2_approver_id,
+        assignedL2ApproverName: l2Approver?.full_name ?? null,
+        assignedL2ApproverEmail: l2Approver?.email ?? null,
         submittedBy: row.submitted_by,
         submitter: submitterLabel,
         submitterName: submitterName ?? null,

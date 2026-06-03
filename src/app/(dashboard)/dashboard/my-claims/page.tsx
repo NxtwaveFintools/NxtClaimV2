@@ -618,7 +618,7 @@ async function MyClaimsDashboardPageContent({
         searchParams={resolvedSearchParams}
         pagination={{ cursor, prevCursor: previousCursorToken }}
         mode="active"
-        defaultFiltersExpanded={viewerContextResult.activeScope === "finance"}
+        defaultFiltersExpanded={viewerContextResult.activeScope !== null}
       />
     );
   }
@@ -629,7 +629,7 @@ async function MyClaimsDashboardPageContent({
         searchParams={resolvedSearchParams}
         pagination={{ cursor, prevCursor: previousCursorToken }}
         mode="deleted"
-        defaultFiltersExpanded={viewerContextResult.activeScope === "finance"}
+        defaultFiltersExpanded={viewerContextResult.activeScope !== null}
       />
     );
   }
@@ -639,7 +639,7 @@ async function MyClaimsDashboardPageContent({
       <DepartmentClaimsSection
         searchParams={resolvedSearchParams}
         pagination={{ cursor, prevCursor: previousCursorToken }}
-        defaultFiltersExpanded={viewerContextResult.activeScope === "finance"}
+        defaultFiltersExpanded={viewerContextResult.activeScope !== null}
       />
     );
   }
@@ -651,7 +651,7 @@ async function MyClaimsDashboardPageContent({
         viewerContext={viewerContextResult}
         searchParams={resolvedSearchParams}
         filters={filters}
-        defaultFiltersExpanded={viewerContextResult.activeScope === "finance"}
+        defaultFiltersExpanded={viewerContextResult.activeScope !== null}
       />
     );
   }
@@ -661,7 +661,7 @@ async function MyClaimsDashboardPageContent({
       <Suspense fallback={<FilterBarSkeleton />}>
         <FilterBarWithData
           exportScope={activeView as "submissions" | "approvals"}
-          defaultFiltersExpanded={viewerContextResult.activeScope === "finance"}
+          defaultFiltersExpanded={viewerContextResult.activeScope !== null}
           showAdvancedFilters={viewerContextResult.activeScope === "finance"}
         />
       </Suspense>
@@ -727,8 +727,7 @@ async function MyClaimsDashboardResolvedContent({
   const adminHref = buildViewHref(searchParams, "admin");
   const adminDeletedHref = buildViewHref(searchParams, "admin-deleted");
   const departmentHref = buildViewHref(searchParams, "department");
-  const approvalsLabel =
-    viewerContextResult.activeScope === "finance" ? "Finance Queue" : "Approvals";
+  const approvalsLabel = viewerContextResult.activeScope !== null ? "Finance Queue" : "Approvals";
   const availableViewModes: Array<{ mode: ViewMode; href: string; label: string }> = [
     { mode: "submissions", href: submissionsHref, label: "My Submissions" },
     ...(viewerContextResult.canViewApprovals

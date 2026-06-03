@@ -793,7 +793,7 @@ async function ClaimDetailCore({
           <section className="flex flex-col gap-2">
             <Accordion
               type="multiple"
-              defaultValue={["expense-details", "financials"]}
+              defaultValue={["expense-details", "general-info", "routing-context", "financials"]}
               className="w-full space-y-2"
             >
               <AccordionItem
@@ -967,14 +967,20 @@ async function ClaimDetailCore({
                     <DataCard label="Department" value={formatOptionalText(claim.departmentName)} />
                     <DataCard
                       label="Assigned HOD / L1"
-                      value={formatOptionalText(claim.assignedL1ApproverId)}
+                      value={
+                        claim.assignedL1ApproverName
+                          ? `${claim.assignedL1ApproverName}${claim.assignedL1ApproverEmail ? ` (${claim.assignedL1ApproverEmail})` : ""}`
+                          : formatOptionalText(claim.assignedL1ApproverId)
+                      }
                     />
                     <DataCard
                       label="Assigned Finance / L2"
                       value={
                         isPendingFinanceApproval
                           ? "Finance Team"
-                          : formatOptionalText(claim.assignedL2ApproverId)
+                          : claim.assignedL2ApproverName
+                            ? `${claim.assignedL2ApproverName}${claim.assignedL2ApproverEmail ? ` (${claim.assignedL2ApproverEmail})` : ""}`
+                            : formatOptionalText(claim.assignedL2ApproverId)
                       }
                     />
                     <DataCard

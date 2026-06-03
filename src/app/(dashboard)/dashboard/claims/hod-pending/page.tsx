@@ -203,6 +203,7 @@ export default async function FinanceHodPendingClaimsPage({
         searchParams={resolvedSearchParams}
         filters={filters}
         exportScope="finance_hod_pending"
+        defaultFiltersExpanded
         showAdvancedFilters
         storageScope="finance_hod_pending"
         lockedStatus={DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS}
