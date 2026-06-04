@@ -91,9 +91,9 @@ export function MasterDataTable({ tableName, displayName, items }: Props) {
                   autoFocus
                 />
               ) : (
-                <div className="flex min-w-0 flex-1 items-center gap-3">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
                   <span
-                    className={`min-w-0 truncate text-sm font-medium ${
+                    className={`min-w-0 break-words text-sm font-medium ${
                       item.isActive ? "text-foreground" : "text-muted-foreground line-through"
                     }`}
                   >
@@ -111,7 +111,7 @@ export function MasterDataTable({ tableName, displayName, items }: Props) {
                 </div>
               )}
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                 {editingId === item.id ? (
                   <>
                     <Button
@@ -120,6 +120,7 @@ export function MasterDataTable({ tableName, displayName, items }: Props) {
                       type="button"
                       variant="primary"
                       size="sm"
+                      className="min-h-9"
                     >
                       Save
                     </Button>
@@ -128,6 +129,7 @@ export function MasterDataTable({ tableName, displayName, items }: Props) {
                       type="button"
                       variant="secondary"
                       size="sm"
+                      className="min-h-9"
                     >
                       Cancel
                     </Button>
@@ -142,6 +144,7 @@ export function MasterDataTable({ tableName, displayName, items }: Props) {
                     type="button"
                     variant="secondary"
                     size="sm"
+                    className="min-h-9"
                   >
                     Rename
                   </Button>
@@ -154,7 +157,9 @@ export function MasterDataTable({ tableName, displayName, items }: Props) {
                   size="sm"
                   variant="secondary"
                   className={
-                    item.isActive ? undefined : "border-success/40 text-success hover:bg-success/10"
+                    item.isActive
+                      ? "min-h-9"
+                      : "min-h-9 border-success/40 text-success hover:bg-success/10"
                   }
                 >
                   {item.isActive ? "Deactivate" : "Activate"}
@@ -181,6 +186,7 @@ export function MasterDataTable({ tableName, displayName, items }: Props) {
             type="button"
             variant="primary"
             size="md"
+            className="w-full sm:w-auto"
           >
             Add
           </Button>

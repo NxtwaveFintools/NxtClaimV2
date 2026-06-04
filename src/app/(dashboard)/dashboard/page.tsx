@@ -99,35 +99,30 @@ async function DashboardPageContent({
 
   return (
     <>
-      <section className="mb-4">
-        <h1 style={{ fontSize: 24, fontWeight: 600, color: "var(--foreground)" }}>
-          {greeting}, {getUserFirstName(userEmail)}
-        </h1>
+      <section className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="break-words text-[22px] font-semibold leading-tight text-foreground sm:text-2xl">
+            {greeting}, {getUserFirstName(userEmail)}
+          </h1>
 
-        <p
-          className="mt-1"
-          style={{
-            fontSize: 15,
-            fontWeight: 400,
-            color: "var(--muted-foreground)",
-          }}
-        >
-          Manage submissions, approvals, and payment progress from a single finance workspace.
-        </p>
+          <p className="mt-1 max-w-3xl text-sm text-muted-foreground sm:text-[15px]">
+            Manage submissions, approvals, and payment progress from a single finance workspace.
+          </p>
 
-        <div className="mt-2 flex items-center gap-1.5">
-          <CalendarDays
-            className="h-3.5 w-3.5 shrink-0"
-            aria-hidden="true"
-            style={{ color: "var(--muted-foreground)" }}
-          />
-          <span style={{ fontSize: 14, color: "var(--muted-foreground)" }}>{currentDateLabel}</span>
+          <div className="mt-2 flex items-center gap-1.5">
+            <CalendarDays
+              className="h-3.5 w-3.5 shrink-0"
+              aria-hidden="true"
+              style={{ color: "var(--muted-foreground)" }}
+            />
+            <span className="text-sm text-muted-foreground">{currentDateLabel}</span>
+          </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link
             href={ROUTES.claims.new}
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md px-4 font-medium text-white transition-colors hover:opacity-90"
+            className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-md px-4 font-medium text-white transition-colors hover:opacity-90 sm:w-auto"
             style={{ backgroundColor: "var(--accent)", fontSize: 14 }}
           >
             <CirclePlus className="h-3.5 w-3.5" aria-hidden="true" />
@@ -136,7 +131,7 @@ async function DashboardPageContent({
 
           <RouterLink
             href={ROUTES.claims.myClaims}
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-background-secondary"
+            className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-background-secondary sm:flex-none"
           >
             <FileText className="h-3.5 w-3.5" aria-hidden="true" />
             Claims
@@ -145,7 +140,7 @@ async function DashboardPageContent({
           {isAdminUser ? (
             <Link
               href={ROUTES.admin.settings}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-background-secondary"
+              className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-background-secondary sm:flex-none"
             >
               <Settings className="h-3.5 w-3.5" aria-hidden="true" />
               System Settings

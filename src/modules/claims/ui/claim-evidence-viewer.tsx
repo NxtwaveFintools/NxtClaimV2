@@ -112,11 +112,11 @@ export function ClaimEvidenceViewer({ claimId, items }: ClaimEvidenceViewerProps
 
   return (
     <div className="flex h-full w-full flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-2 border-b border-border px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
           <p className="text-sm font-semibold text-foreground">Evidence</p>
           <div
-            className="inline-flex h-auto justify-start gap-1 rounded-lg border border-border bg-card p-1"
+            className="nxt-scroll flex h-auto max-w-full justify-start gap-1 overflow-x-auto rounded-lg border border-border bg-card p-1"
             role="tablist"
             aria-label="Claim evidence"
           >
@@ -127,7 +127,7 @@ export function ClaimEvidenceViewer({ claimId, items }: ClaimEvidenceViewerProps
                 role="tab"
                 aria-selected={item.value === activeTab}
                 onClick={() => setActiveTab(item.value)}
-                className={`h-8 rounded-md px-3 text-xs font-medium transition-colors ${
+                className={`h-8 shrink-0 rounded-md px-3 text-xs font-medium transition-colors ${
                   item.value === activeTab
                     ? "bg-[var(--accent-muted)] text-[var(--accent)]"
                     : "text-muted-foreground hover:bg-background-secondary hover:text-foreground"

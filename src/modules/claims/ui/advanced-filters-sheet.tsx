@@ -156,7 +156,7 @@ export function AdvancedFiltersSheet() {
         setIsOpen(nextOpen);
       }}
     >
-      <SheetTrigger className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-info/40 bg-info-muted px-3 text-xs font-semibold text-info transition hover:bg-info/10">
+      <SheetTrigger className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg border border-info/40 bg-info-muted px-3 text-xs font-semibold text-info transition hover:bg-info/10 sm:w-auto">
         <svg
           viewBox="0 0 24 24"
           aria-hidden="true"
@@ -186,7 +186,7 @@ export function AdvancedFiltersSheet() {
           </SheetDescription>
         </SheetHeader>
 
-        <div className="nxt-scroll max-h-[calc(100vh-170px)] space-y-5 overflow-y-auto pr-1">
+        <div className="nxt-scroll min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
           <section className="rounded-xl border border-border p-3">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground">
               Submitted Date
@@ -200,7 +200,7 @@ export function AdvancedFiltersSheet() {
                   onChange={(event) => {
                     setSubmittedFrom(event.target.value);
                   }}
-                  className="nxt-input h-8 rounded-lg border border-border bg-card px-2.5 text-xs text-foreground"
+                  className="nxt-input h-10 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground"
                 />
               </label>
               <label className="grid gap-1 text-xs font-medium text-muted-foreground">
@@ -211,7 +211,7 @@ export function AdvancedFiltersSheet() {
                   onChange={(event) => {
                     setSubmittedTo(event.target.value);
                   }}
-                  className="nxt-input h-8 rounded-lg border border-border bg-card px-2.5 text-xs text-foreground"
+                  className="nxt-input h-10 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground"
                 />
               </label>
             </div>
@@ -230,7 +230,7 @@ export function AdvancedFiltersSheet() {
                   onChange={(event) => {
                     setHodFrom(event.target.value);
                   }}
-                  className="nxt-input h-8 rounded-lg border border-border bg-card px-2.5 text-xs text-foreground"
+                  className="nxt-input h-10 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground"
                 />
               </label>
               <label className="grid gap-1 text-xs font-medium text-muted-foreground">
@@ -241,7 +241,7 @@ export function AdvancedFiltersSheet() {
                   onChange={(event) => {
                     setHodTo(event.target.value);
                   }}
-                  className="nxt-input h-8 rounded-lg border border-border bg-card px-2.5 text-xs text-foreground"
+                  className="nxt-input h-10 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground"
                 />
               </label>
             </div>
@@ -260,7 +260,7 @@ export function AdvancedFiltersSheet() {
                   onChange={(event) => {
                     setFinanceFrom(event.target.value);
                   }}
-                  className="nxt-input h-8 rounded-lg border border-border bg-card px-2.5 text-xs text-foreground"
+                  className="nxt-input h-10 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground"
                 />
               </label>
               <label className="grid gap-1 text-xs font-medium text-muted-foreground">
@@ -271,7 +271,7 @@ export function AdvancedFiltersSheet() {
                   onChange={(event) => {
                     setFinanceTo(event.target.value);
                   }}
-                  className="nxt-input h-8 rounded-lg border border-border bg-card px-2.5 text-xs text-foreground"
+                  className="nxt-input h-10 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground"
                 />
               </label>
             </div>
@@ -293,7 +293,7 @@ export function AdvancedFiltersSheet() {
                   onChange={(event) => {
                     setMinAmount(event.target.value);
                   }}
-                  className="nxt-input h-8 rounded-lg border border-border bg-card px-2.5 text-xs text-foreground"
+                  className="nxt-input h-10 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground"
                 />
               </label>
               <label className="grid gap-1 text-xs font-medium text-muted-foreground">
@@ -307,18 +307,18 @@ export function AdvancedFiltersSheet() {
                   onChange={(event) => {
                     setMaxAmount(event.target.value);
                   }}
-                  className="nxt-input h-8 rounded-lg border border-border bg-card px-2.5 text-xs text-foreground"
+                  className="nxt-input h-10 rounded-lg border border-border bg-card px-2.5 text-sm text-foreground"
                 />
               </label>
             </div>
           </section>
         </div>
 
-        <div className="mt-5 flex items-center justify-between gap-2 border-t border-border pt-4">
+        <div className="mt-5 flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
           <button
             type="button"
             onClick={handleResetAdvanced}
-            className="inline-flex rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-background-secondary"
+            className="inline-flex h-10 items-center justify-center rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground transition hover:bg-background-secondary"
           >
             Reset Advanced
           </button>
@@ -327,7 +327,7 @@ export function AdvancedFiltersSheet() {
             type="button"
             onClick={handleApply}
             disabled={isApplyDisabled}
-            className="inline-flex rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-10 items-center justify-center rounded-lg bg-accent px-3 text-xs font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             Apply
           </button>

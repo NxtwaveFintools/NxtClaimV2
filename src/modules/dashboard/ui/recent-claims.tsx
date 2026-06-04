@@ -331,34 +331,39 @@ export function RecentClaims({ claims, errorMessage = null, loading = false }: R
 
             <div className="divide-y md:hidden" style={{ borderColor: "var(--border)" }}>
               {claims.map((claim) => (
-                <div key={claim.id} className="space-y-2 p-4">
-                  <div className="flex items-center justify-between">
+                <div key={claim.id} className="space-y-3 p-4">
+                  <div className="flex items-start justify-between gap-3">
                     <Link
                       href={ROUTES.claims.detail(claim.id)}
-                      className="text-sm font-medium hover:underline"
+                      className="min-w-0 break-words text-sm font-semibold hover:underline"
                       style={{ color: "var(--accent)" }}
                     >
                       {claim.claimId}
                     </Link>
-                    <ClaimStatusBadge status={claim.status} />
+                    <div className="shrink-0">
+                      <ClaimStatusBadge status={claim.status} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">Category</p>
+                      <p className="break-words text-foreground">{claim.category}</p>
+                    </div>
+                    <div className="min-w-0 text-right">
+                      <p className="text-xs text-muted-foreground">Amount</p>
+                      <p className="break-words font-semibold text-foreground">
+                        {formatInr(claim.amount)}
+                      </p>
+                    </div>
                   </div>
                   <div
-                    className="flex items-center justify-between text-sm"
+                    className="flex items-center justify-between gap-3 text-xs"
                     style={{ color: "var(--muted-foreground)" }}
                   >
-                    <span>{claim.category}</span>
-                    <span className="font-semibold" style={{ color: "var(--foreground)" }}>
-                      {formatInr(claim.amount)}
-                    </span>
-                  </div>
-                  <div
-                    className="flex items-center justify-between text-xs"
-                    style={{ color: "var(--muted-foreground)" }}
-                  >
-                    <span>{formatDate(claim.date)}</span>
+                    <span className="min-w-0">{formatDate(claim.date)}</span>
                     <Link
                       href={ROUTES.claims.detail(claim.id)}
-                      className="inline-flex items-center gap-0.5 hover:underline"
+                      className="inline-flex h-8 shrink-0 items-center gap-0.5 hover:underline"
                       style={{ color: "var(--accent)" }}
                     >
                       View details

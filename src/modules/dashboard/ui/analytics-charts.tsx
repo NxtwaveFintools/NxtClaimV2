@@ -46,7 +46,7 @@ type PaymentModeLegendProps = {
 
 function PaymentModeLegend({ data, colors }: PaymentModeLegendProps) {
   return (
-    <div className="min-w-0 flex-1">
+    <div className="nxt-scroll min-w-0 flex-1 overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
@@ -57,12 +57,12 @@ function PaymentModeLegend({ data, colors }: PaymentModeLegendProps) {
         <tbody>
           {data.map((entry, index) => (
             <tr key={entry.name} className="border-t border-border">
-              <td className="flex items-center gap-2 py-2 text-sm text-foreground">
+              <td className="flex min-w-0 items-center gap-2 py-2 text-sm text-foreground">
                 <span
                   className="h-2.5 w-2.5 shrink-0 rounded-sm"
                   style={{ backgroundColor: colors[index % colors.length] }}
                 />
-                {entry.name}
+                <span className="break-words">{entry.name}</span>
               </td>
               <td className="py-2 text-right font-semibold text-foreground">
                 {formatNumber(entry.count)}
@@ -82,10 +82,10 @@ type StatusSummaryTableProps = {
 function StatusSummaryTable({ data }: StatusSummaryTableProps) {
   return (
     <div
-      className="overflow-hidden rounded-xl border"
+      className="nxt-scroll overflow-x-auto rounded-xl border"
       style={{ backgroundColor: "var(--card)", borderColor: "var(--border)" }}
     >
-      <table className="w-full text-sm">
+      <table className="min-w-[560px] w-full text-sm">
         <thead>
           <tr
             className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground"
@@ -134,10 +134,10 @@ function EfficiencyTable({ title, data }: EfficiencyTableProps) {
 
   return (
     <div
-      className="overflow-hidden rounded-xl border"
+      className="nxt-scroll overflow-x-auto rounded-xl border"
       style={{ backgroundColor: "var(--card)", borderColor: "var(--border)" }}
     >
-      <table className="w-full text-sm">
+      <table className="min-w-[560px] w-full text-sm">
         <thead>
           <tr
             className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground"
@@ -225,8 +225,8 @@ export const AnalyticsCharts = memo(function AnalyticsCharts({
           <h3 className="mb-3 text-base font-semibold text-foreground">
             Payment Mode Distribution
           </h3>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <div className="h-[200px] w-full shrink-0 sm:w-[200px]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+            <div className="h-[220px] w-full shrink-0 lg:w-[220px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -264,7 +264,7 @@ export const AnalyticsCharts = memo(function AnalyticsCharts({
                 <BarChart
                   data={statusChartData}
                   layout="vertical"
-                  margin={{ top: 4, right: 16, left: 0, bottom: 4 }}
+                  margin={{ top: 4, right: 8, left: 0, bottom: 4 }}
                   barSize={20}
                   barGap={4}
                 >
@@ -282,7 +282,7 @@ export const AnalyticsCharts = memo(function AnalyticsCharts({
                     tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
                     tickLine={false}
                     axisLine={false}
-                    width={220}
+                    width={150}
                   />
                   <Tooltip formatter={(value) => formatNumber(Number(value))} />
                   <Bar dataKey="count" radius={[0, 4, 4, 0]} isAnimationActive={false}>

@@ -171,7 +171,7 @@ export function SheetContent({
           aria-labelledby={titleId}
           aria-describedby={descriptionId}
           className={joinClasses(
-            "absolute top-0 h-full w-full max-w-md border-border bg-card p-5 shadow-lg shadow-black/5 transition-colors",
+            "absolute top-0 flex h-[100dvh] w-full max-w-full flex-col overflow-hidden border-border bg-card p-4 shadow-lg shadow-black/5 transition-colors sm:max-w-md sm:p-5",
             side === "right" ? "right-0 border-l" : "left-0 border-r",
             className,
           )}

@@ -122,9 +122,9 @@ export function AnalyticsFilters({
   const hasAdvancedFilters = canUseScopeFilters || canUseFinanceApproverFilter;
   const gridClassName = hasAdvancedFilters
     ? canUseFinanceApproverFilter
-      ? "md:grid-cols-3 xl:grid-cols-7"
-      : "md:grid-cols-3 xl:grid-cols-6"
-    : "md:grid-cols-3";
+      ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7"
+      : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6"
+    : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
 
   function pushParams(next: URLSearchParams) {
     next.delete("month");
@@ -247,7 +247,7 @@ export function AnalyticsFilters({
           </div>
         </div>
       ) : null}
-      <div className={`grid gap-2 ${gridClassName}`}>
+      <div className={`grid gap-3 ${gridClassName}`}>
         <label className="flex flex-col gap-0.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
           Quick Presets
           <select
@@ -379,12 +379,12 @@ export function AnalyticsFilters({
         ) : null}
       </div>
 
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
         <button
           type="button"
           onClick={resetFilters}
           disabled={isPending}
-          className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground transition hover:bg-background-secondary disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground transition hover:bg-background-secondary disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           Reset
         </button>
@@ -392,7 +392,7 @@ export function AnalyticsFilters({
           type="button"
           onClick={applyFilters}
           disabled={isPending}
-          className="inline-flex h-9 items-center justify-center rounded-lg bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           {isPending ? "Applying..." : "Apply Filters"}
         </button>

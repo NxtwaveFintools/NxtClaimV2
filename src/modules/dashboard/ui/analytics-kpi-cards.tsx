@@ -129,7 +129,7 @@ export function AnalyticsKpiCards({
   const showFinanceTatCard = scope === "admin" && overallFinanceTatAverage !== null;
 
   return (
-    <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
       {visibleKpiConfig.map((item) => {
         const Icon = item.icon;
         const trendItem = trends ? trends[item.trendKey] : null;
@@ -138,7 +138,7 @@ export function AnalyticsKpiCards({
         return (
           <div
             key={item.key}
-            className="flex flex-col rounded-xl border border-border bg-card p-4 min-h-[104px]"
+            className="flex min-w-0 flex-col rounded-xl border border-border bg-card p-4 min-h-[104px]"
           >
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
@@ -147,7 +147,7 @@ export function AnalyticsKpiCards({
               <Icon className={`h-4 w-4 shrink-0 ${item.iconClassName}`} />
             </div>
             <p
-              className={`dashboard-font-display mt-2 text-2xl font-bold leading-none ${item.valueClassName}`}
+              className={`dashboard-font-display mt-2 break-words text-2xl font-bold leading-none ${item.valueClassName}`}
             >
               {formatCurrency(amounts[item.key])}
             </p>
@@ -162,14 +162,14 @@ export function AnalyticsKpiCards({
       })}
 
       {showFinanceTatCard ? (
-        <div className="flex flex-col rounded-xl border border-border bg-card p-4 min-h-[104px]">
+        <div className="flex min-w-0 flex-col rounded-xl border border-border bg-card p-4 min-h-[104px]">
           <div className="flex items-center justify-between gap-2">
             <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
               Overall Finance Team TAT
             </span>
             <Clock3 className="h-4 w-4 shrink-0 text-info" />
           </div>
-          <p className="dashboard-font-display mt-2 text-2xl font-bold leading-none text-info">
+          <p className="dashboard-font-display mt-2 break-words text-2xl font-bold leading-none text-info">
             {overallFinanceTatAverage.toFixed(2)} days
           </p>
           <span className="mt-1 text-xs text-muted-foreground">

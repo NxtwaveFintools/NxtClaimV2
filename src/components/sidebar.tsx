@@ -47,6 +47,7 @@ type SidebarProps = {
   emailDomain: string;
   companyPolicyState: CompanyPolicyState | null;
   hidden?: boolean;
+  showCollapseToggle?: boolean;
 };
 
 function SidebarTooltip({ label, collapsed }: { label: string; collapsed: boolean }) {
@@ -71,6 +72,7 @@ function SidebarComponent({
   emailDomain,
   companyPolicyState,
   hidden = false,
+  showCollapseToggle = true,
 }: SidebarProps) {
   const { resolvedTheme, setTheme } = useTheme();
   const [isSigningOut, startSignOut] = useTransition();
@@ -87,7 +89,7 @@ function SidebarComponent({
 
   return (
     <aside
-      className="fixed left-0 top-0 bottom-0 z-30"
+      className="fixed left-0 top-0 bottom-0 z-50 md:z-30"
       style={{
         width: collapsed ? 56 : 240,
         backgroundColor: "var(--card)",
@@ -169,33 +171,34 @@ function SidebarComponent({
           )}
         </div>
 
-        {/* Collapse Toggle */}
-        <button
-          type="button"
-          onClick={onToggle}
-          className="absolute flex items-center justify-center rounded-full border border-border bg-card shadow-none transition-colors hover:bg-background-secondary"
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          style={{
-            width: 24,
-            height: 24,
-            right: -12,
-            top: "50%",
-            transform: "translateY(-50%)",
-            zIndex: 10,
-            backgroundColor: "var(--card)",
-            borderColor: "var(--border)",
-            boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-          }}
-        >
-          <ChevronLeft
-            className="h-4 w-4"
+        {showCollapseToggle ? (
+          <button
+            type="button"
+            onClick={onToggle}
+            className="absolute flex items-center justify-center rounded-full border border-border bg-card shadow-none transition-colors hover:bg-background-secondary"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             style={{
-              color: "var(--muted-foreground)",
-              transform: collapsed ? "rotate(180deg)" : "rotate(0deg)",
-              transition: "transform 200ms ease",
+              width: 24,
+              height: 24,
+              right: -12,
+              top: "50%",
+              transform: "translateY(-50%)",
+              zIndex: 10,
+              backgroundColor: "var(--card)",
+              borderColor: "var(--border)",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
             }}
-          />
-        </button>
+          >
+            <ChevronLeft
+              className="h-4 w-4"
+              style={{
+                color: "var(--muted-foreground)",
+                transform: collapsed ? "rotate(180deg)" : "rotate(0deg)",
+                transition: "transform 200ms ease",
+              }}
+            />
+          </button>
+        ) : null}
 
         {/* Primary Nav */}
         <nav

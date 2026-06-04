@@ -33,7 +33,7 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          "fixed left-1/2 top-1/2 z-[220] w-[calc(100%-2rem)] max-w-3xl -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-6 shadow-none duration-200 data-[state=closed]:animate-out data-[state=open]:animate-in",
+          "fixed left-1/2 top-1/2 z-[220] max-h-[calc(100dvh-2rem)] w-[calc(100vw-32px)] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-border bg-card p-4 shadow-none duration-200 data-[state=closed]:animate-out data-[state=open]:animate-in sm:p-6",
           className,
         )}
         {...props}
@@ -55,7 +55,15 @@ function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
 }
 
 function DialogFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("mt-4 flex items-center justify-end gap-2", className)} {...props} />;
+  return (
+    <div
+      className={cn(
+        "mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end",
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 const DialogTitle = React.forwardRef<

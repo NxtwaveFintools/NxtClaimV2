@@ -29,7 +29,7 @@ export default async function NewClaimPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1440px] pb-20">
+    <div className="mx-auto w-full max-w-[1440px] pb-24">
       <header className="mb-4 rounded-xl border border-border bg-card px-4 py-3 sm:px-5">
         <div>
           <h1 className="text-xl font-semibold leading-tight text-foreground sm:text-2xl">

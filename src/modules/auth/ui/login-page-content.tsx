@@ -79,23 +79,23 @@ export function LoginPageContent() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-background p-6">
+    <div className="relative flex min-h-screen items-center justify-center bg-background px-4 py-8">
       {/* Subtle background wash */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        <div className="absolute -top-32 -right-32 h-96 w-96 rounded-full bg-accent-muted opacity-[0.06] blur-3xl dark:opacity-[0.08]" />
-        <div className="absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-accent-muted opacity-[0.06] blur-3xl dark:opacity-[0.08]" />
+        <div className="absolute right-0 top-0 h-56 w-56 rounded-full bg-accent-muted opacity-[0.06] blur-3xl dark:opacity-[0.08] sm:h-96 sm:w-96" />
+        <div className="absolute bottom-0 left-0 h-56 w-56 rounded-full bg-accent-muted opacity-[0.06] blur-3xl dark:opacity-[0.08] sm:h-96 sm:w-96" />
       </div>
 
       {/* Theme toggle */}
-      <div className="absolute right-5 top-5 z-20 flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card transition-colors hover:bg-background-secondary">
+      <div className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card transition-colors hover:bg-background-secondary sm:right-5 sm:top-5">
         <ThemeToggle />
       </div>
 
       {/* Centered content */}
       <div className="relative z-10 flex w-full max-w-[420px] flex-col items-center">
         {/* Brand area */}
-        <div className="mb-8 text-center">
-          <h1 className="dashboard-font-display text-[28px] font-bold tracking-tight text-foreground">
+        <div className="mb-6 text-center sm:mb-8">
+          <h1 className="dashboard-font-display text-[25px] font-bold tracking-tight text-foreground sm:text-[28px]">
             NxtClaim V2
           </h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
@@ -111,7 +111,7 @@ export function LoginPageContent() {
         ) : null}
 
         {/* Login Card */}
-        <div className="w-full rounded-xl border border-border bg-card p-6">
+        <div className="w-full rounded-xl border border-border bg-card p-5 sm:p-6">
           <OAuthButtons loading={loading} onMicrosoftClick={handleMicrosoftLogin} />
 
           <div className="relative my-5">

@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { Menu } from "lucide-react";
 import { Sidebar } from "@/components/sidebar";
 import type { CompanyPolicyState } from "@/components/company-policy-button";
 import { isDashboardNavItemActive } from "@/lib/dashboard-navigation";
@@ -51,9 +52,9 @@ export function AppLayout({
   const pathname = usePathname();
   const isMobile = useIsMobile();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  const sidebarWidth = collapsed ? (isMobile ? 0 : 56) : 240;
-  const mainMargin = isMobile && collapsed ? 0 : sidebarWidth;
+  const sidebarWidth = collapsed ? 56 : 240;
   const activeNavigationItems = useMemo(
     () =>
       navigationItems.map((item) => ({
@@ -66,12 +67,34 @@ export function AppLayout({
     setCollapsed((current) => !current);
   }, []);
 
+  useEffect(() => {
+    startTransition(() => {
+      setMobileSidebarOpen(false);
+    });
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileSidebarOpen) {
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mobileSidebarOpen]);
+
   return (
     <>
       <Sidebar
-        collapsed={isMobile ? true : collapsed}
-        hidden={isMobile && collapsed}
-        onToggle={handleSidebarToggle}
+        collapsed={isMobile ? false : collapsed}
+        hidden={isMobile && !mobileSidebarOpen}
+        onToggle={isMobile ? () => setMobileSidebarOpen(false) : handleSidebarToggle}
+        showCollapseToggle={!isMobile}
         navigationItems={activeNavigationItems}
         userEmail={userEmail}
         avatarInitial={avatarInitial}
@@ -80,24 +103,37 @@ export function AppLayout({
         companyPolicyState={companyPolicyState}
       />
 
-      {/* Mobile overlay backdrop */}
-      {isMobile && !collapsed && (
+      {isMobile && mobileSidebarOpen ? (
         <div
-          className="fixed inset-0 z-20 bg-black/40 dark:bg-black/60"
-          onClick={() => setCollapsed(true)}
+          className="fixed inset-0 z-40 bg-black/40 dark:bg-black/60 md:hidden"
+          onClick={() => setMobileSidebarOpen(false)}
           aria-hidden="true"
         />
-      )}
+      ) : null}
 
       <main
+        className="min-w-0"
         style={{
-          marginLeft: mainMargin,
+          marginLeft: isMobile ? 0 : sidebarWidth,
           transition: "margin-left 200ms ease",
           minHeight: "100vh",
           backgroundColor: "var(--background)",
         }}
       >
-        <div style={{ padding: isMobile ? 16 : 32 }}>{children}</div>
+        <div className="sticky top-0 z-30 flex h-12 items-center gap-3 border-b border-border bg-background px-4 md:hidden">
+          <button
+            type="button"
+            onClick={() => setMobileSidebarOpen(true)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground transition-colors hover:bg-background-secondary"
+            aria-label="Open navigation menu"
+          >
+            <Menu className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-foreground">NxtClaim V2</p>
+          </div>
+        </div>
+        <div className="w-full min-w-0 max-w-full px-4 py-4 md:px-8 md:py-8">{children}</div>
       </main>
     </>
   );

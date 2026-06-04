@@ -1389,9 +1389,9 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
             <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background-secondary px-3 py-2 text-xs text-muted-foreground">
               <span className="font-medium text-foreground">Submitting as</span>
-              <span>{currentUser.name}</span>
+              <span className="min-w-0 break-words">{currentUser.name}</span>
               <span aria-hidden="true">/</span>
-              <span>{currentUser.email}</span>
+              <span className="min-w-0 break-words">{currentUser.email}</span>
             </div>
 
             <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
@@ -2174,7 +2174,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
         {detailType === "expense" ? (
           <>
-            <aside className="grid w-full gap-4 rounded-xl border border-border bg-card p-4 lg:w-1/2 lg:sticky lg:top-6 lg:max-h-[calc(100vh-48px)] lg:overflow-y-auto">
+            <aside className="grid w-full min-w-0 gap-4 rounded-xl border border-border bg-card p-4 lg:sticky lg:top-6 lg:w-[420px] lg:shrink-0 lg:max-h-[calc(100vh-48px)] lg:overflow-y-auto xl:w-[520px]">
               <div>
                 <h2 className="dashboard-font-display text-base font-semibold text-foreground">
                   Evidence & Review
@@ -2209,7 +2209,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   Choose file
                 </label>
                 <p className="text-xs text-muted-foreground">PDF, JPG, PNG, WEBP · Max 25MB</p>
-                <p className="truncate text-xs text-muted-foreground">
+                <p className="min-w-0 break-words text-xs text-muted-foreground">
                   {invoiceFile
                     ? `${invoiceFile.name} · ${formatFileSize(invoiceFile.size)}`
                     : "No file selected"}
@@ -2261,7 +2261,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   Choose file
                 </label>
                 <p className="text-xs text-muted-foreground">PDF, JPG, PNG, WEBP · Max 25MB</p>
-                <p className="truncate text-xs text-muted-foreground">
+                <p className="min-w-0 break-words text-xs text-muted-foreground">
                   {bankStatementFile
                     ? `${bankStatementFile.name} · ${formatFileSize(bankStatementFile.size)}`
                     : "No file selected"}
@@ -2280,7 +2280,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                 </div>
 
                 <div
-                  className="flex rounded-lg border border-border p-0.5"
+                  className="nxt-scroll flex overflow-x-auto rounded-lg border border-border p-0.5"
                   role="tablist"
                   aria-label="Evidence preview tabs"
                 >
@@ -2290,7 +2290,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     aria-selected={activePreviewTab === "invoice"}
                     onClick={() => setActivePreviewTab("invoice")}
                     disabled={!invoiceFile}
-                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
+                    className={`h-9 min-w-[120px] flex-1 shrink-0 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
                       activePreviewTab === "invoice"
                         ? "bg-[var(--accent-muted)] text-[var(--accent)]"
                         : "text-[var(--muted-foreground)] hover:bg-[var(--background-secondary)] disabled:opacity-40 disabled:pointer-events-none"
@@ -2305,7 +2305,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     onClick={() => setActivePreviewTab("bank-statement")}
                     disabled={!bankStatementFile}
                     title={!bankStatementFile ? "No bank statement uploaded." : undefined}
-                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
+                    className={`h-9 min-w-[120px] flex-1 shrink-0 rounded-md px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
                       activePreviewTab === "bank-statement"
                         ? "bg-[var(--accent-muted)] text-[var(--accent)]"
                         : "text-[var(--muted-foreground)] hover:bg-[var(--background-secondary)] disabled:opacity-40 disabled:pointer-events-none"
@@ -2315,7 +2315,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   </button>
                 </div>
 
-                <div className="flex min-h-[280px] items-center justify-center overflow-hidden rounded-lg border border-border bg-background-secondary p-3 lg:min-h-[360px]">
+                <div className="flex h-[320px] items-center justify-center overflow-hidden rounded-lg border border-border bg-background-secondary p-3 sm:h-[380px] lg:h-[calc(100vh-260px)] lg:min-h-[360px]">
                   {activePreviewTab === "invoice" ? (
                     !invoiceFile ? (
                       <p className="text-center text-sm text-muted-foreground">
@@ -2326,13 +2326,13 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                       <img
                         src={invoicePreviewUrl}
                         alt={`Uploaded invoice preview: ${invoiceFile.name}`}
-                        className="max-h-[440px] w-full object-contain"
+                        className="max-h-full w-full object-contain"
                       />
                     ) : invoicePreviewUrl && invoiceFile.type === "application/pdf" ? (
                       <iframe
                         src={invoicePreviewUrl}
                         title={`Uploaded invoice preview: ${invoiceFile.name}`}
-                        className="h-[360px] w-full rounded border-0"
+                        className="h-full w-full rounded border-0"
                       />
                     ) : (
                       <p className="text-center text-sm text-muted-foreground">
@@ -2348,13 +2348,13 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     <img
                       src={bankStatementPreviewUrl}
                       alt={`Uploaded bank statement preview: ${bankStatementFile.name}`}
-                      className="max-h-[440px] w-full object-contain"
+                      className="max-h-full w-full object-contain"
                     />
                   ) : bankStatementPreviewUrl && bankStatementFile.type === "application/pdf" ? (
                     <iframe
                       src={bankStatementPreviewUrl}
                       title={`Uploaded bank statement preview: ${bankStatementFile.name}`}
-                      className="h-[360px] w-full rounded border-0"
+                      className="h-full w-full rounded border-0"
                     />
                   ) : (
                     <p className="text-center text-sm text-muted-foreground">
@@ -2370,15 +2370,17 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       {/* end 2-column grid */}
 
       <div
-        className="fixed bottom-0 left-0 right-0 z-20 flex items-center border-t border-border bg-card/95 px-6 backdrop-blur sm:px-6 lg:px-8"
-        style={{ height: "60px" }}
+        className="fixed bottom-0 left-0 right-0 z-20 flex min-h-[64px] items-center border-t border-border bg-card/95 px-4 py-3 backdrop-blur sm:px-6 lg:px-8"
+        style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
       >
-        {fileError ? <Alert tone="error" description={fileError} /> : null}
+        <div className="hidden min-w-0 flex-1 sm:block">
+          {fileError ? <Alert tone="error" description={fileError} /> : null}
+        </div>
         <div className="flex flex-1 flex-row items-center justify-end gap-2">
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="h-9 rounded-lg bg-[var(--accent)] px-5 text-sm font-medium text-white shadow-none hover:bg-[var(--accent-hover)]"
+            className="h-10 w-full rounded-lg bg-[var(--accent)] px-5 text-sm font-medium text-white shadow-none hover:bg-[var(--accent-hover)] sm:w-auto"
           >
             {isSubmitting ? (
               <>

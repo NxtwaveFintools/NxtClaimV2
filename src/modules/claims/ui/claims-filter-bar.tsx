@@ -775,7 +775,7 @@ export function ClaimsFilterBar({
           : "Search by Employee Email...";
 
   return (
-    <section className="relative rounded-xl border border-border bg-card p-3 transition-colors">
+    <section className="relative min-w-0 max-w-full overflow-hidden rounded-xl border border-border bg-card p-3 transition-colors [&_input]:min-w-0 [&_input]:max-w-full [&_label]:min-w-0 [&_select]:min-w-0 [&_select]:max-w-full">
       {isPending ? (
         <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-card/90">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -804,7 +804,7 @@ export function ClaimsFilterBar({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-[1fr_1.5fr_1fr_145px_145px]">
+      <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,145px)_minmax(0,145px)]">
         <label className="grid gap-1 text-xs font-medium text-muted-foreground">
           Search Category
           <select
@@ -894,7 +894,7 @@ export function ClaimsFilterBar({
               updateUrlWithMutation(nextParams, pathname, router);
             });
           }}
-          className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-background-secondary"
+          className="inline-flex h-10 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-background-secondary sm:w-auto"
           {...(isFiltersExpanded
             ? ({ "aria-expanded": "true" } as const)
             : ({ "aria-expanded": "false" } as const))}
@@ -916,7 +916,7 @@ export function ClaimsFilterBar({
               void handleExportXlsx();
             }}
             disabled={isExporting}
-            className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-success/30 bg-success-muted px-3 text-sm font-semibold text-success transition hover:bg-success-muted/80 disabled:cursor-not-allowed disabled:opacity-70"
+            className="inline-flex h-10 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-success/30 bg-success-muted px-3 text-sm font-semibold text-success transition hover:bg-success-muted/80 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
           >
             <Download className="h-4 w-4" aria-hidden="true" />
             {isExporting ? "Exporting..." : "Export Excel"}
@@ -958,7 +958,7 @@ export function ClaimsFilterBar({
               updateUrlWithMutation(nextParams, pathname, router);
             });
           }}
-          className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-background-secondary"
+          className="inline-flex h-10 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-card px-3 text-sm font-semibold text-foreground transition hover:bg-background-secondary sm:w-auto"
         >
           <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
           Clear All

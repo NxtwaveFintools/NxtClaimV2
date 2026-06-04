@@ -77,21 +77,24 @@ export function WalletSummary({ summary }: WalletSummaryProps) {
         aria-label="Wallet summary metrics"
       >
         {/* Petty Cash Balance */}
-        <div className="nxt-card p-4 flex flex-col gap-3" style={{ borderRadius: 12 }}>
+        <div className="nxt-card flex min-w-0 flex-col gap-3 p-4" style={{ borderRadius: 12 }}>
           <div className="flex items-center justify-between">
             <p style={labelStyle}>PETTY CASH BALANCE</p>
             <div style={{ ...iconWrapperStyle, backgroundColor: "var(--accent-muted)" }}>
               <Wallet className="h-4 w-4" style={{ color: "var(--accent)" }} aria-hidden="true" />
             </div>
           </div>
-          <p style={{ ...valueStyle, color: getBalanceColor(summary.pettyCashBalance) }}>
+          <p
+            className="break-words"
+            style={{ ...valueStyle, color: getBalanceColor(summary.pettyCashBalance) }}
+          >
             {formatInr(summary.pettyCashBalance)}
           </p>
           <p style={subTextStyle}>{getBalanceMessage(summary.pettyCashBalance)}</p>
         </div>
 
         {/* Amount Received */}
-        <div className="nxt-card p-4 flex flex-col gap-3" style={{ borderRadius: 12 }}>
+        <div className="nxt-card flex min-w-0 flex-col gap-3 p-4" style={{ borderRadius: 12 }}>
           <div className="flex items-center justify-between">
             <p style={labelStyle}>AMOUNT RECEIVED</p>
             <div style={{ ...iconWrapperStyle, backgroundColor: "var(--success-muted)" }}>
@@ -102,7 +105,7 @@ export function WalletSummary({ summary }: WalletSummaryProps) {
               />
             </div>
           </div>
-          <p style={{ ...valueStyle, color: "var(--success)" }}>
+          <p className="break-words" style={{ ...valueStyle, color: "var(--success)" }}>
             {formatInr(summary.amountReceived)}
           </p>
           <div style={subTextStyle}>
@@ -112,7 +115,7 @@ export function WalletSummary({ summary }: WalletSummaryProps) {
         </div>
 
         {/* Amount Spent */}
-        <div className="nxt-card p-4 flex flex-col gap-3" style={{ borderRadius: 12 }}>
+        <div className="nxt-card flex min-w-0 flex-col gap-3 p-4" style={{ borderRadius: 12 }}>
           <div className="flex items-center justify-between">
             <p style={labelStyle}>AMOUNT SPENT</p>
             <div style={{ ...iconWrapperStyle, backgroundColor: "var(--warning-muted)" }}>
@@ -123,7 +126,9 @@ export function WalletSummary({ summary }: WalletSummaryProps) {
               />
             </div>
           </div>
-          <p style={{ ...valueStyle, color: "var(--warning)" }}>{formatInr(summary.amountSpent)}</p>
+          <p className="break-words" style={{ ...valueStyle, color: "var(--warning)" }}>
+            {formatInr(summary.amountSpent)}
+          </p>
           <div style={subTextStyle}>
             <p>Petty cash utilized</p>
             <p>{formatClaimCount(summary.amountSpentClaimCount)}</p>
@@ -131,7 +136,7 @@ export function WalletSummary({ summary }: WalletSummaryProps) {
         </div>
 
         {/* Pending Reimbursement */}
-        <div className="nxt-card p-4 flex flex-col gap-3" style={{ borderRadius: 12 }}>
+        <div className="nxt-card flex min-w-0 flex-col gap-3 p-4" style={{ borderRadius: 12 }}>
           <div className="flex items-center justify-between">
             <p style={labelStyle}>PENDING REIMBURSEMENT</p>
             <div style={{ ...iconWrapperStyle, backgroundColor: "var(--pending-muted)" }}>
@@ -139,6 +144,7 @@ export function WalletSummary({ summary }: WalletSummaryProps) {
             </div>
           </div>
           <p
+            className="break-words"
             style={{
               ...valueStyle,
               color: hasPendingReimbursement ? "var(--pending)" : "var(--muted-foreground)",

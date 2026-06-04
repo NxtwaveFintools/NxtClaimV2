@@ -631,13 +631,13 @@ async function ClaimDetailCore({
 
   return (
     <>
-      <section className="sticky top-0 z-20 -mx-4 flex flex-col gap-2 border-b border-border bg-background px-6 py-2.5 sm:-mx-6 sm:px-6 lg:-mx-8 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+      <section className="sticky top-0 z-20 -mx-4 flex flex-col gap-3 border-b border-border bg-background px-4 py-2.5 md:-mx-8 md:px-8 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <BackButton
             className="!h-8 !rounded-lg !border-border !bg-card !px-2.5 !py-0 !text-xs !font-semibold !text-foreground hover:!bg-background-secondary"
             fallbackHref={returnToPath}
           />
-          <div className="flex min-w-0 items-baseline gap-2">
+          <div className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-2">
             <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
               Audit &amp; Review
             </p>
@@ -647,7 +647,7 @@ async function ClaimDetailCore({
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end [&_button]:min-h-8">
           <ClaimStatusBadge status={claim.status} fullStatus />
 
           {canEditClaim ? (
@@ -776,7 +776,7 @@ async function ClaimDetailCore({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 pt-4 lg:grid-cols-[minmax(420px,44%)_minmax(520px,56%)]">
+      <div className="grid grid-cols-1 gap-4 pt-4 lg:grid-cols-[minmax(0,1fr)_420px] xl:grid-cols-[minmax(0,1fr)_520px]">
         <section className="relative z-10 flex flex-col gap-3 lg:order-1">
           {DB_REJECTED_STATUSES.some((status) => status === claim.status) &&
           claim.rejectionReason ? (
@@ -1095,7 +1095,7 @@ async function ClaimDetailCore({
           </Suspense>
         </section>
 
-        <aside className="order-first h-[460px] overflow-hidden rounded-xl border border-border bg-card sm:h-[520px] lg:order-2 lg:sticky lg:top-[76px] lg:h-[calc(100vh-92px)]">
+        <aside className="order-first h-[360px] overflow-hidden rounded-xl border border-border bg-card sm:h-[460px] lg:order-2 lg:sticky lg:top-[76px] lg:h-[calc(100vh-92px)]">
           <Suspense fallback={<EvidenceGallerySkeleton />}>
             <EvidenceGallerySection claimId={claim.id} evidencePaths={evidencePaths} />
           </Suspense>

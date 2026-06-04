@@ -386,8 +386,8 @@ async function ClaimsCommandCenterTable({
         </div>
       ) : (
         <>
-          <div className="hidden overflow-x-auto md:block">
-            <table className="w-full table-fixed divide-y divide-border text-left text-sm">
+          <div className="nxt-scroll hidden w-full overflow-x-auto md:block">
+            <table className="min-w-[1040px] w-full table-fixed divide-y divide-border text-left text-sm">
               <colgroup>
                 <col className="w-[21%]" />
                 <col className="w-[19%]" />
@@ -502,25 +502,43 @@ async function ClaimsCommandCenterTable({
               return (
                 <article key={claim.id} className="space-y-3 p-4">
                   <div className="flex items-start justify-between gap-3">
-                    <RouterLink href={detailHref} className={CLAIM_ID_LINK_CLASSES}>
-                      {claim.id}
-                    </RouterLink>
-                    <ClaimStatusBadge status={claim.status} fullStatus />
+                    <div className="min-w-0">
+                      <RouterLink href={detailHref} className={CLAIM_ID_LINK_CLASSES}>
+                        {claim.id}
+                      </RouterLink>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Submitted {formatDate(claim.submittedAt)}
+                      </p>
+                    </div>
+                    <div className="shrink-0">
+                      <ClaimStatusBadge status={claim.status} fullStatus />
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold text-foreground">{claim.formattedTotalAmount}</p>
-                    <p className="text-xs text-muted-foreground">{claim.typeOfClaim}</p>
-                  </div>
-                  <dl className="grid gap-1 text-xs text-muted-foreground">
-                    <div>Submitted {formatDate(claim.submittedAt)}</div>
-                    <div>Department: {claim.departmentName}</div>
-                    <div className="truncate">
-                      {onBehalfValue
-                        ? `Submitter: ${primarySubmitter} / For: ${onBehalfValue}`
-                        : primarySubmitter}
+                  <dl className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="min-w-0">
+                      <dt className="text-xs text-muted-foreground">Amount</dt>
+                      <dd className="break-words font-semibold text-foreground">
+                        {claim.formattedTotalAmount}
+                      </dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="text-xs text-muted-foreground">Category</dt>
+                      <dd className="break-words text-foreground">{claim.typeOfClaim}</dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="text-xs text-muted-foreground">Department</dt>
+                      <dd className="break-words text-foreground">{claim.departmentName}</dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className="text-xs text-muted-foreground">Submitter</dt>
+                      <dd className="break-words text-foreground">
+                        {onBehalfValue
+                          ? `Submitter: ${primarySubmitter} / For: ${onBehalfValue}`
+                          : primarySubmitter}
+                      </dd>
                     </div>
                   </dl>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center justify-end gap-2">
                     <Link href={detailHref} className={VIEW_LINK_CLASSES}>
                       View
                     </Link>
@@ -748,8 +766,8 @@ async function MyClaimsDashboardResolvedContent({
   return (
     <div className="space-y-3">
       <section className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
             <h1 className="dashboard-font-display text-2xl font-semibold leading-tight text-foreground">
               Claims
             </h1>
@@ -760,7 +778,7 @@ async function MyClaimsDashboardResolvedContent({
           <Link
             href={ROUTES.claims.new}
             prefetch={false}
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover"
+            className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover sm:w-auto"
           >
             <CirclePlus className="h-4 w-4" aria-hidden="true" />
             New Claim
@@ -769,7 +787,7 @@ async function MyClaimsDashboardResolvedContent({
 
         {availableViewModes.length > 1 ? (
           <div
-            className="inline-flex max-w-full rounded-[10px] border border-border bg-card p-1"
+            className="nxt-scroll flex max-w-full gap-1 overflow-x-auto rounded-[10px] border border-border bg-card p-1"
             role="tablist"
             aria-label="Claim views"
           >
@@ -781,7 +799,7 @@ async function MyClaimsDashboardResolvedContent({
                 role="tab"
                 aria-selected={activeView === item.mode}
                 aria-current={activeView === item.mode ? "page" : undefined}
-                className={`inline-flex h-[34px] items-center whitespace-nowrap rounded-[7px] px-3 text-sm font-medium transition-colors ${
+                className={`inline-flex h-[34px] shrink-0 items-center whitespace-nowrap rounded-[7px] px-3 text-sm font-medium transition-colors ${
                   activeView === item.mode
                     ? "bg-accent text-white"
                     : "bg-card text-muted-foreground hover:bg-background-secondary hover:text-foreground"

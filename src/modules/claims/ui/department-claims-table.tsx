@@ -34,7 +34,7 @@ export function DepartmentClaimsTable({ claims }: Props) {
 
   return (
     <div className="nxt-scroll w-full overflow-x-auto">
-      <table className="w-full table-fixed divide-y divide-border text-left text-sm">
+      <table className="min-w-[1040px] w-full table-fixed divide-y divide-border text-left text-sm">
         <colgroup>
           <col className="w-[21%]" />
           <col className="w-[19%]" />

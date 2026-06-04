@@ -303,7 +303,7 @@ export default async function AdminSettingsPage({
   const activeMeta = TAB_META[activeTab] ?? TAB_META.categories;
   const ActiveIcon = activeMeta.icon;
   return (
-    <main className="mx-auto max-w-400 px-4 py-6 sm:px-6 lg:px-8">
+    <main className="mx-auto w-full max-w-[1600px] px-0 py-0">
       <section className="overflow-hidden rounded-xl border border-border bg-card">
         <div className="px-5 py-4">
           <div className="min-w-0">
@@ -333,7 +333,7 @@ export default async function AdminSettingsPage({
         </div>
       </section>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
+      <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)] xl:gap-6">
         <aside className="xl:sticky xl:top-24 xl:self-start">
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="border-b border-border px-4 py-3">
@@ -375,8 +375,8 @@ export default async function AdminSettingsPage({
                             </div>
 
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold">{item.label}</p>
-                              <p className="mt-0.5 text-xs text-muted-foreground">
+                              <p className="break-words text-sm font-semibold">{item.label}</p>
+                              <p className="mt-0.5 break-words text-xs text-muted-foreground">
                                 {TAB_META[item.key]?.eyebrow ?? group.groupLabel}
                               </p>
                             </div>
@@ -411,7 +411,7 @@ export default async function AdminSettingsPage({
                   <ActiveIcon className="h-5 w-5" aria-hidden="true" />
                 </div>
                 <div className="min-w-0">
-                  <h2 className="dashboard-font-display truncate text-xl font-semibold text-foreground">
+                  <h2 className="dashboard-font-display break-words text-xl font-semibold text-foreground">
                     {activeItem.label}
                   </h2>
                 </div>

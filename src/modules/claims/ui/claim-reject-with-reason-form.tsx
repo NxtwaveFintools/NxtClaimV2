@@ -89,7 +89,7 @@ export function ClaimRejectWithReasonForm({
                   setIsModalOpen(false);
                 }}
               />
-              <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-5 shadow-none sm:p-6">
+              <div className="absolute left-1/2 top-1/2 max-h-[calc(100dvh-2rem)] w-[calc(100vw-32px)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-border bg-card p-5 shadow-none sm:p-6">
                 <h3 className="text-base font-semibold text-foreground">Reject Claim</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Add a rejection reason and choose whether the employee can resubmit this exact
