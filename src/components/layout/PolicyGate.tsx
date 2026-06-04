@@ -129,9 +129,9 @@ export function PolicyGate({ initialState, children }: PolicyGateProps) {
             </header>
 
             <div className="min-h-0 flex-1 overflow-hidden px-4 py-4 sm:px-5">
-              {policy ? (
-                <article className="flex h-full min-h-0 flex-col gap-4">
-                  <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-background-secondary">
+              <div className="flex h-full min-h-0 flex-col gap-4">
+                {policy ? (
+                  <article className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-background-secondary">
                     <iframe
                       src={policy.fileUrl}
                       title={`Company policy ${policy.versionName}`}
@@ -144,23 +144,23 @@ export function PolicyGate({ initialState, children }: PolicyGateProps) {
                         });
                       }}
                     />
-                  </div>
-                  {acceptedAt ? (
-                    <p className="text-xs text-muted-foreground">
-                      Last accepted: {formatAcceptedDate(acceptedAt)}
-                    </p>
-                  ) : null}
-                </article>
-              ) : message ? (
-                <p className="rounded-xl border border-warning/30 bg-warning-muted px-4 py-3 text-sm text-warning">
-                  {message ??
-                    "Company policy is currently unavailable. Please contact your administrator."}
-                </p>
-              ) : (
-                <p className="rounded-xl border border-danger/30 bg-danger-muted px-4 py-3 text-sm text-danger">
-                  {message}
-                </p>
-              )}
+                  </article>
+                ) : null}
+                {message ? (
+                  <p className="rounded-xl border border-warning/30 bg-warning-muted px-4 py-3 text-sm text-warning">
+                    {message}
+                  </p>
+                ) : !policy ? (
+                  <p className="rounded-xl border border-danger/30 bg-danger-muted px-4 py-3 text-sm text-danger">
+                    Company policy is currently unavailable. Please contact your administrator.
+                  </p>
+                ) : null}
+                {policy && acceptedAt ? (
+                  <p className="text-xs text-muted-foreground">
+                    Last accepted: {formatAcceptedDate(acceptedAt)}
+                  </p>
+                ) : null}
+              </div>
             </div>
 
             <footer className="border-t border-border bg-background-secondary px-5 py-4">

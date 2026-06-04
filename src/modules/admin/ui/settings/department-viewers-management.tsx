@@ -159,7 +159,7 @@ export function DepartmentViewersManagement({ viewers, departments }: Props) {
             <select
               value={selectedDeptId}
               onChange={(e) => setSelectedDeptId(e.target.value)}
-              className="nxt-input rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
+              className="nxt-input rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none"
             >
               <option value="">Select department…</option>
               {departments.map((dept) => (
@@ -174,7 +174,7 @@ export function DepartmentViewersManagement({ viewers, departments }: Props) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-              className="nxt-input flex-1 rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none"
+              className="nxt-input flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none"
             />
             <Button
               disabled={isPending || !selectedDeptId || !email.trim()}
