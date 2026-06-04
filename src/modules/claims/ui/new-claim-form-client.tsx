@@ -1364,12 +1364,16 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       <input type="hidden" {...register("hodName")} />
       <input type="hidden" {...register("hodEmail")} />
 
-      <div className="flex flex-col items-start gap-5 lg:flex-row">
-        <div
-          className={`grid w-full min-w-0 gap-4 sm:gap-5 ${detailType === "advance" ? "lg:flex-1" : "lg:w-1/2"}`}
-        >
+      <div
+        className={`grid grid-cols-1 items-start gap-5 ${
+          detailType === "expense"
+            ? "lg:grid-cols-[minmax(0,1fr)_minmax(420px,520px)]"
+            : "lg:grid-cols-1"
+        }`}
+      >
+        <div className="contents">
           {/* ── Left column: Employee + Submission Context ── */}
-          <section className="grid gap-3 rounded-xl border border-border p-4 sm:p-5">
+          <section className="order-1 grid gap-3 rounded-xl border border-border p-4 sm:p-5 lg:col-start-1 lg:row-start-1">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <h2 className="dashboard-font-display text-sm font-semibold tracking-[-0.01em] text-foreground">
@@ -1577,7 +1581,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
             </div>
           </section>
           {detailType === "expense" ? (
-            <section className="grid gap-x-4 gap-y-3 rounded-xl border border-border p-4 sm:p-[18px] [&_label]:!text-[13px]">
+            <section className="order-3 grid gap-x-4 gap-y-3 rounded-xl border border-border p-4 sm:p-[18px] lg:col-start-1 lg:row-start-2 [&_label]:!text-[13px]">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="dashboard-font-display text-sm font-semibold tracking-[-0.01em] text-foreground">
                   Expense Details
@@ -2018,7 +2022,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
           ) : null}
 
           {detailType === "advance" ? (
-            <section className="grid gap-3 rounded-xl border border-border p-4 sm:p-5">
+            <section className="order-3 grid gap-3 rounded-xl border border-border p-4 sm:p-5 lg:col-start-1 lg:row-start-2">
               <h2 className="dashboard-font-display text-sm font-semibold tracking-[-0.01em] text-foreground">
                 Petty Cash Request Details
               </h2>
@@ -2174,7 +2178,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
         {detailType === "expense" ? (
           <>
-            <aside className="grid w-full min-w-0 gap-4 rounded-xl border border-border bg-card p-4 lg:sticky lg:top-6 lg:w-[420px] lg:shrink-0 lg:max-h-[calc(100vh-48px)] lg:overflow-y-auto xl:w-[520px]">
+            <aside className="order-2 grid w-full min-w-0 gap-4 rounded-xl border border-border bg-card p-4 lg:sticky lg:top-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:h-[calc(100vh-48px)] lg:overflow-y-auto">
               <div>
                 <h2 className="dashboard-font-display text-base font-semibold text-foreground">
                   Evidence & Review
