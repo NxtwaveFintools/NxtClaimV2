@@ -3,7 +3,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
-import { ExternalLink, X } from "lucide-react";
+import { Copy, ExternalLink, FileText, X } from "lucide-react";
 import { AppShellHeader } from "@/components/app-shell-header";
 import { BackButton } from "@/components/ui/back-button";
 import {
@@ -811,6 +811,49 @@ async function ClaimDetailCore({
               <p className="mt-1 text-sm text-rose-700 dark:text-rose-200">
                 {claim.rejectionReason}
               </p>
+            </section>
+          ) : null}
+
+          {isFinanceActor && (claim.expense?.suspectedDuplicateIds?.length ?? 0) > 0 ? (
+            <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800/50 dark:bg-amber-900/15">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-200 dark:bg-amber-800/50">
+                  <Copy className="h-5 w-5 text-amber-700 dark:text-amber-400" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="font-semibold text-amber-900 dark:text-amber-100">
+                    Suspected duplicate
+                  </span>
+                  <span className="ml-2 text-sm text-amber-700/70 dark:text-amber-300/70">
+                    Bill number &amp; date match {claim.expense!.suspectedDuplicateIds.length} other
+                    claim{claim.expense!.suspectedDuplicateIds.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                <span className="shrink-0 rounded-full bg-amber-200 px-3 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-800/50 dark:text-amber-200">
+                  {claim.expense!.suspectedDuplicateIds.length}{" "}
+                  {claim.expense!.suspectedDuplicateIds.length === 1 ? "match" : "matches"}
+                </span>
+              </div>
+              <div className="mt-3 space-y-1.5">
+                {claim.expense!.suspectedDuplicateIds.map((dupId) => (
+                  <Link
+                    key={dupId}
+                    href={ROUTES.claims.detail(dupId)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 rounded-lg border border-amber-200/80 bg-white/60 px-3 py-2 text-sm transition-colors hover:bg-white/90 dark:border-amber-800/40 dark:bg-amber-950/30 dark:hover:bg-amber-950/50"
+                  >
+                    <FileText className="h-4 w-4 shrink-0 text-amber-700/60 dark:text-amber-400/60" />
+                    <span
+                      className="min-w-0 flex-1 truncate text-amber-900 dark:text-amber-100"
+                      title={dupId}
+                    >
+                      {dupId}
+                    </span>
+                    <span className="shrink-0 text-amber-700 dark:text-amber-400">View →</span>
+                  </Link>
+                ))}
+              </div>
             </section>
           ) : null}
 
