@@ -589,3 +589,101 @@ test.describe("Claim Form — Validation & Conditional Rendering", () => {
     await expect(totalAmountInput).toHaveValue("1150.00");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Foreign Financials — Unconditional Rendering
+//
+//  FOREIGN-REND-1  The "Foreign Financials" accordion section must always be
+//                  visible on the claim detail page, even for claims that have
+//                  no foreign currency set.  Prior to the fix the section was
+//                  gated on `foreignCurrencyCode !== null && !== "INR"`, so it
+//                  was invisible for domestic expense claims.  The fix removes
+//                  the gate and applies `?? "INR"` / `?? 0` fallbacks so all
+//                  four field labels are always present.
+// ---------------------------------------------------------------------------
+
+test.describe("Foreign Financials — Unconditional Rendering", () => {
+  test.use({ storageState: getAuthStatePathByRole("submitter") });
+  test.setTimeout(60_000);
+
+  // Resolved once in beforeAll and shared across tests in this describe block.
+  let claimId: string | null = null;
+
+  test.beforeAll(async () => {
+    const client = getAdminSupabaseClient();
+    const submitterEmail = (process.env.E2E_SUBMITTER_EMAIL ?? "user@nxtwave.co.in").toLowerCase();
+
+    // Resolve the submitter's internal UUID.
+    const { data: submitter } = await client
+      .from("users")
+      .select("id")
+      .eq("email", submitterEmail)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (!submitter?.id) {
+      throw new Error(
+        `E2E setup failed: could not resolve submitter UUID for email "${submitterEmail}". ` +
+          "Ensure E2E_SUBMITTER_EMAIL is set and the user exists in the database.",
+      );
+    }
+
+    // Prefer a claim whose expense has no foreign currency so we can assert
+    // the "INR" fallback value.  If none exists, fall back to any expense claim.
+    const { data: noFxClaim } = await client
+      .from("claims")
+      .select("id, expense_details!inner(id)")
+      .eq("submitted_by", submitter.id)
+      .eq("is_active", true)
+      .is("expense_details.foreign_currency_code", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (noFxClaim?.id) {
+      claimId = noFxClaim.id;
+      return;
+    }
+
+    const { data: anyClaim } = await client
+      .from("claims")
+      .select("id, expense_details!inner(id)")
+      .eq("submitted_by", submitter.id)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    claimId = anyClaim?.id ?? null;
+  });
+
+  // ─── FOREIGN-REND-1 ───────────────────────────────────────────────────────
+  test("FOREIGN-REND-1: foreign financials accordion and all four field labels visible on claim detail page", async ({
+    page,
+  }) => {
+    if (!claimId) {
+      test.skip();
+      return;
+    }
+
+    await gotoWithRetry(page, `/dashboard/claims/${claimId}`);
+
+    // The "Foreign Financials" accordion item is listed in `defaultValue` so it
+    // must be open on first render without user interaction.
+    // Note: the trigger has a CSS `uppercase` class — that is cosmetic only and
+    // does not change the DOM text content used for matching.
+    await expect(page.getByText("Foreign Financials")).toBeVisible({ timeout: 15_000 });
+
+    // All four field labels must be present in the open accordion content.
+    // These labels are specific enough not to collide with other page content.
+    await expect(page.getByText("Foreign Currency")).toBeVisible();
+    await expect(page.getByText("Foreign Basic Amount")).toBeVisible();
+    await expect(page.getByText("Foreign GST Amount")).toBeVisible();
+    await expect(page.getByText("Foreign Total Amount")).toBeVisible();
+
+    // For a domestic claim (foreignCurrencyCode is null), the Foreign Currency
+    // card must display "INR" via the `?? "INR"` fallback rather than hiding
+    // the entire section (which was the pre-fix behaviour).
+    await expect(page.getByTestId("foreign-financials-section").getByText("INR")).toBeVisible();
+  });
+});
