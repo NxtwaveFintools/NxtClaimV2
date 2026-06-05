@@ -623,7 +623,7 @@ async function ClaimDetailCore({
   const canEditClaim = canEditOwnClaim || canEditFinanceClaim;
   const isDeptViewerOnly =
     isDepartmentViewerForClaim &&
-    currentUserId !== claim.submitter &&
+    currentUserId !== claim.submittedBy &&
     !isAssignedL1Approver &&
     !isFinanceActor &&
     !isAdminUser;
@@ -745,25 +745,15 @@ async function ClaimDetailCore({
 
     return formatCurrency(value);
   };
-  const formatForeignAmountValue = (
-    value: number | null | undefined,
-    currencyCode: string | null | undefined,
-  ) => {
-    if (value === null || value === undefined || !currencyCode) {
-      return "N/A";
-    }
-
-    return new Intl.NumberFormat("en-IN", {
+  const formatForeignAmountValue = (value: number, currencyCode: string) =>
+    new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: currencyCode,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);
-  };
   const totalAmountValue = claim.expense?.totalAmount ?? claim.advance?.totalAmount ?? null;
   const aiMetadata = canViewAsFinance ? (claim.expense?.aiMetadata ?? null) : null;
-  const shouldShowForeignFinancials =
-    claim.expense?.foreignCurrencyCode != null && claim.expense.foreignCurrencyCode !== "INR";
   const heroCategoryValue = claim.expense
     ? formatOptionalText(claim.expense.expenseCategoryName)
     : "N/A";
@@ -892,7 +882,13 @@ async function ClaimDetailCore({
           <section className="bg-card border border-border/50 shadow-sm rounded-xl p-6 md:p-8 flex flex-col gap-6">
             <Accordion
               type="multiple"
-              defaultValue={["expense-details", "general-info", "routing-context", "financials"]}
+              defaultValue={[
+                "expense-details",
+                "general-info",
+                "routing-context",
+                "local-financials",
+                "foreign-financials",
+              ]}
               className="w-full space-y-4"
             >
               <AccordionItem
@@ -1036,11 +1032,11 @@ async function ClaimDetailCore({
               </AccordionItem>
 
               <AccordionItem
-                value="financials"
+                value="local-financials"
                 className="border-none bg-muted/10 rounded-xl px-4 py-2"
               >
                 <AccordionTrigger className="hover:no-underline text-xs uppercase tracking-widest text-muted-foreground font-bold">
-                  Financials
+                  Local Financials
                 </AccordionTrigger>
                 <AccordionContent className="pt-4 pb-2">
                   <div className={microGridClassName}>
@@ -1085,35 +1081,6 @@ async function ClaimDetailCore({
                           label="Total Amount"
                           value={formatAmountValue(claim.expense.totalAmount)}
                         />
-                        {shouldShowForeignFinancials ? (
-                          <>
-                            <DataCard
-                              label="Foreign Currency"
-                              value={claim.expense.foreignCurrencyCode ?? "N/A"}
-                            />
-                            <DataCard
-                              label="Foreign Basic Amount"
-                              value={formatForeignAmountValue(
-                                claim.expense.foreignBasicAmount,
-                                claim.expense.foreignCurrencyCode,
-                              )}
-                            />
-                            <DataCard
-                              label="Foreign GST Amount"
-                              value={formatForeignAmountValue(
-                                claim.expense.foreignGstAmount,
-                                claim.expense.foreignCurrencyCode,
-                              )}
-                            />
-                            <DataCard
-                              label="Foreign Total Amount"
-                              value={formatForeignAmountValue(
-                                claim.expense.foreignTotalAmount,
-                                claim.expense.foreignCurrencyCode,
-                              )}
-                            />
-                          </>
-                        ) : null}
                       </>
                     ) : claim.advance ? (
                       <>
@@ -1124,6 +1091,51 @@ async function ClaimDetailCore({
                       </>
                     ) : (
                       <DataCard label="Amount" value="N/A" />
+                    )}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem
+                value="foreign-financials"
+                data-testid="foreign-financials-section"
+                className="border-none bg-muted/10 rounded-xl px-4 py-2"
+              >
+                <AccordionTrigger className="hover:no-underline text-xs uppercase tracking-widest text-muted-foreground font-bold">
+                  Foreign Financials
+                </AccordionTrigger>
+                <AccordionContent className="pt-4 pb-2">
+                  <div className={microGridClassName}>
+                    {claim.expense ? (
+                      <>
+                        <DataCard
+                          label="Foreign Currency"
+                          value={claim.expense.foreignCurrencyCode ?? "INR"}
+                        />
+                        <DataCard
+                          label="Foreign Basic Amount"
+                          value={formatForeignAmountValue(
+                            claim.expense.foreignBasicAmount ?? 0,
+                            claim.expense.foreignCurrencyCode ?? "INR",
+                          )}
+                        />
+                        <DataCard
+                          label="Foreign GST Amount"
+                          value={formatForeignAmountValue(
+                            claim.expense.foreignGstAmount ?? 0,
+                            claim.expense.foreignCurrencyCode ?? "INR",
+                          )}
+                        />
+                        <DataCard
+                          label="Foreign Total Amount"
+                          value={formatForeignAmountValue(
+                            claim.expense.foreignTotalAmount ?? 0,
+                            claim.expense.foreignCurrencyCode ?? "INR",
+                          )}
+                        />
+                      </>
+                    ) : (
+                      <DataCard label="Foreign Amount" value="N/A" />
                     )}
                   </div>
                 </AccordionContent>

@@ -31,10 +31,26 @@
       "Bash(npx *)",
       "PowerShell(Get-ChildItem \"d:\\\\nxtclaim\" -Name | Where-Object { $_ -match \"eslint|prettier|biome\" })",
       "Bash(Get-ChildItem *)",
-      "mcp__supabase__list_tables"
+      "Skill(superpowers:verification-before-completion)",
+      "mcp__ide__getDiagnostics",
+      "Skill(superpowers:brainstorming)",
+      "Bash(Select-String -Path \"D:\\\\nxtclaim\\\\src\\\\app\\\\\\(dashboard\\)\\\\dashboard\\\\claims\\\\[id]\\\\page.tsx\" -Pattern \"ClaimFull|includeExpense|Foreign\")",
+      "Bash(Select-Object -First 20)",
+      "PowerShell(Select-String -Path \"D:\\\\nxtclaim\\\\src\\\\app\\\\\\(dashboard\\)\\\\dashboard\\\\claims\\\\[id]\\\\page.tsx\" -Pattern \"ClaimFull|includeExpense|Foreign|expense\" | Select-Object -First 30 | ForEach-Object { $_.Line })",
+      "Skill(superpowers:receiving-code-review)",
+      "Bash(gh pr *)",
+      "PowerShell(gh pr *)",
+      "PowerShell(dashboard *)",
+      "PowerShell(Get-Command *)",
+      "PowerShell(git fetch *)",
+      "PowerShell(git log --format=\"%H %s\" main..fixForeign | ForEach-Object { $parts = $_ -split \" \", 2; Write-Host \"=== $\\($parts[1]\\) ===\"; git show $parts[0] --stat --no-patch })",
+      "Skill(superpowers:executing-plans)"
     ]
   },
-  "enabledMcpjsonServers": ["filesystem", "supabase"],
+  "enabledMcpjsonServers": [
+    "filesystem",
+    "supabase"
+  ],
   "enabledPlugins": {
     "context-mode@context-mode": true
   }
