@@ -1087,6 +1087,20 @@ export async function submitClaimAction(input: unknown): Promise<{
     };
   }
 
+  if (parseResult.data.detailType === "expense") {
+    const syncResult = await repository.syncExpenseDuplicateFlags({
+      claimId: preparedClaim.id,
+      billNo: parseResult.data.expense.billNo,
+      transactionDate: parseResult.data.expense.transactionDate,
+    });
+    if (syncResult.errorMessage) {
+      logger.warn("claims.submit.sync_duplicate_flags_failed", {
+        claimId: preparedClaim.id,
+        errorMessage: syncResult.errorMessage,
+      });
+    }
+  }
+
   return {
     ok: true,
     claimId: preparedClaim.id,
@@ -1530,6 +1544,20 @@ export async function updateClaimByFinanceAction(input: {
   revalidatePath(ROUTES.claims.dashboardList);
   revalidatePath(`${ROUTES.claims.dashboardList}/${claimIdParse.data.claimId}`, "page");
 
+  if (parseResult.data.detailType === "expense") {
+    const syncResult = await repository.syncExpenseDuplicateFlags({
+      claimId: claimIdParse.data.claimId,
+      billNo: parseResult.data.billNo,
+      transactionDate: parseResult.data.transactionDate,
+    });
+    if (syncResult.errorMessage) {
+      logger.warn("claims.finance_edit.sync_duplicate_flags_failed", {
+        claimId: claimIdParse.data.claimId,
+        errorMessage: syncResult.errorMessage,
+      });
+    }
+  }
+
   return {
     ok: true,
     message: "Claim details updated.",
@@ -1792,6 +1820,20 @@ export async function updateOwnClaimAction(input: {
   revalidatePath(ROUTES.claims.myClaims);
   revalidatePath(ROUTES.claims.dashboardList);
   revalidatePath(`${ROUTES.claims.dashboardList}/${claimIdParse.data.claimId}`, "page");
+
+  if (parseResult.data.detailType === "expense") {
+    const syncResult = await repository.syncExpenseDuplicateFlags({
+      claimId: claimIdParse.data.claimId,
+      billNo: parseResult.data.billNo,
+      transactionDate: parseResult.data.transactionDate,
+    });
+    if (syncResult.errorMessage) {
+      logger.warn("claims.own_edit.sync_duplicate_flags_failed", {
+        claimId: claimIdParse.data.claimId,
+        errorMessage: syncResult.errorMessage,
+      });
+    }
+  }
 
   return {
     ok: true,
