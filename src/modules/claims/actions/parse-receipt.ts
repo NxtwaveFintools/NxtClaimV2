@@ -13,6 +13,9 @@ import {
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const CONFIDENCE_THRESHOLD = 80;
+const MAX_CATEGORY_NAME_LENGTH = 100;
+const MAX_CATEGORY_NAMES = 50;
+const MAX_HINT_LENGTH = 200;
 const EXPENSE_CATEGORY_NAMES_FORM_KEY = "expenseCategoryNames";
 const BANK_STATEMENT_MATCH_VENDOR_FORM_KEY = "bankStatementMatchVendorName";
 const BANK_STATEMENT_MATCH_DATE_FORM_KEY = "bankStatementMatchTransactionDate";
@@ -154,12 +157,18 @@ function extractAllowedCategoryNames(input: FormData): string[] {
     if (!sanitized) {
       continue;
     }
+    if (sanitized.length > MAX_CATEGORY_NAME_LENGTH) {
+      continue;
+    }
     const dedupeKey = sanitized.toLowerCase();
     if (seen.has(dedupeKey)) {
       continue;
     }
     seen.add(dedupeKey);
     uniqueNames.push(sanitized);
+    if (uniqueNames.length >= MAX_CATEGORY_NAMES) {
+      break;
+    }
   }
 
   return uniqueNames;
@@ -176,7 +185,8 @@ type BankStatementMatchContext = {
 
 function getFormDataNullableString(input: FormData, key: string): string | null {
   const value = input.get(key);
-  return sanitizeCategoryName(value);
+  const sanitized = sanitizeCategoryName(value);
+  return sanitized !== null ? sanitized.slice(0, MAX_HINT_LENGTH) : null;
 }
 
 function getFormDataNullableNumber(input: FormData, key: string): number | null {
@@ -373,7 +383,6 @@ type GeminiErrorShape = {
   status?: number;
   statusText?: string;
   message?: string;
-  errorDetails?: unknown;
 };
 
 function asGeminiErrorShape(error: unknown): GeminiErrorShape {
@@ -398,26 +407,17 @@ function parseRetrySeconds(input: string): number | null {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   }
 
+  const jsonFieldMatch = value.match(/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/i);
+  if (jsonFieldMatch && jsonFieldMatch[1]) {
+    const parsed = Number.parseFloat(jsonFieldMatch[1]);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+
   return null;
 }
 
 function extractRetryDelaySeconds(error: unknown): number | null {
   const geminiError = asGeminiErrorShape(error);
-  const details = Array.isArray(geminiError.errorDetails) ? geminiError.errorDetails : [];
-
-  for (const detail of details) {
-    if (typeof detail !== "object" || detail === null) {
-      continue;
-    }
-    const retryDelay = (detail as { retryDelay?: unknown }).retryDelay;
-    if (typeof retryDelay !== "string") {
-      continue;
-    }
-    const parsed = parseRetrySeconds(retryDelay);
-    if (parsed !== null) {
-      return parsed;
-    }
-  }
 
   if (typeof geminiError.message === "string") {
     return parseRetrySeconds(geminiError.message);
@@ -538,7 +538,8 @@ function buildParsedReceiptResult(
   extraction: GeminiExtraction,
   documentType: "invoice" | "bank_statement",
   now: Date,
-): { result: ParsedReceiptResult; mathConsistent: boolean } {
+  allowedCategoryNames: string[],
+): ParsedReceiptResult {
   const transactionDate = normalizeTransactionDate(extraction.transactionDate, now);
   const currency = resolveCurrencyCode(extraction.currencyCode);
   const amounts = computeReceiptAmounts({
@@ -552,6 +553,11 @@ function buildParsedReceiptResult(
     totalAmount: extraction.totalAmount ?? null,
   });
 
+  const matched =
+    allowedCategoryNames.find(
+      (name) => name.toLowerCase() === extraction.categoryName?.trim().toLowerCase(),
+    ) ?? null;
+
   const base: ParsedReceiptResult = {
     billNo: extraction.billNo,
     transactionDate,
@@ -562,7 +568,7 @@ function buildParsedReceiptResult(
     sgstAmount: 0,
     igstAmount: 0,
     totalAmount: 0,
-    category_name: extraction.categoryName ?? null,
+    category_name: matched,
     confidenceScore: 0,
     foreignCurrencyCode: null,
     foreignBasicAmount: 0,
@@ -603,7 +609,7 @@ function buildParsedReceiptResult(
     invalidCurrencyDetected: currency.invalidDetected,
   });
 
-  return { result: base, mathConsistent: amounts.mathConsistent };
+  return base;
 }
 
 export async function parseReceiptAction(input: FormData): Promise<ParseReceiptActionResult> {
@@ -702,10 +708,11 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
       };
     }
 
-    const { result: normalized } = buildParsedReceiptResult(
+    const normalized = buildParsedReceiptResult(
       parsedSchemaResult.data,
       documentType,
       new Date(),
+      allowedCategoryNames,
     );
 
     const hasPartialData =

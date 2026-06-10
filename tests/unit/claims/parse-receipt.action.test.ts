@@ -206,7 +206,9 @@ describe("parseReceiptAction", () => {
     const result = await parseReceiptAction(createReceiptFormData());
 
     expect(result.data?.foreignCurrencyCode).toBeNull();
-    expect(result.data?.confidenceScore).toBe(80);
+    expect(result.data?.confidenceScore).toBe(75);
+    expect(result.autoFillAllowed).toBe(true);
+    expect(result.message).toContain("verify");
   });
 
   test("bank statement mode maps matched debit to basicAmount", async () => {
@@ -252,7 +254,24 @@ describe("parseReceiptAction", () => {
   });
 
   test("quota error (429) returns quota fallback with retry hint", async () => {
-    mockGenerateContent.mockRejectedValue(new MockApiError("Too Many Requests. Retry in 14s", 429));
+    mockGenerateContent.mockRejectedValue(
+      new MockApiError(
+        JSON.stringify({
+          error: {
+            code: 429,
+            message: "Resource has been exhausted (e.g. check quota).",
+            status: "RESOURCE_EXHAUSTED",
+            details: [
+              {
+                "@type": "type.googleapis.com/google.rpc.RetryInfo",
+                retryDelay: "14s",
+              },
+            ],
+          },
+        }),
+        429,
+      ),
+    );
 
     const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
     const result = await parseReceiptAction(createReceiptFormData());
@@ -290,6 +309,30 @@ describe("parseReceiptAction", () => {
     expect(mockGenerateContent).toHaveBeenCalledTimes(3);
     expect(result.ok).toBe(false);
     expect(result.message).toContain("busy");
+  });
+
+  test("categoryName matched case-insensitively snaps to allowed exact string", async () => {
+    mockModelResponse(extractionPayload({ categoryName: "travel domestic" }));
+
+    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
+    const result = await parseReceiptAction(
+      createReceiptFormData(["Travel Domestic", "Internet Expense"]),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.category_name).toBe("Travel Domestic");
+  });
+
+  test("categoryName not in allowed list resolves to null", async () => {
+    mockModelResponse(extractionPayload({ categoryName: "Made Up Category" }));
+
+    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
+    const result = await parseReceiptAction(
+      createReceiptFormData(["Travel Domestic", "Internet Expense"]),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.category_name).toBeNull();
   });
 
   test("rejects missing file and oversized/wrong-type files", async () => {

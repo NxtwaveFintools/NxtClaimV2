@@ -3,6 +3,8 @@ import { isIsoCurrencyCode } from "@/core/constants/iso-currency-codes";
 const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MAX_DATE_AGE_YEARS = 2;
 const MATH_TOLERANCE = 1;
+// Absorbs server-UTC vs local-IST clock offset for same-day receipts.
+const FUTURE_GRACE_DAYS = 1;
 
 export type ExtractedAmounts = {
   subtotalAmount: number | null;
@@ -73,7 +75,10 @@ export function normalizeTransactionDate(value: string | null, today: Date): str
   );
   const candidateUtc = candidate.getTime();
 
-  if (candidateUtc > todayUtc || candidateUtc < oldestAllowed) {
+  if (
+    candidateUtc > todayUtc + FUTURE_GRACE_DAYS * 24 * 60 * 60 * 1000 ||
+    candidateUtc < oldestAllowed
+  ) {
     return null;
   }
 
@@ -142,6 +147,6 @@ export function computeConfidenceScore(inputs: ConfidenceInputs): number {
   if (!inputs.hasTransactionDate) score -= 15;
   if (!inputs.hasBillNo) score -= 15;
   if (!inputs.hasVendorName) score -= 10;
-  if (inputs.invalidCurrencyDetected) score -= 20;
+  if (inputs.invalidCurrencyDetected) score -= 25;
   return Math.max(0, Math.min(100, score));
 }

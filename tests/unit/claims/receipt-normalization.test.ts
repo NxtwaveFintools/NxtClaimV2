@@ -13,6 +13,7 @@ describe("normalizeTransactionDate", () => {
   test.each([
     ["2026-05-18", "2026-05-18"], // valid ISO
     ["2026-06-10", "2026-06-10"], // today is valid
+    ["2026-06-11", "2026-06-11"], // tomorrow allowed (timezone grace)
   ])("accepts %s", (input, expected) => {
     expect(normalizeTransactionDate(input, TODAY)).toBe(expected);
   });
@@ -24,7 +25,7 @@ describe("normalizeTransactionDate", () => {
     ["May 18, 2026"], // prose date
     ["2026-13-01"], // impossible month
     ["2026-02-30"], // impossible day
-    ["2026-06-11"], // tomorrow (future)
+    ["2026-06-12"], // beyond grace window (future)
     ["2024-06-09"], // older than 2 years
     [""],
     [null],
@@ -165,12 +166,12 @@ describe("computeConfidenceScore", () => {
     expect(computeConfidenceScore(base)).toBe(100);
   });
 
-  test("deductions: math 30, date 15, billNo 15, vendor 10, currency 20", () => {
+  test("deductions: math 30, date 15, billNo 15, vendor 10, currency 25", () => {
     expect(computeConfidenceScore({ ...base, mathConsistent: false })).toBe(70);
     expect(computeConfidenceScore({ ...base, hasTransactionDate: false })).toBe(85);
     expect(computeConfidenceScore({ ...base, hasBillNo: false })).toBe(85);
     expect(computeConfidenceScore({ ...base, hasVendorName: false })).toBe(90);
-    expect(computeConfidenceScore({ ...base, invalidCurrencyDetected: true })).toBe(80);
+    expect(computeConfidenceScore({ ...base, invalidCurrencyDetected: true })).toBe(75);
   });
 
   test("clamped at 0", () => {
@@ -182,6 +183,6 @@ describe("computeConfidenceScore", () => {
         hasVendorName: false,
         invalidCurrencyDetected: true,
       }),
-    ).toBe(10);
+    ).toBe(5);
   });
 });
