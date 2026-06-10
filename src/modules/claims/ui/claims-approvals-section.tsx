@@ -237,6 +237,7 @@ export async function ClaimsApprovalsSection({
                   expenseReceiptFilePath: claim.expenseReceiptFilePath,
                   expenseBankStatementFilePath: claim.expenseBankStatementFilePath,
                   advanceSupportingDocumentPath: claim.advanceSupportingDocumentPath,
+                  totalAmount: claim.totalAmount,
                   formattedTotalAmount: claim.formattedTotalAmount,
                   status: claim.status,
                   formattedSubmittedAt: claim.formattedSubmittedAt,

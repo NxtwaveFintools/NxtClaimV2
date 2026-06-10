@@ -24,7 +24,9 @@ import {
   CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
   ClaimStatusBadge,
 } from "@/modules/claims/ui/claim-status-badge";
+import { ReviewSelectedClaimsModal } from "@/modules/claims/ui/review-selected-claims-modal";
 import { getAvailableClaimActions } from "@/modules/claims/utils/get-available-claim-actions";
+import type { ReviewClaimRow } from "@/modules/claims/utils/review-selected-claims";
 
 const STICKY_ACTION_COLUMN_CLASSES =
   "sticky right-0 bg-background/60 backdrop-blur-md border-l border-border/50 z-10";
@@ -42,6 +44,8 @@ type FinanceApprovalRow = {
   paymentModeName: string;
   onBehalfEmail: string | null;
   onBehalfEmployeeCode: string | null;
+  categoryName: string;
+  totalAmount: number;
   formattedTotalAmount: string;
   status: DbClaimStatus;
   formattedSubmittedAt: string;
@@ -105,6 +109,7 @@ export function FinanceApprovalsBulkTable({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isGlobalSelect, setIsGlobalSelect] = useState(false);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isSubmittingBulkApprove, setIsSubmittingBulkApprove] = useState(false);
   const [isSubmittingBulkMarkPaid, setIsSubmittingBulkMarkPaid] = useState(false);
   const [isSubmittingBulkReject, setIsSubmittingBulkReject] = useState(false);
@@ -126,6 +131,18 @@ export function FinanceApprovalsBulkTable({
   const selectedRows = useMemo(
     () => claims.filter((row) => selectedIds.includes(row.id)),
     [claims, selectedIds],
+  );
+
+  const reviewRows = useMemo<ReviewClaimRow[]>(
+    () =>
+      selectedRows.map((row) => ({
+        id: row.id,
+        submitter: row.submitter,
+        submitterEmail: row.submitterEmail,
+        categoryName: row.categoryName,
+        totalAmount: row.totalAmount,
+      })),
+    [selectedRows],
   );
 
   const isApproveValid = useMemo(() => {
@@ -194,7 +211,7 @@ export function FinanceApprovalsBulkTable({
     });
   };
 
-  const submitBulkApprove = async () => {
+  const submitBulkApprove = async (onSuccess?: () => void) => {
     if (!canBulkAct || !isApproveValid || isAnyBulkSubmitting) {
       return;
     }
@@ -204,37 +221,22 @@ export function FinanceApprovalsBulkTable({
     try {
       await toast.promise(
         (async () => {
-          if (approvalScope === "l1") {
-            const result = await bulkApproveL1({
-              claimIds: selectedIds,
-              isGlobalSelect,
-              filters: actionFilters,
-            });
+          const approveAction = approvalScope === "l1" ? bulkApproveL1 : bulkApprove;
+          const result = await approveAction({
+            claimIds: selectedIds,
+            isGlobalSelect,
+            filters: actionFilters,
+          });
 
-            if (!result.ok) {
-              throw new Error(result.message);
-            }
-
-            setSelectedIds([]);
-            setIsGlobalSelect(false);
-            router.refresh();
-            return result.message;
-          } else {
-            const result = await bulkApprove({
-              claimIds: selectedIds,
-              isGlobalSelect,
-              filters: actionFilters,
-            });
-
-            if (!result.ok) {
-              throw new Error(result.message);
-            }
-
-            setSelectedIds([]);
-            setIsGlobalSelect(false);
-            router.refresh();
-            return result.message;
+          if (!result.ok) {
+            throw new Error(result.message);
           }
+
+          setSelectedIds([]);
+          setIsGlobalSelect(false);
+          onSuccess?.();
+          router.refresh();
+          return result.message;
         })(),
         {
           loading: "Bulk approving claims...",
@@ -287,59 +289,38 @@ export function FinanceApprovalsBulkTable({
     }
   };
 
-  const submitBulkReject = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
+  const executeBulkReject = async (
+    rejectionReason: string,
+    allowResubmission: boolean,
+    onSuccess?: () => void,
+  ) => {
     if (!canBulkAct || !isRejectValid || isAnyBulkSubmitting) {
       return;
     }
-
-    const formData = new FormData(event.currentTarget);
-    const rejectionReason = String(formData.get("rejectionReason") ?? "").trim();
-    const allowResubmission = formData.get("allowResubmission") === "true";
 
     setIsSubmittingBulkReject(true);
 
     try {
       await toast.promise(
         (async () => {
-          if (approvalScope === "l1") {
-            const result = await bulkRejectL1({
-              claimIds: selectedIds,
-              isGlobalSelect,
-              filters: actionFilters,
-              rejectionReason,
-              allowResubmission,
-            });
+          const rejectAction = approvalScope === "l1" ? bulkRejectL1 : bulkReject;
+          const result = await rejectAction({
+            claimIds: selectedIds,
+            isGlobalSelect,
+            filters: actionFilters,
+            rejectionReason,
+            allowResubmission,
+          });
 
-            if (!result.ok) {
-              throw new Error(result.message);
-            }
-
-            setSelectedIds([]);
-            setIsGlobalSelect(false);
-            setIsRejectModalOpen(false);
-            router.refresh();
-            return result.message;
-          } else {
-            const result = await bulkReject({
-              claimIds: selectedIds,
-              isGlobalSelect,
-              filters: actionFilters,
-              rejectionReason,
-              allowResubmission,
-            });
-
-            if (!result.ok) {
-              throw new Error(result.message);
-            }
-
-            setSelectedIds([]);
-            setIsGlobalSelect(false);
-            setIsRejectModalOpen(false);
-            router.refresh();
-            return result.message;
+          if (!result.ok) {
+            throw new Error(result.message);
           }
+
+          setSelectedIds([]);
+          setIsGlobalSelect(false);
+          onSuccess?.();
+          router.refresh();
+          return result.message;
         })(),
         {
           loading: "Bulk rejecting claims...",
@@ -350,6 +331,16 @@ export function FinanceApprovalsBulkTable({
     } finally {
       setIsSubmittingBulkReject(false);
     }
+  };
+
+  const submitBulkReject = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const formData = new FormData(event.currentTarget);
+    const rejectionReason = String(formData.get("rejectionReason") ?? "").trim();
+    const allowResubmission = formData.get("allowResubmission") === "true";
+
+    await executeBulkReject(rejectionReason, allowResubmission, () => setIsRejectModalOpen(false));
   };
 
   if (claims.length === 0) {
@@ -376,65 +367,33 @@ export function FinanceApprovalsBulkTable({
             ) : null}
           </div>
           {!readOnly && !isBulkActionHidden ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={submitBulkApprove}
-                disabled={!isApproveValid || isAnyBulkSubmitting}
-                title={approveTitle}
-                className="inline-flex h-8 items-center justify-center rounded-lg border border-emerald-300 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 transition-all duration-200 enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-700/60 dark:bg-emerald-950/20 dark:text-emerald-300 dark:enabled:hover:bg-emerald-950/40"
-              >
-                {isSubmittingBulkApprove ? (
-                  <>
-                    <svg
-                      className="mr-1.5 h-3 w-3 animate-spin"
-                      viewBox="0 0 20 20"
-                      aria-hidden="true"
-                      fill="none"
-                    >
-                      <circle
-                        cx="10"
-                        cy="10"
-                        r="7"
-                        stroke="currentColor"
-                        strokeOpacity="0.3"
-                        strokeWidth="2"
-                      />
-                      <path
-                        d="M10 3a7 7 0 0 1 7 7"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                    Processing...
-                  </>
-                ) : (
-                  "Bulk Approve"
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (isRejectValid) {
-                    setIsRejectModalOpen(true);
-                  }
-                }}
-                disabled={!isRejectValid || isAnyBulkSubmitting}
-                title={rejectTitle}
-                className="inline-flex h-8 items-center justify-center rounded-lg border border-rose-300 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition-all duration-200 enabled:hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-700/60 dark:bg-rose-950/20 dark:text-rose-300 dark:enabled:hover:bg-rose-950/40"
-              >
-                Bulk Reject
-              </button>
-              {approvalScope === "finance" ? (
+            approvalScope === "l1" ? (
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={submitBulkMarkPaid}
-                  disabled={!isMarkAsPaidValid || isAnyBulkSubmitting}
-                  title={markPaidTitle}
+                  onClick={() => setIsReviewModalOpen(true)}
+                  disabled={!canBulkAct || isAnyBulkSubmitting}
+                  title={
+                    canBulkAct
+                      ? "Review and act on selected claims"
+                      : "Select claims to use this action"
+                  }
+                  data-testid="review-selected-claims-button"
                   className="inline-flex h-8 items-center justify-center rounded-lg border border-indigo-300 bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 transition-all duration-200 enabled:hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-300 dark:enabled:hover:bg-indigo-950/40"
                 >
-                  {isSubmittingBulkMarkPaid ? (
+                  Review Selected Claims
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => submitBulkApprove()}
+                  disabled={!isApproveValid || isAnyBulkSubmitting}
+                  title={approveTitle}
+                  className="inline-flex h-8 items-center justify-center rounded-lg border border-emerald-300 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 transition-all duration-200 enabled:hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-700/60 dark:bg-emerald-950/20 dark:text-emerald-300 dark:enabled:hover:bg-emerald-950/40"
+                >
+                  {isSubmittingBulkApprove ? (
                     <>
                       <svg
                         className="mr-1.5 h-3 w-3 animate-spin"
@@ -460,11 +419,62 @@ export function FinanceApprovalsBulkTable({
                       Processing...
                     </>
                   ) : (
-                    "Bulk Mark Paid"
+                    "Bulk Approve"
                   )}
                 </button>
-              ) : null}
-            </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isRejectValid) {
+                      setIsRejectModalOpen(true);
+                    }
+                  }}
+                  disabled={!isRejectValid || isAnyBulkSubmitting}
+                  title={rejectTitle}
+                  className="inline-flex h-8 items-center justify-center rounded-lg border border-rose-300 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition-all duration-200 enabled:hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-700/60 dark:bg-rose-950/20 dark:text-rose-300 dark:enabled:hover:bg-rose-950/40"
+                >
+                  Bulk Reject
+                </button>
+                {approvalScope === "finance" ? (
+                  <button
+                    type="button"
+                    onClick={submitBulkMarkPaid}
+                    disabled={!isMarkAsPaidValid || isAnyBulkSubmitting}
+                    title={markPaidTitle}
+                    className="inline-flex h-8 items-center justify-center rounded-lg border border-indigo-300 bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 transition-all duration-200 enabled:hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-300 dark:enabled:hover:bg-indigo-950/40"
+                  >
+                    {isSubmittingBulkMarkPaid ? (
+                      <>
+                        <svg
+                          className="mr-1.5 h-3 w-3 animate-spin"
+                          viewBox="0 0 20 20"
+                          aria-hidden="true"
+                          fill="none"
+                        >
+                          <circle
+                            cx="10"
+                            cy="10"
+                            r="7"
+                            stroke="currentColor"
+                            strokeOpacity="0.3"
+                            strokeWidth="2"
+                          />
+                          <path
+                            d="M10 3a7 7 0 0 1 7 7"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                        Processing...
+                      </>
+                    ) : (
+                      "Bulk Mark Paid"
+                    )}
+                  </button>
+                ) : null}
+              </div>
+            )
           ) : null}
         </div>
       </div>
@@ -717,6 +727,25 @@ export function FinanceApprovalsBulkTable({
             </form>
           </div>
         </div>
+      ) : null}
+
+      {!readOnly && !isBulkActionHidden && approvalScope === "l1" ? (
+        <ReviewSelectedClaimsModal
+          open={isReviewModalOpen}
+          rows={reviewRows}
+          onPageCount={selectedOnPageCount}
+          selectedCount={selectedCount}
+          totalSelectableCount={totalSelectableCount}
+          isGlobalSelect={isGlobalSelect}
+          isApproving={isSubmittingBulkApprove}
+          isRejecting={isSubmittingBulkReject}
+          onToggleScope={(useGlobal) => setIsGlobalSelect(useGlobal)}
+          onApproveAll={() => submitBulkApprove(() => setIsReviewModalOpen(false))}
+          onRejectAll={(reason, allowResubmission) =>
+            executeBulkReject(reason, allowResubmission, () => setIsReviewModalOpen(false))
+          }
+          onClose={() => setIsReviewModalOpen(false)}
+        />
       ) : null}
     </div>
   );
