@@ -1,5 +1,7 @@
-// Canonical ISO 4217 active currency codes. This list MUST stay in sync with the
-// values of the Postgres enum public.foreign_currency_code (see migration
+// Canonical ISO 4217 active transactional currency codes (fund codes such as
+// BOV, CLF, XDR and reserved codes such as XXX are intentionally excluded).
+// This list MUST stay in sync with the values of the Postgres enum
+// public.foreign_currency_code (see migration
 // 20260610090000_expand_foreign_currency_codes.sql).
 export const ISO_CURRENCY_CODES = [
   "AED",
@@ -162,7 +164,7 @@ export const ISO_CURRENCY_CODES = [
 export type IsoCurrencyCode = (typeof ISO_CURRENCY_CODES)[number];
 
 // Shown at the top of the currency dropdown.
-export const PINNED_CURRENCY_CODES: IsoCurrencyCode[] = [
+export const PINNED_CURRENCY_CODES: readonly IsoCurrencyCode[] = [
   "INR",
   "USD",
   "EUR",

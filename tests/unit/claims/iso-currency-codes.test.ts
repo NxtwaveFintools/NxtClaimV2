@@ -6,7 +6,7 @@ import {
 } from "@/core/constants/iso-currency-codes";
 
 describe("iso-currency-codes", () => {
-  test("contains the previously supported codes and common additions", () => {
+  test("includes the eight minimum required codes (INR, USD, EUR, CHF, GBP, AED, SGD, JPY)", () => {
     for (const code of ["INR", "USD", "EUR", "CHF", "GBP", "AED", "SGD", "JPY"]) {
       expect(ISO_CURRENCY_CODES).toContain(code);
     }
@@ -20,6 +20,7 @@ describe("iso-currency-codes", () => {
   });
 
   test("pinned codes are a subset of the full list, INR first", () => {
+    expect(new Set(PINNED_CURRENCY_CODES).size).toBe(PINNED_CURRENCY_CODES.length);
     expect(PINNED_CURRENCY_CODES[0]).toBe("INR");
     for (const code of PINNED_CURRENCY_CODES) {
       expect(ISO_CURRENCY_CODES).toContain(code);
