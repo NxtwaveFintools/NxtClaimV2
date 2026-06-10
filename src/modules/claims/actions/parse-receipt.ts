@@ -1,9 +1,15 @@
 "use server";
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { serverEnv } from "@/core/config/server-env";
 import { logger } from "@/core/infra/logging/logger";
+import {
+  computeConfidenceScore,
+  computeReceiptAmounts,
+  normalizeTransactionDate,
+  resolveCurrencyCode,
+} from "@/modules/claims/actions/receipt-normalization";
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const CONFIDENCE_THRESHOLD = 80;
@@ -29,70 +35,111 @@ const ALLOWED_UPLOAD_MIME_TYPES = new Set([
   "image/webp",
 ]);
 
-const looseNumber = z.any().transform((val) => {
-  if (typeof val === "number") {
+// ---------------------------------------------------------------------------
+// Extraction contract: the model reports OBSERVED values only. All math,
+// date validation, currency validation, and confidence are computed in code
+// (see receipt-normalization.ts).
+// ---------------------------------------------------------------------------
+
+const looseNullableNumber = z.any().transform((val): number | null => {
+  if (typeof val === "number" && Number.isFinite(val)) {
     return val;
   }
-
   if (typeof val === "string") {
     const parsed = parseFloat(val.replace(/,/g, ""));
-    return Number.isNaN(parsed) ? 0 : parsed;
+    return Number.isNaN(parsed) ? null : parsed;
   }
-
-  return 0;
+  return null;
 });
 
-const looseNullableString = z.any().transform((val) => {
+const looseNullableString = z.any().transform((val): string | null => {
   if (val === null || val === undefined) {
     return null;
   }
-
-  if (typeof val === "string") {
-    const trimmed = val.trim();
-    return trimmed.length > 0 ? trimmed : null;
-  }
-
-  return String(val).trim() || null;
+  const text = typeof val === "string" ? val : String(val);
+  const trimmed = text.trim();
+  return trimmed.length > 0 ? trimmed : null;
 });
 
-const looseDate = z.any().transform((val) => {
-  if (!val) {
-    return null;
-  }
-
-  const normalizedDateInput = typeof val === "string" ? val.replace(/,/g, " ").trim() : val;
-  const parsedDate = new Date(normalizedDateInput);
-  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate.toISOString().split("T")[0];
-});
-
-const geminiParseResultSchema = z.object({
-  billNo: looseNullableString,
-  transactionDate: looseDate,
+const geminiExtractionSchema = z.object({
+  docType: looseNullableString,
   vendorName: looseNullableString,
-  basicAmount: looseNumber,
-  gst_number: looseNullableString.optional(),
+  billNo: looseNullableString,
   gstNumber: looseNullableString.optional(),
-  cgst_amount: looseNumber.optional(),
-  cgstAmount: looseNumber.optional(),
-  sgst_amount: looseNumber.optional(),
-  sgstAmount: looseNumber.optional(),
-  igst_amount: looseNumber.optional(),
-  igstAmount: looseNumber.optional(),
-  total_amount: looseNumber.optional(),
-  totalAmount: looseNumber.optional(),
-  category_name: looseNullableString,
-  confidenceScore: looseNumber,
-  foreign_currency_code: z.enum(["INR", "USD", "EUR", "CHF"]).nullable().optional().catch(null),
-  foreign_basic_amount: looseNumber.optional(),
-  foreign_gst_amount: looseNumber.optional(),
-  foreign_total_amount: looseNumber.optional(),
+  dateAsPrinted: looseNullableString.optional(),
+  transactionDate: looseNullableString,
+  currencyCode: looseNullableString,
+  subtotalAmount: looseNullableNumber.optional(),
+  feesTotal: looseNullableNumber.optional(),
+  discountTotal: looseNullableNumber.optional(),
+  cgstAmount: looseNullableNumber.optional(),
+  sgstAmount: looseNullableNumber.optional(),
+  igstAmount: looseNullableNumber.optional(),
+  otherTaxTotal: looseNullableNumber.optional(),
+  totalAmount: looseNullableNumber,
+  categoryName: looseNullableString.optional(),
 });
+
+type GeminiExtraction = z.infer<typeof geminiExtractionSchema>;
+
+const DOC_TYPES = [
+  "food_delivery",
+  "ride_hailing",
+  "gst_invoice",
+  "receipt",
+  "bank_statement",
+  "other",
+] as const;
+
+// Standard JSON Schema enforced by Gemini constrained decoding. Every field is
+// required so the model must explicitly emit null for unknowns.
+const EXTRACTION_RESPONSE_JSON_SCHEMA = {
+  type: "object",
+  properties: {
+    docType: { type: "string", enum: [...DOC_TYPES] },
+    vendorName: { type: ["string", "null"] },
+    billNo: { type: ["string", "null"] },
+    gstNumber: { type: ["string", "null"] },
+    dateAsPrinted: { type: ["string", "null"] },
+    transactionDate: {
+      type: ["string", "null"],
+      description: "YYYY-MM-DD only",
+    },
+    currencyCode: { type: ["string", "null"], description: "ISO 4217 alpha-3 code" },
+    subtotalAmount: { type: ["number", "null"] },
+    feesTotal: { type: ["number", "null"] },
+    discountTotal: { type: ["number", "null"] },
+    cgstAmount: { type: ["number", "null"] },
+    sgstAmount: { type: ["number", "null"] },
+    igstAmount: { type: ["number", "null"] },
+    otherTaxTotal: { type: ["number", "null"] },
+    totalAmount: { type: ["number", "null"] },
+    categoryName: { type: ["string", "null"] },
+  },
+  required: [
+    "docType",
+    "vendorName",
+    "billNo",
+    "gstNumber",
+    "dateAsPrinted",
+    "transactionDate",
+    "currencyCode",
+    "subtotalAmount",
+    "feesTotal",
+    "discountTotal",
+    "cgstAmount",
+    "sgstAmount",
+    "igstAmount",
+    "otherTaxTotal",
+    "totalAmount",
+    "categoryName",
+  ],
+} as const;
 
 function sanitizeCategoryName(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
   }
-
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
 }
@@ -107,12 +154,10 @@ function extractAllowedCategoryNames(input: FormData): string[] {
     if (!sanitized) {
       continue;
     }
-
     const dedupeKey = sanitized.toLowerCase();
     if (seen.has(dedupeKey)) {
       continue;
     }
-
     seen.add(dedupeKey);
     uniqueNames.push(sanitized);
   }
@@ -139,12 +184,10 @@ function getFormDataNullableNumber(input: FormData, key: string): number | null 
   if (typeof value !== "string") {
     return null;
   }
-
   const trimmed = value.trim().replace(/,/g, "");
   if (trimmed.length === 0) {
     return null;
   }
-
   const parsed = Number(trimmed);
   return Number.isFinite(parsed) ? parsed : null;
 }
@@ -167,264 +210,64 @@ function extractBankStatementMatchContext(input: FormData): BankStatementMatchCo
 }
 
 function buildInvoiceSystemInstruction(allowedCategoryNames: string[]): string {
-  const categoryInstructionBlock =
+  const categoryBlock =
     allowedCategoryNames.length > 0
-      ? `ALLOWED EXPENSE CATEGORY NAMES (EXACT VALUES ONLY):\n${allowedCategoryNames.map((name) => `- ${name}`).join("\n")}`
-      : `ALLOWED EXPENSE CATEGORY NAMES:\n- No categories provided → category_name MUST be null`;
+      ? `ALLOWED CATEGORIES (exact strings, pick the single best semantic match or null):\n${allowedCategoryNames.map((name) => `- ${name}`).join("\n")}`
+      : `ALLOWED CATEGORIES: none provided — categoryName MUST be null.`;
 
   return `
 ROLE:
-You are a high-precision financial document parser specialized in receipts and invoices.
+You are a high-precision financial document READER for an expense claims system.
+You report values exactly as printed. You never calculate, estimate, or guess.
+Documents may be Indian app screenshots (Swiggy, Zomato, Uber, Ola, Rapido, Porter),
+GST tax invoices, hotel folios, retail receipts, or foreign invoices. They may be
+blurry, rotated, cropped, or partial.
 
-GOAL:
-Extract structured expense data with maximum accuracy.
-Documents may be blurry, rotated, cropped, handwritten, or partially missing.
+TASK:
+Report ONLY what is visibly printed in the document. If a value is not clearly
+and unambiguously visible, return null for it. Null is always better than a guess.
 
----
+FIELDS:
+- docType: classify the document:
+  food_delivery (Swiggy/Zomato/UberEats-style), ride_hailing (Uber/Ola/Rapido/
+  Porter/taxi/courier), gst_invoice (formal tax invoice with GST details),
+  receipt (any other bill/receipt), bank_statement, other.
+- vendorName: the issuing brand/company name.
+- billNo: Invoice No / Bill No / Receipt No / Order ID / Booking ID. For ride or
+  delivery apps prefer a bill/invoice/order identifier; use Trip ID / Ride ID only
+  when no bill-style identifier exists. Copy the FULL token verbatim, including
+  any leading # and hyphens (e.g. "#RD17766973787873583").
+- gstNumber: the seller GST registration number, only if printed. Never invent.
+- dateAsPrinted: the transaction/invoice date EXACTLY as printed, verbatim
+  (e.g. "18/05/26", "May 18, 2026"). This is an audit trail.
+- transactionDate: that same date converted to YYYY-MM-DD. IMPORTANT: Indian
+  documents print dates as day/month/year — "05/06/2026" means 5 June 2026.
+  If the date order is genuinely ambiguous and cannot be resolved from context
+  (month names, other dates on the document), return null.
+- currencyCode: ISO 4217 code of the document's currency. Map symbols:
+  ₹ / Rs / INR → INR; $ → USD unless prefixed (A$ → AUD, S$ → SGD, C$ → CAD);
+  € → EUR; £ → GBP; ¥ → JPY or CNY by context; د.إ / AED → AED; Fr/CHF → CHF.
+  Return the code for ANY world currency. If no currency is identifiable → null.
+- Amounts: plain numbers, no symbols, no thousands separators. null when that
+  line is not printed. NEVER compute a missing value from other values.
+  - subtotalAmount: item/sub total before fees and taxes.
+  - feesTotal: sum of printed platform/delivery/service/convenience/packaging fees.
+  - discountTotal: printed discounts/coupons/promotions. NOT wallet or payment
+    adjustments.
+  - cgstAmount, sgstAmount, igstAmount: printed GST line amounts.
+  - otherTaxTotal: non-GST taxes (VAT, sales tax, service tax) summed.
+  - totalAmount: the FINAL payable amount BEFORE wallet credits, cashback, or
+    payment splitting. Food apps: "Grand Total" / "Total Bill" before wallet
+    adjustment. Ride apps: "Total Fare" / "Trip Fare" / "Amount Charged".
+- categoryName: best semantic match from the allowed list below (hotel → lodging,
+  ride/flight → travel, restaurant/food delivery → meals, etc.). Must be an EXACT
+  string from the list, or null when no strong match.
 
-EXTRACTION PRIORITY ORDER:
-1. totalAmount        ← highest priority
-2. cgst / sgst / igst
-3. basicAmount
-4. billNo, transactionDate
-5. vendorName
-6. category_name
-7. confidenceScore
+${categoryBlock}
 
----
-
-RULE 1 — TOTAL AMOUNT ("totalAmount"):
-
-- MUST be the FINAL payable amount BEFORE any wallet/payment adjustments.
-- Ignore: wallet deductions, cashback, discounts, partial payments.
-- For ride apps (Uber/Ola): use "Total Fare", "Trip Fare", or "Amount Charged".
-- NUMBER FORMAT: Strip ALL currency symbols and commas.
-  Example: "₹1,365.40" → 1365.40
-
----
-
-RULE 2 — TAXES:
-Return: cgst_amount, sgst_amount, igst_amount.
-
-- If tax % shown but amount missing → calculate it.
-- If no GST is found anywhere → all tax fields = 0.
-- NEVER put tax values in fees or basicAmount.
-
----
-
-RULE 3 — FEES (CRITICAL):
-
-Fees include: platform fees, delivery fees, service charges, ICANN fees, convenience fees.
-
-- Fees are NOT taxes — do NOT put them in cgst/sgst/igst.
-- Fees ARE included in totalAmount.
-- Fees MUST be absorbed into basicAmount.
-
-Correct mental model:
-  basicAmount = subtotal + all fees (if subtotal is listed)
-  OR
-  basicAmount = totalAmount − cgst_amount − sgst_amount − igst_amount
-
----
-
-RULE 4 — BASIC AMOUNT ("basicAmount"):
-
-SINGLE CANONICAL FORMULA (always use this):
-  basicAmount = totalAmount − (cgst_amount + sgst_amount + igst_amount)
-
-This formula automatically absorbs all fees into basicAmount.
-Do NOT create alternate logic paths.
-
-STRICT MATH VALIDATION:
-  basicAmount + cgst_amount + sgst_amount + igst_amount = totalAmount
-  Allowed rounding tolerance: ±1
-
-If this does not hold → deduct 30 from confidenceScore.
-
----
-
-RULE 5 — IDENTIFIERS:
-
-- billNo          → Invoice No / Bill No / Receipt No / Txn No
-- For ride, trip, taxi, courier, or delivery platforms (for example Ola, Uber, Rapido, Porter, or similar apps), ALWAYS extract the primary receipt identifier into billNo.
-- If a Bill ID / Invoice ID / Receipt ID / Booking ID / Trip ID / Order ID / Porter ID is visible, use that first for billNo.
-- Only fall back to Ride ID when no bill-style identifier is present.
-- Capture the FULL identifier token exactly as shown, including any leading #, letters, numbers, or hyphens.
-- Example fallback Ride ID: #RD17766973787873583
-- transactionDate → YYYY-MM-DD ONLY.
-  Convert ALL regional formats: MM/DD/YYYY, DD-MM-YY, DD/MM/YYYY → YYYY-MM-DD
-- vendorName      → brand / company name
-- gst_number      → GST registration number. If not visible → null. NEVER hallucinate.
-- If any field is unclear → null.
-
----
-
-RULE 6 — CATEGORY (AUTO-MATCH FROM PROVIDED LIST):
-${categoryInstructionBlock}
-
-MATCHING LOGIC:
-1. Read the provided ALLOWED EXPENSE CATEGORY NAMES list above (exact strings only).
-2. Analyze the document:
-   - Scan vendor name (e.g., "Marriott Hotels" → lodging category)
-   - Scan line items and descriptions for keywords
-   - Scan any explicit category hints in the document itself
-3. Score each allowed category by semantic relevance:
-   - Hotel brands (Marriott, Hyatt, ITC, Hilton, etc.) → lodging/accommodation
-   - Ride apps (Uber, Ola, Lyft, Taxi) → travel/transportation
-   - Flight tickets → travel/flights
-   - Meal receipts (restaurants, cafes, food delivery) → meals/dining
-   - Gas stations, parking, tolls → fuel/travel
-   - Office supplies, stationery → office/supplies
-   - Training, conferences → training/development
-4. Select the category name that BEST matches the expense type.
-5. MUST be an EXACT string from the allowed list. NO paraphrasing. NO substring matches.
-6. If multiple categories could match, pick the MOST specific one.
-7. If NO strong match (confidence < 60% for that category), return null.
-
-EXAMPLES (do NOT hardcode these; use for reasoning only):
-- "Amazon office supplies purchase" + allowed list has "Office Supplies" → select "Office Supplies"
-- "Marriott Hotel, Delhi" + allowed list has "Lodging", "Travel", "Hotel" → select "Lodging" (most specific)
-- "Grocery items for team lunch" + allowed list has "Meals", "Office Expenses" → select "Meals"
-- Ambiguous receipt, allowed list has "Miscellaneous", others unclear → select "Miscellaneous" or null
-
-If unsure → null.
-
----
-
-RULE 7 — CONFIDENCE SCORE (0–100):
-Start at 100. Deduct:
-  -30 → math mismatch (basicAmount + taxes ≠ totalAmount)
-  -20 → blurry or unreadable image
-  -15 → missing billNo or transactionDate
-  -10 → basicAmount was estimated or guessed
-Clamp result between 0 and 100.
-
----
-
-STRICT OUTPUT RULES:
-
-- Return EXACTLY ONE JSON object.
-- Return ONLY raw, valid JSON. Do NOT use markdown formatting, backticks, or conversational text.
-- NO markdown, NO \`\`\`json\`\`\` fences, NO explanation, NO extra text.
-- NEVER leave numeric fields undefined.
-- NEVER output commas inside numbers.
-- If multiple totals appear → pick the most prominent FINAL total.
-
----
-
-SCHEMA:
-{
-  "billNo": string | null,
-  "transactionDate": string | null,
-  "vendorName": string | null,
-  "basicAmount": number,
-  "gst_number": string | null,
-  "cgst_amount": number,
-  "sgst_amount": number,
-  "igst_amount": number,
-  "totalAmount": number,
-  "category_name": string | null,
-  "confidenceScore": number,
-  "foreign_currency_code": "INR" | "USD" | "EUR" | "CHF" | null,
-  "foreign_basic_amount": number,
-  "foreign_gst_amount": number,
-  "foreign_total_amount": number
-}
-
----
-
-WORKED EXAMPLES:
-
-Example 1 — Receipt WITH fees, no GST:
-  Input:  Subtotal ₹1,347 | Platform Fee ₹18.40 | GST ₹0 | Total ₹1,365.40
-  Output:
-  {
-    "billNo": null,
-    "transactionDate": null,
-    "vendorName": null,
-    "basicAmount": 1365.40,
-    "gst_number": null,
-    "cgst_amount": 0,
-    "sgst_amount": 0,
-    "igst_amount": 0,
-    "totalAmount": 1365.40,
-    "category_name": null,
-    "confidenceScore": 85
-  }
-  Note: fee is absorbed → basicAmount = 1365.40 (not 1347)
-
-Example 2 — Receipt WITH GST, no fees:
-  Input:  Subtotal ₹1,000 | CGST 9% ₹90 | SGST 9% ₹90 | Total ₹1,180
-  Output:
-  {
-    "billNo": null,
-    "transactionDate": null,
-    "vendorName": null,
-    "basicAmount": 1000,
-    "gst_number": null,
-    "cgst_amount": 90,
-    "sgst_amount": 90,
-    "igst_amount": 0,
-    "totalAmount": 1180,
-    "category_name": null,
-    "confidenceScore": 100
-  }
-
-Example 3 — Ride app screenshot without Bill ID:
-  Input:  Rapido | Ride ID #RD17766973787873583 | Total Fare ₹248
-  Output:
-  {
-    "billNo": "#RD17766973787873583",
-    "transactionDate": null,
-    "vendorName": "Rapido",
-    "basicAmount": 248,
-    "gst_number": null,
-    "cgst_amount": 0,
-    "sgst_amount": 0,
-    "igst_amount": 0,
-    "totalAmount": 248,
-    "category_name": null,
-    "confidenceScore": 90
-  }
-
-Example 4 — Ride app receipt with Bill ID and Ride ID:
-  Input:  Uber | Bill ID UBER-7788 | Ride ID TRIP-4455 | Total Fare ₹512
-  Output:
-  {
-    "billNo": "UBER-7788",
-    "transactionDate": null,
-    "vendorName": "Uber",
-    "basicAmount": 512,
-    "gst_number": null,
-    "cgst_amount": 0,
-    "sgst_amount": 0,
-    "igst_amount": 0,
-    "totalAmount": 512,
-    "category_name": null,
-    "confidenceScore": 90,
-    "foreign_currency_code": null,
-    "foreign_basic_amount": 0,
-    "foreign_gst_amount": 0,
-    "foreign_total_amount": 0
-  }
-
----
-
-RULE 8 — FOREIGN CURRENCY INVOICES (matches example in RULE 7: INR receipts use null currency + zero foreign amounts):
-
-If the invoice currency is NOT Indian Rupees (INR):
-- Set foreign_currency_code to one of: INR, USD, EUR, CHF. Snap strictly to this enum — do not invent values.
-  - US Dollar / $ → USD
-  - Euro / € → EUR
-  - Swiss Franc / CHF / Fr. → CHF
-  - If currency is unrecognised or cannot be mapped → null
-- Set foreign_basic_amount = invoice base cost in the foreign currency
-- Set foreign_gst_amount = tax amount in the foreign currency (0 if none)
-- Set foreign_total_amount = foreign_basic_amount + foreign_gst_amount
-- Set local basicAmount, cgst_amount, sgst_amount, igst_amount to 0
-- Set local totalAmount to 0
-
-If the invoice IS in INR, set foreign_currency_code = null, all foreign amounts = 0, and populate local fields normally.
+OUTPUT:
+A single JSON object matching the response schema. Every field present; use null
+for anything not clearly printed.
 `;
 }
 
@@ -448,61 +291,37 @@ function buildBankStatementSystemInstruction(matchContext: BankStatementMatchCon
 
   return `
 ROLE:
-You are a financial document parser specializing in bank statements.
+You are a financial document reader specializing in bank statements.
 
 GOAL:
-Find the single settled INR debit/deduction that best matches the expense claim.
+Find the single settled INR debit/deduction that best matches the expense claim,
+and report it. Do not calculate anything; report printed values only.
 
 MATCH HINTS:
 ${matchContextBlock}
 
 SELECTION RULES:
-- Search for debit, withdrawal, card charge, UPI spend, or spent amount rows only.
-- Never choose credits, refunds, reversals, chargebacks, cashback, deposits, opening balance, closing balance, or pending authorization holds.
-- If many INR amounts appear, rank candidates using ALL available evidence:
-  1. vendor or merchant descriptor similarity
-  2. transaction date proximity to the expected invoice date
-  3. bill/reference/order identifier similarity if any token is visible
-  4. line narration relevance to the merchant or expense category
-  5. reasonableness of the INR amount for the provided foreign total, if present, allowing normal FX variance and bank fees
+- Consider debit, withdrawal, card charge, UPI spend, or spent rows only.
+- Never choose credits, refunds, reversals, chargebacks, cashback, deposits,
+  opening/closing balances, or pending authorization holds.
+- If several INR amounts appear, rank candidates by: vendor/merchant descriptor
+  similarity, date proximity to the expected invoice date, reference/identifier
+  similarity, narration relevance, and (if a foreign total hint exists)
+  reasonableness of the INR amount allowing normal FX variance and bank fees.
 - Prefer the final settled debit over duplicate pending lines.
-- If both an authorization hold and a later settled debit exist, choose the settled debit.
-- If several candidates are still plausible, choose the best overall match and reduce confidenceScore.
 
-OUTPUT RULES:
-- Return the actual INR amount charged from the statement as basicAmount.
-- Return the matched statement date as transactionDate if visible.
-- Return the matched merchant descriptor as vendorName if clear.
-- Set totalAmount = 0.
-- Set cgst_amount = 0, sgst_amount = 0, igst_amount = 0.
-- Set category_name = null.
-- Set foreign_currency_code = null, foreign_basic_amount = 0, foreign_gst_amount = 0, foreign_total_amount = 0.
-- Keep billNo null unless the statement line contains a clear transaction/reference identifier.
-- Confidence should be high only when the match is clear; reduce it when multiple similar debits remain or key hints are missing.
-
-STRICT OUTPUT RULES:
-- Return EXACTLY ONE JSON object.
-- Return ONLY raw, valid JSON. No markdown, no backticks, no explanation.
-- Never leave numeric fields undefined.
-
-SCHEMA:
-{
-  "billNo": string | null,
-  "transactionDate": string | null,
-  "vendorName": string | null,
-  "basicAmount": number,
-  "gst_number": string | null,
-  "cgst_amount": number,
-  "sgst_amount": number,
-  "igst_amount": number,
-  "totalAmount": number,
-  "category_name": string | null,
-  "confidenceScore": number,
-  "foreign_currency_code": "INR" | "USD" | "EUR" | "CHF" | null,
-  "foreign_basic_amount": number,
-  "foreign_gst_amount": number,
-  "foreign_total_amount": number
-}
+OUTPUT MAPPING (single JSON object matching the response schema):
+- docType: "bank_statement"
+- totalAmount: the matched settled INR debit amount.
+- transactionDate: the matched statement line date as YYYY-MM-DD (statements may
+  print day/month/year order — "05/06/2026" means 5 June 2026); null if unclear.
+- dateAsPrinted: that date exactly as printed.
+- vendorName: the matched merchant descriptor, if clear.
+- billNo: a transaction/reference identifier from the matched line, if clearly
+  printed; else null.
+- currencyCode: "INR".
+- All other fields (gstNumber, subtotalAmount, feesTotal, discountTotal,
+  cgstAmount, sgstAmount, igstAmount, otherTaxTotal, categoryName): null.
 `;
 }
 
@@ -518,7 +337,7 @@ export type ParsedReceiptResult = {
   totalAmount: number;
   category_name: string | null;
   confidenceScore: number;
-  foreignCurrencyCode: "INR" | "USD" | "EUR" | "CHF" | null;
+  foreignCurrencyCode: string | null;
   foreignBasicAmount: number;
   foreignGstAmount: number;
   foreignTotalAmount: number;
@@ -530,51 +349,6 @@ export type ParseReceiptActionResult = {
   autoFillAllowed: boolean;
   message: string | null;
 };
-
-function toParsedReceiptResult(data: ParsedReceiptResult): ParsedReceiptResult {
-  return {
-    billNo: data.billNo,
-    transactionDate: data.transactionDate,
-    vendorName: data.vendorName,
-    gstNumber: data.gstNumber,
-    basicAmount: data.basicAmount,
-    cgstAmount: data.cgstAmount,
-    sgstAmount: data.sgstAmount,
-    igstAmount: data.igstAmount,
-    totalAmount: data.totalAmount,
-    category_name: data.category_name,
-    confidenceScore: data.confidenceScore,
-    foreignCurrencyCode: data.foreignCurrencyCode,
-    foreignBasicAmount: data.foreignBasicAmount,
-    foreignGstAmount: data.foreignGstAmount,
-    foreignTotalAmount: data.foreignTotalAmount,
-  };
-}
-
-function normalizeNullableText(value: string | null): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function normalizeAmount(value: number): number {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-
-  return Math.round(Math.max(value, 0) * 100) / 100;
-}
-
-function clampConfidence(value: number): number {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
-
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
 
 function safeParseJSON(aiResponseText: string): unknown | null {
   try {
@@ -606,7 +380,6 @@ function asGeminiErrorShape(error: unknown): GeminiErrorShape {
   if (typeof error !== "object" || error === null) {
     return {};
   }
-
   return error as GeminiErrorShape;
 }
 
@@ -636,12 +409,10 @@ function extractRetryDelaySeconds(error: unknown): number | null {
     if (typeof detail !== "object" || detail === null) {
       continue;
     }
-
     const retryDelay = (detail as { retryDelay?: unknown }).retryDelay;
     if (typeof retryDelay !== "string") {
       continue;
     }
-
     const parsed = parseRetrySeconds(retryDelay);
     if (parsed !== null) {
       return parsed;
@@ -695,19 +466,17 @@ function waitForMilliseconds(durationMs: number): Promise<void> {
 }
 
 async function generateGeminiContentWithRetry(
-  model: ReturnType<GoogleGenerativeAI["getGenerativeModel"]>,
+  client: GoogleGenAI,
+  systemInstruction: string,
   mimeType: string,
   base64Payload: string,
-) {
+): Promise<{ text: string | undefined }> {
   let lastError: unknown = null;
 
   for (let attempt = 1; attempt <= GEMINI_MAX_ATTEMPTS; attempt += 1) {
     try {
-      return await model.generateContent({
-        generationConfig: {
-          responseMimeType: "application/json",
-          temperature: 0,
-        },
+      return await client.models.generateContent({
+        model: serverEnv.GEMINI_MODEL,
         contents: [
           {
             role: "user",
@@ -721,6 +490,12 @@ async function generateGeminiContentWithRetry(
             ],
           },
         ],
+        config: {
+          systemInstruction,
+          temperature: 0,
+          responseMimeType: "application/json",
+          responseJsonSchema: EXTRACTION_RESPONSE_JSON_SCHEMA,
+        },
       });
     } catch (error) {
       if (!isGeminiServiceUnavailableError(error)) {
@@ -759,47 +534,76 @@ function getQuotaExceededMessage(error: unknown): string {
   return `${GEMINI_QUOTA_FALLBACK_PREFIX}${retryHint} You can still fill the details manually.`;
 }
 
-function normalizeGeminiResult(raw: z.infer<typeof geminiParseResultSchema>): ParsedReceiptResult {
-  const gstNumber = normalizeNullableText(raw.gst_number ?? raw.gstNumber ?? null);
-  const basicAmount = normalizeAmount(raw.basicAmount);
-  const cgstAmount = normalizeAmount(raw.cgst_amount ?? raw.cgstAmount ?? 0);
-  const sgstAmount = normalizeAmount(raw.sgst_amount ?? raw.sgstAmount ?? 0);
-  const igstAmount = normalizeAmount(raw.igst_amount ?? raw.igstAmount ?? 0);
-  const totalAmount = normalizeAmount(raw.total_amount ?? raw.totalAmount ?? 0);
-
-  const normalizedConfidence = clampConfidence(raw.confidenceScore);
-
-  return {
-    billNo: normalizeNullableText(raw.billNo),
-    transactionDate: raw.transactionDate,
-    vendorName: normalizeNullableText(raw.vendorName),
-    gstNumber,
-    basicAmount,
-    cgstAmount,
-    sgstAmount,
-    igstAmount,
-    totalAmount,
-    category_name: normalizeNullableText(raw.category_name),
-    confidenceScore: normalizedConfidence,
-    foreignCurrencyCode: raw.foreign_currency_code ?? null,
-    foreignBasicAmount: normalizeAmount(raw.foreign_basic_amount ?? 0),
-    foreignGstAmount: normalizeAmount(raw.foreign_gst_amount ?? 0),
-    foreignTotalAmount: normalizeAmount(raw.foreign_total_amount ?? 0),
-  };
-}
-
-function createGeminiModel(
-  systemInstruction: string,
-): ReturnType<GoogleGenerativeAI["getGenerativeModel"]> {
-  const client = new GoogleGenerativeAI(serverEnv.GEMINI_API_KEY);
-  return client.getGenerativeModel({
-    model: "gemini-2.5-flash-lite",
-    systemInstruction,
-    generationConfig: {
-      temperature: 0,
-      responseMimeType: "application/json",
-    },
+function buildParsedReceiptResult(
+  extraction: GeminiExtraction,
+  documentType: "invoice" | "bank_statement",
+  now: Date,
+): { result: ParsedReceiptResult; mathConsistent: boolean } {
+  const transactionDate = normalizeTransactionDate(extraction.transactionDate, now);
+  const currency = resolveCurrencyCode(extraction.currencyCode);
+  const amounts = computeReceiptAmounts({
+    subtotalAmount: extraction.subtotalAmount ?? null,
+    feesTotal: extraction.feesTotal ?? null,
+    discountTotal: extraction.discountTotal ?? null,
+    cgstAmount: extraction.cgstAmount ?? null,
+    sgstAmount: extraction.sgstAmount ?? null,
+    igstAmount: extraction.igstAmount ?? null,
+    otherTaxTotal: extraction.otherTaxTotal ?? null,
+    totalAmount: extraction.totalAmount ?? null,
   });
+
+  const base: ParsedReceiptResult = {
+    billNo: extraction.billNo,
+    transactionDate,
+    vendorName: extraction.vendorName,
+    gstNumber: extraction.gstNumber ?? null,
+    basicAmount: 0,
+    cgstAmount: 0,
+    sgstAmount: 0,
+    igstAmount: 0,
+    totalAmount: 0,
+    category_name: extraction.categoryName ?? null,
+    confidenceScore: 0,
+    foreignCurrencyCode: null,
+    foreignBasicAmount: 0,
+    foreignGstAmount: 0,
+    foreignTotalAmount: 0,
+  };
+
+  if (documentType === "bank_statement") {
+    // Business rule: the matched settled INR debit lands in basicAmount;
+    // totalAmount and taxes stay 0 (finance fills the rest).
+    base.basicAmount = amounts.totalAmount;
+    base.category_name = null;
+  } else if (currency.code !== null && currency.code !== "INR") {
+    // Foreign invoice: amounts live in foreign fields; local INR fields stay 0
+    // (finance converts at settlement). otherTaxTotal counts as foreign tax.
+    const foreignTax =
+      Math.round((amounts.taxTotal + Math.max(extraction.otherTaxTotal ?? 0, 0)) * 100) / 100;
+    base.foreignCurrencyCode = currency.code;
+    base.foreignTotalAmount = amounts.totalAmount;
+    base.foreignGstAmount = foreignTax;
+    base.foreignBasicAmount = Math.max(
+      Math.round((amounts.totalAmount - foreignTax) * 100) / 100,
+      0,
+    );
+  } else {
+    base.basicAmount = amounts.basicAmount;
+    base.cgstAmount = amounts.cgstAmount;
+    base.sgstAmount = amounts.sgstAmount;
+    base.igstAmount = amounts.igstAmount;
+    base.totalAmount = amounts.totalAmount;
+  }
+
+  base.confidenceScore = computeConfidenceScore({
+    mathConsistent: amounts.mathConsistent,
+    hasTransactionDate: transactionDate !== null,
+    hasBillNo: documentType === "bank_statement" ? true : base.billNo !== null,
+    hasVendorName: base.vendorName !== null,
+    invalidCurrencyDetected: currency.invalidDetected,
+  });
+
+  return { result: base, mathConsistent: amounts.mathConsistent };
 }
 
 export async function parseReceiptAction(input: FormData): Promise<ParseReceiptActionResult> {
@@ -807,20 +611,9 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
   const documentType =
     input.get("documentType") === "bank_statement" ? "bank_statement" : "invoice";
   const allowedCategoryNames = documentType === "invoice" ? extractAllowedCategoryNames(input) : [];
-  const bankStatementMatchContext =
-    documentType === "bank_statement" ? extractBankStatementMatchContext(input) : null;
   const geminiInstruction =
     documentType === "bank_statement"
-      ? buildBankStatementSystemInstruction(
-          bankStatementMatchContext ?? {
-            vendorName: null,
-            transactionDate: null,
-            billNo: null,
-            foreignCurrencyCode: null,
-            foreignTotalAmount: null,
-            categoryName: null,
-          },
-        )
+      ? buildBankStatementSystemInstruction(extractBankStatementMatchContext(input))
       : buildInvoiceSystemInstruction(allowedCategoryNames);
 
   try {
@@ -854,14 +647,15 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
     }
 
     const buffer = Buffer.from(await receiptFile.arrayBuffer());
-    const model = createGeminiModel(geminiInstruction);
+    const client = new GoogleGenAI({ apiKey: serverEnv.GEMINI_API_KEY });
     const generationResult = await generateGeminiContentWithRetry(
-      model,
+      client,
+      geminiInstruction,
       receiptFile.type,
       buffer.toString("base64"),
     );
 
-    const modelText = generationResult.response.text();
+    const modelText = generationResult.text;
     if (!modelText || modelText.trim().length === 0) {
       return {
         ok: false,
@@ -889,36 +683,11 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
     if (Array.isArray(parsedJson)) {
       parsedJson = parsedJson[0];
     }
-    if (parsedJson && typeof parsedJson === "object" && !Array.isArray(parsedJson)) {
-      const parsedRecord = parsedJson as Record<string, unknown>;
-      // Keep a short compatibility window for older prompts/tests that still emit expenseCategory.
-      if (parsedRecord.category_name === undefined && parsedRecord.expenseCategory !== undefined) {
-        parsedRecord.category_name = parsedRecord.expenseCategory;
-      }
-
-      // Backward compatibility for existing outputs that still use camelCase tax keys.
-      if (parsedRecord.gst_number === undefined && parsedRecord.gstNumber !== undefined) {
-        parsedRecord.gst_number = parsedRecord.gstNumber;
-      }
-
-      if (parsedRecord.cgst_amount === undefined && parsedRecord.cgstAmount !== undefined) {
-        parsedRecord.cgst_amount = parsedRecord.cgstAmount;
-      }
-
-      if (parsedRecord.sgst_amount === undefined && parsedRecord.sgstAmount !== undefined) {
-        parsedRecord.sgst_amount = parsedRecord.sgstAmount;
-      }
-
-      if (parsedRecord.igst_amount === undefined && parsedRecord.igstAmount !== undefined) {
-        parsedRecord.igst_amount = parsedRecord.igstAmount;
-      }
-    }
-
     if (!parsedJson || typeof parsedJson !== "object" || Array.isArray(parsedJson)) {
       parsedJson = {};
     }
 
-    const parsedSchemaResult = geminiParseResultSchema.safeParse(parsedJson);
+    const parsedSchemaResult = geminiExtractionSchema.safeParse(parsedJson);
 
     if (!parsedSchemaResult.success) {
       logger.warn("claims.parse_receipt.validation_failed", {
@@ -933,7 +702,11 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
       };
     }
 
-    const normalized = normalizeGeminiResult(parsedSchemaResult.data);
+    const { result: normalized } = buildParsedReceiptResult(
+      parsedSchemaResult.data,
+      documentType,
+      new Date(),
+    );
 
     const hasPartialData =
       documentType === "bank_statement"
@@ -943,12 +716,13 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
           normalized.billNo !== null
         : normalized.vendorName !== null ||
           normalized.totalAmount > 0 ||
+          normalized.foreignTotalAmount > 0 ||
           normalized.transactionDate !== null ||
           normalized.billNo !== null;
     const hasMissingCriticalFields =
       documentType === "bank_statement"
         ? normalized.basicAmount === 0
-        : normalized.totalAmount === 0 ||
+        : (normalized.totalAmount === 0 && normalized.foreignTotalAmount === 0) ||
           normalized.transactionDate === null ||
           normalized.billNo === null;
 
@@ -968,7 +742,7 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
 
     return {
       ok: true,
-      data: toParsedReceiptResult(normalized),
+      data: normalized,
       autoFillAllowed,
       message,
     };
