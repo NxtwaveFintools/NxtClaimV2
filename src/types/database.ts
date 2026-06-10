@@ -1639,7 +1639,7 @@ export type Database = {
         | "Payment Done - Closed"
         | "Rejected - Resubmission Not Allowed"
         | "Rejected - Resubmission Allowed";
-      foreign_currency_code: "INR" | "USD" | "EUR" | "CHF";
+      foreign_currency_code: string;
       local_currency_code: "INR";
     };
     CompositeTypes: {

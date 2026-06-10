@@ -360,9 +360,7 @@ async function FinanceEditClaimSection({
                     peopleInvolved: claim.expense.peopleInvolved,
                     remarks: claim.expense.remarks,
                     aiMetadata: claim.expense.aiMetadata,
-                    foreignCurrencyCode:
-                      (claim.expense.foreignCurrencyCode as "INR" | "USD" | "EUR" | "CHF" | null) ??
-                      null,
+                    foreignCurrencyCode: claim.expense.foreignCurrencyCode ?? null,
                     foreignBasicAmount: claim.expense.foreignBasicAmount,
                     foreignGstAmount: claim.expense.foreignGstAmount,
                     foreignTotalAmount: claim.expense.foreignTotalAmount,

@@ -327,13 +327,9 @@ function getFormDataJsonObject(input: FormData, key: string): Record<string, unk
   }
 }
 
-function parseForeignCurrencyCode(
-  input: FormData,
-  key: string,
-): "INR" | "USD" | "EUR" | "CHF" | null {
-  const VALID_CODES = new Set(["INR", "USD", "EUR", "CHF"]);
+function parseForeignCurrencyCode(input: FormData, key: string): string | null {
   const raw = getFormDataNullableString(input, key);
-  return raw && VALID_CODES.has(raw) ? (raw as "INR" | "USD" | "EUR" | "CHF") : null;
+  return raw ? raw.toUpperCase() : null;
 }
 
 function isPreHodEditableStatus(status: DbClaimStatus): boolean {
