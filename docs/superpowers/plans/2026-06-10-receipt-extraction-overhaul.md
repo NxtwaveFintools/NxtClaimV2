@@ -15,6 +15,8 @@
 1. Spec said "validate via `Intl.supportedValuesOf("currency")`, no hardcoded list". The DB column is a Postgres **enum**, so app-side and DB-side lists must match exactly. A single canonical committed list (`iso-currency-codes.ts`) is used by Zod, the form, the parser, _and_ the migration. (`Intl.supportedValuesOf` varies by ICU build, risking inserts the DB rejects.)
 2. Spec said eval harness `scripts/eval-receipt-parser.mjs`. A Jest **integration test** is used instead (`tests/integration/receipt-parser-eval.test.ts`) because Jest already resolves the `@/` path aliases and TS; a standalone `.mjs` script cannot import the server action. It auto-skips when fixtures or `GEMINI_API_KEY` are absent.
 3. The spec's extraction-contract table omitted `categoryName`; it is included (category matching from the allowed list is semantic work only the model can do). It was always part of `ParsedReceiptResult`.
+4. Review-time hardening (commit d4e9dd8): the invalid-currency confidence deduction is **25**, not the spec's 20, so a garbage currency code (score 75) can never silently auto-fill as INR at the 80 threshold.
+5. Review-time hardening (commit d4e9dd8): date validation allows **+1 day** in the future (`FUTURE_GRACE_DAYS`), absorbing the server-UTC vs IST offset so same-day receipts aren't rejected between 00:00–05:30 IST.
 
 ---
 
