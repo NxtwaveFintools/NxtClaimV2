@@ -219,13 +219,18 @@ function extractBankStatementMatchContext(input: FormData): BankStatementMatchCo
   };
 }
 
-function buildInvoiceSystemInstruction(allowedCategoryNames: string[]): string {
+function buildInvoiceSystemInstruction(
+  allowedCategoryNames: string[],
+  todayIsoDate: string,
+): string {
   const categoryBlock =
     allowedCategoryNames.length > 0
       ? `ALLOWED CATEGORIES (exact strings, pick the single best semantic match or null):\n${allowedCategoryNames.map((name) => `- ${name}`).join("\n")}`
       : `ALLOWED CATEGORIES: none provided — categoryName MUST be null.`;
 
   return `
+TODAY'S DATE: ${todayIsoDate} (use ONLY to resolve missing years in printed dates)
+
 ROLE:
 You are a high-precision financial document READER for an expense claims system.
 You report values exactly as printed. You never calculate, estimate, or guess.
@@ -252,6 +257,10 @@ FIELDS:
   (e.g. "18/05/26", "May 18, 2026"). This is an audit trail.
 - transactionDate: that same date converted to YYYY-MM-DD. IMPORTANT: Indian
   documents print dates as day/month/year — "05/06/2026" means 5 June 2026.
+  If the printed date has NO YEAR (app screenshots often show "June 2, 9:37 PM"
+  or "delivered on 2 Jun"), infer the year as the most recent occurrence of
+  that day and month on or before TODAY'S DATE above. Example: today
+  2026-06-11 + "June 2" → 2026-06-02; today 2026-06-11 + "Dec 25" → 2025-12-25.
   If the date order is genuinely ambiguous and cannot be resolved from context
   (month names, other dates on the document), return null.
 - currencyCode: ISO 4217 code of the document's currency. Map symbols:
@@ -630,7 +639,7 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
   const geminiInstruction =
     documentType === "bank_statement"
       ? buildBankStatementSystemInstruction(extractBankStatementMatchContext(input))
-      : buildInvoiceSystemInstruction(allowedCategoryNames);
+      : buildInvoiceSystemInstruction(allowedCategoryNames, new Date().toISOString().slice(0, 10));
 
   try {
     const receiptFile = fileEntry instanceof File && fileEntry.size > 0 ? fileEntry : null;

@@ -13,5 +13,35 @@
       "basicAmount": 531.45,
       "foreignCurrencyCode": null
     }
+  },
+  {
+    "file": "Media (21).jpg",
+    "categoryNames": ["Meals", "Office Supplies", "Travel Domestic", "Internet Expense"],
+    "expect": {
+      "billNo": "#239383383344124",
+      "transactionDate": "2026-06-02",
+      "totalAmount": 1399,
+      "foreignCurrencyCode": null
+    }
+  },
+  {
+    "file": "Media (22).jpg",
+    "categoryNames": ["Meals", "Office Supplies", "Travel Domestic", "Internet Expense"],
+    "expect": {
+      "billNo": "#239369419979884",
+      "transactionDate": "2026-06-02",
+      "totalAmount": 609,
+      "foreignCurrencyCode": null
+    }
+  },
+  {
+    "file": "Media (23).jpg",
+    "categoryNames": ["Meals", "Office Supplies", "Travel Domestic", "Internet Expense"],
+    "expect": {
+      "billNo": "#239357940890244",
+      "transactionDate": "2026-06-02",
+      "totalAmount": 1549,
+      "foreignCurrencyCode": null
+    }
   }
 ]
