@@ -259,12 +259,22 @@ FIELDS:
   € → EUR; £ → GBP; ¥ → JPY or CNY by context; د.إ / AED → AED; Fr/CHF → CHF.
   Return the code for ANY world currency. If no currency is identifiable → null.
 - Amounts: plain numbers, no symbols, no thousands separators. null when that
-  line is not printed. NEVER compute a missing value from other values.
-  - subtotalAmount: item/sub total before fees and taxes.
-  - feesTotal: sum of printed platform/delivery/service/convenience/packaging fees.
+  line is not printed. NEVER derive a value that is not printed (e.g. never
+  back-calculate tax from a percentage, or a subtotal from the total).
+  EXCEPTION — summing printed values IS allowed: when a tax or fee appears as a
+  printed column across line items (itemized GST invoices) or in an annexure
+  table, ADD UP the printed values and report the sum. That is reading, not
+  deriving.
+  - subtotalAmount: the PRE-TAX item/sub total. If the only printed item total
+    is tax-INCLUSIVE (no pre-tax subtotal printed anywhere), return null —
+    never report a tax-inclusive figure as subtotalAmount.
+  - feesTotal: sum of printed platform/delivery/service/convenience/packaging/
+    handling fees.
   - discountTotal: printed discounts/coupons/promotions. NOT wallet or payment
     adjustments.
-  - cgstAmount, sgstAmount, igstAmount: printed GST line amounts.
+  - cgstAmount, sgstAmount, igstAmount: total printed GST per type. If printed
+    per line item in a table, sum the column (include annexure rows such as
+    GST on handling fees).
   - otherTaxTotal: non-GST taxes (VAT, sales tax, service tax) summed.
   - totalAmount: the FINAL payable amount BEFORE wallet credits, cashback, or
     payment splitting. Food apps: "Grand Total" / "Total Bill" before wallet

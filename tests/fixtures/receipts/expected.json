@@ -1,0 +1,17 @@
+[
+  {
+    "file": "kwickbox-gst-invoice.pdf",
+    "categoryNames": ["Meals", "Office Supplies", "Travel Domestic", "Internet Expense"],
+    "expect": {
+      "billNo": "260531IMWAV01028",
+      "transactionDate": "2026-05-31",
+      "gstNumber": "36AAJCK2497B1ZH",
+      "cgstAmount": 13.28,
+      "sgstAmount": 13.28,
+      "igstAmount": 0,
+      "totalAmount": 558.01,
+      "basicAmount": 531.45,
+      "foreignCurrencyCode": null
+    }
+  }
+]
