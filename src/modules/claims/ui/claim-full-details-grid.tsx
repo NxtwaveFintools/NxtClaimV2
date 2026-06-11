@@ -26,7 +26,7 @@ type ClaimExpenseDetail = {
   peopleInvolved: string | null;
   remarks: string | null;
   aiMetadata?: ClaimExpenseAiMetadata | null;
-  foreignCurrencyCode?: "INR" | "USD" | "EUR" | "CHF" | null;
+  foreignCurrencyCode?: string | null;
   foreignBasicAmount?: number | null;
   foreignGstAmount?: number | null;
   foreignTotalAmount?: number | null;

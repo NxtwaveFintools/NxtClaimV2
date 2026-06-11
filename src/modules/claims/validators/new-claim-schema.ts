@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { LOCATION_TYPES } from "@/core/constants/location-types";
+import { isIsoCurrencyCode } from "@/core/constants/iso-currency-codes";
 
 const uuidSchema = z.uuid("Invalid UUID value");
 const emailSchema = z.email("Enter a valid on-behalf email");
@@ -92,7 +93,12 @@ const expenseDetailSchema = z.object({
     basicAmount: z.number().min(0, "Basic amount cannot be negative"),
     totalAmount: z.number().min(0, "Total amount cannot be negative").optional(),
     currencyCode: z.string().trim().min(1).default("INR"),
-    foreignCurrencyCode: z.enum(["INR", "USD", "EUR", "CHF"]).default("INR"),
+    foreignCurrencyCode: z
+      .string()
+      .trim()
+      .transform((value) => value.toUpperCase())
+      .refine(isIsoCurrencyCode, { message: "Invalid currency code." })
+      .default("INR"),
     foreignBasicAmount: z.preprocess(
       toNullableNumber,
       z.number().min(0, "Foreign basic amount cannot be negative").nullable().optional(),

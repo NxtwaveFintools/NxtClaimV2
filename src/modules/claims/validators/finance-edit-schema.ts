@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { LOCATION_TYPES } from "@/core/constants/location-types";
+import { isIsoCurrencyCode } from "@/core/constants/iso-currency-codes";
 
 const uuidSchema = z.uuid("Invalid UUID value");
 
@@ -54,7 +55,12 @@ export const financeExpenseEditSchema = z
     sgstAmount: z.number().min(0, "SGST amount cannot be negative"),
     igstAmount: z.number().min(0, "IGST amount cannot be negative"),
     totalAmount: z.number().min(0, "Total amount cannot be negative"),
-    foreignCurrencyCode: z.enum(["INR", "USD", "EUR", "CHF"]).default("INR"),
+    foreignCurrencyCode: z
+      .string()
+      .trim()
+      .transform((value) => value.toUpperCase())
+      .refine(isIsoCurrencyCode, { message: "Invalid currency code." })
+      .default("INR"),
     foreignBasicAmount: z.preprocess(
       toNullableNumber,
       z.number().min(0, "Foreign basic amount cannot be negative").nullable().optional(),
