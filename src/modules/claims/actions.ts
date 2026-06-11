@@ -327,9 +327,9 @@ function getFormDataJsonObject(input: FormData, key: string): Record<string, unk
   }
 }
 
-function parseForeignCurrencyCode(input: FormData, key: string): string | null {
+function parseForeignCurrencyCode(input: FormData, key: string): string {
   const raw = getFormDataNullableString(input, key);
-  return raw ? raw.toUpperCase() : null;
+  return raw ? raw.toUpperCase() : "INR";
 }
 
 function isPreHodEditableStatus(status: DbClaimStatus): boolean {
