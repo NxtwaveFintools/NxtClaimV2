@@ -19,6 +19,7 @@ import {
 } from "@/core/constants/payment-modes";
 import type { ClaimExpenseAiMetadata } from "@/core/domain/claims/contracts";
 import { computeForeignTotal } from "@/modules/claims/utils/compute-totals";
+import { ISO_CURRENCY_CODES, PINNED_CURRENCY_CODES } from "@/core/constants/iso-currency-codes";
 
 type DropdownOption = {
   id: string;
@@ -42,7 +43,7 @@ type ExpenseAmountState = {
   totalAmount: number;
 };
 
-type ForeignCurrencyCode = "INR" | "USD" | "EUR" | "CHF";
+type ForeignCurrencyCode = string;
 
 type ForeignAmountState = {
   foreignCurrencyCode: ForeignCurrencyCode;
@@ -826,10 +827,21 @@ export function FinanceEditClaimForm({
                           }}
                           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                         >
-                          <option value="INR">INR</option>
-                          <option value="USD">USD</option>
-                          <option value="EUR">EUR</option>
-                          <option value="CHF">CHF</option>
+                          {PINNED_CURRENCY_CODES.map((code) => (
+                            <option key={code} value={code}>
+                              {code}
+                            </option>
+                          ))}
+                          <option value="" disabled>
+                            ──────────
+                          </option>
+                          {ISO_CURRENCY_CODES.filter(
+                            (code) => !PINNED_CURRENCY_CODES.includes(code),
+                          ).map((code) => (
+                            <option key={code} value={code}>
+                              {code}
+                            </option>
+                          ))}
                         </FormSelect>
                       </label>
 
@@ -1100,10 +1112,21 @@ export function FinanceEditClaimForm({
                           }}
                           className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                         >
-                          <option value="INR">INR</option>
-                          <option value="USD">USD</option>
-                          <option value="EUR">EUR</option>
-                          <option value="CHF">CHF</option>
+                          {PINNED_CURRENCY_CODES.map((code) => (
+                            <option key={code} value={code}>
+                              {code}
+                            </option>
+                          ))}
+                          <option value="" disabled>
+                            ──────────
+                          </option>
+                          {ISO_CURRENCY_CODES.filter(
+                            (code) => !PINNED_CURRENCY_CODES.includes(code),
+                          ).map((code) => (
+                            <option key={code} value={code}>
+                              {code}
+                            </option>
+                          ))}
                         </FormSelect>
                       </label>
 

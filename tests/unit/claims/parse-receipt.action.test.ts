@@ -1,22 +1,66 @@
 /** @jest-environment node */
 
 const mockGenerateContent = jest.fn();
-const mockGetGenerativeModel = jest.fn(() => ({
-  generateContent: mockGenerateContent,
-}));
-const mockGoogleGenerativeAI = jest.fn().mockImplementation(() => ({
-  getGenerativeModel: mockGetGenerativeModel,
+const mockGoogleGenAI = jest.fn().mockImplementation(() => ({
+  models: { generateContent: mockGenerateContent },
 }));
 
-jest.mock("@google/generative-ai", () => ({
-  GoogleGenerativeAI: mockGoogleGenerativeAI,
+class MockApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+jest.mock("@google/genai", () => ({
+  GoogleGenAI: mockGoogleGenAI,
+  ApiError: MockApiError,
 }));
 
 jest.mock("@/core/config/server-env", () => ({
   serverEnv: {
     GEMINI_API_KEY: "test-gemini-key",
+    GEMINI_MODEL: "gemini-3.5-flash",
   },
 }));
+
+// A "today" far enough after fixture dates. The action uses the real clock; fixture
+// dates below are chosen relative to test-run time via dynamic computation.
+function isoDaysAgo(days: number): string {
+  const now = new Date();
+  const utc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - days));
+  return utc.toISOString().slice(0, 10);
+}
+
+const RECENT_DATE = isoDaysAgo(10);
+
+function extractionPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    docType: "gst_invoice",
+    vendorName: "ACME Supplies",
+    billNo: "INV-1001",
+    gstNumber: "36ABCDE1234F1Z5",
+    dateAsPrinted: "18/05/2026",
+    transactionDate: RECENT_DATE,
+    currencyCode: "INR",
+    subtotalAmount: 1000,
+    feesTotal: null,
+    discountTotal: null,
+    cgstAmount: 90,
+    sgstAmount: 90,
+    igstAmount: null,
+    otherTaxTotal: null,
+    totalAmount: 1180,
+    categoryName: "Travel Domestic",
+    ...overrides,
+  };
+}
+
+function mockModelResponse(payload: unknown) {
+  mockGenerateContent.mockResolvedValue({ text: JSON.stringify(payload) });
+}
 
 function createReceiptFormData(
   categoryNames: string[] = ["Travel Domestic", "Internet Expense"],
@@ -26,11 +70,9 @@ function createReceiptFormData(
     "receiptFile",
     new File(["fake receipt payload"], "receipt.pdf", { type: "application/pdf" }),
   );
-
   for (const categoryName of categoryNames) {
     formData.append("expenseCategoryNames", categoryName);
   }
-
   return formData;
 }
 
@@ -43,26 +85,8 @@ describe("parseReceiptAction", () => {
     jest.useRealTimers();
   });
 
-  test("normalizes snake_case tax fields into client camelCase output", async () => {
-    const modelJson = {
-      billNo: "INV-1001",
-      transactionDate: "2026-03-18",
-      vendorName: "ACME Supplies",
-      gst_number: "36ABCDE1234F1Z5",
-      basicAmount: 100,
-      cgst_amount: 9,
-      sgst_amount: 9,
-      igst_amount: 0,
-      totalAmount: 118,
-      category_name: "Travel Domestic",
-      confidenceScore: 95,
-    };
-
-    mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () => JSON.stringify(modelJson),
-      },
-    });
+  test("full INR invoice extraction computes amounts in code and auto-fills", async () => {
+    mockModelResponse(extractionPayload());
 
     const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
     const result = await parseReceiptAction(createReceiptFormData());
@@ -72,16 +96,16 @@ describe("parseReceiptAction", () => {
     expect(result.message).toBeNull();
     expect(result.data).toEqual({
       billNo: "INV-1001",
-      transactionDate: "2026-03-18",
+      transactionDate: RECENT_DATE,
       vendorName: "ACME Supplies",
       gstNumber: "36ABCDE1234F1Z5",
-      basicAmount: 100,
-      cgstAmount: 9,
-      sgstAmount: 9,
+      basicAmount: 1000, // 1180 - 180, computed in code
+      cgstAmount: 90,
+      sgstAmount: 90,
       igstAmount: 0,
-      totalAmount: 118,
+      totalAmount: 1180,
       category_name: "Travel Domestic",
-      confidenceScore: 95,
+      confidenceScore: 100,
       foreignCurrencyCode: null,
       foreignBasicAmount: 0,
       foreignGstAmount: 0,
@@ -89,304 +113,238 @@ describe("parseReceiptAction", () => {
     });
   });
 
-  test("allows autofill when all critical fields are present even with inconsistent totals", async () => {
-    mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () =>
-          JSON.stringify({
-            billNo: "INV-1002",
-            transactionDate: "2026-03-18",
-            vendorName: "Mismatch Store",
-            basicAmount: 100,
-            cgstAmount: 10,
-            sgstAmount: 0,
-            igstAmount: 0,
-            totalAmount: 500,
-            category_name: "Travel Domestic",
-            confidenceScore: 99,
-            fraudFlags: [],
-          }),
-      },
-    });
+  test("requests the configured model with an enforced response schema", async () => {
+    mockModelResponse(extractionPayload());
 
     const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
-    const result = await parseReceiptAction(createReceiptFormData());
+    await parseReceiptAction(createReceiptFormData());
 
-    expect(result.ok).toBe(true);
-    expect(result.autoFillAllowed).toBe(true);
-    expect(result.message).toBeNull();
-    expect(result.data?.cgstAmount).toBe(10);
-    expect(result.data?.sgstAmount).toBe(0);
-    expect(result.data?.igstAmount).toBe(0);
-    expect(result.data?.gstNumber).toBeNull();
-    expect(result.data?.confidenceScore).toBe(99);
-  });
-
-  test("allows autofill when confidence is above threshold (80)", async () => {
-    mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () =>
-          JSON.stringify({
-            billNo: "INV-1003",
-            transactionDate: "2026-03-18",
-            vendorName: "Low Confidence Vendor",
-            basicAmount: 200,
-            cgstAmount: 18,
-            sgstAmount: 18,
-            igstAmount: 0,
-            totalAmount: 236,
-            category_name: "Internet Expense",
-            confidenceScore: 85,
-            fraudFlags: [],
-          }),
-      },
-    });
-
-    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
-    const result = await parseReceiptAction(createReceiptFormData());
-
-    expect(result.ok).toBe(true);
-    expect(result.autoFillAllowed).toBe(true);
-    expect(result.message).toBeNull();
-    expect(result.data?.confidenceScore).toBe(85);
-  });
-
-  test("returns fallback when Gemini returns invalid JSON", async () => {
-    mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () => "{ invalid-json-payload",
-      },
-    });
-
-    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
-    const result = await parseReceiptAction(createReceiptFormData());
-
-    expect(result).toEqual({
-      ok: false,
-      data: null,
-      autoFillAllowed: false,
-      message:
-        "AI could not read the text formatting in this document. Please fill the details manually.",
-    });
-  });
-
-  test("returns quota fallback when Gemini responds with 429", async () => {
-    mockGenerateContent.mockRejectedValue({
-      status: 429,
-      statusText: "Too Many Requests",
-      message:
-        "[GoogleGenerativeAI Error]: [429 Too Many Requests] Quota exceeded. Please retry in 32.983228239s.",
-      errorDetails: [
-        {
-          "@type": "type.googleapis.com/google.rpc.RetryInfo",
-          retryDelay: "32s",
-        },
-      ],
-    });
-
-    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
-    const result = await parseReceiptAction(createReceiptFormData());
-
-    expect(result).toEqual({
-      ok: false,
-      data: null,
-      autoFillAllowed: false,
-      message:
-        "AI auto-parse is temporarily unavailable due to usage limits. Please retry in about 32 seconds. You can still fill the details manually.",
-    });
     expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+    const request = mockGenerateContent.mock.calls[0][0];
+    expect(request.model).toBe("gemini-3.5-flash");
+    expect(request.config.responseMimeType).toBe("application/json");
+    expect(request.config.responseJsonSchema).toMatchObject({ type: "object" });
+    expect(request.config.temperature).toBe(0);
+    expect(request.config.systemInstruction).toContain("ALLOWED CATEGORIES");
+    expect(request.config.systemInstruction).toContain("Travel Domestic");
   });
 
-  test("retries 503 failures and succeeds on a later attempt", async () => {
-    jest.useFakeTimers();
-
-    mockGenerateContent
-      .mockRejectedValueOnce({
-        status: 503,
-        statusText: "Service Unavailable",
-        message: "503 Service Unavailable",
-      })
-      .mockRejectedValueOnce({
-        status: 503,
-        statusText: "Service Unavailable",
-        message: "503 Service Unavailable",
-      })
-      .mockResolvedValueOnce({
-        response: {
-          text: () =>
-            JSON.stringify({
-              billNo: "INV-503",
-              transactionDate: "2026-03-18",
-              vendorName: "Retry Vendor",
-              basicAmount: 100,
-              cgstAmount: 9,
-              sgstAmount: 9,
-              igstAmount: 0,
-              totalAmount: 118,
-              category_name: "Travel Domestic",
-              confidenceScore: 95,
-            }),
-        },
-      });
+  test("ambiguous non-ISO date from model becomes null (never a guessed date)", async () => {
+    mockModelResponse(extractionPayload({ transactionDate: "18/05/2026" }));
 
     const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
-    const resultPromise = parseReceiptAction(createReceiptFormData());
-
-    await jest.runAllTimersAsync();
-    const result = await resultPromise;
+    const result = await parseReceiptAction(createReceiptFormData());
 
     expect(result.ok).toBe(true);
+    expect(result.data?.transactionDate).toBeNull();
+    // missing critical field -> partial fill message, but data still offered
     expect(result.autoFillAllowed).toBe(true);
-    expect(result.message).toBeNull();
-    expect(mockGenerateContent).toHaveBeenCalledTimes(3);
+    expect(result.message).toContain("verify");
   });
 
-  test("returns busy fallback after exhausting 503 retries", async () => {
-    jest.useFakeTimers();
-
-    mockGenerateContent
-      .mockRejectedValueOnce({
-        status: 503,
-        statusText: "Service Unavailable",
-        message: "503 Service Unavailable",
-      })
-      .mockRejectedValueOnce({
-        status: 503,
-        statusText: "Service Unavailable",
-        message: "503 Service Unavailable",
-      })
-      .mockRejectedValueOnce({
-        status: 503,
-        statusText: "Service Unavailable",
-        message: "503 Service Unavailable",
-      });
+  test("future date is rejected to null", async () => {
+    mockModelResponse(extractionPayload({ transactionDate: isoDaysAgo(-30) }));
 
     const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
-    const resultPromise = parseReceiptAction(createReceiptFormData());
+    const result = await parseReceiptAction(createReceiptFormData());
 
-    await jest.runAllTimersAsync();
-    const result = await resultPromise;
-
-    expect(result).toEqual({
-      ok: false,
-      data: null,
-      autoFillAllowed: false,
-      message: "The AI service is currently busy. Please try again or fill the form manually.",
-    });
-    expect(mockGenerateContent).toHaveBeenCalledTimes(3);
+    expect(result.data?.transactionDate).toBeNull();
   });
 
-  test("uses mocked Gemini SDK without real network calls", async () => {
-    mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () =>
-          JSON.stringify({
-            billNo: "INV-1005",
-            transactionDate: "2026-03-18",
-            vendorName: "Network Guard",
-            basicAmount: 100,
-            cgstAmount: 9,
-            sgstAmount: 9,
-            igstAmount: 0,
-            totalAmount: 118,
-            category_name: null,
-            confidenceScore: 95,
-            fraudFlags: ["duplicate format"],
-          }),
-      },
-    });
-
-    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
-    await parseReceiptAction(createReceiptFormData(["Travel Domestic", "Internet Expense"]));
-
-    expect(mockGoogleGenerativeAI).toHaveBeenCalledWith("test-gemini-key");
-    expect(mockGetGenerativeModel).toHaveBeenCalledWith(
-      expect.objectContaining({
-        model: "gemini-2.5-flash-lite",
-        systemInstruction: expect.stringContaining("Travel Domestic"),
+  test("inconsistent printed amounts lower confidence below threshold -> partial fill", async () => {
+    mockModelResponse(
+      extractionPayload({
+        subtotalAmount: 100,
+        cgstAmount: 10,
+        sgstAmount: null,
+        totalAmount: 500,
       }),
     );
 
-    const modelConfig = (mockGetGenerativeModel as jest.Mock).mock.calls[0]?.[0] as
-      | { systemInstruction?: string }
-      | undefined;
-    const systemInstruction = modelConfig?.systemInstruction ?? "";
-    expect(systemInstruction).toContain("Internet Expense");
-    expect(systemInstruction).toContain('"gst_number": string | null');
-    expect(systemInstruction).toContain('"cgst_amount": number');
-    expect(systemInstruction).toContain('"sgst_amount": number');
-    expect(systemInstruction).toContain('"igst_amount": number');
-    expect(systemInstruction).not.toMatch(
-      /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i,
-    );
-    expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
+    const result = await parseReceiptAction(createReceiptFormData());
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.basicAmount).toBe(490);
+    expect(result.data?.totalAmount).toBe(500);
+    expect(result.data?.confidenceScore).toBe(70);
+    expect(result.autoFillAllowed).toBe(true);
+    expect(result.message).toContain("verify");
   });
 
-  test("maps legacy expenseCategory field into category_name for compatibility", async () => {
-    mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () =>
-          JSON.stringify({
-            billNo: "INV-1006",
-            transactionDate: "2026-03-18",
-            vendorName: "Legacy Format Vendor",
-            basicAmount: 200,
-            cgstAmount: 18,
-            sgstAmount: 18,
-            igstAmount: 0,
-            totalAmount: 236,
-            expenseCategory: "Travel Domestic",
-            confidenceScore: 92,
-          }),
-      },
-    });
+  test("foreign currency invoice (any ISO code) maps to foreign fields and zeroes local", async () => {
+    mockModelResponse(
+      extractionPayload({
+        currencyCode: "AED",
+        subtotalAmount: 90,
+        cgstAmount: null,
+        sgstAmount: null,
+        igstAmount: null,
+        otherTaxTotal: 10,
+        totalAmount: 100,
+        gstNumber: null,
+      }),
+    );
 
     const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
     const result = await parseReceiptAction(createReceiptFormData());
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.foreignCurrencyCode).toBe("AED");
+    expect(result.data?.foreignTotalAmount).toBe(100);
+    expect(result.data?.foreignGstAmount).toBe(10);
+    expect(result.data?.foreignBasicAmount).toBe(90);
+    expect(result.data?.basicAmount).toBe(0);
+    expect(result.data?.totalAmount).toBe(0);
+    expect(result.data?.cgstAmount).toBe(0);
+  });
+
+  test("unknown currency string is dropped and deducts confidence", async () => {
+    mockModelResponse(extractionPayload({ currencyCode: "ZZZ" }));
+
+    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
+    const result = await parseReceiptAction(createReceiptFormData());
+
+    expect(result.data?.foreignCurrencyCode).toBeNull();
+    expect(result.data?.confidenceScore).toBe(75);
+    expect(result.autoFillAllowed).toBe(true);
+    expect(result.message).toContain("verify");
+  });
+
+  test("bank statement mode maps matched debit to basicAmount", async () => {
+    mockModelResponse(
+      extractionPayload({
+        docType: "bank_statement",
+        vendorName: "ADOBE SYSTEMS",
+        billNo: null,
+        gstNumber: null,
+        subtotalAmount: null,
+        cgstAmount: null,
+        sgstAmount: null,
+        igstAmount: null,
+        totalAmount: 4250.75,
+        categoryName: null,
+      }),
+    );
+
+    const formData = createReceiptFormData([]);
+    formData.append("documentType", "bank_statement");
+    formData.append("bankStatementMatchVendorName", "Adobe");
+
+    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
+    const result = await parseReceiptAction(formData);
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.basicAmount).toBe(4250.75);
+    expect(result.data?.totalAmount).toBe(0);
+    expect(result.data?.cgstAmount).toBe(0);
+    expect(result.data?.vendorName).toBe("ADOBE SYSTEMS");
+    expect(result.autoFillAllowed).toBe(true);
+  });
+
+  test("invalid JSON from model returns friendly fallback", async () => {
+    mockGenerateContent.mockResolvedValue({ text: "not json at all" });
+
+    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
+    const result = await parseReceiptAction(createReceiptFormData());
+
+    expect(result.ok).toBe(false);
+    expect(result.autoFillAllowed).toBe(false);
+    expect(result.message).toContain("fill the details manually");
+  });
+
+  test("quota error (429) returns quota fallback with retry hint", async () => {
+    mockGenerateContent.mockRejectedValue(
+      new MockApiError(
+        JSON.stringify({
+          error: {
+            code: 429,
+            message: "Resource has been exhausted (e.g. check quota).",
+            status: "RESOURCE_EXHAUSTED",
+            details: [
+              {
+                "@type": "type.googleapis.com/google.rpc.RetryInfo",
+                retryDelay: "14s",
+              },
+            ],
+          },
+        }),
+        429,
+      ),
+    );
+
+    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
+    const result = await parseReceiptAction(createReceiptFormData());
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("usage limits");
+    expect(result.message).toContain("14 seconds");
+  });
+
+  test("503 retries up to 3 attempts then succeeds", async () => {
+    jest.useFakeTimers();
+    mockGenerateContent
+      .mockRejectedValueOnce(new MockApiError("Service Unavailable", 503))
+      .mockRejectedValueOnce(new MockApiError("Service Unavailable", 503))
+      .mockResolvedValueOnce({ text: JSON.stringify(extractionPayload()) });
+
+    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
+    const pending = parseReceiptAction(createReceiptFormData());
+    await jest.runAllTimersAsync();
+    const result = await pending;
+
+    expect(mockGenerateContent).toHaveBeenCalledTimes(3);
+    expect(result.ok).toBe(true);
+  });
+
+  test("503 exhaustion returns busy message", async () => {
+    jest.useFakeTimers();
+    mockGenerateContent.mockRejectedValue(new MockApiError("Service Unavailable", 503));
+
+    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
+    const pending = parseReceiptAction(createReceiptFormData());
+    await jest.runAllTimersAsync();
+    const result = await pending;
+
+    expect(mockGenerateContent).toHaveBeenCalledTimes(3);
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("busy");
+  });
+
+  test("categoryName matched case-insensitively snaps to allowed exact string", async () => {
+    mockModelResponse(extractionPayload({ categoryName: "travel domestic" }));
+
+    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
+    const result = await parseReceiptAction(
+      createReceiptFormData(["Travel Domestic", "Internet Expense"]),
+    );
 
     expect(result.ok).toBe(true);
     expect(result.data?.category_name).toBe("Travel Domestic");
   });
 
-  test("includes generic ride-platform bill-id-first guidance in the Gemini system instruction", async () => {
-    mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () =>
-          JSON.stringify({
-            billNo: "UBER-7788",
-            transactionDate: null,
-            vendorName: "Uber",
-            basicAmount: 512,
-            cgstAmount: 0,
-            sgstAmount: 0,
-            igstAmount: 0,
-            totalAmount: 512,
-            category_name: "Travel Domestic",
-            confidenceScore: 90,
-          }),
-      },
-    });
+  test("categoryName not in allowed list resolves to null", async () => {
+    mockModelResponse(extractionPayload({ categoryName: "Made Up Category" }));
 
     const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
-    const result = await parseReceiptAction(createReceiptFormData());
+    const result = await parseReceiptAction(
+      createReceiptFormData(["Travel Domestic", "Internet Expense"]),
+    );
 
     expect(result.ok).toBe(true);
-    expect(result.data?.billNo).toBe("UBER-7788");
+    expect(result.data?.category_name).toBeNull();
+  });
 
-    const modelConfig = (mockGetGenerativeModel as jest.Mock).mock.calls[0]?.[0] as
-      | { systemInstruction?: string }
-      | undefined;
-    const systemInstruction = modelConfig?.systemInstruction ?? "";
+  test("rejects missing file and oversized/wrong-type files", async () => {
+    const { parseReceiptAction } = await import("@/modules/claims/actions/parse-receipt");
 
-    expect(systemInstruction).toContain("Ola");
-    expect(systemInstruction).toContain("Uber");
-    expect(systemInstruction).toContain("Rapido");
-    expect(systemInstruction).toContain("Porter");
-    expect(systemInstruction).toContain("Bill ID");
-    expect(systemInstruction).toContain("Ride ID");
-    expect(systemInstruction).toContain(
-      "Only fall back to Ride ID when no bill-style identifier is present",
+    const empty = new FormData();
+    expect((await parseReceiptAction(empty)).message).toBe("Receipt file is required.");
+
+    const wrongType = new FormData();
+    wrongType.append("receiptFile", new File(["x"], "x.gif", { type: "image/gif" }));
+    expect((await parseReceiptAction(wrongType)).message).toBe(
+      "Receipt file must be PDF, JPG, PNG, or WEBP.",
     );
-    expect(systemInstruction).toContain("UBER-7788");
   });
 });

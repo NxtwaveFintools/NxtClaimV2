@@ -39,6 +39,11 @@ import {
 } from "@/core/constants/location-types";
 import { AIDisclaimer } from "@/components/ui/ai-disclaimer";
 import { BANK_STATEMENT_REQUIRED_CATEGORIES } from "@/core/constants/bank-statement-categories";
+import {
+  ISO_CURRENCY_CODES,
+  PINNED_CURRENCY_CODES,
+  isIsoCurrencyCode,
+} from "@/core/constants/iso-currency-codes";
 
 type NewClaimFormClientProps = {
   currentUser: CurrentUserHydration;
@@ -73,7 +78,7 @@ export type ClaimFormDraftValues = {
     basicAmount: number;
     totalAmount: number;
     currencyCode: string;
-    foreignCurrencyCode: "INR" | "USD" | "EUR" | "CHF";
+    foreignCurrencyCode: string;
     foreignBasicAmount: number | null;
     foreignGstAmount: number | null;
     foreignTotalAmount: number | null;
@@ -908,15 +913,11 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       options.expenseCategories,
     );
 
-    const VALID_FOREIGN_CODES = new Set(["INR", "USD", "EUR", "CHF"] as const);
     const rawCode =
       typeof parsed.foreignCurrencyCode === "string"
         ? parsed.foreignCurrencyCode.toUpperCase()
         : null;
-    const foreignCurrencyCode =
-      rawCode && VALID_FOREIGN_CODES.has(rawCode as "INR" | "USD" | "EUR" | "CHF")
-        ? (rawCode as "INR" | "USD" | "EUR" | "CHF")
-        : null;
+    const foreignCurrencyCode = rawCode && isIsoCurrencyCode(rawCode) ? rawCode : null;
     const foreignBasicAmount =
       parsed.foreignBasicAmount !== null && parsed.foreignBasicAmount !== undefined
         ? toNumber(parsed.foreignBasicAmount)
@@ -2007,10 +2008,21 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                       className="h-9 w-full rounded-lg border border-zinc-300 px-3 text-sm"
                       {...register("expense.foreignCurrencyCode")}
                     >
-                      <option value="INR">INR</option>
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                      <option value="CHF">CHF</option>
+                      {PINNED_CURRENCY_CODES.map((code) => (
+                        <option key={code} value={code}>
+                          {code}
+                        </option>
+                      ))}
+                      <option value="" disabled>
+                        ──────────
+                      </option>
+                      {ISO_CURRENCY_CODES.filter(
+                        (code) => !PINNED_CURRENCY_CODES.includes(code),
+                      ).map((code) => (
+                        <option key={code} value={code}>
+                          {code}
+                        </option>
+                      ))}
                     </FormSelect>
                   </div>
 
