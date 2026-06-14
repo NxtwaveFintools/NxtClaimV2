@@ -31,10 +31,10 @@ loadEnvConfig(process.cwd());
  * gives us a genuine success toast + DB transition to assert against. Primary assertions
  * are the modal closing and the DB status advancing; the toast check is intentionally soft.
  *
- * The two selected claims come from the same submitter, so they collapse into one grouped
- * row whose amount is the SUM of both claims — the headline grouping rule. Ordering between
- * multiple submitter groups is exhaustively covered by the unit tests for
- * `groupBySubmitterWithTotals`.
+ * The list is split into Expense and Advance sections; within each, claims are grouped by
+ * submitter with summed amounts, sorted high to low. The grouping/split/advance-exclusion
+ * math is exhaustively covered by the unit tests for `groupSubmittersByDetailType`,
+ * `groupBySubmitterWithTotals`, and `groupByCategory`.
  */
 
 const RUN_TAG = process.env.E2E_RUN_TAG ?? `HOD-REVIEW-${Date.now()}`;
@@ -43,7 +43,6 @@ const FINANCE_PENDING_STATUS = "HOD approved - Awaiting finance approval";
 
 const CLAIM_A_AMOUNT = 120.5;
 const CLAIM_B_AMOUNT = 340.25;
-const COMBINED_AMOUNT = CLAIM_A_AMOUNT + CLAIM_B_AMOUNT;
 
 let runtime: RuntimeClaimData;
 
@@ -130,18 +129,15 @@ test.describe("HOD Review Selected Claims", () => {
       // 6. Pie chart region present.
       await expect(page.getByTestId("review-pie-chart")).toBeVisible();
 
-      // 7. Both claims collapse into one submitter row whose amount is the SUM.
-      const submitterRows = page.getByTestId("review-submitter-row");
-      await expect(submitterRows).toHaveCount(1);
-      await expect(submitterRows.first()).toContainText(formatInr(COMBINED_AMOUNT));
+      // 7. Both expense claims are from the same submitter -> one summed expense row.
+      const expenseRows = page.getByTestId("review-expense-row");
+      await expect(expenseRows).toHaveCount(1);
+      await expect(expenseRows.first()).toContainText(formatInr(CLAIM_A_AMOUNT + CLAIM_B_AMOUNT));
+      // No advances were submitted, so the advance section is absent.
+      await expect(page.getByTestId("review-advance-row")).toHaveCount(0);
 
-      // 8. Cross-page scope toggle, only if more claims exist across pages.
-      const crossPageNotice = page.getByText(/total selected/i);
-      if (await crossPageNotice.isVisible().catch(() => false)) {
-        const thisPageToggle = page.getByRole("button", { name: /this page \(\d+\)/i });
-        await thisPageToggle.click();
-        await expect(thisPageToggle).toBeVisible();
-      }
+      // 8. The cross-page scope toggle box has been removed from the modal.
+      await expect(page.getByRole("button", { name: /this page \(\d+\)/i })).toHaveCount(0);
 
       // 9. Approve all (real server action).
       await page.getByRole("button", { name: /approve all/i }).click();

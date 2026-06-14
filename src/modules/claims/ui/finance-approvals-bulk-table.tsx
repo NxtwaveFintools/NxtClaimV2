@@ -19,7 +19,7 @@ import {
   bulkReject,
   bulkRejectL1,
 } from "@/modules/claims/actions";
-import type { GetMyClaimsFilters } from "@/core/domain/claims/contracts";
+import type { ClaimDetailType, GetMyClaimsFilters } from "@/core/domain/claims/contracts";
 import {
   CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
   ClaimStatusBadge,
@@ -45,6 +45,7 @@ type FinanceApprovalRow = {
   onBehalfEmail: string | null;
   onBehalfEmployeeCode: string | null;
   categoryName: string;
+  detailType: ClaimDetailType;
   totalAmount: number;
   formattedTotalAmount: string;
   status: DbClaimStatus;
@@ -140,6 +141,7 @@ export function FinanceApprovalsBulkTable({
         submitter: row.submitter,
         submitterEmail: row.submitterEmail,
         categoryName: row.categoryName,
+        detailType: row.detailType,
         totalAmount: row.totalAmount,
       })),
     [selectedRows],
@@ -733,13 +735,9 @@ export function FinanceApprovalsBulkTable({
         <ReviewSelectedClaimsModal
           open={isReviewModalOpen}
           rows={reviewRows}
-          onPageCount={selectedOnPageCount}
           selectedCount={selectedCount}
-          totalSelectableCount={totalSelectableCount}
-          isGlobalSelect={isGlobalSelect}
           isApproving={isSubmittingBulkApprove}
           isRejecting={isSubmittingBulkReject}
-          onToggleScope={(useGlobal) => setIsGlobalSelect(useGlobal)}
           onApproveAll={() => submitBulkApprove(() => setIsReviewModalOpen(false))}
           onRejectAll={(reason, allowResubmission) =>
             executeBulkReject(reason, allowResubmission, () => setIsReviewModalOpen(false))

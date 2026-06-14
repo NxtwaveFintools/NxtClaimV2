@@ -45,6 +45,7 @@ function buildRow(overrides: Partial<Row>): Row {
     onBehalfEmail: null,
     onBehalfEmployeeCode: null,
     categoryName: "Travel Domestic",
+    detailType: "expense",
     totalAmount: 100,
     formattedTotalAmount: formatCurrency(100),
     status: "Submitted - Awaiting HOD approval",
@@ -90,7 +91,7 @@ describe("FinanceApprovalsBulkTable scope branching", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("opens the review modal with one grouped row per submitter when HOD reviews selected claims", () => {
+  it("opens the review modal summing a submitter's expense claims into one row", () => {
     render(
       <FinanceApprovalsBulkTable
         claims={[
@@ -110,10 +111,10 @@ describe("FinanceApprovalsBulkTable scope branching", () => {
 
     expect(screen.getByRole("heading", { name: /review selected claims/i })).toBeInTheDocument();
 
-    // Both claims are from the same submitter -> a single grouped row showing the summed total.
-    const submitterRows = screen.getAllByTestId("review-submitter-row");
-    expect(submitterRows).toHaveLength(1);
-    expect(submitterRows[0]).toHaveTextContent("Kaushik Gadagoju");
-    expect(submitterRows[0]).toHaveTextContent(formatCurrency(300));
+    // Both expense claims are from the same submitter -> one summed expense row (100 + 200).
+    const expenseRows = screen.getAllByTestId("review-expense-row");
+    expect(expenseRows).toHaveLength(1);
+    expect(expenseRows[0]).toHaveTextContent("Kaushik Gadagoju");
+    expect(expenseRows[0]).toHaveTextContent(formatCurrency(300));
   });
 });

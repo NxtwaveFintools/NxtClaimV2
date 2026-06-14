@@ -17,18 +17,19 @@ totals — before approving or rejecting in bulk.
    existing Bulk Approve / Bulk Reject / Mark Paid buttons and the existing standalone
    reject dialog. (Note: the current code also renders Bulk Approve/Reject for the
    finance scope; we intentionally do not change that.)
-2. **List = grouped by submitter.** Selected claims are grouped by submitter
-   (name + email); each group shows the **summed** amount (e.g. one submitter with
-   ₹10 + ₹20 → ₹30). Rows are sorted by that summed total, descending. A submitter with
-   one claim is a group of one. The underlying bulk action still operates on the
-   individual claim IDs.
-3. **Pie chart = summed amount per expense category.** Category = `categoryName` (the
-   expense category, e.g. "Travel Domestic", "Food"; advance claims group as "Advance").
-   Slice value is the **sum of `totalAmount`**, not a count.
-4. **Cross-page viz:** No new server fetch. The pie chart and list always reflect the
-   on-page selected rows. When "select all across pages" is active, a notice shows
-   "Charting this page's N claims · M total selected" and a toggle flips the **action
-   target** (and the displayed count) between "This page (N)" and "All M".
+2. **List = two sections (Expense / Advance), grouped by submitter.** The list is split
+   into an "Expense claims" section and an "Advance claims" section (by `detailType`).
+   Within each section, claims are grouped by submitter (name + email) and amounts are
+   **summed** (e.g. one submitter with ₹10 + ₹20 → ₹30), then rows are sorted by that
+   summed total, descending. An empty section is hidden. The underlying bulk action still
+   operates on the individual claim IDs.
+3. **Pie chart = summed amount per expense category, advances excluded.** Category =
+   `categoryName` (e.g. "Travel Domestic", "Food"). Advance claims (`detailType` =
+   "advance") are **filtered out entirely** from the chart and its totals — the chart shows
+   only real expense categories. Slice value is the **sum of `totalAmount`**, not a count.
+4. **No cross-page toggle in the modal.** The modal does not show a page/all scope toggle
+   or notice (removed per UI feedback). The header badge shows the active selected count
+   (`selectedCount`), which still reflects the table's global-select state. No server fetch.
 5. **Reject inputs inline:** "Reject All" reveals a reason textarea (min 5 chars) +
    "allow resubmission" checkbox inside the same modal, then confirms.
 6. **No migration / no new server action.** Reuses `bulkApproveL1` / `bulkRejectL1`.
@@ -48,13 +49,14 @@ the `formattedTotalAmount` currency string. `categoryName` is derived from the e
 
 - `src/modules/claims/utils/review-selected-claims.ts` — pure helpers (testable core):
   - `groupByCategory(rows): CategoryDatum[]` — `{ category, total }` summing `totalAmount`
-    per `categoryName` (expense category). Stable order by total desc.
+    per `categoryName` (expense category), **advances excluded**. Order by total desc.
   - `groupBySubmitterWithTotals(rows): SubmitterGroup[]` — `{ submitter, submitterEmail,
-total, claimCount }`, sorted by `total` descending (ties broken by submitter name).
-  - `formatAmount(value)` — reuse `formatCurrency` from `@/lib/format`.
+total, claimCount }`, grouped by submitter, sorted by `total` descending (ties by name).
+  - `groupSubmittersByDetailType(rows): { expense, advance }` — splits rows by `detailType`
+    then groups each side with `groupBySubmitterWithTotals`. Drives the two list sections.
 - `src/modules/claims/ui/review-selected-claims-modal.tsx` — the modal (client component),
-  fed `rows` (on-page selected), `selectedCount`, `totalSelectableCount`, `isGlobalSelect`,
-  toggle/approve/reject callbacks, and submitting flags.
+  fed `rows` (on-page selected), `selectedCount`, approve/reject callbacks, and submitting
+  flags. Renders the pie + the two submitter-grouped sections + footer actions.
 
 ### Wiring
 
@@ -66,10 +68,10 @@ remain as-is.
 
 ## Modal layout (top → bottom)
 
-1. Header: "Review Selected Claims".
-2. Pie chart: summed amount by `categoryName` / expense category (Recharts, matching `analytics-charts.tsx`).
-3. Sorted list: `Name · Email · Σ Amount · (n claims)`, highest total first.
-4. Selection context + toggle (only when `totalSelectableCount > on-page count`).
+1. Header: "Review Selected Claims" + `{selectedCount} selected` badge.
+2. Pie chart: summed amount by expense category, advances excluded (Recharts, matching `analytics-charts.tsx`).
+3. "Expense claims" section: `Name · Email · Σ Amount · (n claims)` per submitter, highest total first.
+4. "Advance claims" section: same shape, hidden when empty.
 5. Footer: "Approve All" (green) / "Reject All" (red); Reject reveals inline reason +
    resubmission checkbox.
 
@@ -81,17 +83,20 @@ On success: close modal, clear selection, `router.refresh()`, success toast (exi
 ### Jest / RTL
 
 - `tests/unit/claims/review-selected-claims.test.ts`:
-  - `groupByCategory` sums amounts per category.
+  - `groupByCategory` sums per category and excludes advances.
   - `groupBySubmitterWithTotals` sums per submitter (10+20→30) and sorts desc.
+  - `groupSubmittersByDetailType` splits expense/advance, each grouped + sorted.
 - `src/modules/claims/ui/review-selected-claims-modal.test.tsx`:
-  - Renders the correct number of grouped submitter rows (Recharts mocked).
+  - Expense rows sum per submitter and sort desc; advance section is separate and hidden
+    when empty; no scope-toggle box (Recharts mocked).
 
 ### Playwright E2E (`tests/e2e/hod-review-selected-claims.spec.ts`)
 
-HOD journey: submit two claims (same submitter) → act as the assigned HOD → select both →
-open modal → assert visible → assert pie present → assert the two claims collapse into one
-submitter row whose amount is the **sum** → toggle scope (if cross-page) → Approve All →
-assert modal closes (primary) + DB advances to finance stage (primary) + success toast (soft).
+HOD journey: submit two expense claims (same submitter) → act as the assigned HOD → select
+both → open modal → assert visible → assert pie present → assert the two expense claims sum
+into one expense-section row and no advance section appears → assert the scope-toggle box is
+absent → Approve All → assert modal closes (primary) + DB advances to finance stage
+(primary) + success toast (soft).
 
 Decision (revised from the original mock-first plan): the spec runs the **real**
 `bulkApproveL1` server action rather than a `page.route` mock. Next.js server actions return

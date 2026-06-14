@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { ReviewSelectedClaimsModal } from "@/modules/claims/ui/review-selected-claims-modal";
+import { formatCurrency } from "@/lib/format";
 import type { ReviewClaimRow } from "@/modules/claims/utils/review-selected-claims";
 
 // Recharts relies on layout measurement that jsdom does not provide; mock it so the
@@ -22,22 +23,33 @@ function buildRows(): ReviewClaimRow[] {
       id: "1",
       submitter: "User A",
       submitterEmail: "a@x.com",
-      categoryName: "Petty Cash",
+      categoryName: "Food",
+      detailType: "expense",
       totalAmount: 10,
     },
     {
       id: "2",
       submitter: "User A",
       submitterEmail: "a@x.com",
-      categoryName: "Travel",
+      categoryName: "Travel Domestic",
+      detailType: "expense",
       totalAmount: 20,
     },
     {
       id: "3",
       submitter: "User B",
       submitterEmail: "b@x.com",
-      categoryName: "Petty Cash",
+      categoryName: "Food",
+      detailType: "expense",
       totalAmount: 50,
+    },
+    {
+      id: "4",
+      submitter: "User A",
+      submitterEmail: "a@x.com",
+      categoryName: "Advance",
+      detailType: "advance",
+      totalAmount: 5,
     },
   ];
 }
@@ -48,13 +60,9 @@ function renderModal(
   const props: React.ComponentProps<typeof ReviewSelectedClaimsModal> = {
     open: true,
     rows: buildRows(),
-    onPageCount: 3,
-    selectedCount: 3,
-    totalSelectableCount: 3,
-    isGlobalSelect: false,
+    selectedCount: 4,
     isApproving: false,
     isRejecting: false,
-    onToggleScope: jest.fn(),
     onApproveAll: jest.fn(),
     onRejectAll: jest.fn(),
     onClose: jest.fn(),
@@ -65,22 +73,65 @@ function renderModal(
 }
 
 describe("ReviewSelectedClaimsModal", () => {
-  it("renders one row per submitter group (collapsing a submitter's multiple claims)", () => {
+  it("sums a submitter's expense claims into one row (10 + 20 = 30)", () => {
     renderModal();
-    // User A's two claims collapse into one group -> 2 submitter rows total.
-    expect(screen.getAllByTestId("review-submitter-row")).toHaveLength(2);
+    const expenseRows = screen.getAllByTestId("review-expense-row");
+    // User A's two expense claims collapse into one row; User B is the other -> 2 rows.
+    expect(expenseRows).toHaveLength(2);
+    const userARow = expenseRows.find((rowEl) => within(rowEl).queryByText("User A"));
+    expect(userARow).toHaveTextContent(formatCurrency(30));
   });
 
-  it("orders submitter rows by summed total, highest first (B=50 before A=30)", () => {
+  it("orders expense rows by summed total, highest first (B=50 before A=30)", () => {
     renderModal();
-    const rows = screen.getAllByTestId("review-submitter-row");
-    expect(within(rows[0]).getByText("User B")).toBeInTheDocument();
-    expect(within(rows[1]).getByText("User A")).toBeInTheDocument();
+    const expenseRows = screen.getAllByTestId("review-expense-row");
+    expect(within(expenseRows[0]).getByText("User B")).toBeInTheDocument();
+    expect(within(expenseRows[1]).getByText("User A")).toBeInTheDocument();
+  });
+
+  it("lists advance claims in their own separate section", () => {
+    renderModal();
+    const advanceRows = screen.getAllByTestId("review-advance-row");
+    expect(advanceRows).toHaveLength(1);
+    expect(advanceRows[0]).toHaveTextContent("User A");
+    expect(advanceRows[0]).toHaveTextContent(formatCurrency(5));
+  });
+
+  it("hides the advance section when no advance claims are selected", () => {
+    renderModal({ rows: buildRows().filter((row) => row.detailType === "expense") });
+    expect(screen.queryByTestId("review-advance-row")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("review-expense-row").length).toBeGreaterThan(0);
+  });
+
+  it("shows the total selected count in the header", () => {
+    renderModal({ selectedCount: 7 });
+    expect(screen.getByText(/7 selected/i)).toBeInTheDocument();
   });
 
   it("renders the pie chart region", () => {
     renderModal();
     expect(screen.getByTestId("review-pie-chart")).toBeInTheDocument();
+  });
+
+  it("does not render the removed cross-page scope toggle box", () => {
+    renderModal();
+    expect(screen.queryByText(/match across all pages/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /this page \(\d+\)/i })).not.toBeInTheDocument();
+  });
+
+  it("clarifies (no toggle) when more claims are selected than shown on this page", () => {
+    // 4 rows on this page but 52 selected across pages.
+    renderModal({ selectedCount: 52 });
+    const clarifier = screen.getByTestId("review-scope-clarifier");
+    expect(clarifier).toHaveTextContent(/this page'?s 4/i);
+    expect(clarifier).toHaveTextContent(/all 52/i);
+    // It must not be a toggle.
+    expect(within(clarifier).queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("hides the clarifier when the selected count matches the claims shown", () => {
+    renderModal({ selectedCount: 4 });
+    expect(screen.queryByTestId("review-scope-clarifier")).not.toBeInTheDocument();
   });
 
   it("does not render when open is false", () => {
@@ -109,20 +160,6 @@ describe("ReviewSelectedClaimsModal", () => {
     fireEvent.click(screen.getByRole("button", { name: /confirm rejection/i }));
 
     expect(onRejectAll).toHaveBeenCalledWith("Missing supporting documents", true);
-  });
-
-  it("shows the cross-page notice and toggle only when more claims exist across pages", () => {
-    const onToggleScope = jest.fn();
-    renderModal({ onPageCount: 10, totalSelectableCount: 33, selectedCount: 10, onToggleScope });
-
-    expect(screen.getByText(/33 claims match across all pages/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /all 33/i }));
-    expect(onToggleScope).toHaveBeenCalledWith(true);
-  });
-
-  it("hides the cross-page toggle when every selectable claim is on the page", () => {
-    renderModal({ onPageCount: 3, totalSelectableCount: 3 });
-    expect(screen.queryByText(/match across all pages/i)).not.toBeInTheDocument();
   });
 
   it("resets the inline reject form after the modal is closed and reopened", () => {

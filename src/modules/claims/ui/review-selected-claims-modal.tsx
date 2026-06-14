@@ -5,25 +5,64 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { formatCurrency } from "@/lib/format";
 import {
   groupByCategory,
-  groupBySubmitterWithTotals,
+  groupSubmittersByDetailType,
   type ReviewClaimRow,
+  type SubmitterGroup,
 } from "@/modules/claims/utils/review-selected-claims";
 
 const PIE_COLORS = ["#0EA5E9", "#14B8A6", "#F97316", "#E11D48", "#6366F1", "#64748B"];
 
+function SubmitterGroupSection({
+  title,
+  groups,
+  rowTestId,
+}: {
+  title: string;
+  groups: SubmitterGroup[];
+  rowTestId: string;
+}) {
+  if (groups.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="mt-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
+        {title}
+      </p>
+      <ul className="mt-2 divide-y divide-zinc-100 rounded-xl border border-zinc-200/80 dark:divide-zinc-800 dark:border-zinc-800">
+        {groups.map((group) => (
+          <li
+            key={group.submitterEmail ?? group.submitter}
+            data-testid={rowTestId}
+            className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+          >
+            <div className="min-w-0">
+              <p className="truncate font-medium text-zinc-900 dark:text-zinc-100">
+                {group.submitter}
+              </p>
+              <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
+                {group.submitterEmail ?? "—"}
+                {group.claimCount > 1 ? ` · ${group.claimCount} claims` : ""}
+              </p>
+            </div>
+            <span className="whitespace-nowrap font-semibold text-zinc-900 dark:text-zinc-100">
+              {formatCurrency(group.total)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 type ReviewSelectedClaimsModalProps = {
   open: boolean;
   rows: ReviewClaimRow[];
-  /** Number of selected, actionable claims on the current page. */
-  onPageCount: number;
-  /** The current action target count (page-only or all-pages). */
+  /** The current action target count (drives the header badge). */
   selectedCount: number;
-  /** Total selectable claims across every page for the active filters. */
-  totalSelectableCount: number;
-  isGlobalSelect: boolean;
   isApproving: boolean;
   isRejecting: boolean;
-  onToggleScope: (useGlobal: boolean) => void;
   onApproveAll: () => void;
   onRejectAll: (reason: string, allowResubmission: boolean) => void;
   onClose: () => void;
@@ -32,13 +71,9 @@ type ReviewSelectedClaimsModalProps = {
 export function ReviewSelectedClaimsModal({
   open,
   rows,
-  onPageCount,
   selectedCount,
-  totalSelectableCount,
-  isGlobalSelect,
   isApproving,
   isRejecting,
-  onToggleScope,
   onApproveAll,
   onRejectAll,
   onClose,
@@ -49,7 +84,7 @@ export function ReviewSelectedClaimsModal({
   const [wasOpen, setWasOpen] = useState(open);
 
   const categoryData = useMemo(() => groupByCategory(rows), [rows]);
-  const submitterGroups = useMemo(() => groupBySubmitterWithTotals(rows), [rows]);
+  const submitterGroups = useMemo(() => groupSubmittersByDetailType(rows), [rows]);
 
   // The modal stays mounted across opens; reset the inline reject form when it closes so a
   // stale reason can never carry into the next review session. Resetting during render (the
@@ -68,8 +103,11 @@ export function ReviewSelectedClaimsModal({
   }
 
   const isBusy = isApproving || isRejecting;
-  const hasCrossPageSelection = totalSelectableCount > onPageCount;
   const canConfirmReject = rejectionReason.trim().length >= 5;
+  // When the HOD has "select all across pages" active, the action targets more claims than
+  // the modal can show (no cross-page fetch). Clarify the difference without a scope toggle.
+  const shownClaimCount = rows.length;
+  const hasHiddenSelection = selectedCount > shownClaimCount;
 
   return (
     <div
@@ -94,6 +132,16 @@ export function ReviewSelectedClaimsModal({
             {selectedCount} selected
           </span>
         </div>
+
+        {hasHiddenSelection ? (
+          <p
+            data-testid="review-scope-clarifier"
+            className="border-b border-amber-200/80 bg-amber-50 px-5 py-2 text-xs text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300"
+          >
+            Showing this page&apos;s {shownClaimCount} · Approve / Reject applies to all{" "}
+            {selectedCount} selected.
+          </p>
+        ) : null}
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {/* Pie chart: summed amount by expense category */}
@@ -125,78 +173,23 @@ export function ReviewSelectedClaimsModal({
                 </ResponsiveContainer>
               ) : (
                 <p className="grid h-full place-items-center text-sm text-zinc-500">
-                  No claims to chart.
+                  No expense claims to chart.
                 </p>
               )}
             </div>
           </section>
 
-          {/* Sorted submitter list (highest summed amount first) */}
-          <section className="mt-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
-              By submitter (highest first)
-            </p>
-            <ul className="mt-2 divide-y divide-zinc-100 rounded-xl border border-zinc-200/80 dark:divide-zinc-800 dark:border-zinc-800">
-              {submitterGroups.map((group) => (
-                <li
-                  key={group.submitterEmail ?? group.submitter}
-                  data-testid="review-submitter-row"
-                  className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-zinc-900 dark:text-zinc-100">
-                      {group.submitter}
-                    </p>
-                    <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
-                      {group.submitterEmail ?? "—"}
-                      {group.claimCount > 1 ? ` · ${group.claimCount} claims` : ""}
-                    </p>
-                  </div>
-                  <span className="whitespace-nowrap font-semibold text-zinc-900 dark:text-zinc-100">
-                    {formatCurrency(group.total)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          {/* Cross-page selection notice + scope toggle */}
-          {hasCrossPageSelection ? (
-            <section className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-xs text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/20 dark:text-indigo-300">
-              <p>
-                Charting the {onPageCount} selected on this page.{" "}
-                {isGlobalSelect
-                  ? `Actions will apply to all ${totalSelectableCount} matching claims.`
-                  : `${totalSelectableCount} claims match across all pages.`}
-              </p>
-              <div className="mt-2 inline-flex rounded-lg border border-indigo-300 p-0.5 dark:border-indigo-700">
-                <button
-                  type="button"
-                  disabled={isBusy}
-                  onClick={() => onToggleScope(false)}
-                  className={`rounded-md px-2.5 py-1 font-semibold ${
-                    !isGlobalSelect
-                      ? "bg-indigo-600 text-white"
-                      : "text-indigo-700 dark:text-indigo-300"
-                  }`}
-                >
-                  This page ({onPageCount})
-                </button>
-                <button
-                  type="button"
-                  disabled={isBusy}
-                  onClick={() => onToggleScope(true)}
-                  className={`rounded-md px-2.5 py-1 font-semibold ${
-                    isGlobalSelect
-                      ? "bg-indigo-600 text-white"
-                      : "text-indigo-700 dark:text-indigo-300"
-                  }`}
-                >
-                  All {totalSelectableCount}
-                </button>
-              </div>
-            </section>
-          ) : null}
+          {/* Submitter totals, split into expense vs advance, each highest amount first */}
+          <SubmitterGroupSection
+            title="Expense claims (highest first)"
+            groups={submitterGroups.expense}
+            rowTestId="review-expense-row"
+          />
+          <SubmitterGroupSection
+            title="Advance claims (highest first)"
+            groups={submitterGroups.advance}
+            rowTestId="review-advance-row"
+          />
 
           {/* Inline reject form */}
           {showRejectForm ? (
