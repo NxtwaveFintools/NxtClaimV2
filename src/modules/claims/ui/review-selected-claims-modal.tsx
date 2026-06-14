@@ -1,25 +1,23 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { formatCurrency } from "@/lib/format";
 import {
-  groupByCategory,
   groupSubmittersByDetailType,
   type ReviewClaimRow,
   type SubmitterGroup,
 } from "@/modules/claims/utils/review-selected-claims";
 
-const PIE_COLORS = ["#0EA5E9", "#14B8A6", "#F97316", "#E11D48", "#6366F1", "#64748B"];
-
 function SubmitterGroupSection({
   title,
   groups,
   rowTestId,
+  showCategories = false,
 }: {
   title: string;
   groups: SubmitterGroup[];
   rowTestId: string;
+  showCategories?: boolean;
 }) {
   if (groups.length === 0) {
     return null;
@@ -35,18 +33,31 @@ function SubmitterGroupSection({
           <li
             key={group.submitterEmail ?? group.submitter}
             data-testid={rowTestId}
-            className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+            className="flex items-start justify-between gap-3 px-3 py-3 text-sm"
           >
             <div className="min-w-0">
-              <p className="truncate font-medium text-zinc-900 dark:text-zinc-100">
+              <p className="truncate font-semibold text-zinc-900 dark:text-zinc-100">
                 {group.submitter}
               </p>
-              <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 truncate text-sm text-zinc-600 dark:text-zinc-300">
                 {group.submitterEmail ?? "—"}
                 {group.claimCount > 1 ? ` · ${group.claimCount} claims` : ""}
               </p>
+              {showCategories && group.categories ? (
+                <div data-testid="review-expense-categories" className="flex flex-wrap">
+                  {group.categories.split(", ").map((category) => (
+                    <span
+                      key={category}
+                      data-testid="review-category-badge"
+                      className="mr-2 mt-2 inline-block rounded-md bg-zinc-100 px-2.5 py-1 text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                    >
+                      {category}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </div>
-            <span className="whitespace-nowrap font-semibold text-zinc-900 dark:text-zinc-100">
+            <span className="whitespace-nowrap pt-0.5 font-semibold text-zinc-900 dark:text-zinc-100">
               {formatCurrency(group.total)}
             </span>
           </li>
@@ -83,7 +94,6 @@ export function ReviewSelectedClaimsModal({
   const [allowResubmission, setAllowResubmission] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
 
-  const categoryData = useMemo(() => groupByCategory(rows), [rows]);
   const submitterGroups = useMemo(() => groupSubmittersByDetailType(rows), [rows]);
 
   // The modal stays mounted across opens; reset the inline reject form when it closes so a
@@ -139,51 +149,18 @@ export function ReviewSelectedClaimsModal({
             className="border-b border-amber-200/80 bg-amber-50 px-5 py-2 text-xs text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300"
           >
             Showing this page&apos;s {shownClaimCount} · Approve / Reject applies to all{" "}
-            {selectedCount} selected.
+            {selectedCount} claims.
           </p>
         ) : null}
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {/* Pie chart: summed amount by expense category */}
-          <section>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
-              By expense category
-            </p>
-            <div data-testid="review-pie-chart" className="mt-2 h-56 w-full">
-              {categoryData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={categoryData}
-                      dataKey="total"
-                      nameKey="category"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label={(entry: { name?: string }) => entry.name ?? ""}
-                    >
-                      {categoryData.map((entry, index) => (
-                        <Cell key={entry.category} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: number | string) => formatCurrency(Number(value))}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <p className="grid h-full place-items-center text-sm text-zinc-500">
-                  No expense claims to chart.
-                </p>
-              )}
-            </div>
-          </section>
-
-          {/* Submitter totals, split into expense vs advance, each highest amount first */}
+          {/* Submitter totals, split into expense vs advance, each highest amount first.
+              Expense rows also list the distinct categories per submitter. */}
           <SubmitterGroupSection
             title="Expense claims (highest first)"
             groups={submitterGroups.expense}
             rowTestId="review-expense-row"
+            showCategories
           />
           <SubmitterGroupSection
             title="Advance claims (highest first)"

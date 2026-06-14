@@ -1,8 +1,8 @@
 /**
  * Pure aggregation helpers for the HOD "Review Selected Claims" modal.
  *
- * Kept framework-free so the pie-chart and submitter-list math can be unit-tested
- * without rendering the modal.
+ * Kept framework-free so the submitter-list math can be unit-tested without rendering
+ * the modal.
  */
 
 import type { ClaimDetailType } from "@/core/domain/claims/contracts";
@@ -16,16 +16,13 @@ export type ReviewClaimRow = {
   totalAmount: number;
 };
 
-export type CategoryDatum = {
-  category: string;
-  total: number;
-};
-
 export type SubmitterGroup = {
   submitter: string;
   submitterEmail: string | null;
   total: number;
   claimCount: number;
+  /** Comma-separated list of the distinct expense categories in this submitter's claims. */
+  categories: string;
 };
 
 export type SubmitterGroupsByType = {
@@ -33,54 +30,51 @@ export type SubmitterGroupsByType = {
   advance: SubmitterGroup[];
 };
 
-/**
- * Sum each expense claim's amount by expense category (`categoryName`) for the pie chart.
- * Advance claims are excluded entirely — the chart and its totals show only real expense
- * categories. Slice value is the summed amount, not a count. Ordered by total descending.
- */
-export function groupByCategory(rows: ReviewClaimRow[]): CategoryDatum[] {
-  const totals = new Map<string, number>();
-
-  for (const row of rows) {
-    if (row.detailType !== "expense") {
-      continue;
-    }
-    totals.set(row.categoryName, (totals.get(row.categoryName) ?? 0) + row.totalAmount);
-  }
-
-  return [...totals.entries()]
-    .map(([category, total]) => ({ category, total }))
-    .sort((a, b) => b.total - a.total);
-}
+type SubmitterAccumulator = {
+  submitter: string;
+  submitterEmail: string | null;
+  total: number;
+  claimCount: number;
+  categories: Set<string>;
+};
 
 /**
  * Group claims by submitter and sum their amounts into a single row per submitter.
- * One submitter with claims of 10 and 20 becomes one group with total 30.
+ * One submitter with claims of 10 and 20 becomes one group with total 30. Each group also
+ * carries a comma-separated list of the distinct categories across that submitter's claims.
  * Sorted by summed total descending, ties broken by submitter name ascending.
  */
 export function groupBySubmitterWithTotals(rows: ReviewClaimRow[]): SubmitterGroup[] {
-  const groups = new Map<string, SubmitterGroup>();
+  const accumulators = new Map<string, SubmitterAccumulator>();
 
   for (const row of rows) {
     const key = row.submitterEmail ?? row.submitter;
-    const existing = groups.get(key);
+    const existing = accumulators.get(key);
 
     if (existing) {
       existing.total += row.totalAmount;
       existing.claimCount += 1;
+      existing.categories.add(row.categoryName);
     } else {
-      groups.set(key, {
+      accumulators.set(key, {
         submitter: row.submitter,
         submitterEmail: row.submitterEmail,
         total: row.totalAmount,
         claimCount: 1,
+        categories: new Set([row.categoryName]),
       });
     }
   }
 
-  return [...groups.values()].sort(
-    (a, b) => b.total - a.total || a.submitter.localeCompare(b.submitter),
-  );
+  return [...accumulators.values()]
+    .map((accumulator) => ({
+      submitter: accumulator.submitter,
+      submitterEmail: accumulator.submitterEmail,
+      total: accumulator.total,
+      claimCount: accumulator.claimCount,
+      categories: [...accumulator.categories].sort((a, b) => a.localeCompare(b)).join(", "),
+    }))
+    .sort((a, b) => b.total - a.total || a.submitter.localeCompare(b.submitter));
 }
 
 /**

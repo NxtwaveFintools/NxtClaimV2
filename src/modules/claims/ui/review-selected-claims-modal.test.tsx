@@ -3,20 +3,6 @@ import { ReviewSelectedClaimsModal } from "@/modules/claims/ui/review-selected-c
 import { formatCurrency } from "@/lib/format";
 import type { ReviewClaimRow } from "@/modules/claims/utils/review-selected-claims";
 
-// Recharts relies on layout measurement that jsdom does not provide; mock it so the
-// modal's own structure is what we assert and the test output stays pristine.
-jest.mock("recharts", () => {
-  const Passthrough = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
-  return {
-    ResponsiveContainer: Passthrough,
-    PieChart: Passthrough,
-    Pie: () => null,
-    Cell: () => null,
-    Tooltip: () => null,
-    Legend: () => null,
-  };
-});
-
 function buildRows(): ReviewClaimRow[] {
   return [
     {
@@ -97,6 +83,25 @@ describe("ReviewSelectedClaimsModal", () => {
     expect(advanceRows[0]).toHaveTextContent(formatCurrency(5));
   });
 
+  it("shows a submitter's distinct expense categories as separate badges", () => {
+    renderModal();
+    const userAExpenseRow = screen
+      .getAllByTestId("review-expense-row")
+      .find((rowEl) => within(rowEl).queryByText("User A"));
+    expect(userAExpenseRow).toBeDefined();
+    // User A's two expense claims are Food + Travel Domestic, each rendered as its own badge.
+    const badges = within(userAExpenseRow!).getAllByTestId("review-category-badge");
+    expect(badges.map((badge) => badge.textContent)).toEqual(["Food", "Travel Domestic"]);
+  });
+
+  it("does not show categories in the advance section", () => {
+    renderModal();
+    const advanceRows = screen.getAllByTestId("review-advance-row");
+    expect(
+      within(advanceRows[0]).queryByTestId("review-expense-categories"),
+    ).not.toBeInTheDocument();
+  });
+
   it("hides the advance section when no advance claims are selected", () => {
     renderModal({ rows: buildRows().filter((row) => row.detailType === "expense") });
     expect(screen.queryByTestId("review-advance-row")).not.toBeInTheDocument();
@@ -106,11 +111,6 @@ describe("ReviewSelectedClaimsModal", () => {
   it("shows the total selected count in the header", () => {
     renderModal({ selectedCount: 7 });
     expect(screen.getByText(/7 selected/i)).toBeInTheDocument();
-  });
-
-  it("renders the pie chart region", () => {
-    renderModal();
-    expect(screen.getByTestId("review-pie-chart")).toBeInTheDocument();
   });
 
   it("does not render the removed cross-page scope toggle box", () => {

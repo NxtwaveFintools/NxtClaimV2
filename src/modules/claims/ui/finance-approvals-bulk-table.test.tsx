@@ -20,18 +20,6 @@ jest.mock("@/modules/claims/actions", () => ({
   bulkRejectL1: jest.fn(),
 }));
 
-// Recharts needs layout measurement jsdom lacks; the pie content is not under test here.
-jest.mock("recharts", () => {
-  const Passthrough = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
-  return {
-    ResponsiveContainer: Passthrough,
-    PieChart: Passthrough,
-    Pie: () => null,
-    Cell: () => null,
-    Tooltip: () => null,
-  };
-});
-
 type Row = React.ComponentProps<typeof FinanceApprovalsBulkTable>["claims"][number];
 
 function buildRow(overrides: Partial<Row>): Row {

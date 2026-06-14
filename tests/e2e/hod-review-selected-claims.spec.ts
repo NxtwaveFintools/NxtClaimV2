@@ -126,23 +126,22 @@ test.describe("HOD Review Selected Claims", () => {
       const heading = page.getByRole("heading", { name: /review selected claims/i });
       await expect(heading).toBeVisible();
 
-      // 6. Pie chart region present.
-      await expect(page.getByTestId("review-pie-chart")).toBeVisible();
-
-      // 7. Both expense claims are from the same submitter -> one summed expense row.
+      // 6. Both expense claims are from the same submitter -> one summed expense row,
+      //    annotated with the distinct expense categories.
       const expenseRows = page.getByTestId("review-expense-row");
       await expect(expenseRows).toHaveCount(1);
       await expect(expenseRows.first()).toContainText(formatInr(CLAIM_A_AMOUNT + CLAIM_B_AMOUNT));
+      await expect(expenseRows.first().getByTestId("review-expense-categories")).toBeVisible();
       // No advances were submitted, so the advance section is absent.
       await expect(page.getByTestId("review-advance-row")).toHaveCount(0);
 
-      // 8. The cross-page scope toggle box has been removed from the modal.
+      // 7. The cross-page scope toggle box has been removed from the modal.
       await expect(page.getByRole("button", { name: /this page \(\d+\)/i })).toHaveCount(0);
 
-      // 9. Approve all (real server action).
+      // 8. Approve all (real server action).
       await page.getByRole("button", { name: /approve all/i }).click();
 
-      // 10. Modal closes; a success toast appears (soft); DB advances.
+      // 9. Modal closes; a success toast appears (soft); DB advances.
       await expect(heading).toBeHidden({ timeout: 30000 });
       await page
         .locator("[data-sonner-toast], li[data-sonner-toast]")

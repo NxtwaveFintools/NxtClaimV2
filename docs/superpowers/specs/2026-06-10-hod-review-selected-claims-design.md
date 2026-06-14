@@ -23,10 +23,11 @@ totals — before approving or rejecting in bulk.
    **summed** (e.g. one submitter with ₹10 + ₹20 → ₹30), then rows are sorted by that
    summed total, descending. An empty section is hidden. The underlying bulk action still
    operates on the individual claim IDs.
-3. **Pie chart = summed amount per expense category, advances excluded.** Category =
-   `categoryName` (e.g. "Travel Domestic", "Food"). Advance claims (`detailType` =
-   "advance") are **filtered out entirely** from the chart and its totals — the chart shows
-   only real expense categories. Slice value is the **sum of `totalAmount`**, not a count.
+3. **No chart — dense list instead.** The pie chart and Recharts were removed from the
+   modal per final UI feedback. Instead, each **Expense** submitter row lists the distinct
+   expense categories across that submitter's claims as a comma-separated string under the
+   email (e.g. "Accommodation Domestic, Offline Marketing"). Advance rows do **not** show
+   categories. (Recharts remains a project dependency, still used by `analytics-charts.tsx`.)
 4. **No cross-page toggle in the modal.** The modal does not show a page/all scope toggle
    or notice (removed per UI feedback). The header badge shows the active selected count
    (`selectedCount`), which still reflects the table's global-select state. No server fetch.
@@ -48,15 +49,16 @@ the `formattedTotalAmount` currency string. `categoryName` is derived from the e
 ### New units
 
 - `src/modules/claims/utils/review-selected-claims.ts` — pure helpers (testable core):
-  - `groupByCategory(rows): CategoryDatum[]` — `{ category, total }` summing `totalAmount`
-    per `categoryName` (expense category), **advances excluded**. Order by total desc.
   - `groupBySubmitterWithTotals(rows): SubmitterGroup[]` — `{ submitter, submitterEmail,
-total, claimCount }`, grouped by submitter, sorted by `total` descending (ties by name).
+total, claimCount, categories }`, grouped by submitter, amounts summed, distinct
+    `categoryName`s joined into `categories` (comma-separated, sorted). Sorted by `total`
+    descending (ties by name).
   - `groupSubmittersByDetailType(rows): { expense, advance }` — splits rows by `detailType`
     then groups each side with `groupBySubmitterWithTotals`. Drives the two list sections.
 - `src/modules/claims/ui/review-selected-claims-modal.tsx` — the modal (client component),
   fed `rows` (on-page selected), `selectedCount`, approve/reject callbacks, and submitting
-  flags. Renders the pie + the two submitter-grouped sections + footer actions.
+  flags. Renders the two submitter-grouped sections (Expense rows show the categories line)
+  - footer actions. No chart / no Recharts import.
 
 ### Wiring
 
@@ -69,9 +71,11 @@ remain as-is.
 ## Modal layout (top → bottom)
 
 1. Header: "Review Selected Claims" + `{selectedCount} selected` badge.
-2. Pie chart: summed amount by expense category, advances excluded (Recharts, matching `analytics-charts.tsx`).
-3. "Expense claims" section: `Name · Email · Σ Amount · (n claims)` per submitter, highest total first.
-4. "Advance claims" section: same shape, hidden when empty.
+2. Scope clarifier line (only when `selectedCount > rows shown`): "Showing this page's N ·
+   Approve / Reject applies to all M claims." Not a toggle.
+3. "Expense claims" section: per submitter `Name · Email · (n claims)` + a categories line
+   (distinct expense categories) + `Σ Amount`, highest total first.
+4. "Advance claims" section: same shape **without** the categories line, hidden when empty.
 5. Footer: "Approve All" (green) / "Reject All" (red); Reject reveals inline reason +
    resubmission checkbox.
 
@@ -83,18 +87,19 @@ On success: close modal, clear selection, `router.refresh()`, success toast (exi
 ### Jest / RTL
 
 - `tests/unit/claims/review-selected-claims.test.ts`:
-  - `groupByCategory` sums per category and excludes advances.
-  - `groupBySubmitterWithTotals` sums per submitter (10+20→30) and sorts desc.
-  - `groupSubmittersByDetailType` splits expense/advance, each grouped + sorted.
+  - `groupBySubmitterWithTotals` sums per submitter (10+20→30), lists distinct categories,
+    de-dupes, and sorts desc.
+  - `groupSubmittersByDetailType` splits expense/advance, each grouped + sorted with categories.
 - `src/modules/claims/ui/review-selected-claims-modal.test.tsx`:
-  - Expense rows sum per submitter and sort desc; advance section is separate and hidden
-    when empty; no scope-toggle box (Recharts mocked).
+  - Expense rows sum per submitter, sort desc, and show the categories line; advance section
+    is separate, shows no categories, and is hidden when empty; scope clarifier appears only
+    when more claims are selected than shown.
 
 ### Playwright E2E (`tests/e2e/hod-review-selected-claims.spec.ts`)
 
 HOD journey: submit two expense claims (same submitter) → act as the assigned HOD → select
-both → open modal → assert visible → assert pie present → assert the two expense claims sum
-into one expense-section row and no advance section appears → assert the scope-toggle box is
+both → open modal → assert visible → assert the two expense claims sum into one
+expense-section row (with a categories line) and no advance section appears → assert the scope-toggle box is
 absent → Approve All → assert modal closes (primary) + DB advances to finance stage
 (primary) + success toast (soft).
 
