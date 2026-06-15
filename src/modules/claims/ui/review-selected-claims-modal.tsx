@@ -96,8 +96,21 @@ export function ReviewSelectedClaimsModal({
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [allowResubmission, setAllowResubmission] = useState(false);
+  const [wasOpen, setWasOpen] = useState(open);
 
   const submitterGroups = useMemo(() => groupSubmittersByDetailType(rows), [rows]);
+
+  // The modal stays mounted across opens; reset the inline reject form when it closes so a
+  // stale reason can never carry into the next review session. Resetting during render (the
+  // documented React pattern for "adjust state when a prop changes") keeps it out of an effect.
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (!open) {
+      setShowRejectForm(false);
+      setRejectionReason("");
+      setAllowResubmission(false);
+    }
+  }
 
   const isBusy = isApproving || isRejecting;
   const canConfirmReject = rejectionReason.trim().length >= 5;
@@ -109,9 +122,6 @@ export function ReviewSelectedClaimsModal({
 
   function handleOpenChange(isOpen: boolean) {
     if (!isOpen && !isBusy) {
-      setShowRejectForm(false);
-      setRejectionReason("");
-      setAllowResubmission(false);
       onClose();
     }
   }
@@ -120,6 +130,7 @@ export function ReviewSelectedClaimsModal({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         className="flex max-h-[90vh] w-[94vw] max-w-2xl flex-col overflow-hidden p-0"
+        aria-describedby={undefined}
         onEscapeKeyDown={(e) => {
           if (isBusy) e.preventDefault();
         }}

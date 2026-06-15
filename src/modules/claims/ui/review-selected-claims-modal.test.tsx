@@ -170,7 +170,8 @@ describe("ReviewSelectedClaimsModal", () => {
     rerender(<ReviewSelectedClaimsModal {...props} isRejecting={true} />);
 
     expect(screen.getByRole("button", { name: /back/i })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /confirm rejection/i })).toBeDisabled();
+    // The confirm button relabels itself to "Processing..." while the request is in-flight.
+    expect(screen.getByRole("button", { name: /processing/i })).toBeDisabled();
   });
 
   it("clicking Back from the reject form returns to the Approve All / Reject All view", () => {
