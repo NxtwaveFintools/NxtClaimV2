@@ -32,6 +32,7 @@ import type {
 } from "@/core/domain/claims/contracts";
 import { GetActiveDepartmentsService } from "@/core/domain/departments/GetActiveDepartmentsService";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
+import { SupabaseVerificationRepository } from "@/modules/claims/repositories/SupabaseVerificationRepository";
 import { SupabaseDepartmentRepository } from "@/modules/departments/repositories/SupabaseDepartmentRepository";
 import { newClaimSubmitSchema } from "@/modules/claims/validators/new-claim-schema";
 import { financeEditSchema } from "@/modules/claims/validators/finance-edit-schema";
@@ -50,6 +51,37 @@ const activeDepartmentsService = new GetActiveDepartmentsService({
 });
 const submitClaimService = new SubmitClaimService({ repository, logger });
 const processL1ClaimDecisionService = new ProcessL1ClaimDecisionService({ repository, logger });
+
+const verificationRepository = new SupabaseVerificationRepository();
+
+/**
+ * Best-effort enqueue of an AI verification run. Mirrors syncExpenseDuplicateFlags:
+ * awaited, logged on error, never thrown — verification must not block approval or
+ * finance edits. The reconciliation sweep is the at-least-once backstop. No-ops for
+ * non-expense claims (the SQL enqueue returns null when there is no expense detail).
+ */
+async function enqueueVerificationBestEffort(
+  claimId: string,
+  trigger: "l1_approved" | "finance_edit" | "manual_rerun",
+): Promise<void> {
+  try {
+    const result = await verificationRepository.enqueueVerificationRun({ claimId, trigger });
+    if (result.errorMessage) {
+      logger.warn("claims.verification.enqueue_failed", {
+        claimId,
+        trigger,
+        errorMessage: result.errorMessage,
+      });
+    }
+  } catch (error) {
+    // Never let verification enqueue break an approval or finance edit.
+    logger.warn("claims.verification.enqueue_threw", {
+      claimId,
+      trigger,
+      errorMessage: error instanceof Error ? error.message : "unknown enqueue error",
+    });
+  }
+}
 const processL2ClaimDecisionService = new ProcessL2ClaimDecisionService({ repository, logger });
 const bulkProcessClaimsService = new BulkProcessClaimsService({ repository, logger });
 const updateClaimByFinanceService = new UpdateClaimByFinanceService({ repository, logger });
@@ -1552,6 +1584,9 @@ export async function updateClaimByFinanceAction(input: {
         errorMessage: syncResult.errorMessage,
       });
     }
+
+    // Best-effort: re-verify against the edited values (mirrors sync above).
+    await enqueueVerificationBestEffort(claimIdParse.data.claimId, "finance_edit");
   }
 
   return {
@@ -1922,6 +1957,10 @@ async function processL1ClaimDecisionAction(input: {
     };
   }
 
+  if (input.decision === "approve") {
+    await enqueueVerificationBestEffort(parseResult.data.claimId, "l1_approved");
+  }
+
   revalidatePath(ROUTES.claims.myClaims);
   revalidatePath(`${ROUTES.claims.dashboardList}/${parseResult.data.claimId}`);
 
@@ -2071,6 +2110,61 @@ export async function markPaymentDoneAction(input: {
   });
 }
 
+export async function markClaimVerifiedAction(input: {
+  claimId: string;
+  reason?: string;
+}): Promise<{ ok: boolean; message?: string }> {
+  const currentUserResult = await authRepository.getCurrentUser();
+  if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
+    return { ok: false, message: currentUserResult.errorMessage ?? "Unauthorized session." };
+  }
+
+  const approverIds = await repository.getFinanceApproverIdsForUser(currentUserResult.user.id);
+  if (approverIds.errorMessage || approverIds.data.length === 0) {
+    return { ok: false, message: "Only finance approvers can override AI verification." };
+  }
+
+  const result = await verificationRepository.overrideVerification({
+    claimId: input.claimId,
+    actorId: currentUserResult.user.id,
+    reason: input.reason?.trim() ? input.reason.trim() : null,
+  });
+  if (result.errorMessage) {
+    return { ok: false, message: result.errorMessage };
+  }
+
+  revalidatePath(`${ROUTES.claims.dashboardList}/${input.claimId}`, "page");
+  return { ok: true, message: "Marked as verified." };
+}
+
+export async function rerunClaimVerificationAction(input: {
+  claimId: string;
+}): Promise<{ ok: boolean; message?: string }> {
+  const currentUserResult = await authRepository.getCurrentUser();
+  if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
+    return { ok: false, message: currentUserResult.errorMessage ?? "Unauthorized session." };
+  }
+
+  const approverIds = await repository.getFinanceApproverIdsForUser(currentUserResult.user.id);
+  if (approverIds.errorMessage || approverIds.data.length === 0) {
+    return { ok: false, message: "Only finance approvers can re-run AI verification." };
+  }
+
+  const result = await verificationRepository.rerunVerification({
+    claimId: input.claimId,
+    actorId: currentUserResult.user.id,
+  });
+  if (result.errorMessage) {
+    return { ok: false, message: result.errorMessage };
+  }
+  if (result.data === null) {
+    return { ok: false, message: "This claim has no expense detail to verify." };
+  }
+
+  revalidatePath(`${ROUTES.claims.dashboardList}/${input.claimId}`, "page");
+  return { ok: true, message: "Verification re-queued." };
+}
+
 function normalizeClaimIds(claimIds: string[]): string[] {
   return Array.from(new Set(claimIds.map((claimId) => claimId.trim()).filter(Boolean)));
 }
@@ -2134,9 +2228,14 @@ async function processBulkL1Decision(input: {
       ),
     );
 
+    const approvedClaimIds: string[] = [];
     chunkResults.forEach((result, index) => {
       if (result.ok) {
         processedCount += 1;
+        const approvedClaimId = chunkClaimIds[index];
+        if (input.decision === "approve" && approvedClaimId) {
+          approvedClaimIds.push(approvedClaimId);
+        }
         return;
       }
 
@@ -2150,6 +2249,11 @@ async function processBulkL1Decision(input: {
         reason: result.errorMessage ?? "unknown",
       });
     });
+
+    // Best-effort fast-path enqueue; the reconciliation sweep is the backstop.
+    await Promise.all(
+      approvedClaimIds.map((claimId) => enqueueVerificationBestEffort(claimId, "l1_approved")),
+    );
   }
 
   return { processedCount, failedCount, firstFailureMessage };

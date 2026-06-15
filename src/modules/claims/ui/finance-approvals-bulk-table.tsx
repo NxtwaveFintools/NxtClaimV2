@@ -20,6 +20,7 @@ import {
   bulkRejectL1,
 } from "@/modules/claims/actions";
 import type { GetMyClaimsFilters } from "@/core/domain/claims/contracts";
+import type { VerificationBadgeState } from "@/modules/claims/repositories/SupabaseVerificationRepository";
 import {
   CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
   ClaimStatusBadge,
@@ -47,7 +48,49 @@ type FinanceApprovalRow = {
   formattedSubmittedAt: string;
   formattedHodActionDate: string;
   formattedFinanceActionDate: string;
+  aiVerdict?: VerificationBadgeState | null;
 };
+
+const AI_CHECK_BADGE: Record<VerificationBadgeState, { label: string; className: string }> = {
+  verified: {
+    label: "Verified",
+    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  },
+  mismatch: {
+    label: "Mismatch",
+    className: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
+  },
+  needs_review: {
+    label: "Needs review",
+    className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200",
+  },
+  extraction_failed: {
+    label: "Extraction failed",
+    className: "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
+  },
+  no_document: {
+    label: "No document",
+    className: "bg-zinc-100 text-zinc-500 dark:bg-zinc-800/70 dark:text-zinc-400",
+  },
+  pending: {
+    label: "Pending",
+    className: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
+  },
+};
+
+function AiCheckBadge({ verdict }: { verdict: VerificationBadgeState | null }) {
+  if (!verdict) {
+    return <span className="text-xs text-zinc-400 dark:text-zinc-600">—</span>;
+  }
+  const config = AI_CHECK_BADGE[verdict];
+  return (
+    <span
+      className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${config.className}`}
+    >
+      {config.label}
+    </span>
+  );
+}
 
 type FinanceApprovalsBulkTableProps = {
   claims: FinanceApprovalRow[];
@@ -96,6 +139,7 @@ export function FinanceApprovalsBulkTable({
   );
   const normalizedFilters = normalizeFilters(filters);
   const actionFilters = normalizedFilters as Parameters<typeof bulkApprove>[0]["filters"];
+  const showAiCheckColumn = approvalScope === "finance";
   const isBulkActionHidden =
     !normalizedFilters.status ||
     (normalizedFilters.status as DbClaimStatus[]).length === 0 ||
@@ -536,6 +580,9 @@ export function FinanceApprovalsBulkTable({
               >
                 STATUS
               </th>
+              {showAiCheckColumn ? (
+                <th className="whitespace-nowrap px-3 py-2.5 font-semibold">AI CHECK</th>
+              ) : null}
               <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTED ON</th>
               <th className="whitespace-nowrap px-3 py-2.5 font-semibold">HOD DATE</th>
               <th className="whitespace-nowrap px-3 py-2.5 font-semibold">FINANCE DATE</th>
@@ -618,6 +665,11 @@ export function FinanceApprovalsBulkTable({
                   <td className={`${CLAIM_STATUS_COLUMN_WIDTH_CLASSES} px-3 py-2 align-top`}>
                     <ClaimStatusBadge status={claim.status} fullWidth />
                   </td>
+                  {showAiCheckColumn ? (
+                    <td className="px-3 py-2 align-top">
+                      <AiCheckBadge verdict={claim.aiVerdict ?? null} />
+                    </td>
+                  ) : null}
                   <td className="whitespace-nowrap px-3 py-2">{claim.formattedSubmittedAt}</td>
                   <td className="whitespace-nowrap px-3 py-2">{claim.formattedHodActionDate}</td>
                   <td className="whitespace-nowrap px-3 py-2">

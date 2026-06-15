@@ -44,6 +44,18 @@ function describeAction(actionType: ClaimAuditLogRecord["actionType"]): string {
     return "Payment mode overridden by Admin";
   }
 
+  if (actionType === "AI_VERIFICATION_COMPLETED") {
+    return "AI verification completed";
+  }
+
+  if (actionType === "AI_VERIFICATION_OVERRIDDEN") {
+    return "AI verification overridden by Finance";
+  }
+
+  if (actionType === "AI_VERIFICATION_RERUN") {
+    return "AI verification re-run requested";
+  }
+
   return "Rejected by Finance";
 }
 
@@ -97,6 +109,17 @@ function actionAccentClasses(actionType: ClaimAuditLogRecord["actionType"]): {
     return {
       labelClassName: "text-teal-800 dark:text-teal-200",
       dotClassName: "bg-teal-600 dark:bg-teal-400",
+    };
+  }
+
+  if (
+    actionType === "AI_VERIFICATION_COMPLETED" ||
+    actionType === "AI_VERIFICATION_OVERRIDDEN" ||
+    actionType === "AI_VERIFICATION_RERUN"
+  ) {
+    return {
+      labelClassName: "text-sky-700 dark:text-sky-300",
+      dotClassName: "bg-sky-600 dark:bg-sky-400",
     };
   }
 

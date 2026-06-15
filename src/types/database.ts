@@ -272,6 +272,145 @@ export type Database = {
           },
         ];
       };
+      claim_verification_checks: {
+        Row: {
+          confidence: number | null;
+          created_at: string;
+          extracted_normalized: string | null;
+          extracted_raw: string | null;
+          field: string;
+          hardness: string;
+          id: string;
+          mismatch_reason: string | null;
+          run_id: string;
+          submitted_value: string | null;
+          tolerance_applied: string | null;
+          verdict: string;
+        };
+        Insert: {
+          confidence?: number | null;
+          created_at?: string;
+          extracted_normalized?: string | null;
+          extracted_raw?: string | null;
+          field: string;
+          hardness?: string;
+          id?: string;
+          mismatch_reason?: string | null;
+          run_id: string;
+          submitted_value?: string | null;
+          tolerance_applied?: string | null;
+          verdict: string;
+        };
+        Update: {
+          confidence?: number | null;
+          created_at?: string;
+          extracted_normalized?: string | null;
+          extracted_raw?: string | null;
+          field?: string;
+          hardness?: string;
+          id?: string;
+          mismatch_reason?: string | null;
+          run_id?: string;
+          submitted_value?: string | null;
+          tolerance_applied?: string | null;
+          verdict?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "claim_verification_checks_run_id_fkey";
+            columns: ["run_id"];
+            isOneToOne: false;
+            referencedRelation: "claim_latest_verification";
+            referencedColumns: ["run_id"];
+          },
+          {
+            foreignKeyName: "claim_verification_checks_run_id_fkey";
+            columns: ["run_id"];
+            isOneToOne: false;
+            referencedRelation: "claim_verification_runs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      claim_verification_runs: {
+        Row: {
+          attempts: number;
+          claim_id: string;
+          created_at: string;
+          error_detail: string | null;
+          finished_at: string | null;
+          id: string;
+          model: string | null;
+          next_attempt_at: string;
+          overall_verdict: string | null;
+          receipt_file_hash: string | null;
+          receipt_file_path: string | null;
+          started_at: string | null;
+          status: string;
+          submitted_values_snapshot: Json;
+          superseded: boolean;
+          trigger: string;
+        };
+        Insert: {
+          attempts?: number;
+          claim_id: string;
+          created_at?: string;
+          error_detail?: string | null;
+          finished_at?: string | null;
+          id?: string;
+          model?: string | null;
+          next_attempt_at?: string;
+          overall_verdict?: string | null;
+          receipt_file_hash?: string | null;
+          receipt_file_path?: string | null;
+          started_at?: string | null;
+          status?: string;
+          submitted_values_snapshot: Json;
+          superseded?: boolean;
+          trigger: string;
+        };
+        Update: {
+          attempts?: number;
+          claim_id?: string;
+          created_at?: string;
+          error_detail?: string | null;
+          finished_at?: string | null;
+          id?: string;
+          model?: string | null;
+          next_attempt_at?: string;
+          overall_verdict?: string | null;
+          receipt_file_hash?: string | null;
+          receipt_file_path?: string | null;
+          started_at?: string | null;
+          status?: string;
+          submitted_values_snapshot?: Json;
+          superseded?: boolean;
+          trigger?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "claim_verification_runs_claim_id_fkey";
+            columns: ["claim_id"];
+            isOneToOne: false;
+            referencedRelation: "claims";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "claim_verification_runs_claim_id_fkey";
+            columns: ["claim_id"];
+            isOneToOne: false;
+            referencedRelation: "vw_admin_claims_dashboard";
+            referencedColumns: ["claim_id"];
+          },
+          {
+            foreignKeyName: "claim_verification_runs_claim_id_fkey";
+            columns: ["claim_id"];
+            isOneToOne: false;
+            referencedRelation: "vw_enterprise_claims_dashboard";
+            referencedColumns: ["claim_id"];
+          },
+        ];
+      };
       claims: {
         Row: {
           assigned_l1_approver_id: string;
@@ -295,7 +434,7 @@ export type Database = {
           payment_mode_id: string;
           rejection_reason: string | null;
           status: Database["public"]["Enums"]["claim_status"];
-          submission_type: string;
+          submission_type: Database["public"]["Enums"]["claim_submission_type"];
           submitted_at: string;
           submitted_by: string;
           updated_at: string;
@@ -322,7 +461,7 @@ export type Database = {
           payment_mode_id: string;
           rejection_reason?: string | null;
           status?: Database["public"]["Enums"]["claim_status"];
-          submission_type: string;
+          submission_type: Database["public"]["Enums"]["claim_submission_type"];
           submitted_at?: string;
           submitted_by: string;
           updated_at?: string;
@@ -349,7 +488,7 @@ export type Database = {
           payment_mode_id?: string;
           rejection_reason?: string | null;
           status?: Database["public"]["Enums"]["claim_status"];
-          submission_type?: string;
+          submission_type?: Database["public"]["Enums"]["claim_submission_type"];
           submitted_at?: string;
           submitted_by?: string;
           updated_at?: string;
@@ -723,6 +862,7 @@ export type Database = {
           receipt_file_path: string | null;
           remarks: string | null;
           sgst_amount: number;
+          suspected_duplicate_ids: string[];
           total_amount: number;
           transaction_date: string;
           transaction_id: string | null;
@@ -757,6 +897,7 @@ export type Database = {
           receipt_file_path?: string | null;
           remarks?: string | null;
           sgst_amount?: number;
+          suspected_duplicate_ids?: string[];
           total_amount: number;
           transaction_date: string;
           transaction_id?: string | null;
@@ -791,6 +932,7 @@ export type Database = {
           receipt_file_path?: string | null;
           remarks?: string | null;
           sgst_amount?: number;
+          suspected_duplicate_ids?: string[];
           total_amount?: number;
           transaction_date?: string;
           transaction_id?: string | null;
@@ -1245,6 +1387,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      verification_worker_config: {
+        Row: {
+          cron_secret: string | null;
+          enabled: boolean;
+          id: boolean;
+          updated_at: string;
+          worker_url: string | null;
+        };
+        Insert: {
+          cron_secret?: string | null;
+          enabled?: boolean;
+          id?: boolean;
+          updated_at?: string;
+          worker_url?: string | null;
+        };
+        Update: {
+          cron_secret?: string | null;
+          enabled?: boolean;
+          id?: boolean;
+          updated_at?: string;
+          worker_url?: string | null;
+        };
+        Relationships: [];
+      };
+      verification_worker_lease: {
+        Row: {
+          holder: string | null;
+          id: boolean;
+          locked_until: string;
+        };
+        Insert: {
+          holder?: string | null;
+          id?: boolean;
+          locked_until?: string;
+        };
+        Update: {
+          holder?: string | null;
+          id?: boolean;
+          locked_until?: string;
+        };
+        Relationships: [];
+      };
       wallets: {
         Row: {
           created_at: string;
@@ -1288,6 +1472,39 @@ export type Database = {
       };
     };
     Views: {
+      claim_latest_verification: {
+        Row: {
+          claim_id: string | null;
+          created_at: string | null;
+          finished_at: string | null;
+          overall_verdict: string | null;
+          run_id: string | null;
+          status: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "claim_verification_runs_claim_id_fkey";
+            columns: ["claim_id"];
+            isOneToOne: false;
+            referencedRelation: "claims";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "claim_verification_runs_claim_id_fkey";
+            columns: ["claim_id"];
+            isOneToOne: false;
+            referencedRelation: "vw_admin_claims_dashboard";
+            referencedColumns: ["claim_id"];
+          },
+          {
+            foreignKeyName: "claim_verification_runs_claim_id_fkey";
+            columns: ["claim_id"];
+            isOneToOne: false;
+            referencedRelation: "vw_enterprise_claims_dashboard";
+            referencedColumns: ["claim_id"];
+          },
+        ];
+      };
       vw_admin_claims_dashboard: {
         Row: {
           amount: number | null;
@@ -1325,7 +1542,7 @@ export type Database = {
           purpose: string | null;
           receipt_file_path: string | null;
           status: Database["public"]["Enums"]["claim_status"] | null;
-          submission_type: string | null;
+          submission_type: Database["public"]["Enums"]["claim_submission_type"] | null;
           submitted_by: string | null;
           submitted_on: string | null;
           submitter_email: string | null;
@@ -1434,7 +1651,7 @@ export type Database = {
           purpose: string | null;
           receipt_file_path: string | null;
           status: Database["public"]["Enums"]["claim_status"] | null;
-          submission_type: string | null;
+          submission_type: Database["public"]["Enums"]["claim_submission_type"] | null;
           submitted_by: string | null;
           submitted_on: string | null;
           submitter_email: string | null;
@@ -1505,6 +1722,10 @@ export type Database = {
       };
     };
     Functions: {
+      acquire_verification_worker_lease: {
+        Args: { p_ttl_seconds?: number };
+        Returns: boolean;
+      };
       apply_claims_analytics_delta:
         | {
             Args: {
@@ -1540,6 +1761,10 @@ export type Database = {
             };
             Returns: undefined;
           };
+      build_verification_snapshot: {
+        Args: { p_claim_id: string };
+        Returns: Json;
+      };
       bulk_process_claims: {
         Args: {
           p_action: string;
@@ -1558,7 +1783,52 @@ export type Database = {
         };
         Returns: undefined;
       };
+      complete_verification_run: {
+        Args: {
+          p_checks: Json;
+          p_model: string;
+          p_overall_verdict: string;
+          p_receipt_hash: string;
+          p_run_id: string;
+        };
+        Returns: undefined;
+      };
       create_claim_with_detail: { Args: { p_payload: Json }; Returns: string };
+      dequeue_verification_runs: {
+        Args: { p_limit: number };
+        Returns: {
+          attempts: number;
+          claim_id: string;
+          created_at: string;
+          error_detail: string | null;
+          finished_at: string | null;
+          id: string;
+          model: string | null;
+          next_attempt_at: string;
+          overall_verdict: string | null;
+          receipt_file_hash: string | null;
+          receipt_file_path: string | null;
+          started_at: string | null;
+          status: string;
+          submitted_values_snapshot: Json;
+          superseded: boolean;
+          trigger: string;
+        }[];
+        SetofOptions: {
+          from: "*";
+          to: "claim_verification_runs";
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
+      enqueue_verification_run: {
+        Args: { p_claim_id: string; p_trigger: string };
+        Returns: string;
+      };
+      fail_verification_run: {
+        Args: { p_error: string; p_retryable: boolean; p_run_id: string };
+        Returns: undefined;
+      };
       get_bc_claim_payload: { Args: { p_claim_id: string }; Returns: Json };
       get_dashboard_analytics_payload: {
         Args: {
@@ -1579,6 +1849,40 @@ export type Database = {
         };
         Returns: Json;
       };
+      get_employee_claim_detail: {
+        Args: {
+          p_date_from?: string;
+          p_date_to?: string;
+          p_department_id?: string;
+          p_employee_id: string;
+          p_expense_category_id?: string;
+          p_hod_department_ids?: string[];
+          p_status?: string;
+        };
+        Returns: Json;
+      };
+      get_employee_claim_master: {
+        Args: {
+          p_date_from?: string;
+          p_date_to?: string;
+          p_department_id?: string;
+          p_employee_search?: string;
+          p_expense_category_id?: string;
+          p_hod_department_ids?: string[];
+          p_limit?: number;
+          p_offset?: number;
+          p_status?: string;
+        };
+        Returns: {
+          advance_amount: number;
+          claim_count: number;
+          employee_id: string;
+          employee_name: string;
+          expense_amount: number;
+          total_amount: number;
+          total_count: number;
+        }[];
+      };
       make_claims_analytics_bucket_key: {
         Args: {
           p_assigned_l2_approver_id: string;
@@ -1591,11 +1895,17 @@ export type Database = {
         };
         Returns: string;
       };
+      override_verification_run: {
+        Args: { p_actor_id: string; p_claim_id: string; p_reason: string };
+        Returns: undefined;
+      };
       process_l2_mark_paid_transition: {
         Args: { p_actor_id: string; p_claim_id: string };
         Returns: undefined;
       };
+      reap_stuck_verification_runs: { Args: never; Returns: number };
       rebuild_claims_analytics_cache: { Args: never; Returns: undefined };
+      reconcile_verification_runs: { Args: never; Returns: number };
       record_bc_claim_failure: {
         Args: {
           p_actor_user_id: string;
@@ -1608,6 +1918,11 @@ export type Database = {
         Args: { p_claim_id: string };
         Returns: undefined;
       };
+      release_verification_worker_lease: { Args: never; Returns: undefined };
+      rerun_verification: {
+        Args: { p_actor_id: string; p_claim_id: string };
+        Returns: string;
+      };
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
       start_bc_claim_attempt: {
@@ -1618,17 +1933,28 @@ export type Database = {
         };
         Returns: string;
       };
-      update_claim_by_finance:
-        | {
-            Args: {
-              p_actor_id: string;
-              p_claim_id: string;
-              p_edit_reason: string;
-              p_payload: Json;
-            };
-            Returns: undefined;
-          }
-        | { Args: { p_claim_id: string; p_payload: Json }; Returns: undefined };
+      sync_duplicate_flags: {
+        Args: {
+          p_bill_no: string;
+          p_claim_id: string;
+          p_transaction_date: string;
+        };
+        Returns: undefined;
+      };
+      tick_verification_worker: { Args: never; Returns: undefined };
+      update_claim_by_finance: {
+        Args: {
+          p_actor_id: string;
+          p_claim_id: string;
+          p_edit_reason: string;
+          p_payload: Json;
+        };
+        Returns: undefined;
+      };
+      update_claim_by_submitter: {
+        Args: { p_actor_id: string; p_claim_id: string; p_payload: Json };
+        Returns: undefined;
+      };
     };
     Enums: {
       bc_claim_status: "submitting" | "success" | "failed";
@@ -1639,7 +1965,163 @@ export type Database = {
         | "Payment Done - Closed"
         | "Rejected - Resubmission Not Allowed"
         | "Rejected - Resubmission Allowed";
-      foreign_currency_code: string;
+      claim_submission_type: "Self" | "On Behalf";
+      foreign_currency_code:
+        | "INR"
+        | "USD"
+        | "EUR"
+        | "CHF"
+        | "AED"
+        | "AFN"
+        | "ALL"
+        | "AMD"
+        | "ANG"
+        | "AOA"
+        | "ARS"
+        | "AUD"
+        | "AWG"
+        | "AZN"
+        | "BAM"
+        | "BBD"
+        | "BDT"
+        | "BGN"
+        | "BHD"
+        | "BIF"
+        | "BMD"
+        | "BND"
+        | "BOB"
+        | "BRL"
+        | "BSD"
+        | "BTN"
+        | "BWP"
+        | "BYN"
+        | "BZD"
+        | "CAD"
+        | "CDF"
+        | "CLP"
+        | "CNY"
+        | "COP"
+        | "CRC"
+        | "CUP"
+        | "CVE"
+        | "CZK"
+        | "DJF"
+        | "DKK"
+        | "DOP"
+        | "DZD"
+        | "EGP"
+        | "ERN"
+        | "ETB"
+        | "FJD"
+        | "FKP"
+        | "GBP"
+        | "GEL"
+        | "GHS"
+        | "GIP"
+        | "GMD"
+        | "GNF"
+        | "GTQ"
+        | "GYD"
+        | "HKD"
+        | "HNL"
+        | "HTG"
+        | "HUF"
+        | "IDR"
+        | "ILS"
+        | "IQD"
+        | "IRR"
+        | "ISK"
+        | "JMD"
+        | "JOD"
+        | "JPY"
+        | "KES"
+        | "KGS"
+        | "KHR"
+        | "KMF"
+        | "KPW"
+        | "KRW"
+        | "KWD"
+        | "KYD"
+        | "KZT"
+        | "LAK"
+        | "LBP"
+        | "LKR"
+        | "LRD"
+        | "LSL"
+        | "LYD"
+        | "MAD"
+        | "MDL"
+        | "MGA"
+        | "MKD"
+        | "MMK"
+        | "MNT"
+        | "MOP"
+        | "MRU"
+        | "MUR"
+        | "MVR"
+        | "MWK"
+        | "MXN"
+        | "MYR"
+        | "MZN"
+        | "NAD"
+        | "NGN"
+        | "NIO"
+        | "NOK"
+        | "NPR"
+        | "NZD"
+        | "OMR"
+        | "PAB"
+        | "PEN"
+        | "PGK"
+        | "PHP"
+        | "PKR"
+        | "PLN"
+        | "PYG"
+        | "QAR"
+        | "RON"
+        | "RSD"
+        | "RUB"
+        | "RWF"
+        | "SAR"
+        | "SBD"
+        | "SCR"
+        | "SDG"
+        | "SEK"
+        | "SGD"
+        | "SHP"
+        | "SLE"
+        | "SOS"
+        | "SRD"
+        | "SSP"
+        | "STN"
+        | "SVC"
+        | "SYP"
+        | "SZL"
+        | "THB"
+        | "TJS"
+        | "TMT"
+        | "TND"
+        | "TOP"
+        | "TRY"
+        | "TTD"
+        | "TWD"
+        | "TZS"
+        | "UAH"
+        | "UGX"
+        | "UYU"
+        | "UZS"
+        | "VES"
+        | "VND"
+        | "VUV"
+        | "WST"
+        | "XAF"
+        | "XCD"
+        | "XOF"
+        | "XPF"
+        | "YER"
+        | "ZAR"
+        | "ZMW"
+        | "ZWG";
       local_currency_code: "INR";
     };
     CompositeTypes: {
@@ -1775,7 +2257,164 @@ export const Constants = {
         "Rejected - Resubmission Not Allowed",
         "Rejected - Resubmission Allowed",
       ],
-      foreign_currency_code: ["INR", "USD", "EUR", "CHF"],
+      claim_submission_type: ["Self", "On Behalf"],
+      foreign_currency_code: [
+        "INR",
+        "USD",
+        "EUR",
+        "CHF",
+        "AED",
+        "AFN",
+        "ALL",
+        "AMD",
+        "ANG",
+        "AOA",
+        "ARS",
+        "AUD",
+        "AWG",
+        "AZN",
+        "BAM",
+        "BBD",
+        "BDT",
+        "BGN",
+        "BHD",
+        "BIF",
+        "BMD",
+        "BND",
+        "BOB",
+        "BRL",
+        "BSD",
+        "BTN",
+        "BWP",
+        "BYN",
+        "BZD",
+        "CAD",
+        "CDF",
+        "CLP",
+        "CNY",
+        "COP",
+        "CRC",
+        "CUP",
+        "CVE",
+        "CZK",
+        "DJF",
+        "DKK",
+        "DOP",
+        "DZD",
+        "EGP",
+        "ERN",
+        "ETB",
+        "FJD",
+        "FKP",
+        "GBP",
+        "GEL",
+        "GHS",
+        "GIP",
+        "GMD",
+        "GNF",
+        "GTQ",
+        "GYD",
+        "HKD",
+        "HNL",
+        "HTG",
+        "HUF",
+        "IDR",
+        "ILS",
+        "IQD",
+        "IRR",
+        "ISK",
+        "JMD",
+        "JOD",
+        "JPY",
+        "KES",
+        "KGS",
+        "KHR",
+        "KMF",
+        "KPW",
+        "KRW",
+        "KWD",
+        "KYD",
+        "KZT",
+        "LAK",
+        "LBP",
+        "LKR",
+        "LRD",
+        "LSL",
+        "LYD",
+        "MAD",
+        "MDL",
+        "MGA",
+        "MKD",
+        "MMK",
+        "MNT",
+        "MOP",
+        "MRU",
+        "MUR",
+        "MVR",
+        "MWK",
+        "MXN",
+        "MYR",
+        "MZN",
+        "NAD",
+        "NGN",
+        "NIO",
+        "NOK",
+        "NPR",
+        "NZD",
+        "OMR",
+        "PAB",
+        "PEN",
+        "PGK",
+        "PHP",
+        "PKR",
+        "PLN",
+        "PYG",
+        "QAR",
+        "RON",
+        "RSD",
+        "RUB",
+        "RWF",
+        "SAR",
+        "SBD",
+        "SCR",
+        "SDG",
+        "SEK",
+        "SGD",
+        "SHP",
+        "SLE",
+        "SOS",
+        "SRD",
+        "SSP",
+        "STN",
+        "SVC",
+        "SYP",
+        "SZL",
+        "THB",
+        "TJS",
+        "TMT",
+        "TND",
+        "TOP",
+        "TRY",
+        "TTD",
+        "TWD",
+        "TZS",
+        "UAH",
+        "UGX",
+        "UYU",
+        "UZS",
+        "VES",
+        "VND",
+        "VUV",
+        "WST",
+        "XAF",
+        "XCD",
+        "XOF",
+        "XPF",
+        "YER",
+        "ZAR",
+        "ZMW",
+        "ZWG",
+      ],
       local_currency_code: ["INR"],
     },
   },

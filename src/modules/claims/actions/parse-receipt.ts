@@ -631,6 +631,79 @@ function buildParsedReceiptResult(
   return base;
 }
 
+/**
+ * Evidence-grade extraction outcome: carries BOTH the raw model output and the
+ * normalized result so the finance verification worker can show finance the raw
+ * receipt value next to the normalized one. Gemini transport errors (quota/503/
+ * other) throw out of here so callers can classify them as retryable.
+ */
+export type ReceiptExtractionOutcome =
+  | { ok: true; raw: GeminiExtraction; normalized: ParsedReceiptResult }
+  | { ok: false; reason: "empty_response" | "invalid_json" }
+  | { ok: false; reason: "schema_invalid"; error: z.ZodError };
+
+/**
+ * Buffer-level extraction core shared by the submission-time autofill action and
+ * the finance verification worker. Single Gemini prompt + single normalization
+ * path — autofill and verification can never silently diverge.
+ */
+export async function extractReceiptFromBuffer(params: {
+  buffer: Buffer;
+  mimeType: string;
+  documentType: "invoice" | "bank_statement";
+  allowedCategoryNames: string[];
+  now: Date;
+  /** Optional override. When omitted, the invoice instruction is built here
+   * (the verification worker relies on this so it shares the autofill prompt). */
+  systemInstruction?: string;
+}): Promise<ReceiptExtractionOutcome> {
+  const systemInstruction =
+    params.systemInstruction ??
+    buildInvoiceSystemInstruction(
+      params.allowedCategoryNames,
+      params.now.toISOString().slice(0, 10),
+    );
+
+  const client = new GoogleGenAI({ apiKey: serverEnv.GEMINI_API_KEY });
+  const generationResult = await generateGeminiContentWithRetry(
+    client,
+    systemInstruction,
+    params.mimeType,
+    params.buffer.toString("base64"),
+  );
+
+  const modelText = generationResult.text;
+  if (!modelText || modelText.trim().length === 0) {
+    return { ok: false, reason: "empty_response" };
+  }
+
+  let parsedJson = safeParseJSON(modelText);
+  if (!parsedJson) {
+    return { ok: false, reason: "invalid_json" };
+  }
+
+  if (Array.isArray(parsedJson)) {
+    parsedJson = parsedJson[0];
+  }
+  if (!parsedJson || typeof parsedJson !== "object" || Array.isArray(parsedJson)) {
+    parsedJson = {};
+  }
+
+  const parsedSchemaResult = geminiExtractionSchema.safeParse(parsedJson);
+  if (!parsedSchemaResult.success) {
+    return { ok: false, reason: "schema_invalid", error: parsedSchemaResult.error };
+  }
+
+  const normalized = buildParsedReceiptResult(
+    parsedSchemaResult.data,
+    params.documentType,
+    params.now,
+    params.allowedCategoryNames,
+  );
+
+  return { ok: true, raw: parsedSchemaResult.data, normalized };
+}
+
 export async function parseReceiptAction(input: FormData): Promise<ParseReceiptActionResult> {
   const fileEntry = input.get("receiptFile");
   const documentType =
@@ -672,67 +745,46 @@ export async function parseReceiptAction(input: FormData): Promise<ParseReceiptA
     }
 
     const buffer = Buffer.from(await receiptFile.arrayBuffer());
-    const client = new GoogleGenAI({ apiKey: serverEnv.GEMINI_API_KEY });
-    const generationResult = await generateGeminiContentWithRetry(
-      client,
-      geminiInstruction,
-      receiptFile.type,
-      buffer.toString("base64"),
-    );
-
-    const modelText = generationResult.text;
-    if (!modelText || modelText.trim().length === 0) {
-      return {
-        ok: false,
-        data: null,
-        autoFillAllowed: false,
-        message: "Could not auto-read receipt. Please fill manually.",
-      };
-    }
-
-    let parsedJson = safeParseJSON(modelText);
-    if (!parsedJson) {
-      logger.warn("claims.parse_receipt.invalid_json_payload", {
-        errorName: "AIParseError",
-        errorMessage: "Gemini output could not be parsed as JSON.",
-      });
-
-      return {
-        ok: false,
-        data: null,
-        autoFillAllowed: false,
-        message: GENERIC_PARSE_FALLBACK_MESSAGE,
-      };
-    }
-
-    if (Array.isArray(parsedJson)) {
-      parsedJson = parsedJson[0];
-    }
-    if (!parsedJson || typeof parsedJson !== "object" || Array.isArray(parsedJson)) {
-      parsedJson = {};
-    }
-
-    const parsedSchemaResult = geminiExtractionSchema.safeParse(parsedJson);
-
-    if (!parsedSchemaResult.success) {
-      logger.warn("claims.parse_receipt.validation_failed", {
-        errorName: parsedSchemaResult.error.name,
-        errorMessage: parsedSchemaResult.error.issues[0]?.message ?? "Invalid parser output.",
-      });
-      return {
-        ok: false,
-        data: null,
-        autoFillAllowed: false,
-        message: GENERIC_PARSE_FALLBACK_MESSAGE,
-      };
-    }
-
-    const normalized = buildParsedReceiptResult(
-      parsedSchemaResult.data,
+    const extraction = await extractReceiptFromBuffer({
+      buffer,
+      mimeType: receiptFile.type,
+      systemInstruction: geminiInstruction,
       documentType,
-      new Date(),
       allowedCategoryNames,
-    );
+      now: new Date(),
+    });
+
+    if (!extraction.ok) {
+      if (extraction.reason === "empty_response") {
+        return {
+          ok: false,
+          data: null,
+          autoFillAllowed: false,
+          message: "Could not auto-read receipt. Please fill manually.",
+        };
+      }
+
+      if (extraction.reason === "schema_invalid") {
+        logger.warn("claims.parse_receipt.validation_failed", {
+          errorName: extraction.error.name,
+          errorMessage: extraction.error.issues[0]?.message ?? "Invalid parser output.",
+        });
+      } else {
+        logger.warn("claims.parse_receipt.invalid_json_payload", {
+          errorName: "AIParseError",
+          errorMessage: "Gemini output could not be parsed as JSON.",
+        });
+      }
+
+      return {
+        ok: false,
+        data: null,
+        autoFillAllowed: false,
+        message: GENERIC_PARSE_FALLBACK_MESSAGE,
+      };
+    }
+
+    const normalized = extraction.normalized;
 
     const hasPartialData =
       documentType === "bank_statement"
