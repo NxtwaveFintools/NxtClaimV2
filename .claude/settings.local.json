@@ -44,7 +44,9 @@
       "Bash(gh pr *)",
       "PowerShell(gh pr *)",
       "PowerShell(where.exe gh; $env:PATH)",
-      "PowerShell(git remote *)"
+      "PowerShell(git remote *)",
+      "mcp__plugin_context-mode_context-mode__ctx_batch_execute",
+      "mcp__plugin_context-mode_context-mode__ctx_search"
     ]
   },
   "enabledMcpjsonServers": ["filesystem", "supabase"],
