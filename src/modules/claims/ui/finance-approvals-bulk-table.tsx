@@ -109,7 +109,7 @@ export function FinanceApprovalsBulkTable({
     );
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isGlobalSelect, setIsGlobalSelect] = useState(false);
-  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [isFinanceRejectModalOpen, setIsFinanceRejectModalOpen] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isSubmittingBulkApprove, setIsSubmittingBulkApprove] = useState(false);
   const [isSubmittingBulkMarkPaid, setIsSubmittingBulkMarkPaid] = useState(false);
@@ -342,7 +342,9 @@ export function FinanceApprovalsBulkTable({
     const rejectionReason = String(formData.get("rejectionReason") ?? "").trim();
     const allowResubmission = formData.get("allowResubmission") === "true";
 
-    await executeBulkReject(rejectionReason, allowResubmission, () => setIsRejectModalOpen(false));
+    await executeBulkReject(rejectionReason, allowResubmission, () =>
+      setIsFinanceRejectModalOpen(false),
+    );
   };
 
   if (claims.length === 0) {
@@ -428,7 +430,7 @@ export function FinanceApprovalsBulkTable({
                   type="button"
                   onClick={() => {
                     if (isRejectValid) {
-                      setIsRejectModalOpen(true);
+                      setIsFinanceRejectModalOpen(true);
                     }
                   }}
                   disabled={!isRejectValid || isAnyBulkSubmitting}
@@ -492,6 +494,7 @@ export function FinanceApprovalsBulkTable({
             type="button"
             onClick={() => {
               setIsGlobalSelect(true);
+              setSelectedIds([...actionableIds]);
             }}
             className="font-semibold underline underline-offset-2"
           >
@@ -651,7 +654,7 @@ export function FinanceApprovalsBulkTable({
         </table>
       </div>
 
-      {!readOnly && !isBulkActionHidden && isRejectModalOpen ? (
+      {!readOnly && !isBulkActionHidden && isFinanceRejectModalOpen ? (
         <div className="fixed inset-0 z-50">
           <button
             type="button"
@@ -659,7 +662,7 @@ export function FinanceApprovalsBulkTable({
             className="absolute inset-0 bg-zinc-900/50"
             disabled={isSubmittingBulkReject}
             onClick={() => {
-              setIsRejectModalOpen(false);
+              setIsFinanceRejectModalOpen(false);
             }}
           />
           <div className="absolute left-1/2 top-1/2 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 sm:p-6">
@@ -712,7 +715,7 @@ export function FinanceApprovalsBulkTable({
                   type="button"
                   disabled={isSubmittingBulkReject}
                   onClick={() => {
-                    setIsRejectModalOpen(false);
+                    setIsFinanceRejectModalOpen(false);
                   }}
                   className="inline-flex items-center justify-center rounded-xl border border-zinc-300 px-3 py-2 text-sm font-semibold text-zinc-700 transition-all duration-200 hover:bg-zinc-100 active:scale-[0.98] disabled:opacity-60 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 >
@@ -736,6 +739,7 @@ export function FinanceApprovalsBulkTable({
           open={isReviewModalOpen}
           rows={reviewRows}
           selectedCount={selectedCount}
+          isApproveValid={isApproveValid}
           isApproving={isSubmittingBulkApprove}
           isRejecting={isSubmittingBulkReject}
           onApproveAll={() => submitBulkApprove(() => setIsReviewModalOpen(false))}

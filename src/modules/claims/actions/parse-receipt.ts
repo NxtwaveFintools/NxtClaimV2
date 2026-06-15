@@ -60,8 +60,35 @@ const looseDate = z.any().transform((val) => {
     return null;
   }
 
-  const normalizedDateInput = typeof val === "string" ? val.replace(/,/g, " ").trim() : val;
-  const parsedDate = new Date(normalizedDateInput);
+  const str = typeof val === "string" ? val.replace(/,/g, " ").trim() : String(val).trim();
+
+  // DD-MM-YY (primary AI output format)
+  const ddmmyy = str.match(/^(\d{1,2})-(\d{1,2})-(\d{2})$/);
+  if (ddmmyy) {
+    const day = parseInt(ddmmyy[1]!, 10);
+    const month = parseInt(ddmmyy[2]!, 10);
+    const year = 2000 + parseInt(ddmmyy[3]!, 10);
+    const ts = Date.UTC(year, month - 1, day);
+    const d = new Date(ts);
+    if (!Number.isNaN(ts) && d.getUTCDate() === day && d.getUTCMonth() === month - 1) {
+      return d.toISOString().split("T")[0];
+    }
+  }
+
+  // DD-MM-YYYY fallback
+  const ddmmyyyy = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (ddmmyyyy) {
+    const day = parseInt(ddmmyyyy[1]!, 10);
+    const month = parseInt(ddmmyyyy[2]!, 10);
+    const year = parseInt(ddmmyyyy[3]!, 10);
+    const ts = Date.UTC(year, month - 1, day);
+    const d = new Date(ts);
+    if (!Number.isNaN(ts) && d.getUTCDate() === day && d.getUTCMonth() === month - 1) {
+      return d.toISOString().split("T")[0];
+    }
+  }
+
+  const parsedDate = new Date(str);
   return Number.isNaN(parsedDate.getTime()) ? null : parsedDate.toISOString().split("T")[0];
 });
 
@@ -251,8 +278,10 @@ RULE 5 — IDENTIFIERS:
 - Only fall back to Ride ID when no bill-style identifier is present.
 - Capture the FULL identifier token exactly as shown, including any leading #, letters, numbers, or hyphens.
 - Example fallback Ride ID: #RD17766973787873583
-- transactionDate → YYYY-MM-DD ONLY.
-  Convert ALL regional formats: MM/DD/YYYY, DD-MM-YY, DD/MM/YYYY → YYYY-MM-DD
+- transactionDate → DD-MM-YY ONLY (e.g. 15-03-24 for 15 March 2024).
+  Convert ALL regional formats: YYYY-MM-DD, MM/DD/YYYY, DD/MM/YYYY, DD-MM-YYYY → DD-MM-YY.
+  Always treat ambiguous dates as day-first (Indian format).
+  Extract the year EXACTLY as printed on the document — do NOT substitute the current year.
 - vendorName      → brand / company name
 - gst_number      → GST registration number. If not visible → null. NEVER hallucinate.
 - If any field is unclear → null.
@@ -315,7 +344,7 @@ STRICT OUTPUT RULES:
 SCHEMA:
 {
   "billNo": string | null,
-  "transactionDate": string | null,
+  "transactionDate": string | null,  // DD-MM-YY format, e.g. "15-03-24"
   "vendorName": string | null,
   "basicAmount": number,
   "gst_number": string | null,
@@ -471,7 +500,7 @@ SELECTION RULES:
 
 OUTPUT RULES:
 - Return the actual INR amount charged from the statement as basicAmount.
-- Return the matched statement date as transactionDate if visible.
+- Return the matched statement date as transactionDate in DD-MM-YY format (e.g. 15-03-24), if visible.
 - Return the matched merchant descriptor as vendorName if clear.
 - Set totalAmount = 0.
 - Set cgst_amount = 0, sgst_amount = 0, igst_amount = 0.
@@ -488,7 +517,7 @@ STRICT OUTPUT RULES:
 SCHEMA:
 {
   "billNo": string | null,
-  "transactionDate": string | null,
+  "transactionDate": string | null,  // DD-MM-YY format, e.g. "15-03-24"
   "vendorName": string | null,
   "basicAmount": number,
   "gst_number": string | null,

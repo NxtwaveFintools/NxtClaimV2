@@ -162,6 +162,30 @@ describe("ReviewSelectedClaimsModal", () => {
     expect(onRejectAll).toHaveBeenCalledWith("Missing supporting documents", true);
   });
 
+  it("disables Back and Confirm Rejection when isRejecting is true", () => {
+    const { rerender, props } = renderModal({ isRejecting: false });
+
+    // Open the reject form, then simulate an in-flight rejection starting.
+    fireEvent.click(screen.getByRole("button", { name: /^reject all$/i }));
+    rerender(<ReviewSelectedClaimsModal {...props} isRejecting={true} />);
+
+    expect(screen.getByRole("button", { name: /back/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /confirm rejection/i })).toBeDisabled();
+  });
+
+  it("clicking Back from the reject form returns to the Approve All / Reject All view", () => {
+    renderModal();
+
+    fireEvent.click(screen.getByRole("button", { name: /^reject all$/i }));
+    expect(screen.getByRole("button", { name: /confirm rejection/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /back/i }));
+
+    expect(screen.getByRole("button", { name: /approve all/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^reject all$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /confirm rejection/i })).not.toBeInTheDocument();
+  });
+
   it("resets the inline reject form after the modal is closed and reopened", () => {
     const { rerender, props } = renderModal();
 

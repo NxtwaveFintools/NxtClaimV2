@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { formatCurrency } from "@/lib/format";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   groupSubmittersByDetailType,
   type ReviewClaimRow,
@@ -72,6 +73,8 @@ type ReviewSelectedClaimsModalProps = {
   rows: ReviewClaimRow[];
   /** The current action target count (drives the header badge). */
   selectedCount: number;
+  /** When false, the Approve All button is disabled (claims are not all in an approvable state). */
+  isApproveValid?: boolean;
   isApproving: boolean;
   isRejecting: boolean;
   onApproveAll: () => void;
@@ -83,6 +86,7 @@ export function ReviewSelectedClaimsModal({
   open,
   rows,
   selectedCount,
+  isApproveValid = true,
   isApproving,
   isRejecting,
   onApproveAll,
@@ -92,52 +96,39 @@ export function ReviewSelectedClaimsModal({
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [allowResubmission, setAllowResubmission] = useState(false);
-  const [wasOpen, setWasOpen] = useState(open);
 
   const submitterGroups = useMemo(() => groupSubmittersByDetailType(rows), [rows]);
 
-  // The modal stays mounted across opens; reset the inline reject form when it closes so a
-  // stale reason can never carry into the next review session. Resetting during render (the
-  // documented React pattern for "adjust state when a prop changes") keeps it out of an effect.
-  if (open !== wasOpen) {
-    setWasOpen(open);
-    if (!open) {
-      setShowRejectForm(false);
-      setRejectionReason("");
-      setAllowResubmission(false);
-    }
-  }
-
-  if (!open) {
-    return null;
-  }
-
   const isBusy = isApproving || isRejecting;
   const canConfirmReject = rejectionReason.trim().length >= 5;
+  const showReasonHint = rejectionReason.length > 0 && rejectionReason.trim().length < 5;
   // When the HOD has "select all across pages" active, the action targets more claims than
   // the modal can show (no cross-page fetch). Clarify the difference without a scope toggle.
   const shownClaimCount = rows.length;
   const hasHiddenSelection = selectedCount > shownClaimCount;
 
+  function handleOpenChange(isOpen: boolean) {
+    if (!isOpen && !isBusy) {
+      setShowRejectForm(false);
+      setRejectionReason("");
+      setAllowResubmission(false);
+      onClose();
+    }
+  }
+
   return (
-    <div
-      className="fixed inset-0 z-50"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Review selected claims"
-    >
-      <button
-        type="button"
-        aria-label="Close review dialog"
-        className="absolute inset-0 bg-zinc-900/50"
-        disabled={isBusy}
-        onClick={onClose}
-      />
-      <div className="absolute left-1/2 top-1/2 flex max-h-[90vh] w-[94vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex items-center justify-between border-b border-zinc-200/80 px-5 py-4 dark:border-zinc-800">
-          <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-            Review Selected Claims
-          </h3>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent
+        className="flex max-h-[90vh] w-[94vw] max-w-2xl flex-col overflow-hidden p-0"
+        onEscapeKeyDown={(e) => {
+          if (isBusy) e.preventDefault();
+        }}
+        onInteractOutside={(e) => {
+          if (isBusy) e.preventDefault();
+        }}
+      >
+        <div className="flex items-center justify-between border-b border-zinc-200/80 py-4 pl-5 pr-14 dark:border-zinc-800">
+          <DialogTitle>Review Selected Claims</DialogTitle>
           <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
             {selectedCount} selected
           </span>
@@ -188,6 +179,11 @@ export function ReviewSelectedClaimsModal({
                   placeholder="Enter at least 5 characters"
                   className="min-h-20 w-full resize-y rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-indigo-500 transition focus:ring dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
                 />
+                {showReasonHint ? (
+                  <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
+                    Please enter at least 5 characters.
+                  </p>
+                ) : null}
               </div>
               <div className="flex items-center gap-2">
                 <input
@@ -234,7 +230,7 @@ export function ReviewSelectedClaimsModal({
             <>
               <button
                 type="button"
-                disabled={isBusy}
+                disabled={isBusy || !isApproveValid}
                 onClick={onApproveAll}
                 className="inline-flex items-center justify-center rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-700/60 dark:bg-emerald-950/20 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
               >
@@ -251,7 +247,7 @@ export function ReviewSelectedClaimsModal({
             </>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
