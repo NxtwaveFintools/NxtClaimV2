@@ -61,7 +61,7 @@ export type ClaimSubmissionInput = {
     transactionDate: string;
     basicAmount: number;
     currencyCode: string;
-    foreignCurrencyCode?: "INR" | "USD" | "EUR" | "CHF" | null;
+    foreignCurrencyCode?: string | null;
     foreignBasicAmount?: number | null;
     foreignGstAmount?: number | null;
     foreignTotalAmount?: number | null;
@@ -126,7 +126,7 @@ export type PreparedClaimSubmission = {
     basicAmount: number;
     totalAmount: number;
     currencyCode: string;
-    foreignCurrencyCode?: "INR" | "USD" | "EUR" | "CHF" | null;
+    foreignCurrencyCode?: string | null;
     foreignBasicAmount?: number | null;
     foreignGstAmount?: number | null;
     foreignTotalAmount?: number | null;
@@ -176,7 +176,7 @@ export type FinanceExpenseEditPayload = {
   sgstAmount: number;
   igstAmount: number;
   totalAmount: number;
-  foreignCurrencyCode?: "INR" | "USD" | "EUR" | "CHF" | null;
+  foreignCurrencyCode?: string | null;
   foreignBasicAmount?: number | null;
   foreignGstAmount?: number | null;
   foreignTotalAmount?: number | null;
@@ -213,7 +213,7 @@ export type OwnExpenseEditPayload = {
   sgstAmount: number;
   igstAmount: number;
   totalAmount: number;
-  foreignCurrencyCode?: "INR" | "USD" | "EUR" | "CHF" | null;
+  foreignCurrencyCode?: string | null;
   foreignBasicAmount?: number | null;
   foreignGstAmount?: number | null;
   foreignTotalAmount?: number | null;

@@ -26,7 +26,7 @@ type ClaimExpenseDetail = {
   peopleInvolved: string | null;
   remarks: string | null;
   aiMetadata?: ClaimExpenseAiMetadata | null;
-  foreignCurrencyCode?: "INR" | "USD" | "EUR" | "CHF" | null;
+  foreignCurrencyCode?: string | null;
   foreignBasicAmount?: number | null;
   foreignGstAmount?: number | null;
   foreignTotalAmount?: number | null;
@@ -72,36 +72,6 @@ const indiaAmountFormatter = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 2,
 });
 
-const foreignCurrencyFormatters = new Map<string, Intl.NumberFormat>([
-  [
-    "USD",
-    new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }),
-  ],
-  [
-    "EUR",
-    new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "EUR",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }),
-  ],
-  [
-    "CHF",
-    new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "CHF",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }),
-  ],
-]);
-
 function formatAmount(amount: number | null): string {
   if (amount === null) {
     return "N/A";
@@ -119,11 +89,25 @@ function formatOptionalText(value: string | null | undefined, fallback = "N/A"):
   return trimmed.length > 0 ? trimmed : fallback;
 }
 
+const fxFormatters = new Map<string, Intl.NumberFormat>();
+
+function getFxFormatter(currencyCode: string): Intl.NumberFormat {
+  let formatter = fxFormatters.get(currencyCode);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: currencyCode,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    fxFormatters.set(currencyCode, formatter);
+  }
+  return formatter;
+}
+
 function formatForeignAmount(amount: number | null | undefined, currencyCode: string): string {
   if (amount == null) return "N/A";
-  const formatter = foreignCurrencyFormatters.get(currencyCode);
-  if (!formatter) return String(amount);
-  return formatter.format(amount);
+  return getFxFormatter(currencyCode).format(amount);
 }
 
 export function ClaimFullDetailsGrid({
@@ -427,24 +411,20 @@ export function ClaimFullDetailsGrid({
         </section>
       ) : null}
 
-      {includeExpenseDetail &&
-      claim.expense &&
-      claim.expense.foreignCurrencyCode !== null &&
-      claim.expense.foreignCurrencyCode !== undefined &&
-      claim.expense.foreignCurrencyCode !== "INR" ? (
+      {includeExpenseDetail && claim.expense ? (
         <section className={detailSectionClassName}>
-          <h2 className={detailHeadingClassName}>Foreign Expense Details</h2>
+          <h2 className={detailHeadingClassName}>Foreign Financials</h2>
           <div className={detailGridClassName}>
             <div className={detailCardClassName}>
               <p className={fieldLabelClassName}>Currency</p>
-              <p className={fieldValueClassName}>{claim.expense.foreignCurrencyCode}</p>
+              <p className={fieldValueClassName}>{claim.expense.foreignCurrencyCode ?? "INR"}</p>
             </div>
             <div className={detailCardClassName}>
               <p className={fieldLabelClassName}>Foreign Basic Amount</p>
               <p className={fieldValueClassName}>
                 {formatForeignAmount(
-                  claim.expense.foreignBasicAmount,
-                  claim.expense.foreignCurrencyCode,
+                  claim.expense.foreignBasicAmount ?? 0,
+                  claim.expense.foreignCurrencyCode ?? "INR",
                 )}
               </p>
             </div>
@@ -452,8 +432,8 @@ export function ClaimFullDetailsGrid({
               <p className={fieldLabelClassName}>Foreign GST Amount</p>
               <p className={fieldValueClassName}>
                 {formatForeignAmount(
-                  claim.expense.foreignGstAmount,
-                  claim.expense.foreignCurrencyCode,
+                  claim.expense.foreignGstAmount ?? 0,
+                  claim.expense.foreignCurrencyCode ?? "INR",
                 )}
               </p>
             </div>
@@ -461,8 +441,8 @@ export function ClaimFullDetailsGrid({
               <p className={fieldLabelClassName}>Foreign Total Amount</p>
               <p className={emphasizedValueClassName}>
                 {formatForeignAmount(
-                  claim.expense.foreignTotalAmount,
-                  claim.expense.foreignCurrencyCode,
+                  claim.expense.foreignTotalAmount ?? 0,
+                  claim.expense.foreignCurrencyCode ?? "INR",
                 )}
               </p>
             </div>

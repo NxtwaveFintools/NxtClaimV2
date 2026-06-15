@@ -39,6 +39,11 @@ import {
 } from "@/core/constants/location-types";
 import { AIDisclaimer } from "@/components/ui/ai-disclaimer";
 import { BANK_STATEMENT_REQUIRED_CATEGORIES } from "@/core/constants/bank-statement-categories";
+import {
+  ISO_CURRENCY_CODES,
+  PINNED_CURRENCY_CODES,
+  isIsoCurrencyCode,
+} from "@/core/constants/iso-currency-codes";
 
 type NewClaimFormClientProps = {
   currentUser: CurrentUserHydration;
@@ -73,7 +78,7 @@ export type ClaimFormDraftValues = {
     basicAmount: number;
     totalAmount: number;
     currencyCode: string;
-    foreignCurrencyCode: "INR" | "USD" | "EUR" | "CHF";
+    foreignCurrencyCode: string;
     foreignBasicAmount: number | null;
     foreignGstAmount: number | null;
     foreignTotalAmount: number | null;
@@ -478,7 +483,6 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   const igstAmount = useWatch({ control, name: "expense.igstAmount" });
   const watchedForeignBasic = useWatch({ control, name: "expense.foreignBasicAmount" });
   const watchedForeignGst = useWatch({ control, name: "expense.foreignGstAmount" });
-  const watchedForeignCode = useWatch({ control, name: "expense.foreignCurrencyCode" });
   const watchedTotalAmount = useWatch({ control, name: "expense.totalAmount" }) as
     | number
     | undefined;
@@ -521,10 +525,6 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   }, [basicAmount, cgstAmount, igstAmount, setValue, sgstAmount]);
 
   useEffect(() => {
-    if (!watchedForeignCode || watchedForeignCode === "INR") {
-      setValue("expense.foreignTotalAmount", null, { shouldValidate: false });
-      return;
-    }
     setValue(
       "expense.foreignTotalAmount",
       computeForeignTotal({
@@ -533,7 +533,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       }),
       { shouldValidate: false },
     );
-  }, [watchedForeignCode, watchedForeignBasic, watchedForeignGst, setValue]);
+  }, [watchedForeignBasic, watchedForeignGst, setValue]);
 
   const calculatedTotalAmount = calculateExpenseTotal(
     basicAmount,
@@ -542,13 +542,10 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     igstAmount,
   );
 
-  const calculatedForeignTotalAmount =
-    watchedForeignCode && watchedForeignCode !== "INR"
-      ? computeForeignTotal({
-          basicAmount: Number(watchedForeignBasic) || 0,
-          gstAmount: Number(watchedForeignGst) || 0,
-        })
-      : null;
+  const calculatedForeignTotalAmount = computeForeignTotal({
+    basicAmount: Number(watchedForeignBasic) || 0,
+    gstAmount: Number(watchedForeignGst) || 0,
+  });
 
   const selectedDepartment = useMemo(
     () => options.departmentRouting.find((department) => department.id === departmentId) ?? null,
@@ -916,15 +913,11 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       options.expenseCategories,
     );
 
-    const VALID_FOREIGN_CODES = new Set(["INR", "USD", "EUR", "CHF"] as const);
     const rawCode =
       typeof parsed.foreignCurrencyCode === "string"
         ? parsed.foreignCurrencyCode.toUpperCase()
         : null;
-    const foreignCurrencyCode =
-      rawCode && VALID_FOREIGN_CODES.has(rawCode as "INR" | "USD" | "EUR" | "CHF")
-        ? (rawCode as "INR" | "USD" | "EUR" | "CHF")
-        : null;
+    const foreignCurrencyCode = rawCode && isIsoCurrencyCode(rawCode) ? rawCode : null;
     const foreignBasicAmount =
       parsed.foreignBasicAmount !== null && parsed.foreignBasicAmount !== undefined
         ? toNumber(parsed.foreignBasicAmount)
@@ -1606,7 +1599,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
               <input type="hidden" {...register("detailType")} value="expense" />
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="grid gap-1">
+                <div className="grid min-w-0 gap-1">
                   <label
                     htmlFor="receiptFile"
                     className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
@@ -1630,15 +1623,22 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   >
                     Choose Invoice/Bill
                   </label>
-                  <p className="text-xs text-zinc-500">
-                    <span className="block truncate">
-                      {invoiceFile ? invoiceFile.name : "No file selected"}
-                    </span>
-                  </p>
+                  {invoiceFile ? (
+                    <div className="mt-1 flex min-w-0 max-w-full items-center rounded-md border border-blue-500/20 bg-blue-500/10 px-2 py-1">
+                      <span
+                        className="w-full truncate text-sm font-medium text-blue-400"
+                        title={invoiceFile.name}
+                      >
+                        {invoiceFile.name}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-zinc-500">No file selected</p>
+                  )}
                   <p className="text-[10px] text-zinc-500">PDF, JPG, PNG, WEBP. Max: 25MB.</p>
                 </div>
 
-                <div className="grid gap-1">
+                <div className="grid min-w-0 gap-1">
                   <label
                     htmlFor="bankStatementFile"
                     className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
@@ -1667,11 +1667,18 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                   >
                     Choose Bank Statement
                   </label>
-                  <p className="text-xs text-zinc-500">
-                    <span className="block truncate">
-                      {bankStatementFile ? bankStatementFile.name : "No file selected"}
-                    </span>
-                  </p>
+                  {bankStatementFile ? (
+                    <div className="mt-1 flex min-w-0 max-w-full items-center rounded-md border border-blue-500/20 bg-blue-500/10 px-2 py-1">
+                      <span
+                        className="w-full truncate text-sm font-medium text-blue-400"
+                        title={bankStatementFile.name}
+                      >
+                        {bankStatementFile.name}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-zinc-500">No file selected</p>
+                  )}
                   <p className="text-[10px] text-zinc-500">PDF, JPG, PNG, WEBP. Max: 25MB.</p>
                   {bankStatementError ? (
                     <p className="text-xs text-rose-600">{bankStatementError}</p>
@@ -2001,10 +2008,21 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                       className="h-9 w-full rounded-lg border border-zinc-300 px-3 text-sm"
                       {...register("expense.foreignCurrencyCode")}
                     >
-                      <option value="INR">INR</option>
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                      <option value="CHF">CHF</option>
+                      {PINNED_CURRENCY_CODES.map((code) => (
+                        <option key={code} value={code}>
+                          {code}
+                        </option>
+                      ))}
+                      <option value="" disabled>
+                        ──────────
+                      </option>
+                      {ISO_CURRENCY_CODES.filter(
+                        (code) => !PINNED_CURRENCY_CODES.includes(code),
+                      ).map((code) => (
+                        <option key={code} value={code}>
+                          {code}
+                        </option>
+                      ))}
                     </FormSelect>
                   </div>
 
@@ -2059,13 +2077,9 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                       readOnly
                       disabled
                       className="h-9 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300"
-                      value={
-                        calculatedForeignTotalAmount !== null
-                          ? Number(
-                              watchedForeignTotalAmount ?? calculatedForeignTotalAmount,
-                            ).toFixed(2)
-                          : ""
-                      }
+                      value={Number(
+                        watchedForeignTotalAmount ?? calculatedForeignTotalAmount,
+                      ).toFixed(2)}
                     />
                   </div>
                 </div>

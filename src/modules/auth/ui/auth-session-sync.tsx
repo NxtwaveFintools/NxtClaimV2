@@ -31,7 +31,7 @@ async function clearServerSession(): Promise<void> {
 
 export function AuthSessionSync() {
   const inFlightRef = useRef<Promise<void> | null>(null);
-  const lastSyncedRefreshTokenRef = useRef<string | null>(null);
+  const lastSyncedAccessTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
     const supabase = getBrowserSupabaseClient();
@@ -44,7 +44,9 @@ export function AuthSessionSync() {
         return;
       }
 
-      if (lastSyncedRefreshTokenRef.current === refreshToken) {
+      // Deduplicate by access token so TOKEN_REFRESHED still syncs when only the
+      // access token (and cookie chunks) change while the refresh token stays the same.
+      if (lastSyncedAccessTokenRef.current === accessToken) {
         return;
       }
 
@@ -55,7 +57,7 @@ export function AuthSessionSync() {
       inFlightRef.current = (async () => {
         const ok = await persistServerSession(accessToken, refreshToken);
         if (ok) {
-          lastSyncedRefreshTokenRef.current = refreshToken;
+          lastSyncedAccessTokenRef.current = accessToken;
         }
       })().finally(() => {
         inFlightRef.current = null;
@@ -69,7 +71,7 @@ export function AuthSessionSync() {
 
       if (error) {
         if (isSupabaseTerminalSessionError(error)) {
-          lastSyncedRefreshTokenRef.current = null;
+          lastSyncedAccessTokenRef.current = null;
           await clearServerSession();
           await supabase.auth.signOut({ scope: "local" }).catch(() => null);
         }
@@ -90,7 +92,7 @@ export function AuthSessionSync() {
       }
 
       if (event === "SIGNED_OUT") {
-        lastSyncedRefreshTokenRef.current = null;
+        lastSyncedAccessTokenRef.current = null;
         void clearServerSession();
       }
     });

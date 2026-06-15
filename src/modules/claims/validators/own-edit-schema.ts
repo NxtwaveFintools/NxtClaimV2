@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isIsoCurrencyCode } from "@/core/constants/iso-currency-codes";
 
 const uuidSchema = z.uuid("Invalid UUID value");
 const isoDateSchema = z
@@ -83,7 +84,12 @@ export const ownExpenseEditSchema = z
     productId: uuidSchema.nullable(),
     peopleInvolved: normalizedNullableText,
     remarks: normalizedNullableText,
-    foreignCurrencyCode: z.enum(["INR", "USD", "EUR", "CHF"]).default("INR"),
+    foreignCurrencyCode: z
+      .string()
+      .trim()
+      .transform((value) => value.toUpperCase())
+      .refine(isIsoCurrencyCode, { message: "Invalid currency code." })
+      .default("INR"),
     foreignBasicAmount: z.preprocess(
       toNullableNumber,
       z.number().min(0, "Foreign basic amount cannot be negative").nullable().optional(),

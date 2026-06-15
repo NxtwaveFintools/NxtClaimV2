@@ -190,6 +190,26 @@ describe("NewClaimFormClient", () => {
     });
   });
 
+  test("auto-calculates foreign total even when currency is INR", async () => {
+    const user = userEvent.setup();
+    render(<NewClaimFormClient currentUser={currentUser} options={options} />);
+
+    // Default foreignCurrencyCode is "INR" — no need to change it.
+    // This directly tests the bug fix: the guard `foreignCurrencyCode === "INR"`
+    // previously prevented the useEffect from running.
+    const foreignBasicInput = screen.getByLabelText(/Foreign Basic Amount/i);
+    const foreignGstInput = screen.getByLabelText(/Foreign GST Amount/i);
+
+    await user.clear(foreignBasicInput);
+    await user.type(foreignBasicInput, "100");
+    await user.clear(foreignGstInput);
+    await user.type(foreignGstInput, "18");
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Foreign Total Amount/i)).toHaveValue(118);
+    });
+  });
+
   test("shows success toast and redirects to claims list after successful submission", async () => {
     const user = userEvent.setup();
     render(<NewClaimFormClient currentUser={currentUser} options={options} />);
