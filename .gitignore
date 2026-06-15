@@ -76,3 +76,4 @@ yarn-error.log*
 # ── Claude Code ───────────────────────────────────────────────────────────────
 skills-lock.json
 .claude/settings.local.json
+.gstack/

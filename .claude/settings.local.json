@@ -44,7 +44,8 @@
       "PowerShell(Get-Command *)",
       "PowerShell(git fetch *)",
       "PowerShell(git log --format=\"%H %s\" main..fixForeign | ForEach-Object { $parts = $_ -split \" \", 2; Write-Host \"=== $\\($parts[1]\\) ===\"; git show $parts[0] --stat --no-patch })",
-      "Skill(superpowers:executing-plans)"
+      "Skill(superpowers:executing-plans)",
+      "WebSearch"
     ]
   },
   "enabledMcpjsonServers": [
