@@ -2,7 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { serverEnv } from "@/core/config/server-env";
-import { clearSupabaseAuthTokenCookies } from "@/core/infra/supabase/supabase-auth-cookie-utils";
+import {
+  applySupabaseAuthCookies,
+  clearSupabaseAuthTokenCookies,
+} from "@/core/infra/supabase/supabase-auth-cookie-utils";
 import { createSuccessResponse } from "@/types/api";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -22,9 +25,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           return cookieStore.getAll();
         },
         setAll(cookiesToSet) {
-          for (const cookie of cookiesToSet) {
-            response.cookies.set(cookie.name, cookie.value, cookie.options);
-          }
+          applySupabaseAuthCookies({
+            existingCookies: cookieStore.getAll(),
+            cookiesToSet,
+            setCookie: (name, value, options) => {
+              response.cookies.set(name, value, options);
+            },
+          });
         },
       },
     },
