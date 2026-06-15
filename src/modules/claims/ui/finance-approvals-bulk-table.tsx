@@ -140,6 +140,7 @@ export function FinanceApprovalsBulkTable({
         id: row.id,
         submitter: row.submitter,
         submitterEmail: row.submitterEmail,
+        onBehalfEmail: row.onBehalfEmail,
         categoryName: row.categoryName,
         detailType: row.detailType,
         totalAmount: row.totalAmount,

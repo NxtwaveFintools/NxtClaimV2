@@ -9,6 +9,7 @@ function row(overrides: Partial<ReviewClaimRow>): ReviewClaimRow {
     id: "claim-1",
     submitter: "Alice",
     submitterEmail: "alice@example.com",
+    onBehalfEmail: null,
     categoryName: "Food",
     detailType: "expense",
     totalAmount: 100,
@@ -94,6 +95,41 @@ describe("groupBySubmitterWithTotals", () => {
 
   it("returns an empty array for no rows", () => {
     expect(groupBySubmitterWithTotals([])).toEqual([]);
+  });
+
+  it("groups on-behalf claims under the beneficiary, not the submitter", () => {
+    const rows: ReviewClaimRow[] = [
+      row({
+        id: "1",
+        submitter: "Assistant",
+        submitterEmail: "assistant@x.com",
+        onBehalfEmail: "manager@x.com",
+        totalAmount: 200,
+      }),
+    ];
+
+    const result = groupBySubmitterWithTotals(rows);
+    expect(result).toHaveLength(1);
+    expect(result[0].submitter).toBe("manager@x.com");
+    expect(result[0].submitterEmail).toBe("manager@x.com");
+    expect(result[0].total).toBe(200);
+  });
+
+  it("falls back to submitter when onBehalfEmail is null", () => {
+    const rows: ReviewClaimRow[] = [
+      row({
+        id: "1",
+        submitter: "Alice",
+        submitterEmail: "alice@x.com",
+        onBehalfEmail: null,
+        totalAmount: 150,
+      }),
+    ];
+
+    const result = groupBySubmitterWithTotals(rows);
+    expect(result).toHaveLength(1);
+    expect(result[0].submitter).toBe("Alice");
+    expect(result[0].submitterEmail).toBe("alice@x.com");
   });
 });
 

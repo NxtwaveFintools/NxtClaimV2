@@ -11,6 +11,8 @@ export type ReviewClaimRow = {
   id: string;
   submitter: string;
   submitterEmail: string | null;
+  /** Non-null when this claim was filed on behalf of a different person (the beneficiary). */
+  onBehalfEmail: string | null;
   categoryName: string;
   detailType: ClaimDetailType;
   totalAmount: number;
@@ -39,16 +41,23 @@ type SubmitterAccumulator = {
 };
 
 /**
- * Group claims by submitter and sum their amounts into a single row per submitter.
- * One submitter with claims of 10 and 20 becomes one group with total 30. Each group also
- * carries a comma-separated list of the distinct categories across that submitter's claims.
- * Sorted by summed total descending, ties broken by submitter name ascending.
+ * Group claims by the effective claim owner and sum their amounts into a single row.
+ * For "on behalf of" claims the owner is the beneficiary (onBehalfEmail); for self-claims
+ * it is the submitter. One owner with claims of 10 and 20 becomes one group with total 30.
+ * Each group also carries a comma-separated list of distinct categories across their claims.
+ * Sorted by summed total descending, ties broken by display name ascending.
  */
 export function groupBySubmitterWithTotals(rows: ReviewClaimRow[]): SubmitterGroup[] {
   const accumulators = new Map<string, SubmitterAccumulator>();
 
   for (const row of rows) {
-    const key = row.submitterEmail ?? row.submitter;
+    // For "on behalf of" claims the relevant person is the beneficiary, not the proxy who
+    // submitted. Fall back to submitter details for standard self-claims.
+    const beneficiaryEmail = row.onBehalfEmail?.trim() || null;
+    const targetName = beneficiaryEmail ?? row.submitter;
+    const targetEmail = beneficiaryEmail ?? row.submitterEmail;
+    const key = targetEmail ?? targetName;
+
     const existing = accumulators.get(key);
 
     if (existing) {
@@ -57,8 +66,8 @@ export function groupBySubmitterWithTotals(rows: ReviewClaimRow[]): SubmitterGro
       existing.categories.add(row.categoryName);
     } else {
       accumulators.set(key, {
-        submitter: row.submitter,
-        submitterEmail: row.submitterEmail,
+        submitter: targetName,
+        submitterEmail: targetEmail,
         total: row.totalAmount,
         claimCount: 1,
         categories: new Set([row.categoryName]),
