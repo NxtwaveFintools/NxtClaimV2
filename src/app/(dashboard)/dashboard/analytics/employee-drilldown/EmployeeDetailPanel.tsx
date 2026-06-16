@@ -14,7 +14,7 @@ import {
   HelpCircle,
 } from "lucide-react";
 import CountUp from "react-countup";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LabelList } from "recharts";
 
 type TooltipEntry = {
   payload: { categoryName: string; amount: number; count: number };
@@ -24,7 +24,7 @@ function CategoryTooltip({ active, payload }: { active?: boolean; payload?: Tool
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     return (
-      <div className="rounded-xl border border-white/10 bg-zinc-900/90 p-3 shadow-xl backdrop-blur-md">
+      <div className="rounded-xl border border-zinc-800/50 bg-zinc-900/90 p-3 shadow-xl backdrop-blur-md">
         <p className="text-xs font-bold text-zinc-400 uppercase">{data.categoryName}</p>
         <p className="text-sm font-semibold text-white mt-1">{formatCurrency(data.amount)}</p>
         <p className="text-xs text-zinc-500 mt-1">{data.count} Claims</p>
@@ -90,11 +90,11 @@ export function EmployeeDetailPanel({
       <div className="flex h-[800px] flex-col items-center justify-center rounded-2xl border border-zinc-800/50 bg-zinc-900/30 p-8 text-center backdrop-blur-xl shadow-2xl relative overflow-hidden group">
         <div className="absolute inset-0 bg-gradient-to-tr from-sky-500/5 to-purple-500/5 opacity-50 transition-opacity group-hover:opacity-100" />
         <div className="relative z-10 flex flex-col items-center">
-          <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-zinc-800/50 shadow-inner ring-1 ring-white/10 relative">
+          <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-zinc-800/50 shadow-inner ring-1 ring-zinc-800/50 relative">
             <BarChart3 className="h-10 w-10 text-zinc-500 transition-transform duration-700 ease-in-out group-hover:scale-110" />
             <div className="absolute -inset-2 rounded-full border border-sky-500/20 animate-[spin_4s_linear_infinite] opacity-0 group-hover:opacity-100" />
           </div>
-          <h3 className="text-xl font-bold tracking-tight text-white">No Employee Selected</h3>
+          <h3 className="text-xl font-bold text-white">No Employee Selected</h3>
           <p className="mt-2 text-sm text-zinc-400 max-w-xs">
             Select an employee from the leaderboard to unlock deep analytics, spending behaviors,
             and insights.
@@ -116,7 +116,7 @@ export function EmployeeDetailPanel({
     return (
       <div className="flex h-[800px] flex-col items-center justify-center rounded-2xl border border-rose-500/20 bg-zinc-900/30 p-8 text-center backdrop-blur-xl shadow-2xl">
         <AlertCircle className="mb-4 h-12 w-12 text-rose-500" />
-        <h3 className="text-lg font-bold tracking-tight text-white">Unable to load analytics</h3>
+        <h3 className="text-lg font-bold text-white">Unable to load analytics</h3>
         <p className="mt-2 text-sm text-zinc-400">{error}</p>
       </div>
     );
@@ -130,22 +130,10 @@ export function EmployeeDetailPanel({
   return (
     <div className="flex flex-col gap-6 rounded-2xl border border-zinc-800/50 bg-zinc-900/30 p-6 backdrop-blur-xl shadow-2xl">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between border-b border-white/5 pb-6">
-        <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-xl font-bold text-white shadow-lg ring-1 ring-white/20">
-            {employeeName?.substring(0, 2).toUpperCase() || "EM"}
-          </div>
-          <div>
-            <h3 className="text-2xl font-bold tracking-tight text-white">
-              {employeeName || "Unknown Employee"}
-            </h3>
-            <div className="mt-1 flex items-center gap-2">
-              <span className="rounded-full bg-zinc-800 px-2.5 py-0.5 text-xs font-semibold text-zinc-400 tracking-wider ring-1 ring-white/10">
-                {employeeId}
-              </span>
-            </div>
-          </div>
-        </div>
+      <div className="border-b border-zinc-800/50 pb-6">
+        <h3 className="text-xl font-semibold text-zinc-100">
+          {employeeName || "Unknown Employee"}
+        </h3>
       </div>
 
       {/* KPI Strip */}
@@ -156,7 +144,7 @@ export function EmployeeDetailPanel({
             Total Pending Claims
           </h4>
           <div className="mt-3 flex items-end gap-2">
-            <span className="font-mono text-3xl font-bold text-white tracking-tight">
+            <span className="font-mono text-3xl font-bold text-white">
               <CountUp start={0} end={detail.totalAmount} duration={2} separator="," prefix="₹" />
             </span>
           </div>
@@ -172,7 +160,7 @@ export function EmployeeDetailPanel({
             Expense Claims
           </h4>
           <div className="mt-3 flex items-end gap-2">
-            <span className="font-mono text-3xl font-bold text-white tracking-tight">
+            <span className="font-mono text-3xl font-bold text-white">
               <CountUp start={0} end={detail.expenseAmount} duration={2} separator="," prefix="₹" />
             </span>
           </div>
@@ -187,7 +175,7 @@ export function EmployeeDetailPanel({
             Advance Claims
           </h4>
           <div className="mt-3 flex items-end gap-2">
-            <span className="font-mono text-3xl font-bold text-white tracking-tight">
+            <span className="font-mono text-3xl font-bold text-white">
               <CountUp start={0} end={detail.advanceAmount} duration={2} separator="," prefix="₹" />
             </span>
           </div>
@@ -206,13 +194,13 @@ export function EmployeeDetailPanel({
               <BarChart3 className="h-4 w-4 text-sky-400" />
               Expense Category Distribution
             </h4>
-            <div className="flex-1 w-full" style={{ minHeight: 220 }}>
+            <div className="w-full h-[320px] min-h-[320px] mt-4">
               {sortedCategories.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={sortedCategories}
                     layout="vertical"
-                    margin={{ top: 0, right: 40, left: 0, bottom: 0 }}
+                    margin={{ top: 0, right: 80, left: 0, bottom: 0 }}
                   >
                     <XAxis type="number" hide />
                     <YAxis
@@ -227,7 +215,15 @@ export function EmployeeDetailPanel({
                       cursor={{ fill: "rgba(255,255,255,0.02)" }}
                       content={<CategoryTooltip />}
                     />
-                    <Bar dataKey="amount" radius={[0, 4, 4, 0]} barSize={20} fill="#0ea5e9" />
+                    <Bar dataKey="amount" radius={[0, 4, 4, 0]} barSize={20} fill="#0ea5e9">
+                      <LabelList
+                        dataKey="amount"
+                        position="right"
+                        fill="#94a3b8"
+                        fontSize={11}
+                        formatter={(val: number) => "₹" + val.toLocaleString("en-IN")}
+                      />
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               ) : (

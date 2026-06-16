@@ -67,6 +67,8 @@ function createRepository(
       },
       errorMessage: null,
     })),
+    getEmployeeClaimMaster: jest.fn(async () => ({ data: [], totalCount: 0, errorMessage: null })),
+    getEmployeeClaimDetail: jest.fn(async () => ({ data: null, errorMessage: null })),
     ...overrides,
   };
 }

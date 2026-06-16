@@ -4,7 +4,7 @@ import { useState, useEffect, useTransition } from "react";
 import { fetchEmployeeClaimMaster } from "./actions";
 import { EmployeeDetailPanel } from "./EmployeeDetailPanel";
 import { formatCurrency } from "@/lib/format";
-import { Loader2, Search, ChevronLeft, ChevronRight, User, TrendingUp } from "lucide-react";
+import { Loader2, Search, ChevronLeft, ChevronRight, TrendingUp } from "lucide-react";
 import {
   DashboardAnalyticsOption,
   EmployeeClaimMasterRow,
@@ -82,7 +82,7 @@ export function EmployeeMasterList({
       {/* Overview & Status Switcher Header */}
       <div className="flex flex-col gap-4 rounded-xl border border-zinc-800/50 bg-zinc-900/40 p-6 backdrop-blur-xl md:flex-row md:items-center md:justify-between shadow-2xl">
         <div>
-          <h2 className="dashboard-font-display text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
             <TrendingUp className="h-6 w-6 text-sky-500" />
             Employee Analytics
           </h2>
@@ -99,7 +99,7 @@ export function EmployeeMasterList({
                 setStatus(e.target.value);
                 setPage(1);
               }}
-              className="w-[280px] appearance-none rounded-xl border border-white/10 bg-zinc-800/80 p-2.5 pr-8 text-sm font-medium text-white shadow-inner backdrop-blur-md transition-all focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              className="w-[280px] appearance-none rounded-xl border border-zinc-800/50 bg-zinc-800/80 p-2.5 pr-8 text-sm font-medium text-white shadow-inner backdrop-blur-md transition-all focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
             >
               <option value="all">All Statuses</option>
               {DB_CLAIM_STATUSES.map((s) => (
@@ -117,21 +117,20 @@ export function EmployeeMasterList({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[350px_1fr] gap-6 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-6 items-start w-full">
         {/* Left Column: Leaderboard List */}
         <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3">
             <h3 className="text-xs font-bold tracking-widest text-zinc-400 uppercase">
               Leaderboard
             </h3>
-
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
               <input
                 placeholder="Search..."
                 value={search}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-                className="w-full rounded-full border border-white/10 bg-zinc-900/60 py-1.5 pl-9 pr-3 text-sm text-white placeholder-zinc-500 backdrop-blur-md transition-all focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 sm:w-[180px]"
+                className="w-full h-10 bg-zinc-950/50 border border-zinc-800/50 rounded-lg pl-10 pr-4 text-sm text-zinc-200 placeholder-zinc-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all focus:outline-none"
               />
             </div>
           </div>
@@ -148,7 +147,7 @@ export function EmployeeMasterList({
                 No employees found matching the criteria.
               </div>
             ) : (
-              <ul className="flex h-[700px] flex-col overflow-y-auto divide-y divide-white/5 py-2">
+              <ul className="flex h-[700px] flex-col overflow-y-auto divide-y divide-zinc-800/50 py-2">
                 {rows.map((row, index) => {
                   const isSelected = selectedEmployeeId === row.employeeId;
                   const rank = (page - 1) * limit + index + 1;
@@ -174,7 +173,7 @@ export function EmployeeMasterList({
                         </div>
                         <div className="flex flex-col items-end">
                           <span
-                            className={`font-mono text-sm font-bold tracking-tight ${isSelected ? "text-sky-400" : "text-emerald-400"}`}
+                            className={`font-mono text-sm font-bold ${isSelected ? "text-sky-400" : "text-emerald-400"}`}
                           >
                             {formatCurrency(row.totalAmount)}
                           </span>
@@ -188,7 +187,7 @@ export function EmployeeMasterList({
 
             {/* Pagination */}
             {totalCount > 0 && (
-              <div className="flex items-center justify-between border-t border-white/5 bg-black/20 p-4 text-xs font-medium text-zinc-400">
+              <div className="flex items-center justify-between border-t border-zinc-800/50 bg-black/20 p-4 text-xs font-medium text-zinc-400">
                 <span>
                   {(page - 1) * limit + 1} - {Math.min(page * limit, totalCount)} of {totalCount}
                 </span>
@@ -198,7 +197,7 @@ export function EmployeeMasterList({
                     size="sm"
                     disabled={page === 1}
                     onClick={() => setPage((p) => p - 1)}
-                    className="h-8 w-8 p-0 border border-white/10 hover:bg-zinc-800 text-zinc-300 disabled:opacity-50"
+                    className="h-8 w-8 p-0 border border-zinc-800/50 hover:bg-zinc-800 text-zinc-300 disabled:opacity-50"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
@@ -207,7 +206,7 @@ export function EmployeeMasterList({
                     size="sm"
                     disabled={page === totalPages}
                     onClick={() => setPage((p) => p + 1)}
-                    className="h-8 w-8 p-0 border border-white/10 hover:bg-zinc-800 text-zinc-300 disabled:opacity-50"
+                    className="h-8 w-8 p-0 border border-zinc-800/50 hover:bg-zinc-800 text-zinc-300 disabled:opacity-50"
                   >
                     <ChevronRight className="h-4 w-4" />
                   </Button>

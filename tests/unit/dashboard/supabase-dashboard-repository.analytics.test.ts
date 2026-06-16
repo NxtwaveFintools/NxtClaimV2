@@ -177,6 +177,8 @@ describe("SupabaseDashboardRepository analytics methods", () => {
 
     const result = await repository.getAnalyticsFilterOptions({
       isAdmin: false,
+      isApprover1: false,
+      approver1DepartmentIds: [],
       isApprover2: false,
       isFinance: false,
       approver2DepartmentIds: [],
@@ -283,6 +285,8 @@ describe("SupabaseDashboardRepository analytics methods", () => {
     const repository = new SupabaseDashboardRepository();
     const result = await repository.getAnalyticsFilterOptions({
       isAdmin: false,
+      isApprover1: false,
+      approver1DepartmentIds: [],
       isApprover2: true,
       isFinance: false,
       approver2DepartmentIds: ["dept-1"],
@@ -351,6 +355,8 @@ describe("SupabaseDashboardRepository analytics methods", () => {
     const repository = new SupabaseDashboardRepository();
     const result = await repository.getAnalyticsFilterOptions({
       isAdmin: false,
+      isApprover1: false,
+      approver1DepartmentIds: [],
       isApprover2: false,
       isFinance: true,
       approver2DepartmentIds: [],
