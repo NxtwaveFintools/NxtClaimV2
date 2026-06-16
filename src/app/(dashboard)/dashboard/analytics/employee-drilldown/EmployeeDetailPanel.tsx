@@ -221,7 +221,7 @@ export function EmployeeDetailPanel({
                         position="right"
                         fill="#94a3b8"
                         fontSize={11}
-                        formatter={(val: number) => "₹" + val.toLocaleString("en-IN")}
+                        formatter={(val) => "₹" + Number(val).toLocaleString("en-IN")}
                       />
                     </Bar>
                   </BarChart>
