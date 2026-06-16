@@ -139,6 +139,8 @@ export function EmployeeDetailPanel({
     .filter((cat) => cat.amount && cat.amount > 0)
     .sort((a, b) => (b.amount || 0) - (a.amount || 0));
 
+  const categoryTotalAmount = sortedCategories.reduce((sum, cat) => sum + (cat.amount || 0), 0);
+
   const chartHeight = Math.max(280, (sortedCategories.length || 0) * 52);
 
   const shellClassName =
@@ -306,7 +308,7 @@ export function EmployeeDetailPanel({
                   <BarChart
                     data={sortedCategories}
                     layout="vertical"
-                    margin={{ top: 0, right: 80, left: 0, bottom: 0 }}
+                    margin={{ top: 0, right: 110, left: 0, bottom: 0 }}
                   >
                     <XAxis type="number" hide />
                     <YAxis
@@ -324,7 +326,14 @@ export function EmployeeDetailPanel({
                         position="right"
                         fill="#71717a"
                         fontSize={11}
-                        formatter={(val: unknown) => "₹" + Number(val).toLocaleString("en-IN")}
+                        formatter={(val: unknown) => {
+                          const amount = Number(val);
+                          const pct =
+                            categoryTotalAmount > 0
+                              ? Math.round((amount / categoryTotalAmount) * 100)
+                              : 0;
+                          return `₹${amount.toLocaleString("en-IN")} • ${pct}%`;
+                        }}
                       />
                     </Bar>
                   </BarChart>
