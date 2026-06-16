@@ -34,6 +34,8 @@ import {
   updateOwnClaimAction,
 } from "@/modules/claims/actions";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
+import { SupabaseVerificationRepository } from "@/modules/claims/repositories/SupabaseVerificationRepository";
+import { VerificationPanel } from "@/modules/claims/ui/verification-panel";
 import { ClaimRejectWithReasonForm } from "@/modules/claims/ui/claim-reject-with-reason-form";
 import { ClaimDecisionActionForm } from "@/modules/claims/ui/claim-decision-action-form";
 import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
@@ -412,6 +414,28 @@ function EvidenceGallerySkeleton() {
 
 function FinanceEditClaimSkeleton() {
   return <div className="h-8 w-24 animate-pulse rounded-xl bg-muted/60" />;
+}
+
+async function ClaimVerificationSection({ claimId, canAct }: { claimId: string; canAct: boolean }) {
+  const verificationRepository = new SupabaseVerificationRepository();
+  const summaryResult = await verificationRepository.getClaimVerificationSummary(claimId);
+
+  return (
+    <VerificationPanel
+      claimId={claimId}
+      summary={summaryResult.errorMessage ? null : summaryResult.data}
+      canAct={canAct}
+    />
+  );
+}
+
+function ClaimVerificationSkeleton() {
+  return (
+    <section className="rounded-2xl border border-zinc-200/80 bg-white/80 p-5 dark:border-zinc-800/80 dark:bg-zinc-950/60">
+      <div className="h-3 w-28 animate-pulse rounded-md bg-muted/60" />
+      <div className="mt-4 h-24 w-full animate-pulse rounded-lg bg-muted/60" />
+    </section>
+  );
 }
 
 async function ClaimAuditHistorySection({ claimId }: { claimId: string }) {
@@ -1140,6 +1164,12 @@ async function ClaimDetailCore({
               </AccordionItem>
             </Accordion>
           </section>
+
+          {canViewAsFinance && claim.detailType === "expense" ? (
+            <Suspense fallback={<ClaimVerificationSkeleton />}>
+              <ClaimVerificationSection claimId={claim.id} canAct={canEditFinanceClaim} />
+            </Suspense>
+          ) : null}
 
           <section className="bg-card border border-border/50 shadow-sm rounded-xl p-6 md:p-8 flex flex-col gap-6">
             <div>

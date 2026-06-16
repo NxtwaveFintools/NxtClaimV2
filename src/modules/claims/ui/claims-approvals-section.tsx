@@ -9,6 +9,7 @@ import {
 } from "@/core/domain/claims/GetPendingApprovalsService";
 import { logger } from "@/core/infra/logging/logger";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
+import { SupabaseVerificationRepository } from "@/modules/claims/repositories/SupabaseVerificationRepository";
 import { type ClaimsFilterBarExportScope } from "@/modules/claims/ui/claims-filter-bar";
 import { MyClaimsPaginationControls } from "@/modules/claims/ui/my-claims-pagination-controls";
 
@@ -174,6 +175,15 @@ export async function ClaimsApprovalsSection({
   const rows = Array.from(new Map(approvalsResult.data.map((claim) => [claim.id, claim])).values());
   const approvalsSummaryText = `Showing ${rows.length} of ${approvalsResult.totalCount} claims`;
 
+  // AI verification badges are finance-facing only.
+  const aiVerdictsResult =
+    approvalScope === "finance"
+      ? await new SupabaseVerificationRepository().getLatestVerdictsByClaimIds(
+          rows.map((row) => row.id),
+        )
+      : { data: {}, errorMessage: null };
+  const aiVerdicts = aiVerdictsResult.data;
+
   return (
     <>
       <Suspense fallback={<FilterBarSkeleton />}>
@@ -243,6 +253,7 @@ export async function ClaimsApprovalsSection({
                   formattedSubmittedAt: claim.formattedSubmittedAt,
                   formattedHodActionDate: claim.formattedHodActionDate,
                   formattedFinanceActionDate: claim.formattedFinanceActionDate,
+                  aiVerdict: aiVerdicts[claim.id] ?? null,
                 }))}
                 actionableIds={rows
                   .filter((row) => {

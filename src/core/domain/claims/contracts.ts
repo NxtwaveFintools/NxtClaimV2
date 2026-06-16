@@ -444,7 +444,10 @@ export type ClaimAuditActionType =
   | "L2_MARK_PAID"
   | "FINANCE_EDITED"
   | "ADMIN_SOFT_DELETED"
-  | "ADMIN_PAYMENT_MODE_OVERRIDDEN";
+  | "ADMIN_PAYMENT_MODE_OVERRIDDEN"
+  | "AI_VERIFICATION_COMPLETED"
+  | "AI_VERIFICATION_OVERRIDDEN"
+  | "AI_VERIFICATION_RERUN";
 
 export type ClaimAuditLogRecord = {
   id: string;

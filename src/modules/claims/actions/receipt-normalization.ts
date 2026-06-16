@@ -132,6 +132,32 @@ export function computeReceiptAmounts(extracted: ExtractedAmounts): ComputedAmou
   return { basicAmount, cgstAmount, sgstAmount, igstAmount, totalAmount, taxTotal, mathConsistent };
 }
 
+/**
+ * Canonical bill/invoice number for comparison: uppercased, with all non-
+ * alphanumeric characters stripped (leading '#', hyphens, slashes, spaces).
+ * "#RD-177 / 66" and "rd17766" both normalize to "RD17766". Returns null for
+ * empty/whitespace input.
+ */
+export function normalizeBillNo(value: string | null): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return normalized.length > 0 ? normalized : null;
+}
+
+/**
+ * Canonical GST registration number for comparison: uppercased, whitespace and
+ * punctuation stripped. Returns null for empty/whitespace input.
+ */
+export function normalizeGstNumber(value: string | null): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return normalized.length > 0 ? normalized : null;
+}
+
 export type ConfidenceInputs = {
   mathConsistent: boolean;
   hasTransactionDate: boolean;
