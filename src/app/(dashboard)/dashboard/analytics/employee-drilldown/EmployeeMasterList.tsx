@@ -203,7 +203,7 @@ export function EmployeeMasterList({
                               {row.employeeName}
                             </span>
                             <span className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                              {row.claimCount} Claims Pending
+                              {row.claimCount} Claims
                             </span>
                           </div>
                         </div>

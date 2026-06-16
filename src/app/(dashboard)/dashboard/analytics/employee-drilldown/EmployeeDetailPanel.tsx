@@ -159,6 +159,32 @@ export function EmployeeDetailPanel({
     );
   }
 
+  let kpiTitle = "TOTAL AMOUNT";
+  let kpiSub = "total claims";
+
+  if (status) {
+    const s = status.toLowerCase();
+    if (s.includes("submitted - awaiting hod")) {
+      kpiTitle = "PENDING AMOUNT";
+      kpiSub = "awaiting HOD";
+    } else if (s.includes("hod approved")) {
+      kpiTitle = "HOD APPROVED AMOUNT";
+      kpiSub = "awaiting finance";
+    } else if (s.includes("finance approved")) {
+      kpiTitle = "PROCESSING AMOUNT";
+      kpiSub = "payment under process";
+    } else if (s.includes("payment done") || s.includes("closed")) {
+      kpiTitle = "SETTLED AMOUNT";
+      kpiSub = "settled";
+    } else if (s.includes("rejected")) {
+      kpiTitle = "REJECTED AMOUNT";
+      kpiSub = "rejected";
+    } else {
+      kpiTitle = "PENDING AMOUNT";
+      kpiSub = "in queue";
+    }
+  }
+
   return (
     <div className={shellClassName}>
       {/* Header */}
@@ -173,7 +199,7 @@ export function EmployeeDetailPanel({
         <div className="group relative overflow-hidden rounded-2xl border border-zinc-200/60 bg-white/70 p-5 transition-all hover:bg-white dark:border-zinc-800/50 dark:bg-zinc-800/30 dark:hover:bg-zinc-800/50">
           <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-sky-500/10 blur-2xl transition-all group-hover:bg-sky-500/20" />
           <h4 className="text-[10px] font-bold uppercase tracking-widest text-sky-600 dark:text-sky-400">
-            Total Pending Claims
+            {kpiTitle}
           </h4>
           <div className="mt-3 flex items-end gap-2">
             <span className="font-mono text-3xl font-bold text-zinc-900 dark:text-white">
@@ -185,7 +211,7 @@ export function EmployeeDetailPanel({
             <span className="text-emerald-600 dark:text-emerald-400">
               {totalCategoryCount} Claims
             </span>{" "}
-            in queue
+            {kpiSub}
           </div>
         </div>
 
