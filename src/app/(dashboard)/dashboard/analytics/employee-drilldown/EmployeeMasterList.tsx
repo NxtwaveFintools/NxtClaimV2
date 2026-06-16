@@ -155,7 +155,6 @@ export function EmployeeMasterList({
       <div className="flex w-full gap-4">
         {/* Left Column: Employee List */}
         <div className="w-[300px] shrink-0 space-y-4">
-          <h3 className="text-xs font-bold tracking-wider text-zinc-500 uppercase">Leaderboard</h3>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
             <input
