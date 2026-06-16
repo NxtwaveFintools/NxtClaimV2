@@ -113,7 +113,7 @@ export function EmployeeMasterList({
   return (
     <div className="mt-8 w-full space-y-6">
       {/* Header */}
-      <div className="flex flex-row items-center justify-between gap-4 rounded-xl border border-zinc-200/60 bg-white/60 p-6 shadow-sm backdrop-blur-xl dark:border-zinc-800/50 dark:bg-zinc-900/40 dark:shadow-2xl">
+      <div className="flex flex-row items-center justify-between gap-4 rounded-xl border border-zinc-200/50 bg-white/60 p-6 shadow-sm backdrop-blur-xl dark:border-zinc-800/40 dark:bg-zinc-900/40 dark:shadow-2xl">
         <div>
           <h2 className="flex items-center gap-2 text-2xl font-bold text-zinc-900 dark:text-white">
             <TrendingUp className="h-6 w-6 text-sky-500" />
@@ -154,7 +154,7 @@ export function EmployeeMasterList({
       {/* Main layout */}
       <div className="flex w-full gap-4">
         {/* Left Column: Employee List */}
-        <div className="w-[300px] shrink-0 space-y-4">
+        <div className="w-[280px] shrink-0 space-y-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
             <input
@@ -165,7 +165,7 @@ export function EmployeeMasterList({
             />
           </div>
 
-          <div className="relative flex flex-col overflow-hidden rounded-xl border border-zinc-200/60 bg-white/60 shadow-sm backdrop-blur-xl dark:border-zinc-800/50 dark:bg-zinc-900/30 dark:shadow-2xl">
+          <div className="relative flex flex-col overflow-hidden rounded-xl border border-zinc-200/50 bg-white/60 shadow-sm backdrop-blur-xl dark:border-zinc-800/40 dark:bg-zinc-900/30 dark:shadow-2xl">
             {isPending && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/50 backdrop-blur-sm dark:bg-zinc-950/50">
                 <Loader2 className="h-8 w-8 animate-spin text-sky-500" />
@@ -187,10 +187,10 @@ export function EmployeeMasterList({
                       <button
                         onClick={() => setSelectedEmployeeId(row.employeeId)}
                         className={
-                          "group relative flex w-full items-center justify-between px-4 py-3 transition-colors " +
+                          "group relative flex w-full items-center justify-between px-4 py-2.5 transition-colors " +
                           (isSelected
-                            ? "rounded-md border border-sky-500 bg-sky-50 dark:bg-sky-500/10"
-                            : "border border-transparent border-b-zinc-200 hover:bg-zinc-50 dark:border-b-zinc-800/50 dark:hover:bg-zinc-800/30")
+                            ? "rounded-md border border-sky-500/50 bg-sky-50 dark:bg-sky-500/10"
+                            : "border border-transparent border-b-zinc-200/60 hover:bg-zinc-50 dark:border-b-zinc-800/50 dark:hover:bg-zinc-800/30")
                         }
                       >
                         <div className="flex min-w-0 flex-1 items-center gap-4">
@@ -199,7 +199,7 @@ export function EmployeeMasterList({
                           </div>
 
                           <div className="flex min-w-0 flex-col items-start text-left">
-                            <span className="block w-full truncate font-semibold text-zinc-900 dark:text-white">
+                            <span className="block w-full truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">
                               {row.employeeName}
                             </span>
                             <span className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
@@ -210,10 +210,10 @@ export function EmployeeMasterList({
 
                         <div className="pl-3 shrink-0">
                           <span
-                            className={`font-mono text-sm font-bold ${
+                            className={`font-mono text-sm font-semibold ${
                               isSelected
                                 ? "text-sky-600 dark:text-sky-400"
-                                : "text-emerald-600 dark:text-emerald-400"
+                                : "text-zinc-600 dark:text-zinc-400"
                             }`}
                           >
                             {formatCurrency(row.totalAmount)}
@@ -228,7 +228,7 @@ export function EmployeeMasterList({
 
             {/* Pagination */}
             {totalCount > 0 && (
-              <div className="flex items-center justify-between border-t border-zinc-200 bg-zinc-50/50 p-4 text-xs font-medium text-zinc-500 dark:border-zinc-800/50 dark:bg-black/20 dark:text-zinc-400">
+              <div className="flex items-center justify-between border-t border-zinc-200/60 bg-zinc-50/50 p-4 text-xs font-medium text-zinc-500 dark:border-zinc-800/50 dark:bg-black/20 dark:text-zinc-400">
                 <span>
                   {(page - 1) * limit + 1} - {Math.min(page * limit, totalCount)} of {totalCount}
                 </span>

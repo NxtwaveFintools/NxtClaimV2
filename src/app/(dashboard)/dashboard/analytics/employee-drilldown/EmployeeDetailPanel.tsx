@@ -44,6 +44,36 @@ function CategoryTooltip({ active, payload }: { active?: boolean; payload?: Tool
   return null;
 }
 
+function ShareBar({ pct, colorClass }: { pct: number; colorClass: string }) {
+  const width = Math.min(100, Math.max(0, pct * 100));
+
+  return (
+    <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200/70 dark:bg-zinc-700/40">
+      <div className={`h-full rounded-full ${colorClass}`} style={{ width: `${width}%` }} />
+    </div>
+  );
+}
+
+function CategoryTick({
+  x,
+  y,
+  payload,
+}: {
+  x?: number;
+  y?: number;
+  payload?: { value?: string | number };
+}) {
+  const full = String(payload?.value ?? "");
+  const label = full.length > 18 ? `${full.slice(0, 17)}…` : full;
+
+  return (
+    <text x={x} y={y} dy={4} textAnchor="end" fill="#71717a" fontSize={11} fontWeight={600}>
+      <title>{full}</title>
+      {label}
+    </text>
+  );
+}
+
 export function EmployeeDetailPanel({
   employeeId,
   employeeName,
@@ -105,9 +135,9 @@ export function EmployeeDetailPanel({
     0,
   );
 
-  const sortedCategories = [...(detail?.categoryBreakdown || [])].sort(
-    (a, b) => (b.amount || 0) - (a.amount || 0),
-  );
+  const sortedCategories = [...(detail?.categoryBreakdown || [])]
+    .filter((cat) => cat.amount && cat.amount > 0)
+    .sort((a, b) => (b.amount || 0) - (a.amount || 0));
 
   const chartHeight = Math.max(280, (sortedCategories.length || 0) * 52);
 
@@ -185,18 +215,26 @@ export function EmployeeDetailPanel({
     }
   }
 
+  const total = detail.totalAmount || 0;
+  const expenseShare = total > 0 ? detail.expenseAmount / total : 0;
+  const advanceShare = total > 0 ? detail.advanceAmount / total : 0;
+
   return (
     <div className={shellClassName}>
       {/* Header */}
-      <div className="border-b border-zinc-200 pb-6 dark:border-zinc-800/50">
+      <div className="border-b border-zinc-200/60 pb-5 dark:border-zinc-800/50">
         <h3 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
           {employeeName || "Unknown Employee"}
         </h3>
+        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          {totalCategoryCount} {totalCategoryCount === 1 ? "Claim" : "Claims"} •{" "}
+          {formatCurrency(detail.totalAmount)} Total
+        </p>
       </div>
 
       {/* KPI Strip */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="group relative overflow-hidden rounded-2xl border border-zinc-200/60 bg-white/70 p-5 transition-all hover:bg-white dark:border-zinc-800/50 dark:bg-zinc-800/30 dark:hover:bg-zinc-800/50">
+        <div className="group relative overflow-hidden rounded-2xl border border-zinc-200/50 bg-white/70 p-5 transition-all hover:bg-white dark:border-zinc-800/40 dark:bg-zinc-800/30 dark:hover:bg-zinc-800/50">
           <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-sky-500/10 blur-2xl transition-all group-hover:bg-sky-500/20" />
           <h4 className="text-[10px] font-bold uppercase tracking-widest text-sky-600 dark:text-sky-400">
             {kpiTitle}
@@ -205,6 +243,10 @@ export function EmployeeDetailPanel({
             <span className="font-mono text-3xl font-bold text-zinc-900 dark:text-white">
               <CountUp start={0} end={detail.totalAmount} duration={2} separator="," prefix="₹" />
             </span>
+          </div>
+          <div className="mt-3 flex h-1.5 w-full overflow-hidden rounded-full bg-zinc-200/70 dark:bg-zinc-700/40">
+            <div className="h-full bg-sky-500" style={{ width: `${expenseShare * 100}%` }} />
+            <div className="h-full bg-purple-500" style={{ width: `${advanceShare * 100}%` }} />
           </div>
           <div className="mt-3 flex items-center gap-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
             <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
@@ -215,7 +257,7 @@ export function EmployeeDetailPanel({
           </div>
         </div>
 
-        <div className="group relative overflow-hidden rounded-2xl border border-zinc-200/60 bg-white/70 p-5 transition-all hover:bg-white dark:border-zinc-800/50 dark:bg-zinc-800/30 dark:hover:bg-zinc-800/50">
+        <div className="group relative overflow-hidden rounded-2xl border border-zinc-200/50 bg-white/70 p-5 transition-all hover:bg-white dark:border-zinc-800/40 dark:bg-zinc-800/30 dark:hover:bg-zinc-800/50">
           <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-emerald-500/10 blur-2xl transition-all group-hover:bg-emerald-500/20" />
           <h4 className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
             Expense Claims
@@ -225,12 +267,13 @@ export function EmployeeDetailPanel({
               <CountUp start={0} end={detail.expenseAmount} duration={2} separator="," prefix="₹" />
             </span>
           </div>
+          <ShareBar pct={expenseShare} colorClass="bg-sky-500" />
           <div className="mt-3 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-            Reimbursements
+            Reimbursements • {Math.round(expenseShare * 100)}% of total
           </div>
         </div>
 
-        <div className="group relative overflow-hidden rounded-2xl border border-zinc-200/60 bg-white/70 p-5 transition-all hover:bg-white dark:border-zinc-800/50 dark:bg-zinc-800/30 dark:hover:bg-zinc-800/50">
+        <div className="group relative overflow-hidden rounded-2xl border border-zinc-200/50 bg-white/70 p-5 transition-all hover:bg-white dark:border-zinc-800/40 dark:bg-zinc-800/30 dark:hover:bg-zinc-800/50">
           <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-purple-500/10 blur-2xl transition-all group-hover:bg-purple-500/20" />
           <h4 className="text-[10px] font-bold uppercase tracking-widest text-purple-600 dark:text-purple-400">
             Advance Claims
@@ -240,8 +283,9 @@ export function EmployeeDetailPanel({
               <CountUp start={0} end={detail.advanceAmount} duration={2} separator="," prefix="₹" />
             </span>
           </div>
+          <ShareBar pct={advanceShare} colorClass="bg-purple-500" />
           <div className="mt-3 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-            Pre-approved funds
+            Pre-approved • {Math.round(advanceShare * 100)}% of total
           </div>
         </div>
       </div>
@@ -249,7 +293,7 @@ export function EmployeeDetailPanel({
       {/* Chart + Insights */}
       <div className="grid min-h-0 grid-cols-1 gap-6 xl:grid-cols-4">
         {/* Chart */}
-        <div className="min-w-0 overflow-hidden rounded-2xl border border-zinc-200/60 bg-white/70 p-5 dark:border-zinc-800/50 dark:bg-zinc-800/30 xl:col-span-3">
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-zinc-200/50 bg-white/70 p-5 dark:border-zinc-800/40 dark:bg-zinc-800/30 xl:col-span-3">
           <h4 className="mb-4 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
             <BarChart3 className="h-4 w-4 text-sky-500" />
             Expense Category Distribution
@@ -270,11 +314,7 @@ export function EmployeeDetailPanel({
                       type="category"
                       axisLine={false}
                       tickLine={false}
-                      tick={{
-                        fill: "#71717a",
-                        fontSize: 11,
-                        fontWeight: 600,
-                      }}
+                      tick={<CategoryTick />}
                       width={130}
                     />
                     <Tooltip cursor={{ fill: "rgba(0,0,0,0.04)" }} content={<CategoryTooltip />} />
@@ -299,16 +339,16 @@ export function EmployeeDetailPanel({
         </div>
 
         {/* Insights */}
-        <div className="flex min-w-0 flex-col rounded-2xl border border-zinc-200/60 bg-white/70 p-5 dark:border-zinc-800/50 dark:bg-zinc-800/30 xl:col-span-1">
-          <h4 className="mb-4 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+        <div className="flex min-w-0 flex-col rounded-2xl border border-zinc-200/50 bg-white/70 p-4 dark:border-zinc-800/40 dark:bg-zinc-800/30 xl:col-span-1">
+          <h4 className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
             <HelpCircle className="h-4 w-4 text-pink-500" />
             Category Insights
           </h4>
 
-          <div className="mt-2 flex flex-col gap-5">
-            <div className="flex items-start gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-pink-500/10 text-pink-500 ring-1 ring-pink-500/20">
-                <ArrowUpRight className="h-5 w-5" />
+          <div className="mt-1 flex flex-col gap-3.5">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-pink-500/10 text-pink-500 ring-1 ring-pink-500/20">
+                <ArrowUpRight className="h-4 w-4" />
               </div>
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
@@ -320,9 +360,9 @@ export function EmployeeDetailPanel({
               </div>
             </div>
 
-            <div className="flex items-start gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-500 ring-1 ring-sky-500/20">
-                <FileText className="h-5 w-5" />
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-500/10 text-sky-500 ring-1 ring-sky-500/20">
+                <FileText className="h-4 w-4" />
               </div>
               <div className="min-w-0 overflow-hidden">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
@@ -337,9 +377,9 @@ export function EmployeeDetailPanel({
               </div>
             </div>
 
-            <div className="flex items-start gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/20">
-                <BarChart3 className="h-5 w-5" />
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/20">
+                <BarChart3 className="h-4 w-4" />
               </div>
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
