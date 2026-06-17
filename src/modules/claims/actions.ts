@@ -1217,7 +1217,7 @@ function buildOwnEditPayload(formData: FormData): unknown {
 export async function updateClaimByFinanceAction(input: {
   claimId: string;
   formData: FormData;
-}): Promise<{ ok: boolean; message?: string }> {
+}): Promise<{ ok: boolean; message?: string; duplicateClaimId?: string }> {
   const claimIdParse = financeEditClaimIdSchema.safeParse({ claimId: input.claimId });
 
   if (!claimIdParse.success) {
@@ -1501,6 +1501,31 @@ export async function updateClaimByFinanceAction(input: {
           ...(nextAdvanceDocumentPath ? { supportingDocumentPath: nextAdvanceDocumentPath } : {}),
           totalAmount: parseResult.data.totalAmount,
         };
+
+  if (parseResult.data.detailType === "expense") {
+    const supabase = getServiceRoleSupabaseClient();
+    // claim_id in expense_details is the FK to claims.id — it IS the claim's primary key.
+    const { data: duplicateRow } = await supabase
+      .from("expense_details")
+      .select("claim_id")
+      .eq("bill_no", parseResult.data.billNo)
+      .eq("total_amount", parseResult.data.totalAmount)
+      .eq("transaction_date", parseResult.data.transactionDate)
+      .neq("claim_id", claimIdParse.data.claimId)
+      .limit(1)
+      .maybeSingle();
+
+    const duplicateId: string | null = duplicateRow?.claim_id ?? null;
+
+    if (duplicateId) {
+      await removeClaimFiles(uploadedReplacementPaths);
+      return {
+        ok: false,
+        message: `Duplicate Alert: A claim with this exact Bill Number, Amount, and Date already exists in Claim #${duplicateId}. Update blocked.`,
+        duplicateClaimId: duplicateId,
+      };
+    }
+  }
 
   try {
     const result = await updateClaimByFinanceService.execute({
