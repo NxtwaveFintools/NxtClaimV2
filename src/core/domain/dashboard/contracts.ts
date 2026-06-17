@@ -155,6 +155,42 @@ export type DashboardAnalyticsData = {
   statusBreakdown: DashboardAnalyticsStatusBreakdownItem[];
   paymentModeBreakdown: DashboardAnalyticsPaymentModeBreakdownItem[];
   advancedFilters: DashboardAnalyticsAdvancedFilters;
+  hodDepartmentIds: string[];
+};
+
+export type EmployeeClaimMasterRow = {
+  employeeId: string;
+  employeeName: string;
+  totalAmount: number;
+  claimCount: number;
+  expenseAmount: number;
+  advanceAmount: number;
+};
+
+export type EmployeeClaimCategoryBreakdownItem = {
+  categoryName: string;
+  amount: number;
+  count: number;
+};
+
+export type EmployeeClaimDetailPayload = {
+  totalAmount: number;
+  expenseAmount: number;
+  advanceAmount: number;
+  largestClaimAmount: number;
+  mostFrequentCategory: string | null;
+  categoryBreakdown: EmployeeClaimCategoryBreakdownItem[];
+};
+
+export type EmployeeClaimQueryInput = {
+  hodDepartmentIds: string[];
+  dateFrom: string;
+  dateTo: string;
+  status?: string;
+  departmentId?: string;
+  expenseCategoryId?: string;
+  limit?: number;
+  offset?: number;
 };
 
 export type DashboardAnalyticsRepository = {
@@ -192,11 +228,22 @@ export type DashboardAnalyticsRepository = {
   }>;
   getAnalyticsFilterOptions(input: {
     isAdmin: boolean;
+    isApprover1: boolean;
+    approver1DepartmentIds: string[];
     isApprover2: boolean;
     isFinance: boolean;
     approver2DepartmentIds: string[];
   }): Promise<{
     data: DashboardAnalyticsAdvancedFilters | null;
+    errorMessage: string | null;
+  }>;
+  getEmployeeClaimMaster(input: EmployeeClaimQueryInput & { employeeSearch?: string }): Promise<{
+    data: EmployeeClaimMasterRow[];
+    totalCount: number;
+    errorMessage: string | null;
+  }>;
+  getEmployeeClaimDetail(input: EmployeeClaimQueryInput & { employeeId: string }): Promise<{
+    data: EmployeeClaimDetailPayload | null;
     errorMessage: string | null;
   }>;
 };

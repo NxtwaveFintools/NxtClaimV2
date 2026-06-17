@@ -5,6 +5,7 @@ import { AppShellHeader } from "@/components/app-shell-header";
 import { BackButton } from "@/components/ui/back-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ROUTES } from "@/core/config/route-registry";
+import { DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS } from "@/core/constants/statuses";
 import { GetAnalyticsService } from "@/core/domain/dashboard/GetAnalyticsService";
 import { logger } from "@/core/infra/logging/logger";
 import { formatCurrency } from "@/lib/format";
@@ -12,6 +13,7 @@ import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
 import { normalizeIsoDateOnly } from "@/lib/date-only";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
 import { SupabaseDashboardRepository } from "@/modules/dashboard/repositories/SupabaseDashboardRepository";
+import { EmployeeMasterList } from "./employee-drilldown/EmployeeMasterList";
 
 type SearchParamsValue = string | string[] | undefined;
 
@@ -398,6 +400,90 @@ function AnalyticsKpiSkeleton() {
   );
 }
 
+async function EmployeeDrilldownFetcher({
+  userId,
+  params,
+}: {
+  userId: string;
+  params: AnalyticsQueryParams;
+}) {
+  const analyticsResult = await getCachedAnalyticsResult(
+    userId,
+    params.from,
+    params.to,
+    params.departmentId,
+    params.expenseCategoryId,
+    params.productId,
+    params.financeApproverId,
+  );
+
+  const analytics = analyticsResult.data;
+  if (!analytics) return null;
+
+  const hodDepartmentIds = analytics.hodDepartmentIds;
+  const isAdmin = analytics.scope === "admin";
+
+  if (!isAdmin && hodDepartmentIds.length === 0) return null;
+
+  const dateFrom = params.from ?? analytics.period.dateFrom;
+  const dateTo = params.to ?? analytics.period.dateTo;
+
+  const masterResult = await dashboardRepository.getEmployeeClaimMaster({
+    hodDepartmentIds,
+    dateFrom,
+    dateTo,
+    status: DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
+    limit: 20,
+    offset: 0,
+  });
+
+  return (
+    <EmployeeMasterList
+      initialRows={masterResult.data}
+      initialTotalCount={masterResult.totalCount}
+      expenseCategoryOptions={analytics.advancedFilters.expenseCategories}
+      departmentOptions={analytics.advancedFilters.departments}
+      dateFrom={dateFrom}
+      dateTo={dateTo}
+      isAdmin={isAdmin}
+    />
+  );
+}
+
+function EmployeeDrilldownSkeleton() {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="space-y-1.5">
+          <div className="shimmer-sweep h-6 w-48 rounded-md bg-zinc-200 dark:bg-zinc-800" />
+          <div className="shimmer-sweep h-3 w-64 rounded-md bg-zinc-200 dark:bg-zinc-800" />
+        </div>
+      </div>
+      <div className="h-12 rounded-2xl border border-white/20 bg-white/40 backdrop-blur-md dark:bg-zinc-900/40" />
+      <div className="grid gap-4 xl:grid-cols-[320px_1fr]">
+        {[0, 1].map((i) => (
+          <div
+            key={i}
+            className="overflow-hidden rounded-2xl border border-white/30 bg-white/60 dark:border-zinc-700/40 dark:bg-zinc-900/55"
+          >
+            <div className="border-b border-zinc-200/60 px-4 py-3 dark:border-zinc-700/40">
+              <div className="shimmer-sweep h-3 w-24 rounded-md bg-zinc-200 dark:bg-zinc-800" />
+            </div>
+            <div className="space-y-1 p-3">
+              {Array.from({ length: i === 0 ? 6 : 3 }).map((_, j) => (
+                <div
+                  key={j}
+                  className="shimmer-sweep h-12 rounded-xl bg-zinc-200 dark:bg-zinc-800"
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AnalyticsChartsSkeleton() {
   return (
     <div className="space-y-4">
@@ -480,6 +566,10 @@ export default async function AnalyticsDashboardPage({
 
         <Suspense fallback={<AnalyticsChartsSkeleton />}>
           <AnalyticsChartsFetcher userId={currentUserResult.user.id} params={params} />
+        </Suspense>
+
+        <Suspense fallback={<EmployeeDrilldownSkeleton />}>
+          <EmployeeDrilldownFetcher userId={currentUserResult.user.id} params={params} />
         </Suspense>
       </main>
     </div>

@@ -226,9 +226,11 @@ export class GetAnalyticsService {
       };
     }
 
+    const isApprover1 = viewerContextResult.data.approver1DepartmentIds.length > 0;
     const isApprover2 = viewerContextResult.data.approver2DepartmentIds.length > 0;
     const isFinance = viewerContextResult.data.financeApproverIds.length > 0;
-    const canUseScopeFilters = viewerContextResult.data.isAdmin || isApprover2 || isFinance;
+    const canUseScopeFilters =
+      viewerContextResult.data.isAdmin || isApprover1 || isApprover2 || isFinance;
     const canUseFinanceApproverFilter = viewerContextResult.data.isAdmin || isApprover2;
 
     let advancedFilters = emptyAdvancedFilters();
@@ -236,6 +238,8 @@ export class GetAnalyticsService {
     if (canUseScopeFilters || canUseFinanceApproverFilter) {
       const optionsResult = await this.repository.getAnalyticsFilterOptions({
         isAdmin: viewerContextResult.data.isAdmin,
+        isApprover1,
+        approver1DepartmentIds: viewerContextResult.data.approver1DepartmentIds,
         isApprover2,
         isFinance,
         approver2DepartmentIds: viewerContextResult.data.approver2DepartmentIds,
@@ -449,6 +453,7 @@ export class GetAnalyticsService {
         statusBreakdown: currentPayload.statusBreakdown,
         paymentModeBreakdown: currentPayload.paymentModeBreakdown,
         advancedFilters,
+        hodDepartmentIds: viewerContextResult.data.approver1DepartmentIds,
       },
       errorMessage: null,
     };
@@ -476,6 +481,7 @@ export class GetAnalyticsService {
       statusBreakdown: initializeStatusBreakdown(),
       paymentModeBreakdown: [],
       advancedFilters: emptyAdvancedFilters(),
+      hodDepartmentIds: [],
     };
   }
 }
