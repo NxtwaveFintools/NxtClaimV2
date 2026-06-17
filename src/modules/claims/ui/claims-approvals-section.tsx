@@ -9,7 +9,12 @@ import {
 } from "@/core/domain/claims/GetPendingApprovalsService";
 import { logger } from "@/core/infra/logging/logger";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
-import { SupabaseVerificationRepository } from "@/modules/claims/repositories/SupabaseVerificationRepository";
+import {
+  isVerificationBadgeState,
+  SupabaseVerificationRepository,
+  type VerificationBadgeState,
+} from "@/modules/claims/repositories/SupabaseVerificationRepository";
+import { VerificationFilterChips } from "@/modules/claims/ui/verification-filter-chips";
 import { type ClaimsFilterBarExportScope } from "@/modules/claims/ui/claims-filter-bar";
 import { MyClaimsPaginationControls } from "@/modules/claims/ui/my-claims-pagination-controls";
 
@@ -155,34 +160,52 @@ export async function ClaimsApprovalsSection({
   const previousCursorToken = previousCursor ?? (cursor ? "__first__" : null);
   const approvalScope = viewerContext.activeScope;
 
+  // AI verdict filter (finance default queue only) — parsed from the URL and merged in.
+  const aiVerdictParam = firstParamValue(searchParams.ai_verdict);
+  const aiVerdictFilter =
+    approvalScope === "finance" &&
+    dataMode === "default" &&
+    isVerificationBadgeState(aiVerdictParam)
+      ? aiVerdictParam
+      : undefined;
+  const effectiveFilters: GetMyClaimsFilters = aiVerdictFilter
+    ? { ...filters, aiVerdict: aiVerdictFilter }
+    : filters;
+
   const approvalsResult =
     dataMode === "finance_hod_pending"
       ? await pendingApprovalsService.executeFinanceHodPendingObservability({
           userId,
           cursor,
           limit: PAGE_SIZE,
-          filters,
+          filters: effectiveFilters,
           viewerContext,
         })
       : await pendingApprovalsService.execute({
           userId,
           cursor,
           limit: PAGE_SIZE,
-          filters,
+          filters: effectiveFilters,
           viewerContext,
         });
 
   const rows = Array.from(new Map(approvalsResult.data.map((claim) => [claim.id, claim])).values());
   const approvalsSummaryText = `Showing ${rows.length} of ${approvalsResult.totalCount} claims`;
 
-  // AI verification badges are finance-facing only.
-  const aiVerdictsResult =
+  // AI verification is finance-facing only: per-row badges + queue-wide counts.
+  const verificationRepository = new SupabaseVerificationRepository();
+  const [aiVerdictsResult, aiCountsResult] =
     approvalScope === "finance"
-      ? await new SupabaseVerificationRepository().getLatestVerdictsByClaimIds(
-          rows.map((row) => row.id),
-        )
-      : { data: {}, errorMessage: null };
+      ? await Promise.all([
+          verificationRepository.getLatestVerdictsByClaimIds(rows.map((row) => row.id)),
+          verificationRepository.getFinanceQueueVerdictCounts(),
+        ])
+      : [
+          { data: {} as Record<string, VerificationBadgeState>, errorMessage: null },
+          { data: null as Record<VerificationBadgeState, number> | null, errorMessage: null },
+        ];
   const aiVerdicts = aiVerdictsResult.data;
+  const aiCounts = aiCountsResult.data;
 
   return (
     <>
@@ -219,6 +242,9 @@ export async function ClaimsApprovalsSection({
           </div>
         ) : approvalScope === "finance" || approvalScope === "l1" ? (
           <>
+            {approvalScope === "finance" && aiCounts ? (
+              <VerificationFilterChips counts={aiCounts} />
+            ) : null}
             <MyClaimsPaginationControls
               hasNextPage={approvalsResult.hasNextPage}
               currentCursor={cursor}

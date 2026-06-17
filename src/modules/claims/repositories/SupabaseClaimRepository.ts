@@ -3435,6 +3435,35 @@ export class SupabaseClaimRepository implements ClaimRepository {
       normalizedSearch,
     });
 
+    // AI verification verdict filter (finance queue only): restrict to claim ids
+    // whose latest badge matches, via the finance_verification_queue_badge view.
+    if (filters?.aiVerdict) {
+      const { data: verdictRows, error: verdictError } = await client
+        .from("finance_verification_queue_badge")
+        .select("claim_id")
+        .eq("badge_state", filters.aiVerdict);
+      if (verdictError) {
+        return {
+          data: [],
+          nextCursor: null,
+          hasNextPage: false,
+          totalCount: 0,
+          errorMessage: verdictError.message,
+        };
+      }
+      const verdictIds = ((verdictRows ?? []) as { claim_id: string }[]).map((r) => r.claim_id);
+      if (verdictIds.length === 0) {
+        return {
+          data: [],
+          nextCursor: null,
+          hasNextPage: false,
+          totalCount: 0,
+          errorMessage: null,
+        };
+      }
+      query = query.in("claim_id", verdictIds);
+    }
+
     if (decodedCursor) {
       query = query.or(
         `created_at.lt.${decodedCursor.createdAt},and(created_at.eq.${decodedCursor.createdAt},claim_id.lt.${decodedCursor.id})`,

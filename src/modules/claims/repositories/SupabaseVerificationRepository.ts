@@ -24,11 +24,13 @@ export type VerificationRunRow = {
   trigger: VerificationTrigger;
   attempts: number;
   receipt_file_path: string | null;
+  bank_statement_file_path: string | null;
   submitted_values_snapshot: SubmittedSnapshot;
 };
 
 export type VerificationCheckInput = {
   field: string;
+  lane: string;
   submitted_value: string | null;
   extracted_raw: string | null;
   extracted_normalized: string | null;
@@ -90,6 +92,7 @@ export class SupabaseVerificationRepository {
     overallVerdict: string;
     model: string;
     receiptHash: string | null;
+    bankHash: string | null;
     checks: VerificationCheckInput[];
   }): Promise<{ errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
@@ -98,6 +101,7 @@ export class SupabaseVerificationRepository {
       p_overall_verdict: input.overallVerdict,
       p_model: input.model,
       p_receipt_hash: input.receiptHash,
+      p_bank_hash: input.bankHash,
       p_checks: input.checks,
     });
     return { errorMessage: error?.message ?? null };
@@ -158,7 +162,7 @@ export class SupabaseVerificationRepository {
     const { data: checkRows, error: checkError } = await client
       .from("claim_verification_checks")
       .select(
-        "field, submitted_value, extracted_raw, extracted_normalized, verdict, hardness, confidence, tolerance_applied, mismatch_reason",
+        "field, lane, submitted_value, extracted_raw, extracted_normalized, verdict, hardness, confidence, tolerance_applied, mismatch_reason",
       )
       .eq("run_id", run.id);
 
@@ -176,6 +180,7 @@ export class SupabaseVerificationRepository {
         finishedAt: run.finished_at,
         checks: ((checkRows ?? []) as VerificationCheckRow[]).map((c) => ({
           field: c.field,
+          lane: c.lane,
           submittedValue: c.submitted_value,
           extractedRaw: c.extracted_raw,
           extractedNormalized: c.extracted_normalized,
@@ -212,6 +217,54 @@ export class SupabaseVerificationRepository {
       map[row.claim_id] = deriveBadgeState(row.status, row.overall_verdict);
     }
     return { data: map, errorMessage: null };
+  }
+
+  /** Count of finance-queue claims per AI badge state (drives the filter chips). */
+  async getFinanceQueueVerdictCounts(): Promise<{
+    data: Record<VerificationBadgeState, number>;
+    errorMessage: string | null;
+  }> {
+    const empty: Record<VerificationBadgeState, number> = {
+      pending: 0,
+      verified: 0,
+      mismatch: 0,
+      statement_mismatch: 0,
+      needs_review: 0,
+      extraction_failed: 0,
+      no_document: 0,
+    };
+    const client = getServiceRoleSupabaseClient();
+    const { data, error } = await client
+      .from("finance_verification_queue_badge")
+      .select("badge_state");
+    if (error) {
+      return { data: empty, errorMessage: error.message };
+    }
+    const counts = { ...empty };
+    for (const row of (data ?? []) as { badge_state: VerificationBadgeState }[]) {
+      if (row.badge_state in counts) {
+        counts[row.badge_state] += 1;
+      }
+    }
+    return { data: counts, errorMessage: null };
+  }
+
+  /** Claim ids in the finance queue whose latest badge matches `state` (server-side filter). */
+  async getFinanceQueueClaimIdsByVerdict(
+    state: VerificationBadgeState,
+  ): Promise<{ data: string[]; errorMessage: string | null }> {
+    const client = getServiceRoleSupabaseClient();
+    const { data, error } = await client
+      .from("finance_verification_queue_badge")
+      .select("claim_id")
+      .eq("badge_state", state);
+    if (error) {
+      return { data: [], errorMessage: error.message };
+    }
+    return {
+      data: ((data ?? []) as { claim_id: string }[]).map((r) => r.claim_id),
+      errorMessage: null,
+    };
   }
 
   /** Mark-verified-anyway: records an override audit entry attributed to the finance user. */
@@ -258,6 +311,7 @@ type VerificationRunSummaryRow = {
 
 type VerificationCheckRow = {
   field: string;
+  lane: string;
   submitted_value: string | null;
   extracted_raw: string | null;
   extracted_normalized: string | null;
@@ -270,6 +324,7 @@ type VerificationCheckRow = {
 
 export type VerificationCheckRecord = {
   field: string;
+  lane: string;
   submittedValue: string | null;
   extractedRaw: string | null;
   extractedNormalized: string | null;
@@ -294,6 +349,7 @@ export type VerificationBadgeState =
   | "pending"
   | "verified"
   | "mismatch"
+  | "statement_mismatch"
   | "needs_review"
   | "extraction_failed"
   | "no_document";
@@ -304,6 +360,22 @@ type LatestVerificationRow = {
   overall_verdict: string | null;
 };
 
+const VERIFICATION_BADGE_STATES: VerificationBadgeState[] = [
+  "pending",
+  "verified",
+  "mismatch",
+  "statement_mismatch",
+  "needs_review",
+  "extraction_failed",
+  "no_document",
+];
+
+export function isVerificationBadgeState(value: unknown): value is VerificationBadgeState {
+  return (
+    typeof value === "string" && VERIFICATION_BADGE_STATES.includes(value as VerificationBadgeState)
+  );
+}
+
 function deriveBadgeState(status: string, verdict: string | null): VerificationBadgeState {
   if (status === "queued" || status === "running") {
     return "pending";
@@ -311,6 +383,7 @@ function deriveBadgeState(status: string, verdict: string | null): VerificationB
   switch (verdict) {
     case "verified":
     case "mismatch":
+    case "statement_mismatch":
     case "needs_review":
     case "no_document":
       return verdict;

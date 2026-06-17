@@ -1,11 +1,14 @@
 "use client";
 
 import { useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { ShieldCheck, ShieldAlert, ShieldQuestion, FileX, RefreshCw } from "lucide-react";
+import { ShieldCheck, ShieldAlert, ShieldQuestion, FileX, RefreshCw, Wand2 } from "lucide-react";
 import { markClaimVerifiedAction, rerunClaimVerificationAction } from "@/modules/claims/actions";
-import type { VerificationSummary } from "@/modules/claims/repositories/SupabaseVerificationRepository";
+import type {
+  VerificationCheckRecord,
+  VerificationSummary,
+} from "@/modules/claims/repositories/SupabaseVerificationRepository";
 
 type VerificationPanelProps = {
   claimId: string;
@@ -23,6 +26,9 @@ const FIELD_LABELS: Record<string, string> = {
   sgst_amount: "SGST",
   igst_amount: "IGST",
   foreign_currency_code: "Foreign Currency",
+  statement_amount: "Amount",
+  statement_date: "Date",
+  statement_reference: "Reference",
 };
 
 type DisplayState = {
@@ -58,6 +64,15 @@ function resolveDisplayState(summary: VerificationSummary | null): DisplayState 
         sentence: "One or more key fields do not match the receipt. Review highlighted rows.",
         className:
           "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800/50 dark:bg-rose-900/15 dark:text-rose-300",
+        Icon: ShieldAlert,
+      };
+    case "statement_mismatch":
+      return {
+        label: "Statement mismatch",
+        sentence:
+          "The receipt checks out, but the bank statement's amount or date doesn't match. Review the statement rows.",
+        className:
+          "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-800/50 dark:bg-orange-900/15 dark:text-orange-300",
         Icon: ShieldAlert,
       };
     case "needs_review":
@@ -100,11 +115,94 @@ function verdictChipClass(verdict: string): string {
   }
 }
 
+function CheckTable({
+  title,
+  sourceLabel,
+  rows,
+}: {
+  title: string;
+  sourceLabel: string;
+  rows: VerificationCheckRecord[];
+}) {
+  if (rows.length === 0) {
+    return null;
+  }
+  return (
+    <div className="mt-4">
+      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+        {title}
+      </p>
+      <div className="overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-800">
+        <table className="w-full text-left text-xs">
+          <thead className="bg-zinc-50 text-[10px] uppercase tracking-wider text-zinc-400 dark:bg-zinc-900 dark:text-zinc-500">
+            <tr>
+              <th className="px-3 py-2 font-semibold">Field</th>
+              <th className="px-3 py-2 font-semibold">Submitted</th>
+              <th className="px-3 py-2 font-semibold">{sourceLabel}</th>
+              <th className="px-3 py-2 font-semibold">Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((check) => {
+              const isMismatch = check.verdict === "mismatch";
+              return (
+                <tr
+                  key={check.field}
+                  className={`border-t border-zinc-100 dark:border-zinc-800/80 ${
+                    isMismatch ? "bg-rose-50/60 dark:bg-rose-900/10" : ""
+                  }`}
+                >
+                  <td className="px-3 py-2 font-medium text-zinc-700 dark:text-zinc-300">
+                    {FIELD_LABELS[check.field] ?? check.field}
+                  </td>
+                  <td className="px-3 py-2 text-zinc-600 dark:text-zinc-400">
+                    {check.submittedValue ?? "—"}
+                  </td>
+                  <td
+                    className="px-3 py-2 text-zinc-600 dark:text-zinc-400"
+                    title={check.extractedRaw ?? undefined}
+                  >
+                    {check.extractedNormalized ?? check.extractedRaw ?? "—"}
+                  </td>
+                  <td className="px-3 py-2">
+                    <span
+                      className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${verdictChipClass(check.verdict)}`}
+                      title={check.mismatchReason ?? undefined}
+                    >
+                      {check.verdict.replace("_", " ")}
+                      {check.confidence !== null ? ` · ${check.confidence}` : ""}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export function VerificationPanel({ claimId, summary, canAct }: VerificationPanelProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const state = resolveDisplayState(summary);
   const checks = summary?.checks ?? [];
+  const receiptChecks = checks.filter((c) => c.lane !== "bank_statement");
+  const statementChecks = checks.filter((c) => c.lane === "bank_statement");
+  // Offer "apply receipt values" only when there are receipt values that differ.
+  const canApplyReceiptValues =
+    canAct &&
+    receiptChecks.some((c) => c.extractedNormalized !== null) &&
+    (summary?.overallVerdict === "mismatch" || summary?.overallVerdict === "needs_review");
+
+  const openPrefilledEdit = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("edit", "ai");
+    router.push(`${pathname}?${params.toString()}`);
+  };
 
   const runAction = (fn: () => Promise<{ ok: boolean; message?: string }>) => {
     startTransition(async () => {
@@ -134,55 +232,12 @@ export function VerificationPanel({ claimId, summary, canAct }: VerificationPane
 
       <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-300">{state.sentence}</p>
 
-      {checks.length > 0 ? (
-        <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200/80 dark:border-zinc-800">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-zinc-50 text-[10px] uppercase tracking-wider text-zinc-400 dark:bg-zinc-900 dark:text-zinc-500">
-              <tr>
-                <th className="px-3 py-2 font-semibold">Field</th>
-                <th className="px-3 py-2 font-semibold">Submitted</th>
-                <th className="px-3 py-2 font-semibold">Receipt</th>
-                <th className="px-3 py-2 font-semibold">Result</th>
-              </tr>
-            </thead>
-            <tbody>
-              {checks.map((check) => {
-                const isMismatch = check.verdict === "mismatch";
-                return (
-                  <tr
-                    key={check.field}
-                    className={`border-t border-zinc-100 dark:border-zinc-800/80 ${
-                      isMismatch ? "bg-rose-50/60 dark:bg-rose-900/10" : ""
-                    }`}
-                  >
-                    <td className="px-3 py-2 font-medium text-zinc-700 dark:text-zinc-300">
-                      {FIELD_LABELS[check.field] ?? check.field}
-                    </td>
-                    <td className="px-3 py-2 text-zinc-600 dark:text-zinc-400">
-                      {check.submittedValue ?? "—"}
-                    </td>
-                    <td
-                      className="px-3 py-2 text-zinc-600 dark:text-zinc-400"
-                      title={check.extractedRaw ?? undefined}
-                    >
-                      {check.extractedNormalized ?? check.extractedRaw ?? "—"}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span
-                        className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${verdictChipClass(check.verdict)}`}
-                        title={check.mismatchReason ?? undefined}
-                      >
-                        {check.verdict.replace("_", " ")}
-                        {check.confidence !== null ? ` · ${check.confidence}` : ""}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
+      <CheckTable title="Receipt comparison" sourceLabel="Receipt" rows={receiptChecks} />
+      <CheckTable
+        title="Bank statement comparison"
+        sourceLabel="Statement"
+        rows={statementChecks}
+      />
 
       {summary?.receiptFileHash ? (
         <p className="mt-3 text-[11px] leading-5 text-zinc-400 dark:text-zinc-500">
@@ -203,6 +258,17 @@ export function VerificationPanel({ claimId, summary, canAct }: VerificationPane
             <RefreshCw className={`h-3.5 w-3.5 ${isPending ? "animate-spin" : ""}`} />
             Re-run verification
           </button>
+          {canApplyReceiptValues ? (
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={openPrefilledEdit}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 disabled:opacity-50 dark:border-indigo-700/60 dark:bg-indigo-900/20 dark:text-indigo-200 dark:hover:bg-indigo-900/35"
+            >
+              <Wand2 className="h-3.5 w-3.5" />
+              Apply receipt values
+            </button>
+          ) : null}
           {summary && summary.overallVerdict !== "verified" ? (
             <button
               type="button"

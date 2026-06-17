@@ -108,6 +108,7 @@ type FinanceEditClaimFormProps = {
   isEditMode?: boolean;
   canEditPaymentMode?: boolean;
   requireEditReason?: boolean;
+  defaultEditReason?: string;
   presentation?: FinanceEditPresentation;
   showSecondaryAction?: boolean;
   onSuccess?: () => void | Promise<void>;
@@ -204,6 +205,7 @@ export function FinanceEditClaimForm({
   isEditMode = true,
   canEditPaymentMode = false,
   requireEditReason = true,
+  defaultEditReason,
   presentation = "inline-toggle",
   showSecondaryAction = true,
   onSuccess,
@@ -1419,6 +1421,7 @@ export function FinanceEditClaimForm({
                     rows={4}
                     required
                     minLength={5}
+                    defaultValue={defaultEditReason ?? ""}
                     placeholder="Explain why this claim edit is required for audit tracking."
                     className="col-span-full rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                   />

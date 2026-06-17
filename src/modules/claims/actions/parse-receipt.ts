@@ -174,7 +174,7 @@ function extractAllowedCategoryNames(input: FormData): string[] {
   return uniqueNames;
 }
 
-type BankStatementMatchContext = {
+export type BankStatementMatchContext = {
   vendorName: string | null;
   transactionDate: string | null;
   billNo: string | null;
@@ -653,16 +653,31 @@ export async function extractReceiptFromBuffer(params: {
   documentType: "invoice" | "bank_statement";
   allowedCategoryNames: string[];
   now: Date;
-  /** Optional override. When omitted, the invoice instruction is built here
-   * (the verification worker relies on this so it shares the autofill prompt). */
+  /** Optional override. When omitted, the instruction is built here from
+   * documentType (the verification worker relies on this so it shares the
+   * autofill prompts for both invoice and bank-statement extraction). */
   systemInstruction?: string;
+  /** Match context for bank-statement extraction (the submitted claim values
+   * Gemini uses to pick the best-matching settled debit row). */
+  bankStatementMatch?: BankStatementMatchContext;
 }): Promise<ReceiptExtractionOutcome> {
   const systemInstruction =
     params.systemInstruction ??
-    buildInvoiceSystemInstruction(
-      params.allowedCategoryNames,
-      params.now.toISOString().slice(0, 10),
-    );
+    (params.documentType === "bank_statement"
+      ? buildBankStatementSystemInstruction(
+          params.bankStatementMatch ?? {
+            vendorName: null,
+            transactionDate: null,
+            billNo: null,
+            foreignCurrencyCode: null,
+            foreignTotalAmount: null,
+            categoryName: null,
+          },
+        )
+      : buildInvoiceSystemInstruction(
+          params.allowedCategoryNames,
+          params.now.toISOString().slice(0, 10),
+        ));
 
   const client = new GoogleGenAI({ apiKey: serverEnv.GEMINI_API_KEY });
   const generationResult = await generateGeminiContentWithRetry(

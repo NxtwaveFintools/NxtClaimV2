@@ -25,15 +25,21 @@ export const CONFIDENCE_FLOOR = 60;
 
 export type FieldVerdict = "match" | "mismatch" | "fuzzy_match" | "unavailable";
 export type Hardness = "hard" | "soft";
+export type Lane = "receipt" | "bank_statement";
 export type OverallVerdict =
   | "verified"
   | "mismatch"
+  | "statement_mismatch"
   | "needs_review"
   | "extraction_failed"
   | "no_document";
 
+/** Bank statement settlement lag tolerance: submitted date vs statement date. */
+export const BANK_DATE_TOLERANCE_DAYS = 1;
+
 export type FieldCheck = {
   field: string;
+  lane: Lane;
   submittedValue: string | null;
   extractedRaw: string | null;
   extractedNormalized: string | null;
@@ -96,6 +102,7 @@ function compareAmountField(
 ): FieldCheck {
   const base: FieldCheck = {
     field,
+    lane: "receipt",
     submittedValue: moneyString(submitted),
     extractedRaw: moneyString(extracted),
     extractedNormalized: moneyString(extracted),
@@ -124,6 +131,7 @@ function compareBillNo(submitted: string | null, extracted: ReceiptExtractionVie
   const extractedNorm = normalizeBillNo(extracted.billNo);
   const base: FieldCheck = {
     field: "bill_no",
+    lane: "receipt",
     submittedValue: submitted,
     extractedRaw: extracted.billNoRaw ?? extracted.billNo,
     extractedNormalized: extractedNorm,
@@ -150,6 +158,7 @@ function compareBillNo(submitted: string | null, extracted: ReceiptExtractionVie
 function compareDate(submitted: string | null, extracted: ReceiptExtractionView): FieldCheck {
   const base: FieldCheck = {
     field: "transaction_date",
+    lane: "receipt",
     submittedValue: submitted,
     extractedRaw: extracted.dateAsPrinted,
     extractedNormalized: extracted.transactionDate,
@@ -178,6 +187,7 @@ function compareGstNumber(submitted: string | null, extracted: ReceiptExtraction
   const extractedNorm = normalizeGstNumber(extracted.gstNumber);
   const base: FieldCheck = {
     field: "gst_number",
+    lane: "receipt",
     submittedValue: submitted,
     extractedRaw: extracted.gstNumber,
     extractedNormalized: extractedNorm,
@@ -213,6 +223,7 @@ function vendorTokens(value: string): string[] {
 function compareVendor(submitted: string | null, extracted: ReceiptExtractionView): FieldCheck {
   const base: FieldCheck = {
     field: "vendor_name",
+    lane: "receipt",
     submittedValue: submitted,
     extractedRaw: extracted.vendorName,
     extractedNormalized: extracted.vendorName,
@@ -264,6 +275,7 @@ function compareCurrency(
 
   const base: FieldCheck = {
     field: "foreign_currency_code",
+    lane: "receipt",
     submittedValue: submittedCode,
     extractedRaw: extractedCode,
     extractedNormalized: extractedCode,
@@ -349,9 +361,121 @@ export function compareClaim(
   return checks;
 }
 
+// ---------------------------------------------------------------------------
+// Lane 2 — bank statement vs submitted amount/date.
+//
+// The bank-statement extractor (Gemini, documentType="bank_statement") is given
+// the submitted values as match context and returns the single best-matching
+// settled debit. We then confirm that matched row agrees with what was submitted.
+// No FX in v1.1 — amounts compared in document currency.
+// ---------------------------------------------------------------------------
+
+/** The matched bank-statement transaction, projected for comparison. */
+export type BankStatementView = {
+  matchedAmount: number; // settled debit amount of the matched row (0 = no match found)
+  statementDate: string | null; // YYYY-MM-DD of the matched row
+  dateAsPrinted: string | null;
+  reference: string | null; // transaction/UPI reference on the matched row
+  description: string | null; // merchant descriptor on the matched row
+  confidenceScore: number;
+};
+
+function parseIsoDate(value: string | null): number | null {
+  if (typeof value !== "string") return null;
+  const m = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+}
+
+function datesWithinDays(a: string | null, b: string | null, days: number): boolean | null {
+  const ta = parseIsoDate(a);
+  const tb = parseIsoDate(b);
+  if (ta === null || tb === null) return null; // can't compare
+  return Math.abs(ta - tb) <= days * 24 * 60 * 60 * 1000;
+}
+
 /**
- * Tiered roll-up:
- *   any HARD field mismatch            → mismatch
+ * Compare the submitted claim against the matched bank-statement row.
+ * Amount and date are HARD (drive `statement_mismatch`); reference is soft.
+ * When no transaction matched (matchedAmount <= 0), report `unavailable`, not a
+ * mismatch — the statement may simply not contain a clear settled debit.
+ */
+export function compareBankStatement(
+  submitted: SubmittedSnapshot,
+  bank: BankStatementView,
+): FieldCheck[] {
+  const noMatch = !(bank.matchedAmount > 0);
+
+  const amountCheck: FieldCheck = {
+    field: "statement_amount",
+    lane: "bank_statement",
+    submittedValue: moneyString(submitted.total_amount),
+    extractedRaw: noMatch ? null : moneyString(bank.matchedAmount),
+    extractedNormalized: noMatch ? null : moneyString(bank.matchedAmount),
+    verdict: "unavailable",
+    hardness: "hard",
+    confidence: bank.confidenceScore,
+    toleranceApplied: `±${AMOUNT_TOLERANCE}`,
+    mismatchReason: noMatch ? "no matching settled debit found in statement" : null,
+  };
+  if (!noMatch && submitted.total_amount !== null) {
+    amountCheck.verdict = amountsMatch(submitted.total_amount, bank.matchedAmount)
+      ? "match"
+      : "mismatch";
+    if (amountCheck.verdict === "mismatch") {
+      amountCheck.mismatchReason = `submitted ${moneyString(submitted.total_amount)} vs statement ${moneyString(bank.matchedAmount)}`;
+    }
+  }
+
+  const within = datesWithinDays(
+    submitted.transaction_date,
+    bank.statementDate,
+    BANK_DATE_TOLERANCE_DAYS,
+  );
+  const dateCheck: FieldCheck = {
+    field: "statement_date",
+    lane: "bank_statement",
+    submittedValue: submitted.transaction_date,
+    extractedRaw: bank.dateAsPrinted,
+    extractedNormalized: bank.statementDate,
+    verdict: within === null ? "unavailable" : within ? "match" : "mismatch",
+    hardness: "hard",
+    confidence: bank.confidenceScore,
+    toleranceApplied: `±${BANK_DATE_TOLERANCE_DAYS} day (settlement lag)`,
+    mismatchReason:
+      within === false
+        ? `submitted ${submitted.transaction_date} vs statement ${bank.statementDate} (>${BANK_DATE_TOLERANCE_DAYS}d)`
+        : null,
+  };
+
+  const checks: FieldCheck[] = [amountCheck, dateCheck];
+
+  // Transaction reference is a secondary (soft) signal, only when both present.
+  if (submitted.transaction_id && bank.reference) {
+    const subRef = normalizeBillNo(submitted.transaction_id);
+    const stmtRef = normalizeBillNo(bank.reference);
+    checks.push({
+      field: "statement_reference",
+      lane: "bank_statement",
+      submittedValue: submitted.transaction_id,
+      extractedRaw: bank.reference,
+      extractedNormalized: stmtRef,
+      verdict: subRef && stmtRef ? (subRef === stmtRef ? "match" : "mismatch") : "unavailable",
+      hardness: "soft",
+      confidence: bank.confidenceScore,
+      toleranceApplied: "normalized",
+      mismatchReason:
+        subRef && stmtRef && subRef !== stmtRef ? "reference differs from statement" : null,
+    });
+  }
+
+  return checks;
+}
+
+/**
+ * Tiered roll-up across BOTH lanes (pass receipt + statement checks together):
+ *   receipt HARD mismatch              → mismatch          (paying the wrong amount)
+ *   else statement HARD mismatch       → statement_mismatch (receipt ok, bank disagrees)
  *   else any soft signal               → needs_review
  *     (low overall confidence, a soft-field mismatch, or a fuzzy_match carrying
  *      a reason such as a currency disagreement)
@@ -359,9 +483,18 @@ export function compareClaim(
  * Vendor fuzzy_match WITHOUT a reason never triggers needs_review.
  */
 export function rollUpVerdict(checks: FieldCheck[], confidenceScore: number): OverallVerdict {
-  const hasHardMismatch = checks.some((c) => c.hardness === "hard" && c.verdict === "mismatch");
-  if (hasHardMismatch) {
+  const receiptHardMismatch = checks.some(
+    (c) => c.lane === "receipt" && c.hardness === "hard" && c.verdict === "mismatch",
+  );
+  if (receiptHardMismatch) {
     return "mismatch";
+  }
+
+  const statementHardMismatch = checks.some(
+    (c) => c.lane === "bank_statement" && c.hardness === "hard" && c.verdict === "mismatch",
+  );
+  if (statementHardMismatch) {
+    return "statement_mismatch";
   }
 
   const lowConfidence = confidenceScore < CONFIDENCE_FLOOR;

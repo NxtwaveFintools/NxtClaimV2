@@ -101,6 +101,13 @@ export type Database = {
             foreignKeyName: "advance_details_claim_id_fkey";
             columns: ["claim_id"];
             isOneToOne: true;
+            referencedRelation: "finance_verification_queue_badge";
+            referencedColumns: ["claim_id"];
+          },
+          {
+            foreignKeyName: "advance_details_claim_id_fkey";
+            columns: ["claim_id"];
+            isOneToOne: true;
             referencedRelation: "vw_admin_claims_dashboard";
             referencedColumns: ["claim_id"];
           },
@@ -194,6 +201,13 @@ export type Database = {
             foreignKeyName: "bc_claim_details_claim_id_fkey";
             columns: ["claim_id"];
             isOneToOne: false;
+            referencedRelation: "finance_verification_queue_badge";
+            referencedColumns: ["claim_id"];
+          },
+          {
+            foreignKeyName: "bc_claim_details_claim_id_fkey";
+            columns: ["claim_id"];
+            isOneToOne: false;
             referencedRelation: "vw_admin_claims_dashboard";
             referencedColumns: ["claim_id"];
           },
@@ -260,6 +274,13 @@ export type Database = {
             foreignKeyName: "claim_audit_logs_claim_id_fkey";
             columns: ["claim_id"];
             isOneToOne: false;
+            referencedRelation: "finance_verification_queue_badge";
+            referencedColumns: ["claim_id"];
+          },
+          {
+            foreignKeyName: "claim_audit_logs_claim_id_fkey";
+            columns: ["claim_id"];
+            isOneToOne: false;
             referencedRelation: "vw_admin_claims_dashboard";
             referencedColumns: ["claim_id"];
           },
@@ -281,6 +302,7 @@ export type Database = {
           field: string;
           hardness: string;
           id: string;
+          lane: string;
           mismatch_reason: string | null;
           run_id: string;
           submitted_value: string | null;
@@ -295,6 +317,7 @@ export type Database = {
           field: string;
           hardness?: string;
           id?: string;
+          lane?: string;
           mismatch_reason?: string | null;
           run_id: string;
           submitted_value?: string | null;
@@ -309,6 +332,7 @@ export type Database = {
           field?: string;
           hardness?: string;
           id?: string;
+          lane?: string;
           mismatch_reason?: string | null;
           run_id?: string;
           submitted_value?: string | null;
@@ -335,6 +359,8 @@ export type Database = {
       claim_verification_runs: {
         Row: {
           attempts: number;
+          bank_statement_file_hash: string | null;
+          bank_statement_file_path: string | null;
           claim_id: string;
           created_at: string;
           error_detail: string | null;
@@ -353,6 +379,8 @@ export type Database = {
         };
         Insert: {
           attempts?: number;
+          bank_statement_file_hash?: string | null;
+          bank_statement_file_path?: string | null;
           claim_id: string;
           created_at?: string;
           error_detail?: string | null;
@@ -371,6 +399,8 @@ export type Database = {
         };
         Update: {
           attempts?: number;
+          bank_statement_file_hash?: string | null;
+          bank_statement_file_path?: string | null;
           claim_id?: string;
           created_at?: string;
           error_detail?: string | null;
@@ -394,6 +424,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "claims";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "claim_verification_runs_claim_id_fkey";
+            columns: ["claim_id"];
+            isOneToOne: false;
+            referencedRelation: "finance_verification_queue_badge";
+            referencedColumns: ["claim_id"];
           },
           {
             foreignKeyName: "claim_verification_runs_claim_id_fkey";
@@ -719,6 +756,13 @@ export type Database = {
             foreignKeyName: "claims_analytics_snapshot_claim_id_fkey";
             columns: ["claim_id"];
             isOneToOne: true;
+            referencedRelation: "finance_verification_queue_badge";
+            referencedColumns: ["claim_id"];
+          },
+          {
+            foreignKeyName: "claims_analytics_snapshot_claim_id_fkey";
+            columns: ["claim_id"];
+            isOneToOne: true;
             referencedRelation: "vw_admin_claims_dashboard";
             referencedColumns: ["claim_id"];
           },
@@ -946,6 +990,13 @@ export type Database = {
             isOneToOne: true;
             referencedRelation: "claims";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "expense_details_claim_id_fkey";
+            columns: ["claim_id"];
+            isOneToOne: true;
+            referencedRelation: "finance_verification_queue_badge";
+            referencedColumns: ["claim_id"];
           },
           {
             foreignKeyName: "expense_details_claim_id_fkey";
@@ -1493,6 +1544,13 @@ export type Database = {
             foreignKeyName: "claim_verification_runs_claim_id_fkey";
             columns: ["claim_id"];
             isOneToOne: false;
+            referencedRelation: "finance_verification_queue_badge";
+            referencedColumns: ["claim_id"];
+          },
+          {
+            foreignKeyName: "claim_verification_runs_claim_id_fkey";
+            columns: ["claim_id"];
+            isOneToOne: false;
             referencedRelation: "vw_admin_claims_dashboard";
             referencedColumns: ["claim_id"];
           },
@@ -1504,6 +1562,13 @@ export type Database = {
             referencedColumns: ["claim_id"];
           },
         ];
+      };
+      finance_verification_queue_badge: {
+        Row: {
+          badge_state: string | null;
+          claim_id: string | null;
+        };
+        Relationships: [];
       };
       vw_admin_claims_dashboard: {
         Row: {
@@ -1785,6 +1850,7 @@ export type Database = {
       };
       complete_verification_run: {
         Args: {
+          p_bank_hash: string;
           p_checks: Json;
           p_model: string;
           p_overall_verdict: string;
@@ -1798,6 +1864,8 @@ export type Database = {
         Args: { p_limit: number };
         Returns: {
           attempts: number;
+          bank_statement_file_hash: string | null;
+          bank_statement_file_path: string | null;
           claim_id: string;
           created_at: string;
           error_detail: string | null;

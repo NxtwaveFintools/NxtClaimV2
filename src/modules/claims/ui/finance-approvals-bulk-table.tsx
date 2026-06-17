@@ -60,6 +60,10 @@ const AI_CHECK_BADGE: Record<VerificationBadgeState, { label: string; className:
     label: "Mismatch",
     className: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
   },
+  statement_mismatch: {
+    label: "Statement mismatch",
+    className: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+  },
   needs_review: {
     label: "Needs review",
     className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200",

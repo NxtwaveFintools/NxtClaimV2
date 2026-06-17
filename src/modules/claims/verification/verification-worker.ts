@@ -8,8 +8,10 @@ import {
   type VerificationRunRow,
 } from "@/modules/claims/repositories/SupabaseVerificationRepository";
 import {
+  compareBankStatement,
   compareClaim,
   rollUpVerdict,
+  type BankStatementView,
   type FieldCheck,
   type ReceiptExtractionView,
 } from "@/modules/claims/verification/comparison-engine";
@@ -36,6 +38,7 @@ function isRetryableGeminiError(error: unknown): boolean {
 function toCheckInput(check: FieldCheck): VerificationCheckInput {
   return {
     field: check.field,
+    lane: check.lane,
     submitted_value: check.submittedValue,
     extracted_raw: check.extractedRaw,
     extracted_normalized: check.extractedNormalized,
@@ -44,6 +47,22 @@ function toCheckInput(check: FieldCheck): VerificationCheckInput {
     confidence: check.confidence,
     tolerance_applied: check.toleranceApplied,
     mismatch_reason: check.mismatchReason,
+  };
+}
+
+/** A placeholder statement check when the bank statement couldn't be read. */
+function unavailableStatementCheck(reason: string): FieldCheck {
+  return {
+    field: "statement_amount",
+    lane: "bank_statement",
+    submittedValue: null,
+    extractedRaw: null,
+    extractedNormalized: null,
+    verdict: "unavailable",
+    hardness: "hard",
+    confidence: null,
+    toleranceApplied: null,
+    mismatchReason: reason,
   };
 }
 
@@ -82,89 +101,158 @@ export class VerificationWorker {
   }
 
   private async processRun(run: VerificationRunRow): Promise<void> {
-    // No receipt on record → no_document verdict, no extraction attempt.
-    if (!run.receipt_file_path) {
+    const hasReceipt = Boolean(run.receipt_file_path);
+    const hasBank = Boolean(run.bank_statement_file_path);
+
+    // Neither document on record → nothing to verify.
+    if (!hasReceipt && !hasBank) {
       await this.repository.completeVerificationRun({
         runId: run.id,
         overallVerdict: "no_document",
         model: serverEnv.GEMINI_MODEL,
         receiptHash: null,
+        bankHash: null,
         checks: [],
       });
       return;
     }
 
-    const download = await this.repository.downloadClaimEvidence(run.receipt_file_path);
-    if (download.errorMessage || !download.data) {
-      await this.repository.failVerificationRun({
-        runId: run.id,
-        error: `download failed: ${download.errorMessage ?? "no data"}`,
-        retryable: false,
-      });
-      return;
+    const checks: FieldCheck[] = [];
+    let receiptHash: string | null = null;
+    let bankHash: string | null = null;
+    let confidence = 0;
+
+    // ---- Lane 1: receipt (primary — its failure fails the whole run) ----
+    if (hasReceipt) {
+      const download = await this.repository.downloadClaimEvidence(run.receipt_file_path as string);
+      if (download.errorMessage || !download.data) {
+        await this.repository.failVerificationRun({
+          runId: run.id,
+          error: `receipt download failed: ${download.errorMessage ?? "no data"}`,
+          retryable: false,
+        });
+        return;
+      }
+      receiptHash = createHash("sha256").update(download.data.buffer).digest("hex");
+
+      let extraction;
+      try {
+        extraction = await extractReceiptFromBuffer({
+          buffer: download.data.buffer,
+          mimeType: download.data.mimeType,
+          documentType: "invoice",
+          allowedCategoryNames: [],
+          now: new Date(),
+        });
+      } catch (error) {
+        const retryable = isRetryableGeminiError(error);
+        logger.warn("claims.verification.extraction_error", {
+          runId: run.id,
+          claimId: run.claim_id,
+          retryable,
+          errorMessage: error instanceof Error ? error.message : "unknown extraction error",
+        });
+        await this.repository.failVerificationRun({
+          runId: run.id,
+          error: error instanceof Error ? error.message : "extraction error",
+          retryable,
+        });
+        return;
+      }
+
+      if (!extraction.ok) {
+        await this.repository.failVerificationRun({
+          runId: run.id,
+          error: `extraction ${extraction.reason}`,
+          retryable: false,
+        });
+        return;
+      }
+
+      const view: ReceiptExtractionView = {
+        billNo: extraction.normalized.billNo,
+        billNoRaw: extraction.raw.billNo,
+        transactionDate: extraction.normalized.transactionDate,
+        dateAsPrinted: extraction.raw.dateAsPrinted ?? null,
+        vendorName: extraction.normalized.vendorName,
+        gstNumber: extraction.normalized.gstNumber,
+        totalAmount: extraction.normalized.totalAmount,
+        cgstAmount: extraction.normalized.cgstAmount,
+        sgstAmount: extraction.normalized.sgstAmount,
+        igstAmount: extraction.normalized.igstAmount,
+        foreignCurrencyCode: extraction.normalized.foreignCurrencyCode,
+        foreignTotalAmount: extraction.normalized.foreignTotalAmount,
+        confidenceScore: extraction.normalized.confidenceScore,
+      };
+      confidence = view.confidenceScore;
+      checks.push(...compareClaim(run.submitted_values_snapshot, view));
     }
 
-    const receiptHash = createHash("sha256").update(download.data.buffer).digest("hex");
+    // ---- Lane 2: bank statement (supplementary — never fails the run) ----
+    // If the statement can't be read, we record an "unavailable" statement check and
+    // still complete with the receipt verdict, so a bad/slow statement read never loses
+    // Lane 1's result. Finance can re-run. (Auto-retry of just Lane 2 is a future refinement.)
+    if (hasBank) {
+      const snapshot = run.submitted_values_snapshot;
+      const dl = await this.repository.downloadClaimEvidence(
+        run.bank_statement_file_path as string,
+      );
+      if (dl.errorMessage || !dl.data) {
+        checks.push(unavailableStatementCheck("could not download bank statement"));
+      } else {
+        bankHash = createHash("sha256").update(dl.data.buffer).digest("hex");
+        let bankExtraction = null;
+        try {
+          bankExtraction = await extractReceiptFromBuffer({
+            buffer: dl.data.buffer,
+            mimeType: dl.data.mimeType,
+            documentType: "bank_statement",
+            allowedCategoryNames: [],
+            now: new Date(),
+            bankStatementMatch: {
+              vendorName: snapshot.vendor_name,
+              transactionDate: snapshot.transaction_date,
+              billNo: snapshot.bill_no,
+              foreignCurrencyCode: snapshot.foreign_currency_code,
+              foreignTotalAmount: snapshot.foreign_total_amount,
+              categoryName: null,
+            },
+          });
+        } catch (error) {
+          logger.warn("claims.verification.bank_extraction_error", {
+            runId: run.id,
+            claimId: run.claim_id,
+            errorMessage: error instanceof Error ? error.message : "unknown bank extraction error",
+          });
+        }
 
-    let extraction;
-    try {
-      extraction = await extractReceiptFromBuffer({
-        buffer: download.data.buffer,
-        mimeType: download.data.mimeType,
-        documentType: "invoice",
-        allowedCategoryNames: [],
-        now: new Date(),
-      });
-    } catch (error) {
-      const retryable = isRetryableGeminiError(error);
-      logger.warn("claims.verification.extraction_error", {
-        runId: run.id,
-        claimId: run.claim_id,
-        retryable,
-        errorMessage: error instanceof Error ? error.message : "unknown extraction error",
-      });
-      await this.repository.failVerificationRun({
-        runId: run.id,
-        error: error instanceof Error ? error.message : "extraction error",
-        retryable,
-      });
-      return;
+        if (bankExtraction && bankExtraction.ok) {
+          const bankView: BankStatementView = {
+            matchedAmount: bankExtraction.normalized.basicAmount,
+            statementDate: bankExtraction.normalized.transactionDate,
+            dateAsPrinted: bankExtraction.raw.dateAsPrinted ?? null,
+            reference: bankExtraction.normalized.billNo,
+            description: bankExtraction.normalized.vendorName,
+            confidenceScore: bankExtraction.normalized.confidenceScore,
+          };
+          checks.push(...compareBankStatement(snapshot, bankView));
+          if (!hasReceipt) {
+            confidence = bankView.confidenceScore;
+          }
+        } else {
+          checks.push(unavailableStatementCheck("could not read bank statement"));
+        }
+      }
     }
 
-    if (!extraction.ok) {
-      // Empty/unparseable model output is not transient — mark extraction_failed.
-      await this.repository.failVerificationRun({
-        runId: run.id,
-        error: `extraction ${extraction.reason}`,
-        retryable: false,
-      });
-      return;
-    }
-
-    const view: ReceiptExtractionView = {
-      billNo: extraction.normalized.billNo,
-      billNoRaw: extraction.raw.billNo,
-      transactionDate: extraction.normalized.transactionDate,
-      dateAsPrinted: extraction.raw.dateAsPrinted ?? null,
-      vendorName: extraction.normalized.vendorName,
-      gstNumber: extraction.normalized.gstNumber,
-      totalAmount: extraction.normalized.totalAmount,
-      cgstAmount: extraction.normalized.cgstAmount,
-      sgstAmount: extraction.normalized.sgstAmount,
-      igstAmount: extraction.normalized.igstAmount,
-      foreignCurrencyCode: extraction.normalized.foreignCurrencyCode,
-      foreignTotalAmount: extraction.normalized.foreignTotalAmount,
-      confidenceScore: extraction.normalized.confidenceScore,
-    };
-
-    const checks = compareClaim(run.submitted_values_snapshot, view);
-    const overall = rollUpVerdict(checks, view.confidenceScore);
+    const overall = rollUpVerdict(checks, confidence);
 
     const { errorMessage } = await this.repository.completeVerificationRun({
       runId: run.id,
       overallVerdict: overall,
       model: serverEnv.GEMINI_MODEL,
       receiptHash,
+      bankHash,
       checks: checks.map(toCheckInput),
     });
 

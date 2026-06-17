@@ -276,7 +276,18 @@ export type GetMyClaimsFilters = {
   financeActionTo?: string;
   minAmount?: number;
   maxAmount?: number;
+  /** Finance-queue only: filter by the latest AI verification verdict/badge state. */
+  aiVerdict?: AiVerificationVerdictFilter;
 };
+
+export type AiVerificationVerdictFilter =
+  | "pending"
+  | "verified"
+  | "mismatch"
+  | "statement_mismatch"
+  | "needs_review"
+  | "extraction_failed"
+  | "no_document";
 
 export type ClaimsExportFetchScope =
   | "submissions"

@@ -34,7 +34,10 @@ import {
   updateOwnClaimAction,
 } from "@/modules/claims/actions";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
-import { SupabaseVerificationRepository } from "@/modules/claims/repositories/SupabaseVerificationRepository";
+import {
+  SupabaseVerificationRepository,
+  type VerificationSummary,
+} from "@/modules/claims/repositories/SupabaseVerificationRepository";
 import { VerificationPanel } from "@/modules/claims/ui/verification-panel";
 import { ClaimRejectWithReasonForm } from "@/modules/claims/ui/claim-reject-with-reason-form";
 import { ClaimDecisionActionForm } from "@/modules/claims/ui/claim-decision-action-form";
@@ -63,7 +66,11 @@ const FinanceEditClaimForm = dynamic(
 
 type PageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ view?: string | string[]; returnTo?: string | string[] }>;
+  searchParams: Promise<{
+    view?: string | string[];
+    returnTo?: string | string[];
+    edit?: string | string[];
+  }>;
 };
 
 type EvidenceItem = {
@@ -173,6 +180,49 @@ function buildEvidencePaths(
   return evidencePaths;
 }
 
+type AiExpenseOverride = {
+  billNo: string | null;
+  vendorName: string | null;
+  transactionDate: string | null;
+  gstNumber: string | null;
+  basicAmount: number | null;
+  cgstAmount: number | null;
+  sgstAmount: number | null;
+  igstAmount: number | null;
+};
+
+/** Map a verification run's extracted (normalized) values into a finance-edit override. */
+function buildAiExpenseOverride(summary: VerificationSummary | null): AiExpenseOverride | null {
+  if (!summary) {
+    return null;
+  }
+  const byField = new Map(summary.checks.map((c) => [c.field, c.extractedNormalized]));
+  const num = (field: string): number | null => {
+    const value = byField.get(field);
+    if (value == null) {
+      return null;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const cgst = num("cgst_amount");
+  const sgst = num("sgst_amount");
+  const igst = num("igst_amount");
+  const total = num("total_amount");
+  const taxes = (cgst ?? 0) + (sgst ?? 0) + (igst ?? 0);
+  const basic = total != null ? Math.max(Math.round((total - taxes) * 100) / 100, 0) : null;
+  return {
+    billNo: byField.get("bill_no") ?? null,
+    vendorName: byField.get("vendor_name") ?? null,
+    transactionDate: byField.get("transaction_date") ?? null,
+    gstNumber: byField.get("gst_number") ?? null,
+    basicAmount: basic,
+    cgstAmount: cgst,
+    sgstAmount: sgst,
+    igstAmount: igst,
+  };
+}
+
 function ClaimDetailContentSkeleton() {
   return (
     <>
@@ -248,9 +298,15 @@ function ClaimAuditHistorySkeleton() {
 async function FinanceEditClaimSection({
   claim,
   editFlow,
+  defaultOpen = false,
+  aiExpenseOverride = null,
+  defaultEditReason,
 }: {
   claim: ClaimDetailRecord;
   editFlow: "finance" | "own";
+  defaultOpen?: boolean;
+  aiExpenseOverride?: AiExpenseOverride | null;
+  defaultEditReason?: string;
 }) {
   const claimRepository = new SupabaseClaimRepository();
 
@@ -313,7 +369,7 @@ async function FinanceEditClaimSection({
   };
 
   return (
-    <Sheet>
+    <Sheet defaultOpen={defaultOpen}>
       <SheetTrigger className="inline-flex items-center rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-all duration-200 hover:bg-indigo-100 active:scale-[0.98] dark:border-indigo-600/60 dark:bg-indigo-600/15 dark:text-indigo-200 dark:hover:bg-indigo-600/25">
         Edit Claim
       </SheetTrigger>
@@ -343,20 +399,21 @@ async function FinanceEditClaimSection({
               expense: claim.expense
                 ? {
                     id: claim.expense.id,
-                    billNo: claim.expense.billNo,
+                    billNo: aiExpenseOverride?.billNo ?? claim.expense.billNo,
                     expenseCategoryId: claim.expense.expenseCategoryId,
                     locationId: claim.expense.locationId,
                     locationType: claim.expense.locationType,
                     locationDetails: claim.expense.locationDetails,
-                    transactionDate: claim.expense.transactionDate,
+                    transactionDate:
+                      aiExpenseOverride?.transactionDate ?? claim.expense.transactionDate,
                     isGstApplicable: claim.expense.isGstApplicable,
-                    gstNumber: claim.expense.gstNumber,
-                    basicAmount: claim.expense.basicAmount,
-                    cgstAmount: claim.expense.cgstAmount,
-                    sgstAmount: claim.expense.sgstAmount,
-                    igstAmount: claim.expense.igstAmount,
+                    gstNumber: aiExpenseOverride?.gstNumber ?? claim.expense.gstNumber,
+                    basicAmount: aiExpenseOverride?.basicAmount ?? claim.expense.basicAmount,
+                    cgstAmount: aiExpenseOverride?.cgstAmount ?? claim.expense.cgstAmount,
+                    sgstAmount: aiExpenseOverride?.sgstAmount ?? claim.expense.sgstAmount,
+                    igstAmount: aiExpenseOverride?.igstAmount ?? claim.expense.igstAmount,
                     totalAmount: claim.expense.totalAmount,
-                    vendorName: claim.expense.vendorName,
+                    vendorName: aiExpenseOverride?.vendorName ?? claim.expense.vendorName,
                     purpose: claim.expense.purpose,
                     productId: claim.expense.productId,
                     peopleInvolved: claim.expense.peopleInvolved,
@@ -389,6 +446,7 @@ async function FinanceEditClaimSection({
             isEditMode
             canEditPaymentMode={canEditPaymentMode}
             requireEditReason={editFlow === "finance"}
+            defaultEditReason={defaultEditReason}
             presentation="embedded"
             showSecondaryAction
             action={editFlow === "finance" ? updateFinanceDetailFromPage : updateOwnDetailFromPage}
@@ -569,7 +627,11 @@ async function ClaimDetailCore({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ view?: string | string[]; returnTo?: string | string[] }>;
+  searchParams: Promise<{
+    view?: string | string[];
+    returnTo?: string | string[];
+    edit?: string | string[];
+  }>;
 }) {
   const [resolvedParams, resolvedSearchParams] = await Promise.all([params, searchParams]);
   const claimId = resolvedParams.id;
@@ -643,6 +705,22 @@ async function ClaimDetailCore({
     isPreHodStatus && (currentUserId === claim.submittedBy || isAssignedL1Approver);
   const canEditFinanceClaim = isFinanceStatus && isFinanceActor;
   const canEditClaim = canEditOwnClaim || canEditFinanceClaim;
+
+  // "Apply receipt values" deep-link: reopen the finance edit form pre-filled with the
+  // AI-extracted receipt values + an auto-drafted edit reason for finance to review & save.
+  const wantsAiPrefill =
+    firstSearchParamValue(resolvedSearchParams.edit) === "ai" &&
+    canEditFinanceClaim &&
+    claim.detailType === "expense";
+  let aiExpenseOverride: AiExpenseOverride | null = null;
+  if (wantsAiPrefill) {
+    const summaryResult = await new SupabaseVerificationRepository().getClaimVerificationSummary(
+      claim.id,
+    );
+    aiExpenseOverride = summaryResult.errorMessage
+      ? null
+      : buildAiExpenseOverride(summaryResult.data);
+  }
   const isDeptViewerOnly =
     isDepartmentViewerForClaim &&
     currentUserId !== claim.submittedBy &&
@@ -1210,6 +1288,13 @@ async function ClaimDetailCore({
                     <FinanceEditClaimSection
                       claim={claim}
                       editFlow={canEditFinanceClaim ? "finance" : "own"}
+                      defaultOpen={wantsAiPrefill && aiExpenseOverride !== null}
+                      aiExpenseOverride={aiExpenseOverride}
+                      defaultEditReason={
+                        wantsAiPrefill
+                          ? "Applied AI-extracted receipt values after verification flagged a mismatch."
+                          : undefined
+                      }
                     />
                   </Suspense>
                 ) : null}
