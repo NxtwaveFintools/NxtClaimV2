@@ -138,7 +138,7 @@ export function ReviewSelectedClaimsModal({
           if (isBusy) e.preventDefault();
         }}
       >
-        <div className="flex items-center justify-between border-b border-zinc-200/80 py-4 pl-5 pr-14 dark:border-zinc-800">
+        <div className="flex items-center justify-around border-b border-zinc-200/80 py-4 pl-5 pr-14 dark:border-zinc-800">
           <DialogTitle>Review Selected Claims</DialogTitle>
           <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
             {selectedCount} selected
