@@ -19,7 +19,7 @@ import {
   bulkReject,
   bulkRejectL1,
 } from "@/modules/claims/actions";
-import type { ClaimDetailType, GetMyClaimsFilters } from "@/core/domain/claims/contracts";
+import type { ClaimDetailType } from "@/core/domain/claims/contracts";
 import type { GetMyClaimsFilters } from "@/core/domain/claims/contracts";
 import type { VerificationBadgeState } from "@/modules/claims/repositories/SupabaseVerificationRepository";
 import {
