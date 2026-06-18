@@ -89,9 +89,6 @@ test.describe("Bill Number search — My Submissions view", () => {
       await filtersButton.click();
     }
 
-    // Explicitly wait for Next.js router and CSS animation to completely finish
-    await page.waitForTimeout(1000);
-
     const searchCategorySelect = page.locator("#claims-filter-panel select").first();
     await expect(searchCategorySelect).toBeVisible({ timeout: 5000 });
 
@@ -126,8 +123,6 @@ test.describe("Bill Number search — My Submissions view", () => {
     if (!isExpanded) {
       await filtersButton.click();
     }
-
-    await page.waitForTimeout(1000);
 
     const searchCategorySelect = page.locator("#claims-filter-panel select").first();
     await expect(searchCategorySelect).toBeVisible({ timeout: 5000 });
@@ -166,8 +161,6 @@ test.describe("Bill Number search — My Submissions view", () => {
     if (!isExpanded) {
       await filtersButton.click();
     }
-
-    await page.waitForTimeout(1000);
 
     const searchCategorySelect = page.locator("#claims-filter-panel select").first();
     await expect(searchCategorySelect).toBeVisible({ timeout: 5000 });
