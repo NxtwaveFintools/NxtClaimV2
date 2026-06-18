@@ -112,6 +112,8 @@ export class VerificationWorker {
         model: serverEnv.GEMINI_MODEL,
         receiptHash: null,
         bankHash: null,
+        duplicateStatus: "unavailable",
+        duplicateClaimIds: [],
         checks: [],
       });
       return;
@@ -121,6 +123,12 @@ export class VerificationWorker {
     let receiptHash: string | null = null;
     let bankHash: string | null = null;
     let confidence = 0;
+    // Extracted values for finance-stage dedup (set once the receipt extraction succeeds).
+    let dedupInputs: {
+      extractedBillNo: string | null;
+      transactionDate: string | null;
+      totalAmount: number;
+    } | null = null;
 
     // ---- Lane 1: receipt (primary — its failure fails the whole run) ----
     if (hasReceipt) {
@@ -186,6 +194,11 @@ export class VerificationWorker {
       };
       confidence = view.confidenceScore;
       checks.push(...compareClaim(run.submitted_values_snapshot, view));
+      dedupInputs = {
+        extractedBillNo: extraction.raw.billNo,
+        transactionDate: extraction.normalized.transactionDate,
+        totalAmount: extraction.normalized.totalAmount,
+      };
     }
 
     // ---- Lane 2: bank statement (supplementary — never fails the run) ----
@@ -247,12 +260,29 @@ export class VerificationWorker {
 
     const overall = rollUpVerdict(checks, confidence);
 
+    // Finance-stage duplicate detection on the extracted values (degrades to unavailable).
+    let duplicateStatus = "unavailable";
+    let duplicateClaimIds: string[] = [];
+    if (dedupInputs) {
+      const dup = await this.repository.detectDuplicate({
+        claimId: run.claim_id,
+        extractedBillNo: dedupInputs.extractedBillNo,
+        submittedBillNo: run.submitted_values_snapshot.bill_no,
+        transactionDate: dedupInputs.transactionDate,
+        totalAmount: dedupInputs.totalAmount,
+      });
+      duplicateStatus = dup.data.status;
+      duplicateClaimIds = dup.data.claimIds;
+    }
+
     const { errorMessage } = await this.repository.completeVerificationRun({
       runId: run.id,
       overallVerdict: overall,
       model: serverEnv.GEMINI_MODEL,
       receiptHash,
       bankHash,
+      duplicateStatus,
+      duplicateClaimIds,
       checks: checks.map(toCheckInput),
     });
 

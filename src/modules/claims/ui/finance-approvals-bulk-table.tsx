@@ -20,7 +20,10 @@ import {
   bulkRejectL1,
 } from "@/modules/claims/actions";
 import type { GetMyClaimsFilters } from "@/core/domain/claims/contracts";
-import type { VerificationBadgeState } from "@/modules/claims/repositories/SupabaseVerificationRepository";
+import type {
+  DuplicateStatus,
+  VerificationBadgeState,
+} from "@/modules/claims/repositories/SupabaseVerificationRepository";
 import {
   CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
   ClaimStatusBadge,
@@ -49,7 +52,33 @@ type FinanceApprovalRow = {
   formattedHodActionDate: string;
   formattedFinanceActionDate: string;
   aiVerdict?: VerificationBadgeState | null;
+  aiDuplicate?: DuplicateStatus | null;
 };
+
+const AI_DUPLICATE_BADGE: Partial<Record<DuplicateStatus, { label: string; className: string }>> = {
+  invoice_match: {
+    label: "Dup: invoice",
+    className: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
+  },
+  amount_date_match: {
+    label: "Dup: amt+date",
+    className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200",
+  },
+};
+
+function AiDuplicateBadge({ status }: { status: DuplicateStatus | null }) {
+  const config = status ? AI_DUPLICATE_BADGE[status] : undefined;
+  if (!config) {
+    return null;
+  }
+  return (
+    <span
+      className={`mt-1 inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${config.className}`}
+    >
+      {config.label}
+    </span>
+  );
+}
 
 const AI_CHECK_BADGE: Record<VerificationBadgeState, { label: string; className: string }> = {
   verified: {
@@ -671,7 +700,10 @@ export function FinanceApprovalsBulkTable({
                   </td>
                   {showAiCheckColumn ? (
                     <td className="px-3 py-2 align-top">
-                      <AiCheckBadge verdict={claim.aiVerdict ?? null} />
+                      <div className="flex flex-col items-start gap-0.5">
+                        <AiCheckBadge verdict={claim.aiVerdict ?? null} />
+                        <AiDuplicateBadge status={claim.aiDuplicate ?? null} />
+                      </div>
                     </td>
                   ) : null}
                   <td className="whitespace-nowrap px-3 py-2">{claim.formattedSubmittedAt}</td>

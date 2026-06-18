@@ -17,6 +17,21 @@
   limits + an index on `(claim_id, created_at DESC)` (already planned for the badge view).
 - **Depends on:** initial verification ledger migration shipped.
 
+### Overseas FX: eval fixtures + per-currency band data
+
+- **What:** Extend `tests/integration/receipt-parser-eval.test.ts` with foreign-currency
+  (USD/EUR/GBP) invoice fixtures and confirm `foreign_total_amount` + `foreign_currency_code`
+  extract correctly. Separately, pull last quarter's overseas claims and compute the
+  `total_amount / foreign_total_amount` distribution per currency to set EUR/GBP/SGD bands
+  in `FX_BANDS` (USD is set to 92–98).
+- **Why:** FX reconciliation is only as trustworthy as (a) foreign-amount extraction and
+  (b) the per-currency bands — both unproven for non-USD today.
+- **Pros:** Non-USD overseas claims verify correctly instead of all landing in needs_review.
+- **Cons:** Needs real overseas claim samples finance may have to pull.
+- **Context:** From /plan-eng-review 2026-06-17 on design `Nxtwave-development-design-20260617-144208.md`.
+  USD path ships without this; other currencies stay needs_review until bands are set.
+- **Depends on:** the FX reconciliation implementation (comparison-engine FX_BANDS).
+
 ### Queue-health SLO + monitoring
 
 - **What:** A queue-age alert and a finance-visible "verification lagging" signal, plus a

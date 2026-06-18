@@ -1,5 +1,8 @@
 import { getServiceRoleSupabaseClient } from "@/core/infra/supabase/server-client";
-import type { SubmittedSnapshot } from "@/modules/claims/verification/comparison-engine";
+import {
+  normalizeSentinel,
+  type SubmittedSnapshot,
+} from "@/modules/claims/verification/comparison-engine";
 
 const CLAIMS_BUCKET = "claims";
 
@@ -93,6 +96,8 @@ export class SupabaseVerificationRepository {
     model: string;
     receiptHash: string | null;
     bankHash: string | null;
+    duplicateStatus: string;
+    duplicateClaimIds: string[];
     checks: VerificationCheckInput[];
   }): Promise<{ errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
@@ -102,9 +107,65 @@ export class SupabaseVerificationRepository {
       p_model: input.model,
       p_receipt_hash: input.receiptHash,
       p_bank_hash: input.bankHash,
+      p_duplicate_status: input.duplicateStatus,
+      p_duplicate_claim_ids: input.duplicateClaimIds,
       p_checks: input.checks,
     });
     return { errorMessage: error?.message ?? null };
+  }
+
+  /**
+   * Finance-stage duplicate detection on EXTRACTED values. Returns the graded status +
+   * the matched claim ids. Distinguishes a failed invoice read (submitted invoice present
+   * but nothing extracted) from a genuinely invoice-less receipt.
+   */
+  async detectDuplicate(input: {
+    claimId: string;
+    extractedBillNo: string | null;
+    submittedBillNo: string | null;
+    transactionDate: string | null;
+    totalAmount: number | null;
+  }): Promise<{
+    data: {
+      status: "none" | "invoice_match" | "amount_date_match" | "unavailable";
+      claimIds: string[];
+    };
+    errorMessage: string | null;
+  }> {
+    const extractedInv = normalizeSentinel(input.extractedBillNo);
+    const submittedInv = normalizeSentinel(input.submittedBillNo);
+
+    // Read failure: the claim has an invoice number but the AI couldn't extract one.
+    if (extractedInv === null && submittedInv !== null) {
+      return { data: { status: "unavailable", claimIds: [] }, errorMessage: null };
+    }
+
+    const client = getServiceRoleSupabaseClient();
+    const { data, error } = await client.rpc("find_claim_duplicates", {
+      p_exclude_claim_id: input.claimId,
+      p_bill_no: extractedInv, // null → helper uses the amount+date arm
+      p_transaction_date: input.transactionDate,
+      p_total_amount: input.totalAmount,
+    });
+    if (error) {
+      return { data: { status: "unavailable", claimIds: [] }, errorMessage: error.message };
+    }
+
+    const rows = (data ?? []) as { claim_id: string; match_kind: string }[];
+    if (rows.length === 0) {
+      return { data: { status: "none", claimIds: [] }, errorMessage: null };
+    }
+    const invoiceRows = rows.filter((r) => r.match_kind === "invoice_match");
+    if (invoiceRows.length > 0) {
+      return {
+        data: { status: "invoice_match", claimIds: invoiceRows.map((r) => r.claim_id) },
+        errorMessage: null,
+      };
+    }
+    return {
+      data: { status: "amount_date_match", claimIds: rows.map((r) => r.claim_id) },
+      errorMessage: null,
+    };
   }
 
   async failVerificationRun(input: {
@@ -145,7 +206,9 @@ export class SupabaseVerificationRepository {
     const client = getServiceRoleSupabaseClient();
     const { data: runRows, error: runError } = await client
       .from("claim_verification_runs")
-      .select("id, status, overall_verdict, model, receipt_file_hash, finished_at, created_at")
+      .select(
+        "id, status, overall_verdict, duplicate_status, duplicate_claim_ids, model, receipt_file_hash, finished_at, created_at",
+      )
       .eq("claim_id", claimId)
       .eq("superseded", false)
       .order("created_at", { ascending: false })
@@ -175,6 +238,8 @@ export class SupabaseVerificationRepository {
         runId: run.id,
         status: run.status,
         overallVerdict: run.overall_verdict,
+        duplicateStatus: run.duplicate_status,
+        duplicateClaimIds: run.duplicate_claim_ids ?? [],
         model: run.model,
         receiptFileHash: run.receipt_file_hash,
         finishedAt: run.finished_at,
@@ -195,26 +260,30 @@ export class SupabaseVerificationRepository {
     };
   }
 
-  /** Bulk badge states for the finance queue: one derived state per claim id. */
-  async getLatestVerdictsByClaimIds(
-    claimIds: string[],
-  ): Promise<{ data: Record<string, VerificationBadgeState>; errorMessage: string | null }> {
+  /** Bulk badge state + duplicate status for the finance queue, one entry per claim id. */
+  async getLatestVerdictsByClaimIds(claimIds: string[]): Promise<{
+    data: Record<string, { verdict: VerificationBadgeState; duplicate: DuplicateStatus }>;
+    errorMessage: string | null;
+  }> {
     if (claimIds.length === 0) {
       return { data: {}, errorMessage: null };
     }
     const client = getServiceRoleSupabaseClient();
     const { data, error } = await client
       .from("claim_latest_verification")
-      .select("claim_id, status, overall_verdict")
+      .select("claim_id, status, overall_verdict, duplicate_status")
       .in("claim_id", claimIds);
 
     if (error) {
       return { data: {}, errorMessage: error.message };
     }
 
-    const map: Record<string, VerificationBadgeState> = {};
+    const map: Record<string, { verdict: VerificationBadgeState; duplicate: DuplicateStatus }> = {};
     for (const row of (data ?? []) as LatestVerificationRow[]) {
-      map[row.claim_id] = deriveBadgeState(row.status, row.overall_verdict);
+      map[row.claim_id] = {
+        verdict: deriveBadgeState(row.status, row.overall_verdict),
+        duplicate: (row.duplicate_status ?? "unavailable") as DuplicateStatus,
+      };
     }
     return { data: map, errorMessage: null };
   }
@@ -303,6 +372,8 @@ type VerificationRunSummaryRow = {
   id: string;
   status: string;
   overall_verdict: string | null;
+  duplicate_status: DuplicateStatus;
+  duplicate_claim_ids: string[] | null;
   model: string | null;
   receipt_file_hash: string | null;
   finished_at: string | null;
@@ -335,10 +406,14 @@ export type VerificationCheckRecord = {
   mismatchReason: string | null;
 };
 
+export type DuplicateStatus = "none" | "invoice_match" | "amount_date_match" | "unavailable";
+
 export type VerificationSummary = {
   runId: string;
   status: string;
   overallVerdict: string | null;
+  duplicateStatus: DuplicateStatus;
+  duplicateClaimIds: string[];
   model: string | null;
   receiptFileHash: string | null;
   finishedAt: string | null;
@@ -358,6 +433,7 @@ type LatestVerificationRow = {
   claim_id: string;
   status: string;
   overall_verdict: string | null;
+  duplicate_status: DuplicateStatus | null;
 };
 
 const VERIFICATION_BADGE_STATES: VerificationBadgeState[] = [

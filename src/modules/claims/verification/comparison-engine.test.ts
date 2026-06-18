@@ -210,28 +210,126 @@ describe("vendor (fuzzy, never hard mismatch)", () => {
   });
 });
 
-describe("foreign currency (no FX in v1)", () => {
-  it("no currency check when both INR", () => {
+// A foreign claim: USD invoice $100, INR total drives the implied rate.
+function foreignSnapshot(
+  rateInr: number,
+  over: Partial<SubmittedSnapshot> = {},
+): SubmittedSnapshot {
+  return snapshot({
+    foreign_currency_code: "USD",
+    foreign_total_amount: 100,
+    total_amount: rateInr * 100, // implied rate = rateInr
+    ...over,
+  });
+}
+function foreignExtraction(over: Partial<ReceiptExtractionView> = {}): ReceiptExtractionView {
+  return extraction({
+    foreignCurrencyCode: "USD",
+    foreignTotalAmount: 100,
+    totalAmount: 0,
+    ...over,
+  });
+}
+
+describe("FX reconciliation (foreign claims)", () => {
+  it("INR claim has no FX or currency checks", () => {
     const checks = compareClaim(snapshot(), extraction());
-    expect(checks.find((c) => c.field === "foreign_currency_code")).toBeUndefined();
+    expect(checks.find((c) => c.field === "fx_reconciliation")).toBeUndefined();
+    expect(checks.find((c) => c.field === "currency_mismatch")).toBeUndefined();
   });
 
-  it("currency disagreement → fuzzy_match carrying a reason (needs review)", () => {
-    const checks = compareClaim(
-      snapshot({ foreign_currency_code: "USD", foreign_total_amount: 100 }),
-      extraction({ foreignCurrencyCode: null }),
-    );
-    const c = checkFor(checks, "foreign_currency_code");
-    expect(c.verdict).toBe("fuzzy_match");
-    expect(c.mismatchReason).not.toBeNull();
+  it("foreign amount is the HARD total_amount check (foreign vs receipt foreign)", () => {
+    const ok = compareClaim(foreignSnapshot(95), foreignExtraction({ foreignTotalAmount: 100 }));
+    const amt = checkFor(ok, "total_amount");
+    expect(amt.verdict).toBe("match");
+    expect(amt.hardness).toBe("hard");
+
+    const bad = compareClaim(foreignSnapshot(95), foreignExtraction({ foreignTotalAmount: 130 }));
+    expect(checkFor(bad, "total_amount").verdict).toBe("mismatch"); // >1%
   });
 
-  it("same foreign currency, matching total → match", () => {
+  it("FX band boundaries for USD (92–98)", () => {
+    const rate = (r: number) =>
+      checkFor(compareClaim(foreignSnapshot(r), foreignExtraction()), "fx_reconciliation").verdict;
+    expect(rate(91.9)).toBe("fuzzy_match"); // below band
+    expect(rate(92.0)).toBe("match");
+    expect(rate(98.0)).toBe("match");
+    expect(rate(98.1)).toBe("fuzzy_match"); // above band
+  });
+
+  it("the grounding claim (92.88) reconciles in-band", () => {
+    const checks = compareClaim(foreignSnapshot(92.88), foreignExtraction());
+    expect(checkFor(checks, "fx_reconciliation").verdict).toBe("match");
+  });
+
+  it("unknown currency has no band → fx unavailable (drives needs_review)", () => {
     const checks = compareClaim(
-      snapshot({ foreign_currency_code: "USD", foreign_total_amount: 100 }),
-      extraction({ foreignCurrencyCode: "USD", foreignTotalAmount: 100 }),
+      foreignSnapshot(50, { foreign_currency_code: "AUD" }),
+      foreignExtraction({ foreignCurrencyCode: "AUD" }),
     );
-    expect(checkFor(checks, "foreign_currency_code").verdict).toBe("match");
+    const fx = checkFor(checks, "fx_reconciliation");
+    expect(fx.verdict).toBe("unavailable");
+    expect(fx.mismatchReason).toMatch(/no band/i);
+  });
+
+  it("receipt currency disagreeing with the claim → soft currency_mismatch", () => {
+    const checks = compareClaim(
+      foreignSnapshot(95),
+      foreignExtraction({ foreignCurrencyCode: "EUR" }),
+    );
+    const cm = checkFor(checks, "currency_mismatch");
+    expect(cm.verdict).toBe("fuzzy_match");
+    expect(cm.hardness).toBe("soft");
+  });
+
+  it("÷0 guard: foreign currency set but zero foreign amount is treated as INR (no crash, no FX)", () => {
+    const checks = compareClaim(
+      snapshot({ foreign_currency_code: "USD", foreign_total_amount: 0, total_amount: 1000 }),
+      extraction({ totalAmount: 1000 }),
+    );
+    expect(checks.find((c) => c.field === "fx_reconciliation")).toBeUndefined();
+    expect(checkFor(checks, "total_amount").verdict).toBe("match"); // INR path
+  });
+
+  it("foreign in-band + amounts match → verified", () => {
+    const checks = compareClaim(foreignSnapshot(95), foreignExtraction());
+    expect(rollUpVerdict(checks, 95)).toBe("verified");
+  });
+
+  it("foreign out-of-band → needs_review (never hard mismatch)", () => {
+    const checks = compareClaim(foreignSnapshot(120), foreignExtraction());
+    expect(rollUpVerdict(checks, 95)).toBe("needs_review");
+  });
+});
+
+describe("sentinels never produce a hard signal", () => {
+  it('bill_no "N/A" on either side → unavailable, not mismatch', () => {
+    const subNa = compareClaim(snapshot({ bill_no: "N/A" }), extraction({ billNo: "INV-9" }));
+    expect(checkFor(subNa, "bill_no").verdict).toBe("unavailable");
+    const extNa = compareClaim(
+      snapshot({ bill_no: "INV-1" }),
+      extraction({ billNo: "N/A", billNoRaw: "N/A" }),
+    );
+    expect(checkFor(extNa, "bill_no").verdict).toBe("unavailable");
+  });
+
+  it("gst_number blank/sentinel → unavailable", () => {
+    const checks = compareClaim(
+      snapshot({ gst_number: "-" }),
+      extraction({ gstNumber: "29ABCDE1234F1Z5" }),
+    );
+    expect(checkFor(checks, "gst_number").verdict).toBe("unavailable");
+  });
+});
+
+describe("GST demotion regression — GST is soft, not hard", () => {
+  it("a GST component mismatch alone → needs_review, NOT mismatch", () => {
+    const checks = compareClaim(
+      snapshot({ is_gst_applicable: true, cgst_amount: 90 }),
+      extraction({ cgstAmount: 500 }),
+    );
+    expect(checkFor(checks, "cgst_amount").hardness).toBe("soft");
+    expect(rollUpVerdict(checks, 95)).toBe("needs_review");
   });
 });
 

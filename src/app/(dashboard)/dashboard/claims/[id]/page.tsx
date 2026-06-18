@@ -756,6 +756,22 @@ async function ClaimDetailCore({
   const canDeleteClaim =
     currentUserId === claim.submittedBy && isSubmitterDeletableClaimStatus(claim.status);
 
+  // Duplicate-payment guard: if the latest AI run flags an invoice_match, the finance
+  // Approve button requires an explicit confirm naming the matched claim(s).
+  let financeApproveConfirmMessage: string | undefined;
+  if (shouldRenderFinanceAuthorizationActions && claim.detailType === "expense") {
+    const dupSummary = await new SupabaseVerificationRepository().getClaimVerificationSummary(
+      claim.id,
+    );
+    const dup = dupSummary.errorMessage ? null : dupSummary.data;
+    if (dup?.duplicateStatus === "invoice_match") {
+      financeApproveConfirmMessage = `AI flagged this invoice as a duplicate of: ${dup.duplicateClaimIds.join(", ")}. Approve and pay anyway?`;
+    } else if (!dup || dup.status !== "completed") {
+      financeApproveConfirmMessage =
+        "AI verification is still pending for this claim. Approve without it?";
+    }
+  }
+
   const approveFromDetail = async () => {
     "use server";
     const result = await approveClaimAction({
@@ -1321,6 +1337,7 @@ async function ClaimDetailCore({
                       successMessage="Finance decision approved."
                       errorMessage="Unable to approve finance step."
                       redirectToHref={returnToPath}
+                      confirmMessage={financeApproveConfirmMessage}
                     />
                     <ClaimRejectWithReasonForm
                       action={rejectFinanceFromDetail}

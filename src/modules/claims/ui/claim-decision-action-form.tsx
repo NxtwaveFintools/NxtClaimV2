@@ -14,6 +14,7 @@ type ClaimDecisionActionFormProps = {
   successMessage: string;
   errorMessage: string;
   redirectToHref?: string;
+  confirmMessage?: string;
 };
 
 export function ClaimDecisionActionForm({
@@ -25,6 +26,7 @@ export function ClaimDecisionActionForm({
   successMessage,
   errorMessage,
   redirectToHref,
+  confirmMessage,
 }: ClaimDecisionActionFormProps) {
   const router = useRouter();
   const [isNavigating, startTransition] = useTransition();
@@ -39,6 +41,11 @@ export function ClaimDecisionActionForm({
     event.preventDefault();
 
     if (isPending) {
+      return;
+    }
+
+    // Duplicate-payment guard: require explicit acknowledgement before approving.
+    if (confirmMessage && !window.confirm(confirmMessage)) {
       return;
     }
 

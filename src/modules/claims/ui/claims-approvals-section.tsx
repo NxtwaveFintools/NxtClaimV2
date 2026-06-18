@@ -12,6 +12,7 @@ import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseC
 import {
   isVerificationBadgeState,
   SupabaseVerificationRepository,
+  type DuplicateStatus,
   type VerificationBadgeState,
 } from "@/modules/claims/repositories/SupabaseVerificationRepository";
 import { VerificationFilterChips } from "@/modules/claims/ui/verification-filter-chips";
@@ -201,7 +202,13 @@ export async function ClaimsApprovalsSection({
           verificationRepository.getFinanceQueueVerdictCounts(),
         ])
       : [
-          { data: {} as Record<string, VerificationBadgeState>, errorMessage: null },
+          {
+            data: {} as Record<
+              string,
+              { verdict: VerificationBadgeState; duplicate: DuplicateStatus }
+            >,
+            errorMessage: null,
+          },
           { data: null as Record<VerificationBadgeState, number> | null, errorMessage: null },
         ];
   const aiVerdicts = aiVerdictsResult.data;
@@ -278,7 +285,8 @@ export async function ClaimsApprovalsSection({
                   formattedSubmittedAt: claim.formattedSubmittedAt,
                   formattedHodActionDate: claim.formattedHodActionDate,
                   formattedFinanceActionDate: claim.formattedFinanceActionDate,
-                  aiVerdict: aiVerdicts[claim.id] ?? null,
+                  aiVerdict: aiVerdicts[claim.id]?.verdict ?? null,
+                  aiDuplicate: aiVerdicts[claim.id]?.duplicate ?? null,
                 }))}
                 actionableIds={rows
                   .filter((row) => {

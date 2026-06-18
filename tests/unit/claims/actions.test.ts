@@ -1224,8 +1224,9 @@ describe("claims actions", () => {
 
     mockUpdateByFinanceExecute.mockRejectedValueOnce({
       code: "23505",
-      message: 'duplicate key value violates unique constraint "uq_expense_details_active_bill"',
-      details: "Key (bill_no, transaction_date, basic_amount) already exists.",
+      message:
+        'duplicate key value violates unique constraint "uq_expense_details_submitter_invoice"',
+      details: "Key (normalize_invoice_no(bill_no), submitted_by) already exists.",
     });
 
     const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
@@ -1238,7 +1239,7 @@ describe("claims actions", () => {
     expect(result).toEqual({
       ok: false,
       message:
-        "A claim with this exact Bill Number, Date, and Amount already exists in the system. Please change the Bill Number slightly (e.g., add '-FIX') to make it unique before saving.",
+        "You have already submitted a claim with this invoice number. Each invoice can only be claimed once.",
     });
     expect(mockFindActiveExpenseDuplicateClaimIdByCompositeKey).not.toHaveBeenCalled();
   });
@@ -1268,8 +1269,9 @@ describe("claims actions", () => {
     });
     mockUpdateByFinanceExecute.mockRejectedValueOnce({
       code: "23505",
-      message: 'duplicate key value violates unique constraint "uq_expense_details_active_bill"',
-      details: "Key (bill_no, transaction_date, basic_amount) already exists.",
+      message:
+        'duplicate key value violates unique constraint "uq_expense_details_submitter_invoice"',
+      details: "Key (normalize_invoice_no(bill_no), submitted_by) already exists.",
     });
 
     const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
@@ -1282,7 +1284,7 @@ describe("claims actions", () => {
     expect(result).toEqual({
       ok: false,
       message:
-        "A claim with this exact Bill Number, Date, and Amount already exists in the system. Please change the Bill Number slightly (e.g., add '-FIX') to make it unique before saving.",
+        "You have already submitted a claim with this invoice number. Each invoice can only be claimed once.",
     });
     expect(mockFindActiveExpenseDuplicateClaimIdByCompositeKey).not.toHaveBeenCalled();
   });

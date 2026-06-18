@@ -131,9 +131,9 @@ const MAX_UPLOAD_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const BULK_L1_CURSOR_PAGE_SIZE = 200;
 const BULK_L1_PROCESS_CHUNK_SIZE = 10;
 const UNIQUE_VIOLATION_CODE = "23505";
-const DUPLICATE_ACTIVE_EXPENSE_BILL_CONSTRAINT = "uq_expense_details_active_bill";
+const DUPLICATE_ACTIVE_EXPENSE_BILL_CONSTRAINT = "uq_expense_details_submitter_invoice";
 const DUPLICATE_ACTIVE_EXPENSE_BILL_MESSAGE =
-  "A claim with this exact Bill Number, Date, and Amount already exists in the system. Please change the Bill Number slightly (e.g., add '-FIX') to make it unique before saving.";
+  "You have already submitted a claim with this invoice number. Each invoice can only be claimed once.";
 const PRE_HOD_EDITABLE_STATUSES: readonly DbClaimStatus[] = [
   DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
   DB_REJECTED_RESUBMISSION_ALLOWED_STATUS,
