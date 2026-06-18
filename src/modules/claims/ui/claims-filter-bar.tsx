@@ -79,12 +79,10 @@ function updateUrlWithMutation(
     const currentHref = currentQuery ? `${pathname}?${currentQuery}` : pathname;
 
     if (currentHref === nextHref) {
-      console.log("updateUrlWithMutation: currentHref === nextHref", currentHref);
       return;
     }
   }
 
-  console.log("updateUrlWithMutation: calling router.replace with", nextHref);
   router.replace(nextHref, { scroll: false });
 }
 
@@ -606,7 +604,6 @@ export function ClaimsFilterBar({
   }
 
   function handleSearchFieldChange(nextValue: string): void {
-    console.log("handleSearchFieldChange CALLED WITH:", nextValue);
     setLocalSearchField(nextValue);
 
     const nextParams = new URLSearchParams(searchParams.toString());
@@ -622,9 +619,7 @@ export function ClaimsFilterBar({
     nextParams.delete("cursor");
     nextParams.delete("prevCursor");
     nextParams.delete("page");
-    console.log("handleSearchFieldChange: nextParams is", nextParams.toString());
     startTransition(() => {
-      console.log("handleSearchFieldChange: startTransition executing");
       updateUrlWithMutation(nextParams, pathname, router);
     });
   }

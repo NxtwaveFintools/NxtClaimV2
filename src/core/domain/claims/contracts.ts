@@ -691,7 +691,7 @@ export type DepartmentViewerFilters = {
   status?: DbClaimStatus[];
   departmentId?: string;
   searchQuery?: string;
-  searchField?: "claim_id" | "employee_name" | "employee_id" | "employee_email" | "bill_no";
+  searchField?: ClaimSearchField;
   submissionType?: "Self" | "On Behalf";
   paymentModeId?: string;
   locationId?: string;

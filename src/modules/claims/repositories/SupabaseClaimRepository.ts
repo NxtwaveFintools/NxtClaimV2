@@ -812,21 +812,13 @@ function applyEnterpriseDashboardFilters<
   if (params.normalizedSearch.query && params.normalizedSearch.field) {
     if (params.normalizedSearch.field === "claim_id") {
       query = query.ilike("claim_id", toContainsIlikePattern(params.normalizedSearch.query));
-    }
-
-    if (params.normalizedSearch.field === "employee_name") {
+    } else if (params.normalizedSearch.field === "employee_name") {
       query = query.or(buildEmployeeNameOrFilter(params.normalizedSearch.query));
-    }
-
-    if (params.normalizedSearch.field === "employee_id") {
+    } else if (params.normalizedSearch.field === "employee_id") {
       query = query.or(buildEmployeeIdOrFilter(params.normalizedSearch.query));
-    }
-
-    if (params.normalizedSearch.field === "employee_email") {
+    } else if (params.normalizedSearch.field === "employee_email") {
       query = query.or(buildEmployeeEmailOrFilter(params.normalizedSearch.query));
-    }
-
-    if (params.normalizedSearch.field === "bill_no") {
+    } else if (params.normalizedSearch.field === "bill_no") {
       query = query.ilike(
         "bill_no",
         toContainsIlikePattern(params.normalizedSearch.query.replace(/#/g, "")),
@@ -926,21 +918,13 @@ function applyPendingApprovalsFilters<TQuery extends PendingApprovalsQueryChain<
   if (params.normalizedSearch.query && params.normalizedSearch.field) {
     if (params.normalizedSearch.field === "claim_id") {
       query = query.ilike("claim_id", toContainsIlikePattern(params.normalizedSearch.query));
-    }
-
-    if (params.normalizedSearch.field === "employee_name") {
+    } else if (params.normalizedSearch.field === "employee_name") {
       query = query.or(buildEmployeeNameOrFilter(params.normalizedSearch.query));
-    }
-
-    if (params.normalizedSearch.field === "employee_id") {
+    } else if (params.normalizedSearch.field === "employee_id") {
       query = query.or(buildEmployeeIdOrFilter(params.normalizedSearch.query));
-    }
-
-    if (params.normalizedSearch.field === "employee_email") {
+    } else if (params.normalizedSearch.field === "employee_email") {
       query = query.or(buildEmployeeEmailOrFilter(params.normalizedSearch.query));
-    }
-
-    if (params.normalizedSearch.field === "bill_no") {
+    } else if (params.normalizedSearch.field === "bill_no") {
       query = query.ilike(
         "bill_no",
         toContainsIlikePattern(params.normalizedSearch.query.replace(/#/g, "")),
