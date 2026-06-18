@@ -354,45 +354,43 @@ export function FinanceEditClaimForm({
       if (!result.ok) {
         if (result.duplicateClaimId) {
           const claimId = result.duplicateClaimId;
-          toast.error(
-            (t) => (
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold uppercase tracking-wide text-rose-600 dark:text-rose-500">
-                    Duplicate Intercepted
-                  </span>
-                </div>
-                <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
-                  An identical combination already exists in{" "}
-                  <Link
-                    href={`/dashboard/claims/${claimId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => toast.dismiss(t)}
-                    className="inline-flex cursor-pointer items-center gap-1 rounded border border-rose-200 bg-rose-50 px-2 py-0.5 font-mono text-xs font-bold text-rose-600 underline decoration-rose-500/30 transition-all hover:scale-[1.02] hover:bg-rose-100 active:scale-[0.98] dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20"
-                  >
-                    #{claimId}
-                    <svg
-                      className="inline h-3 w-3 opacity-70"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                      aria-hidden="true"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                      />
-                    </svg>
-                  </Link>
-                </p>
-                <span className="mt-0.5 text-[11px] italic text-zinc-400 dark:text-zinc-500">
-                  Clicking opens in a new tab to preserve your current edits.
+          const toastId = toast.error(
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold uppercase tracking-wide text-rose-600 dark:text-rose-500">
+                  Duplicate Intercepted
                 </span>
               </div>
-            ),
+              <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
+                An identical combination already exists in{" "}
+                <Link
+                  href={`/dashboard/claims/${claimId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => toast.dismiss(toastId)}
+                  className="inline-flex cursor-pointer items-center gap-1 rounded border border-rose-200 bg-rose-50 px-2 py-0.5 font-mono text-xs font-bold text-rose-600 underline decoration-rose-500/30 transition-all hover:scale-[1.02] hover:bg-rose-100 active:scale-[0.98] dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20"
+                >
+                  #{claimId}
+                  <svg
+                    className="inline h-3 w-3 opacity-70"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    />
+                  </svg>
+                </Link>
+              </p>
+              <span className="mt-0.5 text-[11px] italic text-zinc-400 dark:text-zinc-500">
+                Clicking opens in a new tab to preserve your current edits.
+              </span>
+            </div>,
             {
               duration: 8000,
               className:

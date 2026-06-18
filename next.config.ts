@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       bodySizeLimit: "80mb",
+      allowedOrigins: ["127.0.0.1", "localhost"],
     },
     optimizePackageImports: [
       "lucide-react",
@@ -16,6 +17,8 @@ const nextConfig: NextConfig = {
       "next-themes",
     ],
   },
+  // Next.js internal dev warning requires this to stop HMR ws blocking
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
 };
 
 export default nextConfig;

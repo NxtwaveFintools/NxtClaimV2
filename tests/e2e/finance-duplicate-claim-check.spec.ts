@@ -5,6 +5,7 @@ import {
   resolveRuntimeClaimData,
   setClaimToFinancePending,
   submitExpenseClaim,
+  openClaimForm,
   withActorPage,
 } from "./support/claims-e2e-runtime";
 
@@ -74,6 +75,8 @@ test.describe("Finance Edit — Status-Agnostic Duplicate Interceptor", () => {
     // 1. Create the shared target claim (Finance Pending). Reused across all scenarios
     //    because a blocked save never mutates the claim, so the form stays open each time.
     await withActorPage(browser, runtime.submitterEmail, async (page) => {
+      // 🔥 FIX: Use openClaimForm to handle auth and policy gate!
+      await openClaimForm(page, runtime.submitterEmail);
       await submitExpenseClaim(page, {
         submitterEmail: runtime.submitterEmail,
         departmentName: runtime.submitterDepartmentName,
@@ -99,6 +102,9 @@ test.describe("Finance Edit — Status-Agnostic Duplicate Interceptor", () => {
     //    it matches on (bill_no, total_amount, transaction_date) across ALL rows.
     for (const scenario of scenarios) {
       await withActorPage(browser, runtime.submitterEmail, async (page) => {
+        // 🔥 FIX: Use openClaimForm to handle auth and policy gate!
+        await openClaimForm(page, runtime.submitterEmail);
+
         await submitExpenseClaim(page, {
           submitterEmail: runtime.submitterEmail,
           departmentName: runtime.submitterDepartmentName,
