@@ -31,6 +31,7 @@ import { formatDate } from "@/lib/format";
 import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
 import { normalizeIsoDateOnly } from "@/lib/date-only";
 import { appendReturnToParam, buildPathWithSearchParams } from "@/lib/pagination-helpers";
+import { isValidClaimSearchField } from "@/lib/claim-search-fields";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
 import { isAdmin } from "@/modules/admin/server/is-admin";
@@ -138,16 +139,7 @@ function normalizeDate(value: string | undefined): string | undefined {
 }
 
 function normalizeSearchField(value: string | undefined): ClaimSearchField | undefined {
-  if (
-    value === "claim_id" ||
-    value === "employee_name" ||
-    value === "employee_id" ||
-    value === "employee_email"
-  ) {
-    return value;
-  }
-
-  return undefined;
+  return isValidClaimSearchField(value) ? value : undefined;
 }
 
 function normalizePaymentModeId(value: string | undefined): string | undefined {

@@ -44,6 +44,7 @@ const SEARCH_FIELD_OPTIONS: Array<{ value: ClaimSearchField; label: string }> = 
   { value: "employee_name", label: "Employee Name" },
   { value: "employee_id", label: "Employee ID" },
   { value: "employee_email", label: "Employee Email" },
+  { value: "bill_no", label: "Bill Number" },
 ];
 
 const SUBMISSION_TYPE_OPTIONS: Array<{ value: ClaimSubmissionType; label: string }> = [
@@ -78,10 +79,12 @@ function updateUrlWithMutation(
     const currentHref = currentQuery ? `${pathname}?${currentQuery}` : pathname;
 
     if (currentHref === nextHref) {
+      console.log("updateUrlWithMutation: currentHref === nextHref", currentHref);
       return;
     }
   }
 
+  console.log("updateUrlWithMutation: calling router.replace with", nextHref);
   router.replace(nextHref, { scroll: false });
 }
 
@@ -291,7 +294,6 @@ export function ClaimsFilterBar({
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const isHydratingFromUrlRef = useRef(false);
-
   const currentParams = useMemo(() => new URLSearchParams(searchParams.toString()), [searchParams]);
   const storageKeyPrefix = useMemo(
     () => `dashboard-filter-${storageScope ?? exportScope ?? "submissions"}`,
@@ -604,6 +606,7 @@ export function ClaimsFilterBar({
   }
 
   function handleSearchFieldChange(nextValue: string): void {
+    console.log("handleSearchFieldChange CALLED WITH:", nextValue);
     setLocalSearchField(nextValue);
 
     const nextParams = new URLSearchParams(searchParams.toString());
@@ -619,7 +622,9 @@ export function ClaimsFilterBar({
     nextParams.delete("cursor");
     nextParams.delete("prevCursor");
     nextParams.delete("page");
+    console.log("handleSearchFieldChange: nextParams is", nextParams.toString());
     startTransition(() => {
+      console.log("handleSearchFieldChange: startTransition executing");
       updateUrlWithMutation(nextParams, pathname, router);
     });
   }
@@ -715,7 +720,9 @@ export function ClaimsFilterBar({
         ? "Search by Employee Name..."
         : localSearchField === "employee_id"
           ? "Search by Employee ID..."
-          : "Search by Employee Email...";
+          : localSearchField === "bill_no"
+            ? "Search by Bill Number..."
+            : "Search by Employee Email...";
 
   return (
     <section className="rounded-2xl border border-zinc-200/80 bg-white/92 p-4 shadow-[0_8px_32px_-12px_rgba(15,23,42,0.08)] backdrop-blur-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900/92 dark:shadow-black/25">

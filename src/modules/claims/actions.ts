@@ -82,7 +82,9 @@ const bulkFiltersSchema = z
     dateTarget: z.enum(["submitted", "finance_closed"]).optional(),
     dateFrom: z.string().trim().optional(),
     dateTo: z.string().trim().optional(),
-    searchField: z.enum(["claim_id", "employee_name", "employee_id", "employee_email"]).optional(),
+    searchField: z
+      .enum(["claim_id", "employee_name", "employee_id", "employee_email", "bill_no"])
+      .optional(),
     searchQuery: z.string().trim().optional(),
   })
   .optional();

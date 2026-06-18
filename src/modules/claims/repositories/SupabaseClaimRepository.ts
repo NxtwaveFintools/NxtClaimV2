@@ -825,6 +825,13 @@ function applyEnterpriseDashboardFilters<
     if (params.normalizedSearch.field === "employee_email") {
       query = query.or(buildEmployeeEmailOrFilter(params.normalizedSearch.query));
     }
+
+    if (params.normalizedSearch.field === "bill_no") {
+      query = query.ilike(
+        "bill_no",
+        toContainsIlikePattern(params.normalizedSearch.query.replace(/#/g, "")),
+      );
+    }
   }
 
   return query;
@@ -931,6 +938,13 @@ function applyPendingApprovalsFilters<TQuery extends PendingApprovalsQueryChain<
 
     if (params.normalizedSearch.field === "employee_email") {
       query = query.or(buildEmployeeEmailOrFilter(params.normalizedSearch.query));
+    }
+
+    if (params.normalizedSearch.field === "bill_no") {
+      query = query.ilike(
+        "bill_no",
+        toContainsIlikePattern(params.normalizedSearch.query.replace(/#/g, "")),
+      );
     }
   }
 
