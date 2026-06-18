@@ -280,7 +280,7 @@ async function FinanceEditClaimSection({
 
   const updateFinanceDetailFromPage = async (
     formData: FormData,
-  ): Promise<{ ok: boolean; error?: string }> => {
+  ): Promise<{ ok: boolean; error?: string; duplicateClaimId?: string }> => {
     "use server";
     const result = await updateClaimByFinanceAction({ claimId: claim.id, formData });
 
@@ -288,6 +288,7 @@ async function FinanceEditClaimSection({
       return {
         ok: false,
         error: result.message ?? "Unable to update claim details.",
+        duplicateClaimId: result.duplicateClaimId,
       };
     }
 

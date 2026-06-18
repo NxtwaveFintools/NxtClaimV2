@@ -389,6 +389,14 @@ export async function withActorPage<T>(
     storageStatePath ? { storageState: storageStatePath } : undefined,
   );
   const page = await context.newPage();
+  page.on("console", (msg) => {
+    if (msg.type() === "error") {
+      console.error(`BROWSER CONSOLE ERROR [${email}]:`, msg.text());
+    }
+  });
+  page.on("pageerror", (err) => {
+    console.error(`BROWSER UNHANDLED EXCEPTION [${email}]:`, err.message, err.stack);
+  });
 
   try {
     await ensureAuthenticated(page, email);
@@ -409,7 +417,21 @@ export async function openClaimForm(page: Page, email: string): Promise<void> {
     await gotoWithRetry(page, "/claims/new");
   }
 
-  await expect(page.getByRole("button", { name: /submit claim/i })).toBeVisible({ timeout: 15000 });
+  // Wait for React to fully hydrate the form before trying to interact with it
+  // This retry loop combats Next.js dev server HMR flakiness
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await expect(page.locator('form[data-hydrated="true"]')).toBeVisible({ timeout: 15000 });
+      await expect(page.getByRole("button", { name: /submit claim/i })).toBeVisible({
+        timeout: 5000,
+      });
+      break;
+    } catch (err) {
+      if (attempt === 3) throw err;
+      console.log(`Hydration timeout on attempt ${attempt}, reloading page...`);
+      await page.reload({ waitUntil: "domcontentloaded" });
+    }
+  }
 }
 
 export async function selectOptionByLabel(
@@ -488,26 +510,70 @@ export async function submitExpenseClaim(
     expenseCategoryName: string;
     billNo: string;
     amount: number;
-    employeeId: string;
+    employeeId?: string;
     purpose: string;
     transactionDate: string;
   },
 ): Promise<void> {
-  await openClaimForm(page, input.submitterEmail);
+  // Abort the AI Server Action to return instantly.
+  // We identify the AI action by checking if the multipart POST body contains "documentType"
+  // which is unique to the AI parsing payload, whereas the form submission has "employeeName".
+  await page.route("**/*", async (route, request) => {
+    if (request.method() === "POST" && request.headers()["next-action"]) {
+      const postData = request.postData() || "";
+      if (postData.includes("documentType")) {
+        await route.abort("failed");
+        return;
+      }
+    }
+    await route.fallback();
+  });
 
+  // 1. Wait for the form to fully hydrate (covers network settle + skeleton disappearance)
+  await expect(page.locator('form[data-hydrated="true"]')).toBeVisible({ timeout: 20000 });
+
+  // 3. Select basic dropdowns (Department, Category, etc.)
   await selectOptionByLabel(page, /Department/i, input.departmentName);
   await selectOptionByLabel(page, /Payment Mode/i, input.paymentModeName);
   await selectOptionByLabel(page, /Expense Category/i, input.expenseCategoryName);
 
-  await fillTextboxIfEditable(page, /^Employee ID \*/i, input.employeeId);
+  // 3b. Wait for dynamic fields triggered by dropdown selections to settle
+  await expect(page.locator('.animate-pulse, [data-testid="skeleton"]'))
+    .toHaveCount(0, { timeout: 15000 })
+    .catch(() => {});
+
+  // 4. Upload file safely now that DOM is stable
+  const [fileChooser] = await Promise.all([
+    page.waitForEvent("filechooser"),
+    page.getByText("Choose Invoice/Bill").click(),
+  ]);
+  await fileChooser.setFiles(RECEIPT_PATH);
+
+  // 5. WAIT FOR AI TO FINISH (It will fail instantly due to route.abort)
+  const autoFillBtn = page.getByRole("button", { name: /auto-fill with ai/i });
+  await expect(autoFillBtn).toBeEnabled({ timeout: 10000 });
+
+  // 6. OVERWRITE test data (Wait for AI to finish before typing!)
+  if (input.employeeId) {
+    await fillTextboxIfEditable(page, /^Employee ID \*/i, input.employeeId);
+  }
   await page.getByRole("textbox", { name: /^Bill No \*/i }).fill(input.billNo);
   await page.getByRole("textbox", { name: /^Purpose/i }).fill(input.purpose);
   await page.getByRole("spinbutton", { name: /^Basic Amount \*/i }).fill(String(input.amount));
   await page.getByRole("textbox", { name: /^Transaction Date \*/i }).fill(input.transactionDate);
-  await page.locator("#receiptFile").setInputFiles(RECEIPT_PATH);
 
+  // 7. Submit the form
   await page.getByRole("button", { name: /submit claim/i }).click();
-  await expect(page).toHaveURL(/\/dashboard\/my-claims(?:\?|$)/, { timeout: 30000 });
+
+  // 8. CATCH SILENT VALIDATION ERRORS
+  const errorText = page.locator(".text-rose-500, .text-red-500, .text-rose-600, .text-red-600");
+  if ((await errorText.count()) > 0) {
+    const errors = await errorText.allTextContents();
+    console.error("❌ Form Validation Errors Blocked Submission:", errors);
+  }
+
+  // 9. Check URL Navigation
+  await expect(page).toHaveURL(/\/dashboard\/my-claims(?:\?|$)/, { timeout: 10000 });
 }
 
 export async function submitPettyCashRequestClaim(

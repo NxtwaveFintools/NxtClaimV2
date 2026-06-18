@@ -493,6 +493,8 @@ export class SupabaseAdminRepository implements AdminRepository {
         query = query.or(buildEmployeeIdSearchOrFilter(sq));
       } else if (filters.searchField === "employee_email") {
         query = query.or(buildEmployeeEmailSearchOrFilter(sq));
+      } else if (filters.searchField === "bill_no") {
+        query = query.ilike("bill_no", toContainsIlikePattern(sq.replace(/#/g, "")));
       } else {
         query = query.or(
           `claim_id.ilike.${toQuotedContainsIlikePattern(sq)},${buildEmployeeNameSearchOrFilter(sq)},${buildEmployeeIdSearchOrFilter(sq)},${buildEmployeeEmailSearchOrFilter(sq)}`,

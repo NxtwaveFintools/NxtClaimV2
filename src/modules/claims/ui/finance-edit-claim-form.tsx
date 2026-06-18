@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -29,6 +31,7 @@ type DropdownOption = {
 type FinanceEditClaimActionResult = {
   ok: boolean;
   error?: string;
+  duplicateClaimId?: string;
 };
 
 type FinanceEditPresentation = "inline-toggle" | "embedded";
@@ -350,7 +353,43 @@ export function FinanceEditClaimForm({
       const result = await action(formData);
 
       if (!result.ok) {
-        toast.error(result.error ?? "Unable to save claim edits.");
+        if (result.duplicateClaimId) {
+          const claimId = result.duplicateClaimId;
+          const toastId = crypto.randomUUID();
+          toast.error(
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold uppercase tracking-wide text-rose-600 dark:text-rose-500">
+                  Duplicate Intercepted
+                </span>
+              </div>
+              <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
+                An identical combination already exists in{" "}
+                <Link
+                  href={`/dashboard/claims/${claimId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => toast.dismiss(toastId)}
+                  className="inline-flex cursor-pointer items-center gap-1 rounded border border-rose-200 bg-rose-50 px-2 py-0.5 font-mono text-xs font-bold text-rose-600 underline decoration-rose-500/30 transition-all hover:scale-[1.02] hover:bg-rose-100 active:scale-[0.98] dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20"
+                >
+                  #{claimId}
+                  <ExternalLink className="inline h-3 w-3 opacity-70" aria-hidden="true" />
+                </Link>
+              </p>
+              <span className="mt-0.5 text-[11px] italic text-zinc-400 dark:text-zinc-500">
+                Clicking opens in a new tab to preserve your current edits.
+              </span>
+            </div>,
+            {
+              id: toastId,
+              duration: 8000,
+              className:
+                "bg-white/95 dark:bg-zinc-900/95 border border-rose-200 dark:border-rose-500/30 text-zinc-900 dark:text-zinc-200 rounded-xl shadow-xl dark:shadow-2xl backdrop-blur-md px-4 py-3.5 min-w-[340px]",
+            },
+          );
+        } else {
+          toast.error(result.error ?? "Unable to save claim edits.");
+        }
         return;
       }
 
