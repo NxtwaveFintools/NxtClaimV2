@@ -138,12 +138,17 @@ export function computeReceiptAmounts(extracted: ExtractedAmounts): ComputedAmou
  * "#RD-177 / 66" and "rd17766" both normalize to "RD17766". Returns null for
  * empty/whitespace input.
  */
+// "No invoice" tokens (after punctuation is stripped) that must collapse to null, so
+// variants like "N/A", "N\A", "N.A." don't survive as the fake invoice "NA". Mirrors the
+// SQL normalize_invoice_no() in 20260618120000_fix_normalize_invoice_sentinels.sql.
+const NO_INVOICE_TOKENS = new Set(["", "NA", "NIL", "NONE", "NULL", "NAN"]);
+
 export function normalizeBillNo(value: string | null): string | null {
   if (typeof value !== "string") {
     return null;
   }
   const normalized = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-  return normalized.length > 0 ? normalized : null;
+  return NO_INVOICE_TOKENS.has(normalized) ? null : normalized;
 }
 
 /**

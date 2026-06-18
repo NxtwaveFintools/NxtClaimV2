@@ -363,6 +363,8 @@ export type Database = {
           bank_statement_file_path: string | null;
           claim_id: string;
           created_at: string;
+          duplicate_claim_ids: string[];
+          duplicate_status: string;
           error_detail: string | null;
           finished_at: string | null;
           id: string;
@@ -383,6 +385,8 @@ export type Database = {
           bank_statement_file_path?: string | null;
           claim_id: string;
           created_at?: string;
+          duplicate_claim_ids?: string[];
+          duplicate_status?: string;
           error_detail?: string | null;
           finished_at?: string | null;
           id?: string;
@@ -403,6 +407,8 @@ export type Database = {
           bank_statement_file_path?: string | null;
           claim_id?: string;
           created_at?: string;
+          duplicate_claim_ids?: string[];
+          duplicate_status?: string;
           error_detail?: string | null;
           finished_at?: string | null;
           id?: string;
@@ -1527,6 +1533,8 @@ export type Database = {
         Row: {
           claim_id: string | null;
           created_at: string | null;
+          duplicate_claim_ids: string[] | null;
+          duplicate_status: string | null;
           finished_at: string | null;
           overall_verdict: string | null;
           run_id: string | null;
@@ -1578,6 +1586,7 @@ export type Database = {
           bank_statement_file_path: string | null;
           bc_claim_details_id: string | null;
           beneficiary_name_raw: string | null;
+          bill_no: string | null;
           category_name: string | null;
           claim_employee_id_raw: string | null;
           claim_id: string | null;
@@ -1691,6 +1700,7 @@ export type Database = {
           bank_statement_file_path: string | null;
           bc_claim_details_id: string | null;
           beneficiary_name_raw: string | null;
+          bill_no: string | null;
           category_name: string | null;
           claim_employee_id_raw: string | null;
           claim_id: string | null;
@@ -1852,6 +1862,8 @@ export type Database = {
         Args: {
           p_bank_hash: string;
           p_checks: Json;
+          p_duplicate_claim_ids: string[];
+          p_duplicate_status: string;
           p_model: string;
           p_overall_verdict: string;
           p_receipt_hash: string;
@@ -1868,6 +1880,8 @@ export type Database = {
           bank_statement_file_path: string | null;
           claim_id: string;
           created_at: string;
+          duplicate_claim_ids: string[];
+          duplicate_status: string;
           error_detail: string | null;
           finished_at: string | null;
           id: string;
@@ -1896,6 +1910,19 @@ export type Database = {
       fail_verification_run: {
         Args: { p_error: string; p_retryable: boolean; p_run_id: string };
         Returns: undefined;
+      };
+      find_claim_duplicates: {
+        Args: {
+          p_bill_no: string;
+          p_exclude_claim_id: string;
+          p_total_amount: number;
+          p_transaction_date: string;
+        };
+        Returns: {
+          claim_id: string;
+          match_kind: string;
+          submitted_by: string;
+        }[];
       };
       get_bc_claim_payload: { Args: { p_claim_id: string }; Returns: Json };
       get_dashboard_analytics_payload: {
@@ -1963,6 +1990,7 @@ export type Database = {
         };
         Returns: string;
       };
+      normalize_invoice_no: { Args: { p_value: string }; Returns: string };
       override_verification_run: {
         Args: { p_actor_id: string; p_claim_id: string; p_reason: string };
         Returns: undefined;

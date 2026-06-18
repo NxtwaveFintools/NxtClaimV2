@@ -444,7 +444,7 @@ describe("SupabaseClaimRepository.updateClaimDetailsByFinance", () => {
     const duplicateError = {
       code: "23505",
       message: 'duplicate key value violates unique constraint "uq_expense_details_active_bill"',
-      details: "Key (bill_no, transaction_date, basic_amount) already exists.",
+      details: "Key (bill_no, transaction_date, total_amount) already exists.",
     };
     const mockRpc = jest.fn().mockResolvedValue({ data: null, error: duplicateError });
 

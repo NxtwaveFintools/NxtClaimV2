@@ -1224,9 +1224,8 @@ describe("claims actions", () => {
 
     mockUpdateByFinanceExecute.mockRejectedValueOnce({
       code: "23505",
-      message:
-        'duplicate key value violates unique constraint "uq_expense_details_submitter_invoice"',
-      details: "Key (normalize_invoice_no(bill_no), submitted_by) already exists.",
+      message: 'duplicate key value violates unique constraint "uq_expense_details_active_bill"',
+      details: "Key (bill_no, transaction_date, total_amount) already exists.",
     });
 
     const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
@@ -1238,8 +1237,7 @@ describe("claims actions", () => {
 
     expect(result).toEqual({
       ok: false,
-      message:
-        "You have already submitted a claim with this invoice number. Each invoice can only be claimed once.",
+      message: "A claim with this exact Bill No, Date, and Amount already exists.",
     });
     expect(mockFindActiveExpenseDuplicateClaimIdByCompositeKey).not.toHaveBeenCalled();
   });
@@ -1269,9 +1267,8 @@ describe("claims actions", () => {
     });
     mockUpdateByFinanceExecute.mockRejectedValueOnce({
       code: "23505",
-      message:
-        'duplicate key value violates unique constraint "uq_expense_details_submitter_invoice"',
-      details: "Key (normalize_invoice_no(bill_no), submitted_by) already exists.",
+      message: 'duplicate key value violates unique constraint "uq_expense_details_active_bill"',
+      details: "Key (bill_no, transaction_date, total_amount) already exists.",
     });
 
     const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
@@ -1283,8 +1280,7 @@ describe("claims actions", () => {
 
     expect(result).toEqual({
       ok: false,
-      message:
-        "You have already submitted a claim with this invoice number. Each invoice can only be claimed once.",
+      message: "A claim with this exact Bill No, Date, and Amount already exists.",
     });
     expect(mockFindActiveExpenseDuplicateClaimIdByCompositeKey).not.toHaveBeenCalled();
   });
