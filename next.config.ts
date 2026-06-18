@@ -16,6 +16,8 @@ const nextConfig: NextConfig = {
       "next-themes",
     ],
   },
+  // Next.js internal dev warning requires this to stop HMR ws blocking
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
 };
 
 export default nextConfig;

@@ -1219,7 +1219,7 @@ function buildOwnEditPayload(formData: FormData): unknown {
 export async function updateClaimByFinanceAction(input: {
   claimId: string;
   formData: FormData;
-}): Promise<{ ok: boolean; message?: string }> {
+}): Promise<{ ok: boolean; message?: string; duplicateClaimId?: string }> {
   const claimIdParse = financeEditClaimIdSchema.safeParse({ claimId: input.claimId });
 
   if (!claimIdParse.success) {
@@ -1503,6 +1503,34 @@ export async function updateClaimByFinanceAction(input: {
           ...(nextAdvanceDocumentPath ? { supportingDocumentPath: nextAdvanceDocumentPath } : {}),
           totalAmount: parseResult.data.totalAmount,
         };
+
+  if (parseResult.data.detailType === "expense" && approvalContextResult.data.isFinance) {
+    const dupeResult = await repository.findActiveExpenseDuplicateClaimIdByCompositeKey({
+      billNo: parseResult.data.billNo,
+      transactionDate: parseResult.data.transactionDate,
+      totalAmount: parseResult.data.totalAmount,
+      excludeClaimId: claimIdParse.data.claimId,
+      foreignCurrencyCode: parseResult.data.foreignCurrencyCode ?? null,
+      foreignBasicAmount: parseResult.data.foreignBasicAmount ?? null,
+    });
+
+    if (dupeResult.errorMessage) {
+      await removeClaimFiles(uploadedReplacementPaths);
+      return {
+        ok: false,
+        message: "Unable to verify duplicate status. Please retry.",
+      };
+    }
+
+    if (dupeResult.claimId) {
+      await removeClaimFiles(uploadedReplacementPaths);
+      return {
+        ok: false,
+        message: `Duplicate Alert: A claim with this exact Bill Number, Amount, and Date already exists in Claim #${dupeResult.claimId}. Update blocked.`,
+        duplicateClaimId: dupeResult.claimId,
+      };
+    }
+  }
 
   try {
     const result = await updateClaimByFinanceService.execute({
