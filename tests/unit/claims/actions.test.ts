@@ -11,6 +11,7 @@ const mockGetActiveLocations = jest.fn();
 const mockGetPaymentModeById = jest.fn();
 const mockExistsExpenseByCompositeKey = jest.fn();
 const mockFindActiveExpenseDuplicateClaimIdByCompositeKey = jest.fn();
+const mockSyncExpenseDuplicateFlags = jest.fn();
 const mockGetActiveUserIdByEmail = jest.fn();
 const mockIsUserApprover1InAnyDepartment = jest.fn();
 const mockActiveDepartmentsExecute = jest.fn();
@@ -76,6 +77,7 @@ jest.mock("@/modules/claims/repositories/SupabaseClaimRepository", () => ({
     existsExpenseByCompositeKey: mockExistsExpenseByCompositeKey,
     findActiveExpenseDuplicateClaimIdByCompositeKey:
       mockFindActiveExpenseDuplicateClaimIdByCompositeKey,
+    syncExpenseDuplicateFlags: mockSyncExpenseDuplicateFlags,
     getActiveUserIdByEmail: mockGetActiveUserIdByEmail,
     isUserApprover1InAnyDepartment: mockIsUserApprover1InAnyDepartment,
     createClaimDraft: mockCreateClaimDraft,
@@ -464,6 +466,10 @@ describe("claims actions", () => {
 
     mockFindActiveExpenseDuplicateClaimIdByCompositeKey.mockResolvedValue({
       claimId: null,
+      errorMessage: null,
+    });
+
+    mockSyncExpenseDuplicateFlags.mockResolvedValue({
       errorMessage: null,
     });
 
@@ -1216,16 +1222,10 @@ describe("claims actions", () => {
     expect(forwardedPayload.bankStatementFilePath).toBe("expenses/old_bank.pdf");
   });
 
-  test("updateClaimByFinanceAction returns friendly message for duplicate active bill unique violation", async () => {
+  test("updateClaimByFinanceAction intercepts duplicate before save and returns claimId for Finance user", async () => {
     mockFindActiveExpenseDuplicateClaimIdByCompositeKey.mockResolvedValueOnce({
       claimId: "CLAIM-EXISTING-1",
       errorMessage: null,
-    });
-
-    mockUpdateByFinanceExecute.mockRejectedValueOnce({
-      code: "23505",
-      message: 'duplicate key value violates unique constraint "uq_expense_details_active_bill"',
-      details: "Key (bill_no, transaction_date, basic_amount) already exists.",
     });
 
     const { updateClaimByFinanceAction } = await import("@/modules/claims/actions");
@@ -1238,9 +1238,10 @@ describe("claims actions", () => {
     expect(result).toEqual({
       ok: false,
       message:
-        "A claim with this exact Bill Number, Date, and Amount already exists in the system. Please change the Bill Number slightly (e.g., add '-FIX') to make it unique before saving.",
+        "Duplicate Alert: A claim with this exact Bill Number, Amount, and Date already exists in Claim #CLAIM-EXISTING-1. Update blocked.",
+      duplicateClaimId: "CLAIM-EXISTING-1",
     });
-    expect(mockFindActiveExpenseDuplicateClaimIdByCompositeKey).not.toHaveBeenCalled();
+    expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
   });
 
   test("updateClaimByFinanceAction keeps duplicate message generic for non-finance pre-HOD edits", async () => {

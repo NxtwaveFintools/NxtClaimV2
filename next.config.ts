@@ -4,7 +4,6 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       bodySizeLimit: "80mb",
-      allowedOrigins: ["127.0.0.1", "localhost"],
     },
     optimizePackageImports: [
       "lucide-react",

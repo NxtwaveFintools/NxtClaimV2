@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -354,7 +355,8 @@ export function FinanceEditClaimForm({
       if (!result.ok) {
         if (result.duplicateClaimId) {
           const claimId = result.duplicateClaimId;
-          const toastId = toast.error(
+          const toastId = crypto.randomUUID();
+          toast.error(
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold uppercase tracking-wide text-rose-600 dark:text-rose-500">
@@ -371,20 +373,7 @@ export function FinanceEditClaimForm({
                   className="inline-flex cursor-pointer items-center gap-1 rounded border border-rose-200 bg-rose-50 px-2 py-0.5 font-mono text-xs font-bold text-rose-600 underline decoration-rose-500/30 transition-all hover:scale-[1.02] hover:bg-rose-100 active:scale-[0.98] dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20"
                 >
                   #{claimId}
-                  <svg
-                    className="inline h-3 w-3 opacity-70"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                    />
-                  </svg>
+                  <ExternalLink className="inline h-3 w-3 opacity-70" aria-hidden="true" />
                 </Link>
               </p>
               <span className="mt-0.5 text-[11px] italic text-zinc-400 dark:text-zinc-500">
@@ -392,6 +381,7 @@ export function FinanceEditClaimForm({
               </span>
             </div>,
             {
+              id: toastId,
               duration: 8000,
               className:
                 "bg-white/95 dark:bg-zinc-900/95 border border-rose-200 dark:border-rose-500/30 text-zinc-900 dark:text-zinc-200 rounded-xl shadow-xl dark:shadow-2xl backdrop-blur-md px-4 py-3.5 min-w-[340px]",

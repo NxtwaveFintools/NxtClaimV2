@@ -392,8 +392,6 @@ export async function withActorPage<T>(
   page.on("console", (msg) => {
     if (msg.type() === "error") {
       console.error(`BROWSER CONSOLE ERROR [${email}]:`, msg.text());
-    } else {
-      console.log(`BROWSER CONSOLE LOG [${email}]:`, msg.text());
     }
   });
   page.on("pageerror", (err) => {
@@ -516,7 +514,7 @@ export async function submitExpenseClaim(
     purpose: string;
     transactionDate: string;
   },
-) {
+): Promise<void> {
   // Abort the AI Server Action to return instantly.
   // We identify the AI action by checking if the multipart POST body contains "documentType"
   // which is unique to the AI parsing payload, whereas the form submission has "employeeName".
@@ -531,25 +529,15 @@ export async function submitExpenseClaim(
     await route.fallback();
   });
 
-  // 1. Wait for Next.js dev server to finish compiling and network to settle
-  await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
-  await page.waitForTimeout(3000); // Buffer for network to fully stabilize
-
-  // 2. Wait explicitly for the skeleton loader to disappear
-  await expect(page.locator('.animate-pulse, [data-testid="skeleton"]'))
-    .toHaveCount(0, { timeout: 15000 })
-    .catch(() => {});
-
-  // Wait for React to fully hydrate the form before trying to interact with it
-  await expect(page.locator('form[data-hydrated="true"]')).toBeVisible({ timeout: 15000 });
+  // 1. Wait for the form to fully hydrate (covers network settle + skeleton disappearance)
+  await expect(page.locator('form[data-hydrated="true"]')).toBeVisible({ timeout: 20000 });
 
   // 3. Select basic dropdowns (Department, Category, etc.)
   await selectOptionByLabel(page, /Department/i, input.departmentName);
   await selectOptionByLabel(page, /Payment Mode/i, input.paymentModeName);
   await selectOptionByLabel(page, /Expense Category/i, input.expenseCategoryName);
 
-  // 3b. WAIT FOR DYNAMIC FIELDS TO SETTLE
-  await page.waitForTimeout(3000);
+  // 3b. Wait for dynamic fields triggered by dropdown selections to settle
   await expect(page.locator('.animate-pulse, [data-testid="skeleton"]'))
     .toHaveCount(0, { timeout: 15000 })
     .catch(() => {});
@@ -560,7 +548,6 @@ export async function submitExpenseClaim(
     page.getByText("Choose Invoice/Bill").click(),
   ]);
   await fileChooser.setFiles(RECEIPT_PATH);
-  await page.waitForTimeout(1000); // Buffer for React to process the synthetic event
 
   // 5. WAIT FOR AI TO FINISH (It will fail instantly due to route.abort)
   const autoFillBtn = page.getByRole("button", { name: /auto-fill with ai/i });

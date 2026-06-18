@@ -1502,27 +1502,30 @@ export async function updateClaimByFinanceAction(input: {
           totalAmount: parseResult.data.totalAmount,
         };
 
-  if (parseResult.data.detailType === "expense") {
-    const supabase = getServiceRoleSupabaseClient();
-    // claim_id in expense_details is the FK to claims.id — it IS the claim's primary key.
-    const { data: duplicateRow } = await supabase
-      .from("expense_details")
-      .select("claim_id")
-      .eq("bill_no", parseResult.data.billNo)
-      .eq("total_amount", parseResult.data.totalAmount)
-      .eq("transaction_date", parseResult.data.transactionDate)
-      .neq("claim_id", claimIdParse.data.claimId)
-      .limit(1)
-      .maybeSingle();
+  if (parseResult.data.detailType === "expense" && approvalContextResult.data.isFinance) {
+    const dupeResult = await repository.findActiveExpenseDuplicateClaimIdByCompositeKey({
+      billNo: parseResult.data.billNo,
+      transactionDate: parseResult.data.transactionDate,
+      totalAmount: parseResult.data.totalAmount,
+      excludeClaimId: claimIdParse.data.claimId,
+      foreignCurrencyCode: parseResult.data.foreignCurrencyCode ?? null,
+      foreignBasicAmount: parseResult.data.foreignBasicAmount ?? null,
+    });
 
-    const duplicateId: string | null = duplicateRow?.claim_id ?? null;
-
-    if (duplicateId) {
+    if (dupeResult.errorMessage) {
       await removeClaimFiles(uploadedReplacementPaths);
       return {
         ok: false,
-        message: `Duplicate Alert: A claim with this exact Bill Number, Amount, and Date already exists in Claim #${duplicateId}. Update blocked.`,
-        duplicateClaimId: duplicateId,
+        message: "Unable to verify duplicate status. Please retry.",
+      };
+    }
+
+    if (dupeResult.claimId) {
+      await removeClaimFiles(uploadedReplacementPaths);
+      return {
+        ok: false,
+        message: `Duplicate Alert: A claim with this exact Bill Number, Amount, and Date already exists in Claim #${dupeResult.claimId}. Update blocked.`,
+        duplicateClaimId: dupeResult.claimId,
       };
     }
   }
