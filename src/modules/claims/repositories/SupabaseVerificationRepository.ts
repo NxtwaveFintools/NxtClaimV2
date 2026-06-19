@@ -3,6 +3,10 @@ import {
   normalizeSentinel,
   type SubmittedSnapshot,
 } from "@/modules/claims/verification/comparison-engine";
+import {
+  gradeDuplicateArms,
+  type DuplicateArm,
+} from "@/modules/claims/verification/duplicate-grading";
 
 const CLAIMS_BUCKET = "claims";
 
@@ -96,8 +100,10 @@ export class SupabaseVerificationRepository {
     model: string;
     receiptHash: string | null;
     bankHash: string | null;
-    duplicateStatus: string;
-    duplicateClaimIds: string[];
+    invoiceDuplicateStatus: string;
+    invoiceDuplicateClaimIds: string[];
+    amountDateDuplicateStatus: string;
+    amountDateDuplicateClaimIds: string[];
     checks: VerificationCheckInput[];
   }): Promise<{ errorMessage: string | null }> {
     const client = getServiceRoleSupabaseClient();
@@ -107,17 +113,21 @@ export class SupabaseVerificationRepository {
       p_model: input.model,
       p_receipt_hash: input.receiptHash,
       p_bank_hash: input.bankHash,
-      p_duplicate_status: input.duplicateStatus,
-      p_duplicate_claim_ids: input.duplicateClaimIds,
+      p_invoice_duplicate_status: input.invoiceDuplicateStatus,
+      p_invoice_duplicate_claim_ids: input.invoiceDuplicateClaimIds,
+      p_amount_date_duplicate_status: input.amountDateDuplicateStatus,
+      p_amount_date_duplicate_claim_ids: input.amountDateDuplicateClaimIds,
       p_checks: input.checks,
     });
     return { errorMessage: error?.message ?? null };
   }
 
   /**
-   * Finance-stage duplicate detection on EXTRACTED values. Returns the graded status +
-   * the matched claim ids. Distinguishes a failed invoice read (submitted invoice present
-   * but nothing extracted) from a genuinely invoice-less receipt.
+   * Finance-stage duplicate detection on EXTRACTED values. Grades BOTH arms
+   * (invoice number AND amount+date) independently — a claim may match either,
+   * both, or neither, against potentially different peer claims. A failed
+   * invoice read (submitted invoice present but nothing extracted) marks the
+   * invoice arm `unavailable` while still grading amount+date.
    */
   async detectDuplicate(input: {
     claimId: string;
@@ -126,44 +136,34 @@ export class SupabaseVerificationRepository {
     transactionDate: string | null;
     totalAmount: number | null;
   }): Promise<{
-    data: {
-      status: "none" | "invoice_match" | "amount_date_match" | "unavailable";
-      claimIds: string[];
-    };
+    data: { invoice: DuplicateArm; amountDate: DuplicateArm };
     errorMessage: string | null;
   }> {
     const extractedInv = normalizeSentinel(input.extractedBillNo);
     const submittedInv = normalizeSentinel(input.submittedBillNo);
-
-    // Read failure: the claim has an invoice number but the AI couldn't extract one.
-    if (extractedInv === null && submittedInv !== null) {
-      return { data: { status: "unavailable", claimIds: [] }, errorMessage: null };
-    }
+    const invoiceUnavailable = extractedInv === null && submittedInv !== null;
+    const amountDateAvailable = input.transactionDate !== null && input.totalAmount !== null;
 
     const client = getServiceRoleSupabaseClient();
     const { data, error } = await client.rpc("find_claim_duplicates", {
       p_exclude_claim_id: input.claimId,
-      p_bill_no: extractedInv, // null → helper uses the amount+date arm
+      p_bill_no: extractedInv, // null → invoice arm yields nothing; amount+date arm still runs
       p_transaction_date: input.transactionDate,
       p_total_amount: input.totalAmount,
     });
     if (error) {
-      return { data: { status: "unavailable", claimIds: [] }, errorMessage: error.message };
+      return {
+        data: {
+          invoice: { status: "unavailable", claimIds: [] },
+          amountDate: { status: "unavailable", claimIds: [] },
+        },
+        errorMessage: error.message,
+      };
     }
 
     const rows = (data ?? []) as { claim_id: string; match_kind: string }[];
-    if (rows.length === 0) {
-      return { data: { status: "none", claimIds: [] }, errorMessage: null };
-    }
-    const invoiceRows = rows.filter((r) => r.match_kind === "invoice_match");
-    if (invoiceRows.length > 0) {
-      return {
-        data: { status: "invoice_match", claimIds: invoiceRows.map((r) => r.claim_id) },
-        errorMessage: null,
-      };
-    }
     return {
-      data: { status: "amount_date_match", claimIds: rows.map((r) => r.claim_id) },
+      data: gradeDuplicateArms(rows, { invoiceUnavailable, amountDateAvailable }),
       errorMessage: null,
     };
   }

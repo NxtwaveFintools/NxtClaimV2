@@ -112,8 +112,10 @@ export class VerificationWorker {
         model: serverEnv.GEMINI_MODEL,
         receiptHash: null,
         bankHash: null,
-        duplicateStatus: "unavailable",
-        duplicateClaimIds: [],
+        invoiceDuplicateStatus: "unavailable",
+        invoiceDuplicateClaimIds: [],
+        amountDateDuplicateStatus: "unavailable",
+        amountDateDuplicateClaimIds: [],
         checks: [],
       });
       return;
@@ -261,8 +263,14 @@ export class VerificationWorker {
     const overall = rollUpVerdict(checks, confidence);
 
     // Finance-stage duplicate detection on the extracted values (degrades to unavailable).
-    let duplicateStatus = "unavailable";
-    let duplicateClaimIds: string[] = [];
+    let invoiceDuplicate: { status: string; claimIds: string[] } = {
+      status: "unavailable",
+      claimIds: [],
+    };
+    let amountDateDuplicate: { status: string; claimIds: string[] } = {
+      status: "unavailable",
+      claimIds: [],
+    };
     if (dedupInputs) {
       const dup = await this.repository.detectDuplicate({
         claimId: run.claim_id,
@@ -271,8 +279,8 @@ export class VerificationWorker {
         transactionDate: dedupInputs.transactionDate,
         totalAmount: dedupInputs.totalAmount,
       });
-      duplicateStatus = dup.data.status;
-      duplicateClaimIds = dup.data.claimIds;
+      invoiceDuplicate = dup.data.invoice;
+      amountDateDuplicate = dup.data.amountDate;
     }
 
     const { errorMessage } = await this.repository.completeVerificationRun({
@@ -281,8 +289,10 @@ export class VerificationWorker {
       model: serverEnv.GEMINI_MODEL,
       receiptHash,
       bankHash,
-      duplicateStatus,
-      duplicateClaimIds,
+      invoiceDuplicateStatus: invoiceDuplicate.status,
+      invoiceDuplicateClaimIds: invoiceDuplicate.claimIds,
+      amountDateDuplicateStatus: amountDateDuplicate.status,
+      amountDateDuplicateClaimIds: amountDateDuplicate.claimIds,
       checks: checks.map(toCheckInput),
     });
 
