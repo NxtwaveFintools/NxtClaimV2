@@ -676,7 +676,7 @@ export function FinanceApprovalsBulkTable({
                     </td>
                   ) : null}
                   <td className="whitespace-nowrap px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
-                    <Link href={detailHref} className={CLAIM_ID_LINK_CLASSES}>
+                    <Link href={detailHref} prefetch={false} className={CLAIM_ID_LINK_CLASSES}>
                       {claim.id}
                     </Link>
                   </td>
@@ -732,7 +732,7 @@ export function FinanceApprovalsBulkTable({
                     className={`${STICKY_ACTION_COLUMN_CLASSES} whitespace-nowrap px-3 py-2 text-right`}
                   >
                     <div className="flex min-w-28 justify-end">
-                      <Link href={detailHref} className={VIEW_LINK_CLASSES}>
+                      <Link href={detailHref} prefetch={false} className={VIEW_LINK_CLASSES}>
                         View
                       </Link>
                     </div>

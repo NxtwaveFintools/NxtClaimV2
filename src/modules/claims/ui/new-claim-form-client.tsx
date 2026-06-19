@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useTransition,
-  type BaseSyntheticEvent,
-} from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch, type FieldErrors } from "react-hook-form";
 import { useRouter } from "next/navigation";
@@ -677,6 +670,12 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   };
 
   const onValidSubmit = async (values: ClaimFormDraftValues) => {
+    if (values.detailType === "expense" && !(values.expense.basicAmount > 0)) {
+      setIsSubmitting(false);
+      toast.error("Please fill the Basic Amount before submitting.");
+      return;
+    }
+
     if (values.detailType === "expense") {
       if (!invoiceFile) {
         setIsSubmitting(false);
@@ -874,8 +873,8 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     toast.error(firstError);
   };
 
-  const handleFormSubmit = (event: BaseSyntheticEvent) => {
-    if (isSubmitting) {
+  const handleFormSubmit = () => {
+    if (isSubmitting || isAiParsing) {
       return;
     }
 
@@ -887,7 +886,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       (formErrors) => onInvalidSubmit(formErrors),
     );
 
-    void onSubmit(event);
+    void onSubmit();
   };
 
   const applyParsedReceiptToForm = (parsed: Record<string, unknown>): void => {
@@ -1288,6 +1287,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     <form
       className="grid gap-5 text-zinc-900 transition-colors dark:text-zinc-100 [&_section]:overflow-hidden [&_section]:rounded-2xl [&_section]:border [&_section]:border-zinc-200/80 [&_section]:bg-white/80 [&_section]:p-5 [&_section]:shadow-[0_4px_24px_-8px_rgba(15,23,42,0.06)] [&_section]:backdrop-blur-sm dark:[&_section]:border-zinc-800 dark:[&_section]:bg-zinc-900/80 dark:[&_section]:shadow-black/10 [&_h2]:text-zinc-900 dark:[&_h2]:text-zinc-100 [&_label]:text-zinc-700 dark:[&_label]:text-zinc-300 [&_input:not([type='checkbox']):not([type='hidden'])]:nxt-input [&_input:not([type='checkbox']):not([type='hidden'])]:w-full [&_input:not([type='checkbox']):not([type='hidden'])]:min-w-0 [&_input:not([type='checkbox']):not([type='hidden'])]:!h-11 [&_input:not([type='checkbox']):not([type='hidden'])]:!text-base [&_input:not([type='checkbox'])]:border-zinc-300 [&_input:not([type='checkbox'])]:bg-white [&_input:not([type='checkbox'])]:text-zinc-900 dark:[&_input:not([type='checkbox'])]:border-zinc-700 dark:[&_input:not([type='checkbox'])]:bg-zinc-900/70 dark:[&_input:not([type='checkbox'])]:text-zinc-100 [&_select]:nxt-input [&_select]:w-full [&_select]:min-w-0 [&_select]:!h-11 [&_select]:!text-base [&_select]:border-zinc-300 [&_select]:bg-white [&_select]:text-zinc-900 dark:[&_select]:border-zinc-700 dark:[&_select]:bg-zinc-900/70 dark:[&_select]:text-zinc-100 [&_textarea]:nxt-input [&_textarea]:w-full [&_textarea]:min-w-0 [&_textarea]:!text-base [&_textarea]:border-zinc-300 [&_textarea]:bg-white [&_textarea]:text-zinc-900 dark:[&_textarea]:border-zinc-700 dark:[&_textarea]:bg-zinc-900/70 dark:[&_textarea]:text-zinc-100"
       onSubmit={handleFormSubmit}
+      data-hydrated="true"
     >
       <input type="hidden" {...register("employeeName")} />
       <input type="hidden" {...register("hodName")} />
@@ -1611,7 +1611,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     type="file"
                     accept="application/pdf,image/jpeg,image/png,image/webp"
                     aria-label="Invoice or bill file upload"
-                    className="hidden"
+                    className="sr-only"
                     onChange={(event) => {
                       const selectedFile = event.target.files?.[0] ?? null;
                       void handleReceiptUploadSuccess(selectedFile);
@@ -1655,7 +1655,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     type="file"
                     accept="application/pdf,image/jpeg,image/png,image/webp"
                     aria-label="Bank statement file upload"
-                    className="hidden"
+                    className="sr-only"
                     onChange={(event) => {
                       const selectedFile = event.target.files?.[0] ?? null;
                       void handleBankStatementUploadSuccess(selectedFile);
@@ -2289,36 +2289,45 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
       {fileError ? <Alert tone="error" description={fileError} /> : null}
 
-      <Button type="submit" disabled={isSubmitting} variant="primary" size="lg" className="w-full">
-        {isSubmitting ? (
-          <>
-            <svg
-              className="h-4 w-4 animate-spin"
-              viewBox="0 0 20 20"
-              aria-hidden="true"
-              fill="none"
-            >
-              <circle
-                cx="10"
-                cy="10"
-                r="7"
-                stroke="currentColor"
-                strokeOpacity="0.3"
-                strokeWidth="2"
-              />
-              <path
-                d="M10 3a7 7 0 0 1 7 7"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-            Processing...
-          </>
-        ) : (
-          "Submit Claim"
-        )}
-      </Button>
+      <div className="pt-6 sm:col-span-2">
+        <Button
+          type="button"
+          onClick={handleFormSubmit}
+          disabled={isSubmitting || isAiParsing}
+          variant="primary"
+          size="lg"
+          className="w-full"
+        >
+          {isSubmitting ? (
+            <>
+              <svg
+                className="h-4 w-4 animate-spin"
+                viewBox="0 0 20 20"
+                aria-hidden="true"
+                fill="none"
+              >
+                <circle
+                  cx="10"
+                  cy="10"
+                  r="7"
+                  stroke="currentColor"
+                  strokeOpacity="0.3"
+                  strokeWidth="2"
+                />
+                <path
+                  d="M10 3a7 7 0 0 1 7 7"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+              Processing...
+            </>
+          ) : (
+            "Submit Claim"
+          )}
+        </Button>
+      </div>
     </form>
   );
 }

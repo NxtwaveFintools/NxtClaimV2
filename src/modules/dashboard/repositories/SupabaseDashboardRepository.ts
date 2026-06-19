@@ -19,6 +19,10 @@ import type {
   DashboardAnalyticsScope,
   DashboardAnalyticsViewerContext,
   DashboardRepository,
+  EmployeeClaimCategoryBreakdownItem,
+  EmployeeClaimDetailPayload,
+  EmployeeClaimMasterRow,
+  EmployeeClaimQueryInput,
 } from "@/core/domain/dashboard/contracts";
 
 type WalletTotalsRow = {
@@ -134,6 +138,29 @@ type AnalyticsFinanceTatJsonRow = {
   sampleCount: number | string | null;
   averageHoursToApproval: number | string | null;
   averageDaysToApproval: number | string | null;
+};
+
+type EmployeeClaimMasterRpcRow = {
+  employee_id: string | null;
+  employee_name: string | null;
+  total_amount: number | string | null;
+  claim_count: number | string | null;
+  expense_amount: number | string | null;
+  advance_amount: number | string | null;
+  total_count: number | string | null;
+};
+
+type EmployeeClaimDetailRpcPayload = {
+  totalAmount: number | string | null;
+  expenseAmount: number | string | null;
+  advanceAmount: number | string | null;
+  largestClaimAmount: number | string | null;
+  mostFrequentCategory: string | null;
+  categoryBreakdown: Array<{
+    categoryName: string | null;
+    amount: number | string | null;
+    count: number | string | null;
+  }> | null;
 };
 
 type AnalyticsRpcPayload = {
@@ -706,6 +733,8 @@ export class SupabaseDashboardRepository
 
   async getAnalyticsFilterOptions(input: {
     isAdmin: boolean;
+    isApprover1: boolean;
+    approver1DepartmentIds: string[];
     isApprover2: boolean;
     isFinance: boolean;
     approver2DepartmentIds: string[];
@@ -713,7 +742,7 @@ export class SupabaseDashboardRepository
     data: DashboardAnalyticsAdvancedFilters | null;
     errorMessage: string | null;
   }> {
-    if (!input.isAdmin && !input.isApprover2 && !input.isFinance) {
+    if (!input.isAdmin && !input.isApprover1 && !input.isApprover2 && !input.isFinance) {
       return {
         data: {
           canUseScopeFilters: false,
@@ -738,6 +767,47 @@ export class SupabaseDashboardRepository
           .from("master_departments")
           .select("id, name")
           .eq("is_active", true)
+          .order("name", { ascending: true }),
+        client
+          .from("master_expense_categories")
+          .select("id, name")
+          .eq("is_active", true)
+          .order("name", { ascending: true }),
+        client
+          .from("master_products")
+          .select("id, name")
+          .eq("is_active", true)
+          .order("name", { ascending: true }),
+      ]);
+
+      if (departmentsResult.error) {
+        return { data: null, errorMessage: departmentsResult.error.message };
+      }
+
+      if (expenseCategoriesResult.error) {
+        return { data: null, errorMessage: expenseCategoriesResult.error.message };
+      }
+
+      if (productsResult.error) {
+        return { data: null, errorMessage: productsResult.error.message };
+      }
+
+      const departmentRows = (departmentsResult.data ?? []) as DepartmentOptionRow[];
+      departments = departmentRows.map((row) => ({ id: row.id, label: row.name }));
+
+      const expenseCategoryRows = (expenseCategoriesResult.data ??
+        []) as ExpenseCategoryOptionRow[];
+      expenseCategories = expenseCategoryRows.map((row) => ({ id: row.id, label: row.name }));
+
+      const productRows = (productsResult.data ?? []) as ProductOptionRow[];
+      products = productRows.map((row) => ({ id: row.id, label: row.name }));
+    } else if (input.isApprover1 && input.approver1DepartmentIds.length > 0) {
+      const [departmentsResult, expenseCategoriesResult, productsResult] = await Promise.all([
+        client
+          .from("master_departments")
+          .select("id, name")
+          .eq("is_active", true)
+          .in("id", input.approver1DepartmentIds)
           .order("name", { ascending: true }),
         client
           .from("master_expense_categories")
@@ -948,6 +1018,107 @@ export class SupabaseDashboardRepository
         expenseCategories,
         products,
         financeApprovers,
+      },
+      errorMessage: null,
+    };
+  }
+
+  async getEmployeeClaimMaster(
+    input: EmployeeClaimQueryInput & { employeeSearch?: string },
+  ): Promise<{
+    data: EmployeeClaimMasterRow[];
+    totalCount: number;
+    errorMessage: string | null;
+  }> {
+    const client = getServiceRoleSupabaseClient();
+
+    const { data, error } = await runWithSingleRetry<EmployeeClaimMasterRpcRow[] | null>(async () =>
+      client.rpc("get_employee_claim_master", {
+        p_hod_department_ids: input.hodDepartmentIds,
+        p_date_from: input.dateFrom,
+        p_date_to: input.dateTo,
+        p_status: input.status ?? null,
+        p_department_id: input.departmentId ?? null,
+        p_expense_category_id: input.expenseCategoryId ?? null,
+        p_employee_search: input.employeeSearch?.trim() || null,
+        p_limit: input.limit ?? 10,
+        p_offset: input.offset ?? 0,
+      }),
+    );
+
+    if (error) {
+      return { data: [], totalCount: 0, errorMessage: error.message };
+    }
+
+    const rows = (data ?? []) as EmployeeClaimMasterRpcRow[];
+    const totalCount = toInteger(rows[0]?.total_count ?? 0);
+
+    return {
+      data: rows
+        .filter(
+          (row): row is EmployeeClaimMasterRpcRow & { employee_id: string } =>
+            typeof row.employee_id === "string" && row.employee_id.length > 0,
+        )
+        .map((row) => ({
+          employeeId: row.employee_id,
+          employeeName: row.employee_name?.trim() || row.employee_id,
+          totalAmount: toNumber(row.total_amount),
+          claimCount: toInteger(row.claim_count),
+          expenseAmount: toNumber(row.expense_amount),
+          advanceAmount: toNumber(row.advance_amount),
+        })),
+      totalCount,
+      errorMessage: null,
+    };
+  }
+
+  async getEmployeeClaimDetail(input: EmployeeClaimQueryInput & { employeeId: string }): Promise<{
+    data: EmployeeClaimDetailPayload | null;
+    errorMessage: string | null;
+  }> {
+    const client = getServiceRoleSupabaseClient();
+
+    const { data, error } = await runWithSingleRetry<EmployeeClaimDetailRpcPayload | null>(
+      async () =>
+        client.rpc("get_employee_claim_detail", {
+          p_employee_id: input.employeeId,
+          p_hod_department_ids: input.hodDepartmentIds,
+          p_date_from: input.dateFrom,
+          p_date_to: input.dateTo,
+          p_status: input.status ?? null,
+          p_department_id: input.departmentId ?? null,
+          p_expense_category_id: input.expenseCategoryId ?? null,
+        }),
+    );
+
+    if (error) {
+      return { data: null, errorMessage: error.message };
+    }
+
+    const payload = data as EmployeeClaimDetailRpcPayload | null;
+
+    const categoryBreakdown: EmployeeClaimCategoryBreakdownItem[] = (
+      payload?.categoryBreakdown ?? []
+    )
+      .filter(
+        (item): item is NonNullable<typeof item> & { categoryName: string } =>
+          typeof item?.categoryName === "string",
+      )
+      .map((item) => ({
+        categoryName: item.categoryName,
+        amount: toNumber(item.amount),
+        count: toInteger(item.count),
+      }));
+
+    return {
+      data: {
+        totalAmount: toNumber(payload?.totalAmount),
+        expenseAmount: toNumber(payload?.expenseAmount),
+        advanceAmount: toNumber(payload?.advanceAmount),
+        largestClaimAmount: toNumber(payload?.largestClaimAmount),
+        mostFrequentCategory:
+          typeof payload?.mostFrequentCategory === "string" ? payload.mostFrequentCategory : null,
+        categoryBreakdown,
       },
       errorMessage: null,
     };

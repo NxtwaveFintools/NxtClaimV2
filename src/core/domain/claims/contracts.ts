@@ -6,7 +6,12 @@ export type ClaimSubmissionType = "Self" | "On Behalf";
 
 export type MyClaimsDateType = "claim_date";
 
-export type ClaimSearchField = "claim_id" | "employee_name" | "employee_id" | "employee_email";
+export type ClaimSearchField =
+  | "claim_id"
+  | "employee_name"
+  | "employee_id"
+  | "employee_email"
+  | "bill_no";
 
 export type ClaimDateTarget = "submitted" | "hod_action" | "finance_closed";
 
@@ -700,7 +705,7 @@ export type DepartmentViewerFilters = {
   status?: DbClaimStatus[];
   departmentId?: string;
   searchQuery?: string;
-  searchField?: "claim_id" | "employee_name" | "employee_id" | "employee_email";
+  searchField?: ClaimSearchField;
   submissionType?: "Self" | "On Behalf";
   paymentModeId?: string;
   locationId?: string;

@@ -12,12 +12,15 @@ import { ROUTES } from "@/core/config/route-registry";
 import {
   CLAIM_STATUSES,
   DB_CLAIM_STATUSES,
+  DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
   isPendingFinanceApprovalStatus,
   isSubmitterDeletableClaimStatus,
   mapCanonicalStatusToDbStatuses,
   type ClaimStatus,
   type DbClaimStatus,
 } from "@/core/constants/statuses";
+import { getHodPendingSummaryAction } from "@/modules/claims/actions/get-hod-summary";
+import { HodSummaryController } from "@/modules/claims/ui/hod-pending-summary-modal";
 import type {
   ClaimDateTarget,
   ClaimSearchField,
@@ -31,6 +34,7 @@ import { formatDate } from "@/lib/format";
 import { pageBodyFont, pageDisplayFont } from "@/lib/fonts";
 import { normalizeIsoDateOnly } from "@/lib/date-only";
 import { appendReturnToParam, buildPathWithSearchParams } from "@/lib/pagination-helpers";
+import { isValidClaimSearchField } from "@/lib/claim-search-fields";
 import { getCachedCurrentUser } from "@/modules/auth/server/get-current-user";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
 import { isAdmin } from "@/modules/admin/server/is-admin";
@@ -138,16 +142,7 @@ function normalizeDate(value: string | undefined): string | undefined {
 }
 
 function normalizeSearchField(value: string | undefined): ClaimSearchField | undefined {
-  if (
-    value === "claim_id" ||
-    value === "employee_name" ||
-    value === "employee_id" ||
-    value === "employee_email"
-  ) {
-    return value;
-  }
-
-  return undefined;
+  return isValidClaimSearchField(value) ? value : undefined;
 }
 
 function normalizePaymentModeId(value: string | undefined): string | undefined {
@@ -703,10 +698,15 @@ async function MyClaimsDashboardResolvedContent({
   searchParams: Record<string, SearchParamsValue>;
   userId: string;
 }) {
-  const [isAdminUser, isDeptViewer, viewerContextResult] = await Promise.all([
+  const rawStatusParam = firstParamValue(searchParams?.status) ?? null;
+  const isLikelyApprovals =
+    !firstParamValue(searchParams?.view) || firstParamValue(searchParams?.view) === "approvals";
+
+  const [isAdminUser, isDeptViewer, viewerContextResult, hodSummaryData] = await Promise.all([
     isAdmin(),
     isDepartmentViewer(),
     getCachedPendingApprovalsViewerContext(userId),
+    isLikelyApprovals ? getHodPendingSummaryAction(rawStatusParam) : Promise.resolve(null),
   ]);
 
   const requestedView = firstParamValue(searchParams?.view);
@@ -739,6 +739,12 @@ async function MyClaimsDashboardResolvedContent({
     isDeptViewer,
   );
 
+  const shouldAutoOpen =
+    activeView === "approvals" &&
+    viewerContextResult.activeScope === "l1" &&
+    rawStatusParam === DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS &&
+    hodSummaryData !== null;
+
   const submissionsHref = buildViewHref(searchParams, "submissions");
   const approvalsHref = buildApprovalsViewHref(searchParams, viewerContextResult.activeScope);
   const adminHref = buildViewHref(searchParams, "admin");
@@ -769,6 +775,13 @@ async function MyClaimsDashboardResolvedContent({
                 >
                   System Settings
                 </Link>
+              ) : null}
+              {activeView === "approvals" && viewerContextResult.activeScope === "l1" ? (
+                <HodSummaryController
+                  initialData={hodSummaryData}
+                  initiallyOpen={shouldAutoOpen}
+                  currentStatus={rawStatusParam}
+                />
               ) : null}
               <Link
                 href={ROUTES.claims.new}

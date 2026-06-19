@@ -11,6 +11,7 @@ const mockGetActiveLocations = jest.fn();
 const mockGetPaymentModeById = jest.fn();
 const mockExistsExpenseByCompositeKey = jest.fn();
 const mockFindActiveExpenseDuplicateClaimIdByCompositeKey = jest.fn();
+const mockSyncExpenseDuplicateFlags = jest.fn();
 const mockGetActiveUserIdByEmail = jest.fn();
 const mockIsUserApprover1InAnyDepartment = jest.fn();
 const mockActiveDepartmentsExecute = jest.fn();
@@ -76,6 +77,7 @@ jest.mock("@/modules/claims/repositories/SupabaseClaimRepository", () => ({
     existsExpenseByCompositeKey: mockExistsExpenseByCompositeKey,
     findActiveExpenseDuplicateClaimIdByCompositeKey:
       mockFindActiveExpenseDuplicateClaimIdByCompositeKey,
+    syncExpenseDuplicateFlags: mockSyncExpenseDuplicateFlags,
     getActiveUserIdByEmail: mockGetActiveUserIdByEmail,
     isUserApprover1InAnyDepartment: mockIsUserApprover1InAnyDepartment,
     createClaimDraft: mockCreateClaimDraft,
@@ -464,6 +466,10 @@ describe("claims actions", () => {
 
     mockFindActiveExpenseDuplicateClaimIdByCompositeKey.mockResolvedValue({
       claimId: null,
+      errorMessage: null,
+    });
+
+    mockSyncExpenseDuplicateFlags.mockResolvedValue({
       errorMessage: null,
     });
 
@@ -1216,7 +1222,7 @@ describe("claims actions", () => {
     expect(forwardedPayload.bankStatementFilePath).toBe("expenses/old_bank.pdf");
   });
 
-  test("updateClaimByFinanceAction returns friendly message for duplicate active bill unique violation", async () => {
+  test("updateClaimByFinanceAction intercepts duplicate before save and returns claimId for Finance user", async () => {
     mockFindActiveExpenseDuplicateClaimIdByCompositeKey.mockResolvedValueOnce({
       claimId: "CLAIM-EXISTING-1",
       errorMessage: null,
@@ -1239,7 +1245,7 @@ describe("claims actions", () => {
       ok: false,
       message: "A claim with this exact Bill No, Date, and Amount already exists.",
     });
-    expect(mockFindActiveExpenseDuplicateClaimIdByCompositeKey).not.toHaveBeenCalled();
+    expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
   });
 
   test("updateClaimByFinanceAction keeps duplicate message generic for non-finance pre-HOD edits", async () => {
