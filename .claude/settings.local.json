@@ -53,7 +53,11 @@
       "Bash(~/.claude/skills/gstack/bin/gstack-learnings-log '{\"skill\":\"plan-eng-review\",\"type\":\"operational\",\"key\":\"no-deploy-config\",\"insight\":\"NxtClaimV2 repo has NO deployment config \\(no vercel.json, fly.toml, .github/workflows, Dockerfile\\) and NO machine-to-machine auth pattern \\(all routes use withAuth Bearer+domain\\). Cron/scheduled work needs a CRON_SECRET pattern invented; chosen substrate is Supabase pg_cron+pg_net hitting an authenticated route.\",\"confidence\":8,\"source\":\"observed\",\"files\":[\"next.config.ts\",\"src/core/http/with-auth.ts\"]}')",
       "Bash(~/.claude/skills/gstack/bin/gstack-timeline-log '{\"skill\":\"plan-eng-review\",\"event\":\"completed\",\"branch\":\"development\",\"outcome\":\"success\",\"session\":\"eng-review-20260615\"}')",
       "mcp__supabase__get_project_url",
-      "mcp__supabase__generate_typescript_types"
+      "mcp__supabase__generate_typescript_types",
+      "Read(//c/Users/Nxtwave/.claude/plugins/cache/thedotmack/claude-mem/13.6.2/plugin/**)",
+      "Read(//c/Users/Nxtwave/.claude/plugins/cache/thedotmack/claude-mem/13.6.2/plugin/scripts/**)",
+      "Read(//c/Users/Nxtwave/.claude/plugins/cache/thedotmack/claude-mem/13.6.2/**)",
+      "Read(//c/Users/Nxtwave/.claude/plugins/cache/thedotmack/claude-mem/13.6.2/scripts/**)"
     ]
   },
   "enabledMcpjsonServers": [
