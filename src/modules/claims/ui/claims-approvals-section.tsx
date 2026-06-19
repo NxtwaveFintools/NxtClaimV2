@@ -179,7 +179,7 @@ export async function ClaimsApprovalsSection({
       <Suspense fallback={<FilterBarSkeleton />}>
         <ApprovalsFilterBarWithData
           exportScope={exportScope}
-          defaultFiltersExpanded={defaultFiltersExpanded ?? viewerContext.activeScope === "finance"}
+          defaultFiltersExpanded={defaultFiltersExpanded ?? viewerContext.activeScope !== null}
           showAdvancedFilters={showAdvancedFilters ?? viewerContext.activeScope === "finance"}
           storageScope={storageScope}
           lockedStatus={lockedStatus}
