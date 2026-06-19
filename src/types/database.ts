@@ -365,6 +365,10 @@ export type Database = {
           created_at: string;
           duplicate_claim_ids: string[];
           duplicate_status: string;
+          invoice_duplicate_status: string;
+          invoice_duplicate_claim_ids: string[];
+          amount_date_duplicate_status: string;
+          amount_date_duplicate_claim_ids: string[];
           error_detail: string | null;
           finished_at: string | null;
           id: string;
@@ -387,6 +391,10 @@ export type Database = {
           created_at?: string;
           duplicate_claim_ids?: string[];
           duplicate_status?: string;
+          invoice_duplicate_status?: string;
+          invoice_duplicate_claim_ids?: string[];
+          amount_date_duplicate_status?: string;
+          amount_date_duplicate_claim_ids?: string[];
           error_detail?: string | null;
           finished_at?: string | null;
           id?: string;
@@ -409,6 +417,10 @@ export type Database = {
           created_at?: string;
           duplicate_claim_ids?: string[];
           duplicate_status?: string;
+          invoice_duplicate_status?: string;
+          invoice_duplicate_claim_ids?: string[];
+          amount_date_duplicate_status?: string;
+          amount_date_duplicate_claim_ids?: string[];
           error_detail?: string | null;
           finished_at?: string | null;
           id?: string;
@@ -1535,6 +1547,10 @@ export type Database = {
           created_at: string | null;
           duplicate_claim_ids: string[] | null;
           duplicate_status: string | null;
+          invoice_duplicate_status: string | null;
+          invoice_duplicate_claim_ids: string[] | null;
+          amount_date_duplicate_status: string | null;
+          amount_date_duplicate_claim_ids: string[] | null;
           finished_at: string | null;
           overall_verdict: string | null;
           run_id: string | null;
@@ -1862,8 +1878,10 @@ export type Database = {
         Args: {
           p_bank_hash: string;
           p_checks: Json;
-          p_duplicate_claim_ids: string[];
-          p_duplicate_status: string;
+          p_invoice_duplicate_status: string;
+          p_invoice_duplicate_claim_ids: string[];
+          p_amount_date_duplicate_status: string;
+          p_amount_date_duplicate_claim_ids: string[];
           p_model: string;
           p_overall_verdict: string;
           p_receipt_hash: string;
