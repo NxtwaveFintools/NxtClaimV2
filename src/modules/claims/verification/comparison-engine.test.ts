@@ -231,6 +231,23 @@ function foreignExtraction(over: Partial<ReceiptExtractionView> = {}): ReceiptEx
   });
 }
 
+function eurSnapshot(rateInr: number, over: Partial<SubmittedSnapshot> = {}): SubmittedSnapshot {
+  return snapshot({
+    foreign_currency_code: "EUR",
+    foreign_total_amount: 100,
+    total_amount: rateInr * 100, // implied rate = rateInr
+    ...over,
+  });
+}
+function eurExtraction(over: Partial<ReceiptExtractionView> = {}): ReceiptExtractionView {
+  return extraction({
+    foreignCurrencyCode: "EUR",
+    foreignTotalAmount: 100,
+    totalAmount: 0,
+    ...over,
+  });
+}
+
 describe("FX reconciliation (foreign claims)", () => {
   it("INR claim has no FX or currency checks", () => {
     const checks = compareClaim(snapshot(), extraction());
@@ -255,6 +272,15 @@ describe("FX reconciliation (foreign claims)", () => {
     expect(rate(92.0)).toBe("match");
     expect(rate(98.0)).toBe("match");
     expect(rate(98.1)).toBe("fuzzy_match"); // above band
+  });
+
+  it("FX band boundaries for EUR (105–111)", () => {
+    const rate = (r: number) =>
+      checkFor(compareClaim(eurSnapshot(r), eurExtraction()), "fx_reconciliation").verdict;
+    expect(rate(104.9)).toBe("fuzzy_match"); // below band
+    expect(rate(105.0)).toBe("match");
+    expect(rate(111.0)).toBe("match");
+    expect(rate(111.1)).toBe("fuzzy_match"); // above band
   });
 
   it("the grounding claim (92.88) reconciles in-band", () => {
@@ -298,6 +324,16 @@ describe("FX reconciliation (foreign claims)", () => {
 
   it("foreign out-of-band → needs_review (never hard mismatch)", () => {
     const checks = compareClaim(foreignSnapshot(120), foreignExtraction());
+    expect(rollUpVerdict(checks, 95)).toBe("needs_review");
+  });
+
+  it("EUR in-band + amounts match → verified", () => {
+    const checks = compareClaim(eurSnapshot(108), eurExtraction());
+    expect(rollUpVerdict(checks, 95)).toBe("verified");
+  });
+
+  it("EUR out-of-band → needs_review (never hard mismatch)", () => {
+    const checks = compareClaim(eurSnapshot(120), eurExtraction());
     expect(rollUpVerdict(checks, 95)).toBe("needs_review");
   });
 });

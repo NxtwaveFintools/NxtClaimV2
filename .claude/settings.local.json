@@ -57,7 +57,8 @@
       "Read(//c/Users/Nxtwave/.claude/plugins/cache/thedotmack/claude-mem/13.6.2/plugin/**)",
       "Read(//c/Users/Nxtwave/.claude/plugins/cache/thedotmack/claude-mem/13.6.2/plugin/scripts/**)",
       "Read(//c/Users/Nxtwave/.claude/plugins/cache/thedotmack/claude-mem/13.6.2/**)",
-      "Read(//c/Users/Nxtwave/.claude/plugins/cache/thedotmack/claude-mem/13.6.2/scripts/**)"
+      "Read(//c/Users/Nxtwave/.claude/plugins/cache/thedotmack/claude-mem/13.6.2/scripts/**)",
+      "mcp__supabase__list_edge_functions"
     ]
   },
   "enabledMcpjsonServers": [

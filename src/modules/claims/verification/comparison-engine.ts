@@ -28,11 +28,12 @@ export const CONFIDENCE_FLOOR = 60;
 /**
  * Per-currency INR-per-unit FX reconciliation bands (foreign claims only).
  * Effective 2026-06-17, owner: finance. Bands MUST be set from the real
- * total_amount/foreign_total_amount distribution per pair — only USD is set.
+ * total_amount/foreign_total_amount distribution per pair — USD and EUR are set.
  * Unknown currency → no band → needs_review (never a hard mismatch).
  */
 export const FX_BANDS: Record<string, [number, number]> = {
   USD: [92, 98],
+  EUR: [105, 111],
 };
 
 const SENTINELS = new Set(["", "-", "n/a", "na", "none", "null"]);
