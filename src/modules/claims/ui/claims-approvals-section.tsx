@@ -9,10 +9,10 @@ import {
 } from "@/core/domain/claims/GetPendingApprovalsService";
 import { logger } from "@/core/infra/logging/logger";
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
+import type { DuplicateArmStatus } from "@/modules/claims/verification/duplicate-grading";
 import {
   isVerificationBadgeState,
   SupabaseVerificationRepository,
-  type DuplicateStatus,
   type VerificationBadgeState,
 } from "@/modules/claims/repositories/SupabaseVerificationRepository";
 import { VerificationFilterChips } from "@/modules/claims/ui/verification-filter-chips";
@@ -205,7 +205,11 @@ export async function ClaimsApprovalsSection({
           {
             data: {} as Record<
               string,
-              { verdict: VerificationBadgeState; duplicate: DuplicateStatus }
+              {
+                verdict: VerificationBadgeState;
+                invoiceDuplicate: DuplicateArmStatus;
+                amountDateDuplicate: DuplicateArmStatus;
+              }
             >,
             errorMessage: null,
           },
@@ -286,7 +290,8 @@ export async function ClaimsApprovalsSection({
                   formattedHodActionDate: claim.formattedHodActionDate,
                   formattedFinanceActionDate: claim.formattedFinanceActionDate,
                   aiVerdict: aiVerdicts[claim.id]?.verdict ?? null,
-                  aiDuplicate: aiVerdicts[claim.id]?.duplicate ?? null,
+                  aiInvoiceDuplicate: aiVerdicts[claim.id]?.invoiceDuplicate ?? null,
+                  aiAmountDateDuplicate: aiVerdicts[claim.id]?.amountDateDuplicate ?? null,
                 }))}
                 actionableIds={rows
                   .filter((row) => {

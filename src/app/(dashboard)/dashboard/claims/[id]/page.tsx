@@ -764,8 +764,14 @@ async function ClaimDetailCore({
       claim.id,
     );
     const dup = dupSummary.errorMessage ? null : dupSummary.data;
-    if (dup?.duplicateStatus === "invoice_match") {
-      financeApproveConfirmMessage = `AI flagged this invoice as a duplicate of: ${dup.duplicateClaimIds.join(", ")}. Approve and pay anyway?`;
+    const matchedDuplicateIds = Array.from(
+      new Set([
+        ...(dup?.invoiceDuplicate.status === "match" ? dup.invoiceDuplicate.claimIds : []),
+        ...(dup?.amountDateDuplicate.status === "match" ? dup.amountDateDuplicate.claimIds : []),
+      ]),
+    );
+    if (matchedDuplicateIds.length > 0) {
+      financeApproveConfirmMessage = `AI flagged this as a possible duplicate of: ${matchedDuplicateIds.join(", ")}. Approve and pay anyway?`;
     } else if (!dup || dup.status !== "completed") {
       financeApproveConfirmMessage =
         "AI verification is still pending for this claim. Approve without it?";

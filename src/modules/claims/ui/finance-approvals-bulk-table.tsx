@@ -20,10 +20,8 @@ import {
   bulkRejectL1,
 } from "@/modules/claims/actions";
 import type { GetMyClaimsFilters } from "@/core/domain/claims/contracts";
-import type {
-  DuplicateStatus,
-  VerificationBadgeState,
-} from "@/modules/claims/repositories/SupabaseVerificationRepository";
+import type { DuplicateArmStatus } from "@/modules/claims/verification/duplicate-grading";
+import type { VerificationBadgeState } from "@/modules/claims/repositories/SupabaseVerificationRepository";
 import {
   CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
   ClaimStatusBadge,
@@ -52,31 +50,47 @@ type FinanceApprovalRow = {
   formattedHodActionDate: string;
   formattedFinanceActionDate: string;
   aiVerdict?: VerificationBadgeState | null;
-  aiDuplicate?: DuplicateStatus | null;
+  aiInvoiceDuplicate?: DuplicateArmStatus | null;
+  aiAmountDateDuplicate?: DuplicateArmStatus | null;
 };
 
-const AI_DUPLICATE_BADGE: Partial<Record<DuplicateStatus, { label: string; className: string }>> = {
-  invoice_match: {
+const AI_DUPLICATE_BADGES: { key: "invoice" | "amountDate"; label: string; className: string }[] = [
+  {
+    key: "invoice",
     label: "Dup: invoice",
     className: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
   },
-  amount_date_match: {
+  {
+    key: "amountDate",
     label: "Dup: amt+date",
     className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200",
   },
-};
+];
 
-function AiDuplicateBadge({ status }: { status: DuplicateStatus | null }) {
-  const config = status ? AI_DUPLICATE_BADGE[status] : undefined;
-  if (!config) {
+function AiDuplicateBadges({
+  invoice,
+  amountDate,
+}: {
+  invoice: DuplicateArmStatus | null;
+  amountDate: DuplicateArmStatus | null;
+}) {
+  const active = AI_DUPLICATE_BADGES.filter((b) =>
+    b.key === "invoice" ? invoice === "match" : amountDate === "match",
+  );
+  if (active.length === 0) {
     return null;
   }
   return (
-    <span
-      className={`mt-1 inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${config.className}`}
-    >
-      {config.label}
-    </span>
+    <>
+      {active.map((b) => (
+        <span
+          key={b.key}
+          className={`mt-1 inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${b.className}`}
+        >
+          {b.label}
+        </span>
+      ))}
+    </>
   );
 }
 
@@ -702,7 +716,10 @@ export function FinanceApprovalsBulkTable({
                     <td className="px-3 py-2 align-top">
                       <div className="flex flex-col items-start gap-0.5">
                         <AiCheckBadge verdict={claim.aiVerdict ?? null} />
-                        <AiDuplicateBadge status={claim.aiDuplicate ?? null} />
+                        <AiDuplicateBadges
+                          invoice={claim.aiInvoiceDuplicate ?? null}
+                          amountDate={claim.aiAmountDateDuplicate ?? null}
+                        />
                       </div>
                     </td>
                   ) : null}

@@ -330,24 +330,37 @@ export function VerificationPanel({ claimId, summary, canAct }: VerificationPane
           rows={statementChecks}
         />
 
-        {summary &&
-        (summary.duplicateStatus === "invoice_match" ||
-          summary.duplicateStatus === "amount_date_match") ? (
-          <div
-            className={`mt-4 rounded-xl border p-3 ${
-              summary.duplicateStatus === "invoice_match"
-                ? "border-rose-200 bg-rose-50 dark:border-rose-800/50 dark:bg-rose-900/15"
-                : "border-amber-200 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-900/15"
-            }`}
-          >
+        {summary && summary.invoiceDuplicate.status === "match" ? (
+          <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 dark:border-rose-800/50 dark:bg-rose-900/15">
             <p className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-200">
               <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-              {summary.duplicateStatus === "invoice_match"
-                ? "Possible duplicate — same invoice number as:"
-                : "Possible duplicate — same amount & date as:"}
+              Possible duplicate — same invoice number as:
             </p>
             <ul className="mt-2 space-y-1">
-              {summary.duplicateClaimIds.map((id) => (
+              {summary.invoiceDuplicate.claimIds.map((id) => (
+                <li key={id}>
+                  <a
+                    href={`/dashboard/claims/${id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    {id}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {summary && summary.amountDateDuplicate.status === "match" ? (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800/50 dark:bg-amber-900/15">
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+              <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+              Possible duplicate — same amount & date as:
+            </p>
+            <ul className="mt-2 space-y-1">
+              {summary.amountDateDuplicate.claimIds.map((id) => (
                 <li key={id}>
                   <a
                     href={`/dashboard/claims/${id}`}
