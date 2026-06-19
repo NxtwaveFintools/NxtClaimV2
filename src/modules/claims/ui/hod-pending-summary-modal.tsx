@@ -193,6 +193,22 @@ function CategoryLeaderboardSection({
   );
 }
 
+// ─── Module-level constants ────────────────────────────────────────────────────
+
+const emptyLeaderboard: HodSummaryLeaderboard = {
+  rows: [],
+  others_total: 0,
+  others_count: 0,
+  grand_total: 0,
+};
+
+const emptyCategoryLeaderboard: HodSummaryCategoryLeaderboard = {
+  rows: [],
+  others_total: 0,
+  others_count: 0,
+  grand_total: 0,
+};
+
 // ─── Modal ─────────────────────────────────────────────────────────────────────
 
 function HodPendingSummaryModal({
@@ -208,21 +224,10 @@ function HodPendingSummaryModal({
   isLoading: boolean;
   currentStatus: string | null;
 }) {
-  const emptyLeaderboard: HodSummaryLeaderboard = {
-    rows: [],
-    others_total: 0,
-    others_count: 0,
-    grand_total: 0,
-  };
-  const emptyCategoryLeaderboard: HodSummaryCategoryLeaderboard = {
-    rows: [],
-    others_total: 0,
-    others_count: 0,
-    grand_total: 0,
-  };
-
+  // Show advance section during loading (skeleton) or when data confirms advance claims exist.
+  // This prevents layout shift when switching status filters.
   const showAdvanceSection =
-    !isLoading && data !== null && data.top_advance_employees.grand_total > 0;
+    isLoading || (data !== null && data.top_advance_employees.grand_total > 0);
 
   return (
     <Dialog
@@ -247,8 +252,8 @@ function HodPendingSummaryModal({
             {showAdvanceSection ? (
               <LeaderboardSection
                 title="Advance Requests"
-                data={data.top_advance_employees}
-                isLoading={false}
+                data={data?.top_advance_employees ?? emptyLeaderboard}
+                isLoading={isLoading}
               />
             ) : null}
           </div>
@@ -288,6 +293,7 @@ export function HodSummaryController({
   const [isLoading, setIsLoading] = useState(false);
 
   async function handleOpen() {
+    if (isLoading) return;
     // Use cached data only if it was fetched for the same status currently selected
     if (data !== null && cachedForStatus === currentStatus) {
       setIsOpen(true);
@@ -306,7 +312,8 @@ export function HodSummaryController({
       <button
         type="button"
         onClick={handleOpen}
-        className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white/80 px-4 text-sm font-semibold text-zinc-700 backdrop-blur-sm transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950/80 dark:text-zinc-200 dark:hover:bg-zinc-900"
+        disabled={isLoading}
+        className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white/80 px-4 text-sm font-semibold text-zinc-700 backdrop-blur-sm transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950/80 dark:text-zinc-200 dark:hover:bg-zinc-900"
       >
         <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
         View Summary

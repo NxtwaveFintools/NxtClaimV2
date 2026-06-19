@@ -56,7 +56,10 @@ export async function getHodPendingSummaryAction(
     p_target_status: normalizedStatus,
   });
 
-  if (error || !data) return null;
+  if (error || !data) {
+    if (error) console.error("[getHodPendingSummaryAction]", error);
+    return null;
+  }
 
   return data as HodPendingSummaryData;
 }
