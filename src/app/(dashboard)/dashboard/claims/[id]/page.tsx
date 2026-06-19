@@ -882,7 +882,7 @@ async function ClaimDetailCore({
 
   return (
     <>
-      <section className="flex items-center justify-between border-b border-zinc-200/80 py-4 dark:border-zinc-800/80">
+      <section className="sticky top-0 z-30 flex items-center justify-between border-b border-zinc-200/80 bg-background/95 py-4 backdrop-blur-sm dark:border-zinc-800/80">
         <BackButton className="w-fit" fallbackHref={returnToPath} />
 
         <div className="ml-4 flex min-w-0 flex-wrap items-center justify-end gap-2">
@@ -963,7 +963,13 @@ async function ClaimDetailCore({
             </section>
           ) : null}
 
-          <section className="bg-primary/5 border border-primary/20 rounded-xl p-6 mb-8 flex flex-col gap-6">
+          {canViewAsFinance && claim.detailType === "expense" ? (
+            <Suspense fallback={<ClaimVerificationSkeleton />}>
+              <ClaimVerificationSection claimId={claim.id} canAct={canEditFinanceClaim} />
+            </Suspense>
+          ) : null}
+
+          <section className="bg-primary/5 border border-primary/20 rounded-xl p-6 flex flex-col gap-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="min-w-0 md:flex-1">
                 <p className="text-[10px] uppercase text-muted-foreground">Total Amount</p>
@@ -1258,12 +1264,6 @@ async function ClaimDetailCore({
               </AccordionItem>
             </Accordion>
           </section>
-
-          {canViewAsFinance && claim.detailType === "expense" ? (
-            <Suspense fallback={<ClaimVerificationSkeleton />}>
-              <ClaimVerificationSection claimId={claim.id} canAct={canEditFinanceClaim} />
-            </Suspense>
-          ) : null}
 
           <section className="bg-card border border-border/50 shadow-sm rounded-xl p-6 md:p-8 flex flex-col gap-6">
             <div>
