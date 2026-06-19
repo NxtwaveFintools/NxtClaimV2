@@ -236,7 +236,7 @@ function HodPendingSummaryModal({
         if (!v) onClose();
       }}
     >
-      <DialogContent className="max-w-5xl">
+      <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Pending Claims Summary</DialogTitle>
           <DialogDescription>{currentStatus ?? "All statuses"}</DialogDescription>
