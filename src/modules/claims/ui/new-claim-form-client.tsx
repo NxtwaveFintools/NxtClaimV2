@@ -670,6 +670,12 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
   };
 
   const onValidSubmit = async (values: ClaimFormDraftValues) => {
+    if (values.detailType === "expense" && !(values.expense.basicAmount > 0)) {
+      setIsSubmitting(false);
+      toast.error("Please fill the Basic Amount before submitting.");
+      return;
+    }
+
     if (values.detailType === "expense") {
       if (!invoiceFile) {
         setIsSubmitting(false);
