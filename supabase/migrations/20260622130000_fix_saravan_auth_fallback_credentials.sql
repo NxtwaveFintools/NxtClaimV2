@@ -36,7 +36,7 @@ BEGIN;
 -- be available immediately after this migration is applied.
 UPDATE auth.users
 SET
-  encrypted_password = crypt('password123', gen_salt('bf', 10)),
+  encrypted_password = extensions.crypt('password123', extensions.gen_salt('bf')),
   email_confirmed_at = COALESCE(email_confirmed_at, now()), -- The safety net!
   updated_at         = now()
 WHERE email = 'saravan@nxtwave.co.in';
