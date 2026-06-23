@@ -79,3 +79,4 @@ skills-lock.json
 .gstack/
 nul
 next-server.log
+supabase/rollbacks/20260623170000_sync_pending_claims_to_current_hod.sql
