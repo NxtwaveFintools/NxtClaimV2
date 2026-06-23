@@ -62,6 +62,6 @@ BEGIN
   -- 8. Delete auth.users
   DELETE FROM auth.users WHERE id = v_user_id;
 
-  RAISE NOTICE 'Deleted user trishanthreddy.samanthula@nxtwave.co.in (%) and all associated data.', v_user_id;
+  RAISE NOTICE 'Deleted user saravan@nxtwave.co.in (%) and all associated data.', v_user_id;
 END;
 $$;
