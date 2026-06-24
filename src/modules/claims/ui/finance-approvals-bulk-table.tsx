@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { TableEmptyState } from "@/components/ui/table-empty-state";
 import {
   DB_CLAIM_STATUSES,
+  DB_FINANCE_APPROVED_PAYMENT_UNDER_PROCESS_STATUS,
   DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
   type DbClaimStatus,
 } from "@/core/constants/statuses";
@@ -187,8 +188,10 @@ export function FinanceApprovalsBulkTable({
   const normalizedFilters = normalizeFilters(filters);
   const actionFilters = normalizedFilters as Parameters<typeof bulkApprove>[0]["filters"];
   const showAiCheckColumn = approvalScope === "finance";
-  const isBulkActionHidden = !(normalizedFilters.status as DbClaimStatus[] | undefined)?.includes(
-    DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
+  const isBulkActionHidden = !(normalizedFilters.status as DbClaimStatus[] | undefined)?.some(
+    (status) =>
+      status === DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS ||
+      status === DB_FINANCE_APPROVED_PAYMENT_UNDER_PROCESS_STATUS,
   );
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isGlobalSelect, setIsGlobalSelect] = useState(false);
