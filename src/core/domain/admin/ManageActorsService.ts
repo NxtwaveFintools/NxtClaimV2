@@ -102,14 +102,6 @@ export class ManageActorsService {
       };
     }
 
-    if (input.approver1Id === input.approver2Id) {
-      return {
-        success: false,
-        errorCode: "SAME_APPROVER",
-        errorMessage: "Approver 1 and Approver 2 cannot be the same person.",
-      };
-    }
-
     this.logger.info("ManageActorsService.updateDepartmentActors", {
       departmentId: input.departmentId,
       approver1Id: input.approver1Id,
@@ -157,14 +149,6 @@ export class ManageActorsService {
         success: false,
         errorCode: "INVALID_INPUT",
         errorMessage: "A valid Approver 2 email address is required.",
-      };
-    }
-
-    if (approver1Email === approver2Email) {
-      return {
-        success: false,
-        errorCode: "SAME_APPROVER",
-        errorMessage: "Approver 1 and Approver 2 cannot be the same person.",
       };
     }
 

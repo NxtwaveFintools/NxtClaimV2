@@ -1125,13 +1125,6 @@ export class SupabaseAdminRepository implements AdminRepository {
     approver1Id: string,
     approver2Id: string,
   ): Promise<{ success: boolean; errorMessage: string | null }> {
-    if (approver1Id === approver2Id) {
-      return {
-        success: false,
-        errorMessage: "Approver 1 and Approver 2 cannot be the same person.",
-      };
-    }
-
     const { error } = await this.client
       .from("master_departments")
       .update({ approver1_id: approver1Id, approver2_id: approver2Id })
@@ -1164,13 +1157,6 @@ export class SupabaseAdminRepository implements AdminRepository {
     const approver1Id = approver1User?.id ?? null;
     const approver2Id = approver2User?.id ?? null;
 
-    if (approver1Id && approver2Id && approver1Id === approver2Id) {
-      return {
-        success: false,
-        errorMessage: "Approver 1 and Approver 2 cannot be the same person.",
-      };
-    }
-
     const updatePayload: Record<string, unknown> = {
       approver1_id: approver1Id,
       approver1_provisional_email: approver1Id ? null : approver1Email,
@@ -1199,13 +1185,6 @@ export class SupabaseAdminRepository implements AdminRepository {
     const approver1Email = input.approver1Email.trim().toLowerCase();
     const approver2Email = input.approver2Email.trim().toLowerCase();
 
-    if (approver1Email === approver2Email) {
-      return {
-        data: null,
-        errorMessage: "Approver 1 and Approver 2 cannot be the same person.",
-      };
-    }
-
     const [approver1Lookup, approver2Lookup] = await Promise.all([
       this.resolveUserIdByEmail(approver1Email),
       this.resolveUserIdByEmail(approver2Email),
@@ -1226,13 +1205,6 @@ export class SupabaseAdminRepository implements AdminRepository {
       return {
         data: null,
         errorMessage: "Failed to resolve approver user IDs.",
-      };
-    }
-
-    if (approver1Id === approver2Id) {
-      return {
-        data: null,
-        errorMessage: "Approver 1 and Approver 2 cannot be the same person.",
       };
     }
 

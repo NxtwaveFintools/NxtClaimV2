@@ -59,14 +59,6 @@ export class CreateDepartmentService {
       };
     }
 
-    if (approver1Email === approver2Email) {
-      return {
-        data: null,
-        errorCode: "SAME_APPROVER",
-        errorMessage: "Approver 1 and Approver 2 cannot be the same person.",
-      };
-    }
-
     this.logger.info("CreateDepartmentService.createDepartment", {
       name,
       approver1Email,
