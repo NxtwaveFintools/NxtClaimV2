@@ -23,6 +23,7 @@
     "seed:historical-analytics:apply": "node --env-file=.env.local scripts/seed-historical-analytics.mjs --apply",
     "seed:ta-bulk-hiring": "node scripts/seed-ta-bulk-hiring.js",
     "seed:ta-bulk-hiring:apply": "node scripts/seed-ta-bulk-hiring.js --apply",
+    "export:departments": "node --env-file=.env.local --experimental-strip-types scripts/export-departments.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:migrate": "node --env-file=.env.local scripts/run-migrations.mjs",
