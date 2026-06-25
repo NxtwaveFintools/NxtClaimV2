@@ -1009,7 +1009,7 @@ export function ClaimsFilterBar({
                 }
                 className="nxt-input h-8 rounded-lg border border-zinc-300 px-2.5 text-xs disabled:cursor-not-allowed disabled:opacity-70 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
               >
-                {lockedStatus ? null : <option value="">All</option>}
+                {lockedStatus ? null : <option value="all">All</option>}
                 {statusOptions.map((status) => (
                   <option key={status} value={status}>
                     {status}

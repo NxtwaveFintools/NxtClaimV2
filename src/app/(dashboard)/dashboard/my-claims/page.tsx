@@ -40,6 +40,7 @@ import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseC
 import { isAdmin } from "@/modules/admin/server/is-admin";
 import { isDepartmentViewer } from "@/modules/claims/server/is-department-viewer";
 import { getCachedPendingApprovalsViewerContext } from "@/modules/claims/server/get-pending-approvals-viewer-context";
+import { ApprovalsStatusEnforcer } from "./_approvals-status-enforcer";
 import { AdminClaimsSection } from "@/modules/admin/ui/admin-claims-section";
 import { ClaimsApprovalsSection } from "@/modules/claims/ui/claims-approvals-section";
 import { DepartmentClaimsSection } from "@/modules/claims/ui/department-claims-section";
@@ -611,6 +612,7 @@ async function MyClaimsDashboardPageContent({
   activeView,
   viewerContextResult,
   userId,
+  defaultApprovalsStatus,
 }: {
   searchParams: Record<string, SearchParamsValue>;
   activeView: ViewMode;
@@ -620,6 +622,7 @@ async function MyClaimsDashboardPageContent({
     errorMessage: string | null;
   };
   userId: string;
+  defaultApprovalsStatus: string | null;
 }) {
   const resolvedSearchParams = searchParams;
   const cursor = firstParamValue(resolvedSearchParams?.cursor) ?? null;
@@ -658,13 +661,25 @@ async function MyClaimsDashboardPageContent({
   }
 
   if (activeView === "approvals") {
+    const rawStatusParam = firstParamValue(resolvedSearchParams?.status);
+    const isExplicitAll = rawStatusParam?.toLowerCase() === "all";
+    const effectiveFilters: GetMyClaimsFilters =
+      !filters.status && defaultApprovalsStatus && !isExplicitAll
+        ? { ...filters, status: normalizeStatusFilter(defaultApprovalsStatus) }
+        : filters;
+
     return (
-      <ClaimsApprovalsSection
-        userId={userId}
-        viewerContext={viewerContextResult}
-        searchParams={resolvedSearchParams}
-        filters={filters}
-      />
+      <>
+        {defaultApprovalsStatus ? (
+          <ApprovalsStatusEnforcer defaultStatus={defaultApprovalsStatus} />
+        ) : null}
+        <ClaimsApprovalsSection
+          userId={userId}
+          viewerContext={viewerContextResult}
+          searchParams={resolvedSearchParams}
+          filters={effectiveFilters}
+        />
+      </>
     );
   }
 
@@ -715,29 +730,17 @@ async function MyClaimsDashboardResolvedContent({
       ? "approvals"
       : requestedView;
 
-  if (
-    !requestedView &&
-    requestedOrDefaultView === "approvals" &&
-    !firstParamValue(searchParams?.status)
-  ) {
-    const defaultStatus = getDefaultApprovalsStatusFilter(viewerContextResult.activeScope);
-    if (defaultStatus) {
-      const params = toSearchParams(searchParams);
-      params.delete("cursor");
-      params.delete("prevCursor");
-      params.delete("page");
-      params.set("view", "approvals");
-      params.set("status", defaultStatus);
-      redirect(`${ROUTES.claims.myClaims}?${params.toString()}`);
-    }
-  }
-
   const activeView = resolveView(
     requestedOrDefaultView,
     viewerContextResult.canViewApprovals,
     isAdminUser,
     isDeptViewer,
   );
+
+  const defaultApprovalsStatus =
+    activeView === "approvals"
+      ? getDefaultApprovalsStatusFilter(viewerContextResult.activeScope)
+      : null;
 
   const shouldAutoOpen =
     activeView === "approvals" &&
@@ -868,6 +871,7 @@ async function MyClaimsDashboardResolvedContent({
           activeView={activeView}
           viewerContextResult={viewerContextResult}
           userId={userId}
+          defaultApprovalsStatus={defaultApprovalsStatus}
         />
       </Suspense>
     </>
