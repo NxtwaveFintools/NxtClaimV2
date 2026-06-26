@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useWatch, type UseFormReturn } from "react-hook-form";
 import type { ClaimFormDraftValues } from "@/modules/claims/ui/new-claim-form-client";
+import { resolveHistoricalDefault } from "@/modules/claims/utils/form-history";
 
 // ─── Storage key constants ──────────────────────────────────────────────────
 
@@ -121,10 +122,7 @@ export function useClaimFormAutofill(
 
     // departmentId — validate against live options, fall back to first if stale/missing
     const storedDepartmentId = readStorageString(STORAGE_KEYS.departmentId);
-    const resolvedDepartmentId =
-      storedDepartmentId && options.departments.some((d) => d.id === storedDepartmentId)
-        ? storedDepartmentId
-        : (options.departments[0]?.id ?? "");
+    const resolvedDepartmentId = resolveHistoricalDefault(storedDepartmentId, options.departments);
     if (resolvedDepartmentId) {
       setValue("departmentId", resolvedDepartmentId, RESTORE_FLAGS);
       if (storedDepartmentId) anyFilled = true;
@@ -132,10 +130,10 @@ export function useClaimFormAutofill(
 
     // paymentModeId — validate against live options, fall back to first if stale/missing
     const storedPaymentModeId = readStorageString(STORAGE_KEYS.paymentModeId);
-    const resolvedPaymentModeId =
-      storedPaymentModeId && options.paymentModes.some((p) => p.id === storedPaymentModeId)
-        ? storedPaymentModeId
-        : (options.paymentModes[0]?.id ?? "");
+    const resolvedPaymentModeId = resolveHistoricalDefault(
+      storedPaymentModeId,
+      options.paymentModes,
+    );
     if (resolvedPaymentModeId) {
       setValue("paymentModeId", resolvedPaymentModeId, RESTORE_FLAGS);
       if (storedPaymentModeId) anyFilled = true;

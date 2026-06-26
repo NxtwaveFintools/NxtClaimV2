@@ -611,7 +611,8 @@ export async function getClaimFormHydrationAction(): Promise<{
     paymentModesResult.errorMessage ??
     expenseCategoriesResult.errorMessage ??
     productsResult.errorMessage ??
-    locationsResult.errorMessage;
+    locationsResult.errorMessage ??
+    lastClaimResult.errorMessage;
 
   if (firstError) {
     return { data: null, errorMessage: firstError };

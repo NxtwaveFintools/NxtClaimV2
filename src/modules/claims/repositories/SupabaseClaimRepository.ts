@@ -4207,24 +4207,21 @@ export class SupabaseClaimRepository implements ClaimRepository {
       return { data: null, errorMessage: null };
     }
 
-    const rawDetails = data.expense_details;
-    const details = Array.isArray(rawDetails) ? rawDetails[0] : rawDetails;
-
-    if (!details) {
-      return { data: null, errorMessage: null };
-    }
-
-    const row = details as {
+    const detail = getSingleRelation(data.expense_details) as {
       expense_category_id: string | null;
       product_id: string | null;
       location_id: string | null;
-    };
+    } | null;
+
+    if (!detail) {
+      return { data: null, errorMessage: null };
+    }
 
     return {
       data: {
-        locationId: row.location_id ?? null,
-        expenseCategoryId: row.expense_category_id ?? null,
-        productId: row.product_id ?? null,
+        locationId: detail.location_id ?? null,
+        expenseCategoryId: detail.expense_category_id ?? null,
+        productId: detail.product_id ?? null,
       },
       errorMessage: null,
     };

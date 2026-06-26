@@ -404,7 +404,16 @@ export function ClaimsFilterBar({
       setLocalToDate(normalizeDateQueryValue(searchParams.get("to") ?? ""));
 
       setHasInitializedFilterState(true);
-      router.refresh();
+      const navEntries =
+        typeof window.performance?.getEntriesByType === "function"
+          ? window.performance.getEntriesByType("navigation")
+          : [];
+      const isBackForwardNav =
+        navEntries.length > 0 &&
+        (navEntries[0] as PerformanceNavigationTiming).type === "back_forward";
+      if (isBackForwardNav) {
+        router.refresh();
+      }
       return;
     }
 
