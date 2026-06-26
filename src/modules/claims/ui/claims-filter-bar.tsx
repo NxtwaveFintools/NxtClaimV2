@@ -404,6 +404,7 @@ export function ClaimsFilterBar({
       setLocalToDate(normalizeDateQueryValue(searchParams.get("to") ?? ""));
 
       setHasInitializedFilterState(true);
+      router.refresh();
       return;
     }
 
@@ -844,9 +845,9 @@ export function ClaimsFilterBar({
                 updateUrlWithMutation(nextParams, pathname, router);
               });
             }}
-            className="inline-flex rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            className="inline-flex rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-950/50"
           >
-            Clear All
+            Clear Defaults
           </button>
         </div>
       </div>

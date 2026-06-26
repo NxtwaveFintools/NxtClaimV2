@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { ClaimsFilterBar } from "@/modules/claims/ui/claims-filter-bar";
 
 const mockReplace = jest.fn();
+const mockRefresh = jest.fn();
 const mockGetAccessTokenAction = jest.fn();
 
 let currentSearchParams = new URLSearchParams();
@@ -9,6 +10,7 @@ let currentSearchParams = new URLSearchParams();
 jest.mock("next/navigation", () => ({
   useRouter: () => ({
     replace: mockReplace,
+    refresh: mockRefresh,
   }),
   usePathname: () => "/dashboard/my-claims",
   useSearchParams: () => currentSearchParams,
@@ -108,7 +110,7 @@ describe("ClaimsFilterBar URL sync", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear All" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear Defaults" }));
 
     expect(mockReplace).toHaveBeenCalledWith(
       "/dashboard/my-claims?status=Submitted+-+Awaiting+HOD+approval",

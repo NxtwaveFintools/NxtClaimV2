@@ -24,6 +24,7 @@ import {
   ON_BEHALF_EMAIL_DOMAIN,
 } from "@/modules/claims/validators/new-claim-schema";
 import { computeForeignTotal, computeInrTotal } from "@/modules/claims/utils/compute-totals";
+import { resolveHistoricalDefault } from "@/modules/claims/utils/form-history";
 import { useClaimFormAutofill } from "@/hooks/use-claim-form-autofill";
 import {
   LOCATION_TYPES,
@@ -412,9 +413,12 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       expense: {
         billNo: "",
         purpose: "",
-        expenseCategoryId: options.expenseCategories[0]?.id ?? "",
-        productId: options.products[0]?.id ?? "",
-        locationId: options.locations[0]?.id ?? "",
+        expenseCategoryId: resolveHistoricalDefault(
+          options.lastClaim?.expenseCategoryId,
+          options.expenseCategories,
+        ),
+        productId: resolveHistoricalDefault(options.lastClaim?.productId, options.products),
+        locationId: resolveHistoricalDefault(options.lastClaim?.locationId, options.locations),
         locationType: null,
         locationDetails: null,
         gstNumber: null,
@@ -967,11 +971,13 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
       shouldTouch: true,
       shouldValidate: true,
     });
-    setValue("expense.expenseCategoryId", matchedExpenseCategoryId, {
-      shouldDirty: true,
-      shouldTouch: true,
-      shouldValidate: true,
-    });
+    if (matchedExpenseCategoryId) {
+      setValue("expense.expenseCategoryId", matchedExpenseCategoryId, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      });
+    }
     setValue("expense.gstNumber", gstNumber, {
       shouldDirty: true,
       shouldTouch: true,

@@ -200,6 +200,11 @@ export type ClaimFormOptions = {
   expenseCategories: ClaimDropdownOption[];
   products: ClaimDropdownOption[];
   locations: ClaimDropdownOption[];
+  lastClaim: {
+    locationId: string | null;
+    expenseCategoryId: string | null;
+    productId: string | null;
+  } | null;
 };
 
 export type CurrentUserHydration = {
@@ -567,6 +572,7 @@ export async function getClaimFormHydrationAction(): Promise<{
     expenseCategoriesResult,
     productsResult,
     locationsResult,
+    lastClaimResult,
   ] = await Promise.all([
     repository.getUserSummary(currentUserResult.user.id),
     repository.isUserApprover1InAnyDepartment(currentUserResult.user.id),
@@ -575,6 +581,7 @@ export async function getClaimFormHydrationAction(): Promise<{
     repository.getActiveExpenseCategories(),
     repository.getActiveProducts(),
     repository.getActiveLocations(),
+    repository.getLastSubmittedExpenseClaimDefaults(currentUserResult.user.id),
   ]);
 
   if (userSummaryResult.errorMessage) {
@@ -658,6 +665,7 @@ export async function getClaimFormHydrationAction(): Promise<{
         expenseCategories: expenseCategoriesResult.data,
         products: productsResult.data,
         locations: locationsResult.data,
+        lastClaim: lastClaimResult.data,
       },
     },
     errorMessage: null,

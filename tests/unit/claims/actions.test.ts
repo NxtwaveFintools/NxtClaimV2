@@ -8,6 +8,7 @@ const mockGetActivePaymentModes = jest.fn();
 const mockGetActiveExpenseCategories = jest.fn();
 const mockGetActiveProducts = jest.fn();
 const mockGetActiveLocations = jest.fn();
+const mockGetLastSubmittedExpenseClaimDefaults = jest.fn();
 const mockGetPaymentModeById = jest.fn();
 const mockExistsExpenseByCompositeKey = jest.fn();
 const mockFindActiveExpenseDuplicateClaimIdByCompositeKey = jest.fn();
@@ -93,6 +94,7 @@ jest.mock("@/modules/claims/repositories/SupabaseClaimRepository", () => ({
     getClaimDetailById: mockGetClaimDetailById,
     getClaimAuditLogs: mockGetClaimAuditLogs,
     getFinanceApproverIdsForUser: mockGetFinanceApproverIdsForUser,
+    getLastSubmittedExpenseClaimDefaults: mockGetLastSubmittedExpenseClaimDefaults,
   })),
 }));
 
@@ -351,6 +353,11 @@ describe("claims actions", () => {
 
     mockGetActiveLocations.mockResolvedValue({
       data: [{ id: "loc-1", name: "Hyderabad" }],
+      errorMessage: null,
+    });
+
+    mockGetLastSubmittedExpenseClaimDefaults.mockResolvedValue({
+      data: null,
       errorMessage: null,
     });
 
@@ -1243,7 +1250,9 @@ describe("claims actions", () => {
 
     expect(result).toEqual({
       ok: false,
-      message: "A claim with this exact Bill No, Date, and Amount already exists.",
+      duplicateClaimId: "CLAIM-EXISTING-1",
+      message:
+        "Duplicate Alert: A claim with this exact Bill Number, Amount, and Date already exists in Claim #CLAIM-EXISTING-1. Update blocked.",
     });
     expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
   });
