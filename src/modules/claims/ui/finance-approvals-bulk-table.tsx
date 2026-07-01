@@ -23,16 +23,11 @@ import {
 import type { GetMyClaimsFilters } from "@/core/domain/claims/contracts";
 import type { DuplicateArmStatus } from "@/modules/claims/verification/duplicate-grading";
 import type { VerificationBadgeState } from "@/modules/claims/repositories/SupabaseVerificationRepository";
-import {
-  CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
-  ClaimStatusBadge,
-} from "@/modules/claims/ui/claim-status-badge";
+import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
 import { getAvailableClaimActions } from "@/modules/claims/utils/get-available-claim-actions";
 
-const STICKY_ACTION_COLUMN_CLASSES =
-  "sticky right-0 bg-background/60 backdrop-blur-md border-l border-border/50 z-10";
 const CLAIM_ID_LINK_CLASSES =
-  "whitespace-nowrap text-primary hover:underline font-medium cursor-pointer";
+  "whitespace-nowrap text-primary hover:underline font-semibold cursor-pointer";
 const VIEW_LINK_CLASSES =
   "inline-flex h-8 items-center justify-center rounded-xl border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
@@ -596,11 +591,11 @@ export function FinanceApprovalsBulkTable({
       ) : null}
 
       <div className="nxt-scroll w-full overflow-x-auto">
-        <table className="min-w-430 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
-          <thead className="bg-zinc-50/80 text-[11px] uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
+        <table className="w-full text-left text-sm">
+          <thead className="border-b border-zinc-200/80 bg-zinc-50/60 text-[11px] uppercase tracking-[0.08em] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400">
             <tr>
               {!readOnly && !isBulkActionHidden ? (
-                <th className="px-3 py-2.5">
+                <th className="px-4 py-3">
                   <input
                     type="checkbox"
                     checked={isPageFullySelected}
@@ -614,33 +609,21 @@ export function FinanceApprovalsBulkTable({
                   />
                 </th>
               ) : null}
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">CLAIM ID</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTER ID</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTER EMAIL</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">ON BEHALF ID</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">ON BEHALF EMAIL</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">DEPARTMENT</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">TYPE OF CLAIM</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">AMOUNT</th>
-              <th
-                className={`${CLAIM_STATUS_COLUMN_WIDTH_CLASSES} whitespace-nowrap px-3 py-2.5 font-semibold`}
-              >
-                STATUS
-              </th>
+              <th className="px-4 py-3 text-left font-semibold">Claim</th>
+              <th className="px-4 py-3 text-left font-semibold">Submitter</th>
+              <th className="hidden px-4 py-3 text-left font-semibold lg:table-cell">Department</th>
+              <th className="px-4 py-3 text-left font-semibold">Status</th>
               {showAiCheckColumn ? (
-                <th className="whitespace-nowrap px-3 py-2.5 font-semibold">AI CHECK</th>
+                <th className="px-4 py-3 text-left font-semibold">AI Check</th>
               ) : null}
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTED ON</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">HOD DATE</th>
-              <th className="whitespace-nowrap px-3 py-2.5 font-semibold">FINANCE DATE</th>
-              <th
-                className={`${STICKY_ACTION_COLUMN_CLASSES} whitespace-nowrap px-3 py-2.5 text-right font-semibold`}
-              >
-                View
+              <th className="hidden px-4 py-3 text-left font-semibold md:table-cell">Submitted</th>
+              <th className="px-4 py-3 text-right font-semibold">Amount</th>
+              <th className="px-4 py-3 text-right font-semibold">
+                <span className="sr-only">View</span>
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
+          <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
             {claims.map((claim) => {
               const isChecked = isGlobalSelect || selectedIds.includes(claim.id);
               const userRole = approvalScope === "l1" ? "HOD" : "Finance";
@@ -649,14 +632,16 @@ export function FinanceApprovalsBulkTable({
               const canMarkPaid = availableActions.canMarkPaid;
               const isActionable = canApproveOrReject || canMarkPaid;
               const detailHref = appendReturnToParam(ROUTES.claims.detail(claim.id), returnToPath);
+              const onBehalfOf = claim.onBehalfEmail?.trim();
+              const submitterEmail = claim.submitterEmail?.trim();
 
               return (
                 <tr
                   key={claim.id}
-                  className="group transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
+                  className="group transition-colors hover:bg-zinc-50/80 dark:hover:bg-zinc-900/40"
                 >
                   {!readOnly && !isBulkActionHidden ? (
-                    <td className="px-3 py-2">
+                    <td className="px-4 py-3.5 align-middle">
                       {isActionable ? (
                         <input
                           type="checkbox"
@@ -675,45 +660,39 @@ export function FinanceApprovalsBulkTable({
                       )}
                     </td>
                   ) : null}
-                  <td className="whitespace-nowrap px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
+                  <td className="px-4 py-3.5 align-middle">
                     <Link href={detailHref} prefetch={false} className={CLAIM_ID_LINK_CLASSES}>
                       {claim.id}
                     </Link>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="inline-flex rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                        {claim.paymentModeName}
+                      </span>
+                      {onBehalfOf ? (
+                        <span className="max-w-[180px] truncate text-[11px] text-zinc-400 dark:text-zinc-500">
+                          On behalf of {onBehalfOf}
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2">{claim.employeeId}</td>
-                  <td className="px-3 py-2">
-                    <span className="inline-block max-w-37.5 truncate align-bottom">
-                      {claim.submitterEmail?.trim() || claim.submitter}
-                    </span>
+                  <td className="px-4 py-3.5 align-middle">
+                    <div className="max-w-[200px] truncate font-medium text-zinc-800 dark:text-zinc-200">
+                      {claim.submitter || submitterEmail || claim.employeeId}
+                    </div>
+                    {submitterEmail ? (
+                      <div className="max-w-[200px] truncate text-[11px] text-zinc-400 dark:text-zinc-500">
+                        {submitterEmail}
+                      </div>
+                    ) : null}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    <span className="inline-block max-w-30 truncate align-bottom">
-                      {claim.onBehalfEmployeeCode?.trim() || "N/A"}
-                    </span>
+                  <td className="hidden max-w-[180px] truncate px-4 py-3.5 align-middle text-zinc-600 lg:table-cell dark:text-zinc-400">
+                    {claim.departmentName ?? "Unknown Department"}
                   </td>
-                  <td className="px-3 py-2">
-                    <span className="inline-block max-w-40 truncate align-bottom">
-                      {claim.onBehalfEmail?.trim() || "N/A"}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">
-                    <span className="inline-block max-w-32.5 truncate align-bottom">
-                      {claim.departmentName ?? "Unknown Department"}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">
-                    <span className="inline-block max-w-35 truncate align-bottom">
-                      {claim.paymentModeName}
-                    </span>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 font-semibold text-zinc-900 dark:text-zinc-100">
-                    {claim.formattedTotalAmount}
-                  </td>
-                  <td className={`${CLAIM_STATUS_COLUMN_WIDTH_CLASSES} px-3 py-2 align-top`}>
-                    <ClaimStatusBadge status={claim.status} fullWidth />
+                  <td className="px-4 py-3.5 align-middle">
+                    <ClaimStatusBadge status={claim.status} />
                   </td>
                   {showAiCheckColumn ? (
-                    <td className="px-3 py-2 align-top">
+                    <td className="px-4 py-3.5 align-middle">
                       <div className="flex flex-col items-start gap-0.5">
                         <AiCheckBadge verdict={claim.aiVerdict ?? null} />
                         <AiDuplicateBadges
@@ -723,19 +702,16 @@ export function FinanceApprovalsBulkTable({
                       </div>
                     </td>
                   ) : null}
-                  <td className="whitespace-nowrap px-3 py-2">{claim.formattedSubmittedAt}</td>
-                  <td className="whitespace-nowrap px-3 py-2">{claim.formattedHodActionDate}</td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    {claim.formattedFinanceActionDate}
+                  <td className="hidden whitespace-nowrap px-4 py-3.5 align-middle text-zinc-600 md:table-cell dark:text-zinc-400">
+                    {claim.formattedSubmittedAt}
                   </td>
-                  <td
-                    className={`${STICKY_ACTION_COLUMN_CLASSES} whitespace-nowrap px-3 py-2 text-right`}
-                  >
-                    <div className="flex min-w-28 justify-end">
-                      <Link href={detailHref} prefetch={false} className={VIEW_LINK_CLASSES}>
-                        View
-                      </Link>
-                    </div>
+                  <td className="px-4 py-3.5 text-right align-middle font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                    {claim.formattedTotalAmount}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3.5 text-right align-middle">
+                    <Link href={detailHref} prefetch={false} className={VIEW_LINK_CLASSES}>
+                      View
+                    </Link>
                   </td>
                 </tr>
               );

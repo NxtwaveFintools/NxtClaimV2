@@ -12,8 +12,8 @@ type CopyableDataCardProps = {
 const baseClassName =
   "bg-muted/20 border border-border/40 rounded-xl p-4 flex flex-col justify-center h-full transition-colors hover:bg-muted/30 hover:border-border/60 group relative cursor-pointer text-left";
 const labelClassName =
-  "text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1";
-const valueClassName = "text-sm md:text-base text-foreground font-medium break-words";
+  "text-[11px] uppercase tracking-wide text-muted-foreground font-semibold mb-1";
+const valueClassName = "text-sm md:text-base text-foreground font-medium break-words tabular-nums";
 
 export function CopyableDataCard({ label, value, className }: CopyableDataCardProps) {
   const handleCopy = async () => {

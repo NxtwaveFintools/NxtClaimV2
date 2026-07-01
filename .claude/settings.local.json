@@ -58,7 +58,10 @@
       "Read(//c/Users/Nxtwave/.claude/plugins/cache/thedotmack/claude-mem/13.6.2/plugin/scripts/**)",
       "Read(//c/Users/Nxtwave/.claude/plugins/cache/thedotmack/claude-mem/13.6.2/**)",
       "Read(//c/Users/Nxtwave/.claude/plugins/cache/thedotmack/claude-mem/13.6.2/scripts/**)",
-      "mcp__supabase__list_edge_functions"
+      "mcp__supabase__list_edge_functions",
+      "Bash(printf '%s\\\\n' '{\"approved_variant\":\"A\",\"feedback\":\"Ledger — clean fintech direction. Light, airy, amount-forward, tabular numerals, consistent status pills with dot+label. Build for real: Tailwind tokens + apply Inter/Plus Jakarta fonts + canonical ClaimStatusBadge, then My Claims screen.\",\"screen\":\"my-claims\",\"branch\":\"feature/improve-ui-ux\"}')",
+      "Bash(echo \"saved approved.json\")",
+      "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -First 40)"
     ]
   },
   "enabledMcpjsonServers": [

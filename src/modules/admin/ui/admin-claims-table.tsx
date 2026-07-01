@@ -7,10 +7,7 @@ import { RouterLink } from "@/components/ui/router-link";
 import { TableEmptyState } from "@/components/ui/table-empty-state";
 import { softDeleteClaimAction } from "@/modules/admin/actions";
 import { appendReturnToParam, buildPathWithSearchParams } from "@/lib/pagination-helpers";
-import {
-  CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
-  ClaimStatusBadge,
-} from "@/modules/claims/ui/claim-status-badge";
+import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
 import type { AdminClaimRecord } from "@/core/domain/admin/contracts";
 import { formatDate, formatCurrency } from "@/lib/format";
 
@@ -48,29 +45,21 @@ export function AdminClaimsTable({ claims }: Props) {
 
   return (
     <div className="nxt-scroll w-full overflow-x-auto">
-      <table className="min-w-470 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
-        <thead className="bg-zinc-50/80 text-[11px] uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
+      <table className="w-full text-left text-sm">
+        <thead className="border-b border-zinc-200/80 bg-zinc-50/60 text-[11px] uppercase tracking-[0.08em] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400">
           <tr>
-            <th className="whitespace-nowrap px-3 py-2 font-semibold">CLAIM ID</th>
-            <th className="whitespace-nowrap px-3 py-2 font-semibold">SUBMITTER ID</th>
-            <th className="whitespace-nowrap px-3 py-2 font-semibold">SUBMITTER EMAIL</th>
-            <th className="whitespace-nowrap px-3 py-2 font-semibold">ON BEHALF ID</th>
-            <th className="whitespace-nowrap px-3 py-2 font-semibold">ON BEHALF EMAIL</th>
-            <th className="whitespace-nowrap px-3 py-2 font-semibold">DEPARTMENT</th>
-            <th className="whitespace-nowrap px-3 py-2 font-semibold">TYPE</th>
-            <th className="whitespace-nowrap px-3 py-2 font-semibold">AMOUNT</th>
-            <th
-              className={`${CLAIM_STATUS_COLUMN_WIDTH_CLASSES} whitespace-nowrap px-3 py-2 font-semibold`}
-            >
-              STATUS
-            </th>
-            <th className="whitespace-nowrap px-3 py-2 font-semibold">ACTIVE</th>
-            <th className="whitespace-nowrap px-3 py-2 font-semibold">DELETED BY</th>
-            <th className="whitespace-nowrap px-3 py-2 font-semibold">SUBMITTED ON</th>
-            <th className="whitespace-nowrap px-3 py-2 text-right font-semibold">ACTIONS</th>
+            <th className="px-4 py-3 text-left font-semibold">Claim</th>
+            <th className="px-4 py-3 text-left font-semibold">Submitter</th>
+            <th className="hidden px-4 py-3 text-left font-semibold lg:table-cell">Department</th>
+            <th className="px-4 py-3 text-left font-semibold">Status</th>
+            <th className="px-4 py-3 text-right font-semibold">Amount</th>
+            <th className="px-4 py-3 text-left font-semibold">Active</th>
+            <th className="hidden px-4 py-3 text-left font-semibold xl:table-cell">Deleted By</th>
+            <th className="hidden px-4 py-3 text-left font-semibold md:table-cell">Submitted</th>
+            <th className="px-4 py-3 text-right font-semibold">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
+        <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
           {claims.map((claim) => (
             <AdminClaimRow key={claim.claimId} claim={claim} />
           ))}
@@ -99,47 +88,49 @@ function AdminClaimRow({ claim }: { claim: AdminClaimRecord }) {
     });
   }
 
+  const onBehalfOf = claim.onBehalfEmail?.trim();
+  const submitterEmail = claim.submitterEmail?.trim();
+
   return (
-    <tr className="transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40">
-      <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
+    <tr className="transition-colors hover:bg-zinc-50/80 dark:hover:bg-zinc-900/40">
+      <td className="px-4 py-3.5 align-middle">
         <RouterLink
           href={appendReturnToParam(ROUTES.claims.detail(claim.claimId), returnToPath)}
-          className="whitespace-nowrap text-indigo-500 hover:text-indigo-400 hover:underline"
+          className="whitespace-nowrap font-semibold text-indigo-500 hover:text-indigo-400 hover:underline"
         >
           {claim.claimId}
         </RouterLink>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="inline-flex rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+            {claim.typeOfClaim}
+          </span>
+          {onBehalfOf ? (
+            <span className="max-w-[180px] truncate text-[11px] text-zinc-400 dark:text-zinc-500">
+              On behalf of {onBehalfOf}
+            </span>
+          ) : null}
+        </div>
       </td>
-      <td className="whitespace-nowrap px-3 py-2">
-        <span className="inline-block max-w-45 truncate align-bottom">{claim.employeeId}</span>
+      <td className="px-4 py-3.5 align-middle">
+        <div className="max-w-[200px] truncate font-medium text-zinc-800 dark:text-zinc-200">
+          {claim.employeeName || submitterEmail || claim.employeeId}
+        </div>
+        {submitterEmail ? (
+          <div className="max-w-[200px] truncate text-[11px] text-zinc-400 dark:text-zinc-500">
+            {submitterEmail}
+          </div>
+        ) : null}
       </td>
-      <td className="px-3 py-2">
-        <span className="inline-block max-w-55 truncate align-bottom">
-          {claim.submitterEmail?.trim() || claim.employeeName}
-        </span>
+      <td className="hidden max-w-[180px] truncate px-4 py-3.5 align-middle text-zinc-600 lg:table-cell dark:text-zinc-400">
+        {claim.departmentName}
       </td>
-      <td className="whitespace-nowrap px-3 py-2">
-        <span className="inline-block max-w-35 truncate align-bottom">
-          {claim.onBehalfEmployeeCode?.trim() || "N/A"}
-        </span>
+      <td className="px-4 py-3.5 align-middle">
+        <ClaimStatusBadge status={claim.status} />
       </td>
-      <td className="px-3 py-2">
-        <span className="inline-block max-w-55 truncate align-bottom">
-          {claim.onBehalfEmail?.trim() || "N/A"}
-        </span>
-      </td>
-      <td className="px-3 py-2">
-        <span className="inline-block max-w-50 truncate align-bottom">{claim.departmentName}</span>
-      </td>
-      <td className="px-3 py-2">
-        <span className="inline-block max-w-45 truncate align-bottom">{claim.typeOfClaim}</span>
-      </td>
-      <td className="px-3 py-2 font-semibold text-zinc-900 dark:text-zinc-100">
+      <td className="px-4 py-3.5 text-right align-middle font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
         {formatCurrency(claim.amount)}
       </td>
-      <td className={`${CLAIM_STATUS_COLUMN_WIDTH_CLASSES} px-3 py-2 align-top`}>
-        <ClaimStatusBadge status={claim.status} fullWidth />
-      </td>
-      <td className="whitespace-nowrap px-3 py-2">
+      <td className="whitespace-nowrap px-4 py-3.5 align-middle">
         {claim.isActive ? (
           <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
             Active
@@ -150,19 +141,19 @@ function AdminClaimRow({ claim }: { claim: AdminClaimRecord }) {
           </span>
         )}
       </td>
-      <td className="whitespace-nowrap px-3 py-2">
+      <td className="hidden px-4 py-3.5 align-middle xl:table-cell">
         {claim.deletedByName ? (
-          <span className="inline-block max-w-55 truncate align-bottom">
+          <span className="inline-block max-w-[200px] truncate align-bottom text-zinc-600 dark:text-zinc-400">
             {claim.deletedByName} ({resolveRoleLabel(claim.deletedByRole)})
           </span>
         ) : (
-          <span className="inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-            NA
-          </span>
+          <span className="text-zinc-400 dark:text-zinc-500">—</span>
         )}
       </td>
-      <td className="px-3 py-2">{formatDate(claim.submittedOn)}</td>
-      <td className="whitespace-nowrap px-3 py-2 text-right">
+      <td className="hidden whitespace-nowrap px-4 py-3.5 align-middle text-zinc-600 md:table-cell dark:text-zinc-400">
+        {formatDate(claim.submittedOn)}
+      </td>
+      <td className="whitespace-nowrap px-4 py-3.5 text-right align-middle">
         {claim.isActive ? (
           <button
             type="button"

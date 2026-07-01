@@ -40,7 +40,7 @@ const KPI_CONFIG: KpiConfig[] = [
     title: "Total Amount",
     icon: Wallet,
     valueClassName: "text-zinc-950 dark:text-zinc-50",
-    iconClassName: "text-sky-500",
+    iconClassName: "text-indigo-500",
     trendKey: "total",
   },
   {
@@ -55,16 +55,16 @@ const KPI_CONFIG: KpiConfig[] = [
     key: "pendingAmount",
     title: "Pending Amount",
     icon: Clock3,
-    valueClassName: "text-amber-700 dark:text-amber-300",
-    iconClassName: "text-amber-500",
+    valueClassName: "text-blue-700 dark:text-blue-300",
+    iconClassName: "text-blue-500",
     trendKey: "pending",
   },
   {
     key: "hodPendingAmount",
     title: "Pending At HOD",
     icon: Building2,
-    valueClassName: "text-orange-700 dark:text-orange-300",
-    iconClassName: "text-orange-500",
+    valueClassName: "text-slate-700 dark:text-slate-300",
+    iconClassName: "text-slate-500",
     trendKey: "hodPending",
     helperText: (amounts) => {
       const claimCount = amounts.hodPendingCount;
@@ -151,7 +151,7 @@ export function AnalyticsKpiCards({
             </CardHeader>
             <CardContent>
               <p
-                className={`dashboard-font-display text-3xl font-semibold tracking-[-0.03em] ${item.valueClassName}`}
+                className={`dashboard-font-display text-3xl font-semibold tracking-[-0.03em] tabular-nums ${item.valueClassName}`}
               >
                 <CountUp
                   end={amounts[item.key]}
@@ -185,7 +185,7 @@ export function AnalyticsKpiCards({
             </div>
           </CardHeader>
           <CardContent>
-            <p className="dashboard-font-display text-3xl font-semibold tracking-[-0.03em] text-cyan-700 dark:text-cyan-300">
+            <p className="dashboard-font-display text-3xl font-semibold tracking-[-0.03em] tabular-nums text-cyan-700 dark:text-cyan-300">
               <CountUp
                 end={overallFinanceTatAverage}
                 decimals={2}

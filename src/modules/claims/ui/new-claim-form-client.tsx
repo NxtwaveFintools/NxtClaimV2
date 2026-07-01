@@ -2289,7 +2289,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
 
       {fileError ? <Alert tone="error" description={fileError} /> : null}
 
-      <div className="pt-6 sm:col-span-2">
+      <div className="sticky bottom-0 z-20 mt-2 border-t border-zinc-200/80 bg-background/90 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-md dark:border-zinc-800">
         <Button
           type="button"
           onClick={handleFormSubmit}

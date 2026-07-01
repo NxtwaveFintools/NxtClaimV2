@@ -979,14 +979,18 @@ async function ClaimDetailCore({
           <section className="bg-primary/5 border border-primary/20 rounded-xl p-6 flex flex-col gap-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="min-w-0 md:flex-1">
-                <p className="text-[10px] uppercase text-muted-foreground">Total Amount</p>
-                <p className="max-w-full break-words text-3xl font-black leading-none tracking-tight text-foreground sm:text-4xl lg:text-5xl">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  Total Amount
+                </p>
+                <p className="max-w-full break-words text-3xl font-black leading-none tracking-tight text-foreground tabular-nums sm:text-4xl lg:text-5xl">
                   {formatAmountValue(totalAmountValue)}
                 </p>
               </div>
 
               <div className="min-w-0 md:max-w-[18rem] md:flex-none">
-                <p className="text-[10px] uppercase text-muted-foreground">Claim For</p>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  Claim For
+                </p>
                 <p className="break-words font-medium text-foreground">{claimForDisplayName}</p>
                 <p className="break-words text-sm text-muted-foreground">{claimForDisplayEmail}</p>
               </div>
@@ -994,15 +998,19 @@ async function ClaimDetailCore({
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-primary/10">
               <div>
-                <p className="text-[10px] uppercase text-muted-foreground">Category</p>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  Category
+                </p>
                 <p className="font-medium text-foreground">{heroCategoryValue}</p>
               </div>
               <div>
-                <p className="text-[10px] uppercase text-muted-foreground">Department</p>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  Department
+                </p>
                 <p className="font-medium text-foreground">{heroDepartmentValue}</p>
               </div>
               <div>
-                <p className="text-[10px] uppercase text-muted-foreground">Purpose</p>
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Purpose</p>
                 <p className="font-medium text-foreground">{heroPurposeValue}</p>
               </div>
             </div>
@@ -1011,13 +1019,7 @@ async function ClaimDetailCore({
           <section className="bg-card border border-border/50 shadow-sm rounded-xl p-6 md:p-8 flex flex-col gap-6">
             <Accordion
               type="multiple"
-              defaultValue={[
-                "expense-details",
-                "general-info",
-                "routing-context",
-                "local-financials",
-                "foreign-financials",
-              ]}
+              defaultValue={["expense-details", "local-financials"]}
               className="w-full space-y-4"
             >
               <AccordionItem
@@ -1281,7 +1283,7 @@ async function ClaimDetailCore({
           </section>
 
           {showBottomActionBar ? (
-            <section className="fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur-sm z-40 px-8 py-4 flex justify-between items-center">
+            <section className="fixed bottom-0 left-0 right-0 z-40 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background/95 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:px-8">
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
                   {canTakeL1Decision

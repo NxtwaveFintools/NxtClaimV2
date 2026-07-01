@@ -3,7 +3,7 @@ import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { MyClaimsHeaderCardSkeleton } from "./_skeletons";
-import { CirclePlus } from "lucide-react";
+import { CirclePlus, FileText } from "lucide-react";
 import { AppShellHeader } from "@/components/app-shell-header";
 import { BackButton } from "@/components/ui/back-button";
 import { RouterLink } from "@/components/ui/router-link";
@@ -13,7 +13,6 @@ import {
   CLAIM_STATUSES,
   DB_CLAIM_STATUSES,
   DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
-  isPendingFinanceApprovalStatus,
   isSubmitterDeletableClaimStatus,
   mapCanonicalStatusToDbStatuses,
   type ClaimStatus,
@@ -44,18 +43,13 @@ import { ApprovalsStatusEnforcer } from "./_approvals-status-enforcer";
 import { AdminClaimsSection } from "@/modules/admin/ui/admin-claims-section";
 import { ClaimsApprovalsSection } from "@/modules/claims/ui/claims-approvals-section";
 import { DepartmentClaimsSection } from "@/modules/claims/ui/department-claims-section";
-import {
-  CLAIM_STATUS_COLUMN_WIDTH_CLASSES,
-  ClaimStatusBadge,
-} from "@/modules/claims/ui/claim-status-badge";
+import { ClaimStatusBadge } from "@/modules/claims/ui/claim-status-badge";
 import { MyClaimsPaginationControls } from "@/modules/claims/ui/my-claims-pagination-controls";
 import { DeleteClaimButton } from "@/modules/claims/ui/delete-claim-button";
 
 const PAGE_SIZE = 10;
-const STICKY_ACTION_COLUMN_CLASSES =
-  "sticky right-0 bg-background/60 backdrop-blur-md border-l border-border/50 z-10";
 const CLAIM_ID_LINK_CLASSES =
-  "whitespace-nowrap text-primary hover:underline font-medium cursor-pointer";
+  "whitespace-nowrap text-primary hover:underline font-semibold cursor-pointer";
 const VIEW_LINK_CLASSES =
   "inline-flex h-8 items-center justify-center rounded-xl border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
@@ -285,33 +279,6 @@ function buildApprovalsViewHref(
   return query ? `${ROUTES.claims.myClaims}?${query}` : ROUTES.claims.myClaims;
 }
 
-function DateWithActor({
-  dateValue,
-  actorEmail,
-}: {
-  dateValue: string | null;
-  actorEmail: string | null;
-}) {
-  if (!dateValue && !actorEmail) {
-    return <span>-</span>;
-  }
-
-  return (
-    <div className="flex flex-col">
-      <span>{formatDate(dateValue)}</span>
-      <span className="text-xs text-muted-foreground">{actorEmail ?? "-"}</span>
-    </div>
-  );
-}
-
-function FinanceTeamQueueBadge() {
-  return (
-    <span className="inline-flex w-fit rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-      Finance Team
-    </span>
-  );
-}
-
 function MyClaimsShellSkeleton() {
   return (
     <>
@@ -347,29 +314,16 @@ function MyClaimsFullPageSkeleton() {
 
 function TableHeader({ showActions }: { showActions: boolean }) {
   return (
-    <thead className="bg-zinc-50/80 text-[11px] uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
+    <thead className="border-b border-zinc-200/80 bg-zinc-50/60 text-[11px] uppercase tracking-[0.08em] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400">
       <tr>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">CLAIM ID</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTER ID</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTER EMAIL</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">ON BEHALF ID</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">ON BEHALF EMAIL</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">DEPARTMENT</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">TYPE OF CLAIM</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">AMOUNT</th>
-        <th
-          className={`${CLAIM_STATUS_COLUMN_WIDTH_CLASSES} whitespace-nowrap px-3 py-2.5 font-semibold`}
-        >
-          STATUS
-        </th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">SUBMITTED ON</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">HOD ACTION DATE</th>
-        <th className="whitespace-nowrap px-3 py-2.5 font-semibold">FINANCE ACTION DATE</th>
+        <th className="px-4 py-3 text-left font-semibold">Claim</th>
+        <th className="hidden px-4 py-3 text-left font-semibold md:table-cell">Department</th>
+        <th className="hidden px-4 py-3 text-left font-semibold sm:table-cell">Submitted</th>
+        <th className="px-4 py-3 text-left font-semibold">Status</th>
+        <th className="px-4 py-3 text-right font-semibold">Amount</th>
         {showActions ? (
-          <th
-            className={`${STICKY_ACTION_COLUMN_CLASSES} whitespace-nowrap px-3 py-2.5 text-right font-semibold`}
-          >
-            Actions
+          <th className="px-4 py-3 text-right font-semibold">
+            <span className="sr-only">Actions</span>
           </th>
         ) : null}
       </tr>
@@ -422,11 +376,22 @@ async function ClaimsCommandCenterTable({
           </p>
         </div>
       ) : claimsResult.totalCount === 0 ? (
-        <div className="grid place-items-center px-4 py-14 text-center">
-          <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">No claims found</p>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
-            Submit a new claim to see it here.
+        <div className="grid place-items-center px-4 py-16 text-center">
+          <div className="grid h-12 w-12 place-items-center rounded-full bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500">
+            <FileText className="h-6 w-6" aria-hidden="true" />
+          </div>
+          <p className="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">No claims yet</p>
+          <p className="mt-1 max-w-xs text-xs text-zinc-500 dark:text-zinc-500">
+            Submit a new claim and it will show up here with its live approval status.
           </p>
+          <Link
+            href={ROUTES.claims.new}
+            prefetch={false}
+            className="mt-4 inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm shadow-indigo-500/25 transition-colors hover:bg-indigo-500"
+          >
+            <CirclePlus className="h-4 w-4" aria-hidden="true" />
+            New Claim
+          </Link>
         </div>
       ) : (
         <>
@@ -441,86 +406,50 @@ async function ClaimsCommandCenterTable({
           />
 
           <div className="nxt-scroll overflow-x-auto">
-            <table className="min-w-395 divide-y divide-zinc-200/80 text-left text-sm dark:divide-zinc-800">
+            <table className="w-full text-left text-sm">
               <TableHeader showActions />
-              <tbody className="divide-y divide-zinc-100/80 bg-white/50 text-xs text-zinc-700 dark:divide-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
+              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
                 {rows.map((claim) => {
                   const canDeleteClaim = isSubmitterDeletableClaimStatus(claim.status);
                   const detailHref = appendReturnToParam(
                     ROUTES.claims.detail(claim.id),
                     listReturnToPath,
                   );
+                  const onBehalfOf = claim.onBehalfEmail?.trim();
 
                   return (
                     <tr
                       key={claim.id}
-                      className="group transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
+                      className="group transition-colors hover:bg-zinc-50/80 dark:hover:bg-zinc-900/40"
                     >
-                      <td className="px-3 py-2 font-medium text-zinc-900 dark:text-zinc-100">
+                      <td className="px-4 py-3.5 align-middle">
                         <RouterLink href={detailHref} className={CLAIM_ID_LINK_CLASSES}>
                           {claim.id}
                         </RouterLink>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="inline-flex rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                            {claim.typeOfClaim}
+                          </span>
+                          {onBehalfOf ? (
+                            <span className="max-w-[180px] truncate text-[11px] text-zinc-400 dark:text-zinc-500">
+                              On behalf of {onBehalfOf}
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2">
-                        <span>{claim.employeeId}</span>
+                      <td className="hidden max-w-[180px] truncate px-4 py-3.5 align-middle text-zinc-600 md:table-cell dark:text-zinc-400">
+                        {claim.departmentName}
                       </td>
-                      <td className="px-3 py-2">
-                        <span className="inline-block max-w-[150px] truncate align-bottom">
-                          {claim.submitterEmail?.trim() || claim.employeeName}
-                        </span>
+                      <td className="hidden whitespace-nowrap px-4 py-3.5 align-middle text-zinc-600 sm:table-cell dark:text-zinc-400">
+                        {formatDate(claim.submittedAt)}
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2">
-                        <span>{claim.onBehalfEmployeeCode?.trim() || "N/A"}</span>
+                      <td className="px-4 py-3.5 align-middle">
+                        <ClaimStatusBadge status={claim.status} />
                       </td>
-                      <td className="px-3 py-2">
-                        <span className="inline-block max-w-[150px] truncate align-bottom">
-                          {claim.onBehalfEmail?.trim() || "N/A"}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className="inline-block max-w-[130px] truncate align-bottom">
-                          {claim.departmentName}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className="inline-block max-w-[140px] truncate align-bottom">
-                          {claim.typeOfClaim}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 font-semibold text-zinc-900 dark:text-zinc-100">
+                      <td className="px-4 py-3.5 text-right align-middle font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
                         {claim.formattedTotalAmount}
                       </td>
-                      <td className={`${CLAIM_STATUS_COLUMN_WIDTH_CLASSES} px-3 py-2 align-top`}>
-                        <ClaimStatusBadge status={claim.status} fullWidth />
-                      </td>
-                      <td className="px-3 py-2">
-                        <DateWithActor
-                          dateValue={claim.submittedAt}
-                          actorEmail={claim.submitterEmail}
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        <DateWithActor
-                          dateValue={claim.hodActionDate}
-                          actorEmail={claim.hodEmail}
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        {isPendingFinanceApprovalStatus(claim.status) ? (
-                          <div className="flex flex-col gap-1">
-                            <span>-</span>
-                            <FinanceTeamQueueBadge />
-                          </div>
-                        ) : (
-                          <DateWithActor
-                            dateValue={claim.financeActionDate}
-                            actorEmail={claim.financeEmail}
-                          />
-                        )}
-                      </td>
-                      <td
-                        className={`${STICKY_ACTION_COLUMN_CLASSES} whitespace-nowrap px-3 py-2 text-right`}
-                      >
+                      <td className="px-4 py-3.5 text-right align-middle">
                         <div className="flex items-center justify-end gap-2">
                           {canDeleteClaim ? <DeleteClaimButton claimId={claim.id} compact /> : null}
                           <Link href={detailHref} className={VIEW_LINK_CLASSES}>

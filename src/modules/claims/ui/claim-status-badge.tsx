@@ -1,7 +1,4 @@
 import type { ClaimStatus, DbClaimStatus } from "@/core/constants/statuses";
-import { Badge } from "@/components/ui/badge";
-
-export const CLAIM_STATUS_COLUMN_WIDTH_CLASSES = "w-52 min-w-52 lg:w-56 lg:min-w-56";
 
 type ClaimStatusBadgeProps = {
   status: ClaimStatus | DbClaimStatus;
@@ -9,36 +6,68 @@ type ClaimStatusBadgeProps = {
   className?: string;
 };
 
-function getStatusClasses(status: ClaimStatus | DbClaimStatus): string {
-  if (status === "Rejected - Resubmission Not Allowed") {
-    return "border-rose-200 bg-rose-50/80 text-rose-700 dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/50";
-  }
+type StatusTone = "slate" | "blue" | "indigo" | "green" | "amber" | "red";
 
-  if (status === "Rejected - Resubmission Allowed") {
-    return "border-orange-200 bg-orange-50/80 text-orange-700 dark:border-orange-800/60 dark:bg-orange-900/20 dark:text-orange-300";
-  }
+type StatusMeta = {
+  label: string;
+  tone: StatusTone;
+};
 
-  if (
-    status === "Submitted" ||
-    status === "Pending" ||
-    status === "Submitted - Awaiting HOD approval"
-  ) {
-    return "border-sky-300 bg-sky-50/80 text-sky-800 dark:border-sky-700/60 dark:bg-sky-900/30 dark:text-sky-200";
-  }
+/**
+ * Single source of truth for claim status presentation.
+ * Each status maps to one short, scannable label and one tone. The same tone
+ * is used everywhere a status is shown, so a status never changes colour
+ * between screens. Colour is always paired with a dot + text label so the
+ * meaning survives for colour-blind users (no colour-only signalling).
+ */
+const TONE_CLASSES: Record<StatusTone, { pill: string; dot: string }> = {
+  slate: {
+    pill: "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700/60 dark:bg-slate-800/40 dark:text-slate-300",
+    dot: "bg-slate-400 dark:bg-slate-500",
+  },
+  blue: {
+    pill: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800/60 dark:bg-blue-900/25 dark:text-blue-300",
+    dot: "bg-blue-500",
+  },
+  indigo: {
+    pill: "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-800/60 dark:bg-indigo-900/25 dark:text-indigo-300",
+    dot: "bg-indigo-500",
+  },
+  green: {
+    pill: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-900/25 dark:text-emerald-300",
+    dot: "bg-emerald-500",
+  },
+  amber: {
+    pill: "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/25 dark:text-amber-200",
+    dot: "bg-amber-500",
+  },
+  red: {
+    pill: "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800/60 dark:bg-rose-900/25 dark:text-rose-300",
+    dot: "bg-rose-500",
+  },
+};
 
-  if (status === "HOD approved - Awaiting finance approval") {
-    return "border-amber-300 bg-amber-50/80 text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/30 dark:text-amber-200";
+function getStatusMeta(status: ClaimStatus | DbClaimStatus): StatusMeta {
+  switch (status) {
+    case "Submitted":
+    case "Submitted - Awaiting HOD approval":
+      return { label: "Awaiting HOD", tone: "slate" };
+    case "Pending":
+    case "HOD approved - Awaiting finance approval":
+      return { label: "HOD Approved", tone: "blue" };
+    case "Finance Approved - Payment under process":
+      return { label: "Finance Approved", tone: "indigo" };
+    case "Approved":
+      return { label: "Approved", tone: "green" };
+    case "Payment Done - Closed":
+      return { label: "Payment Done", tone: "green" };
+    case "Rejected - Resubmission Allowed":
+      return { label: "Rejected · Resubmit", tone: "amber" };
+    case "Rejected - Resubmission Not Allowed":
+      return { label: "Rejected", tone: "red" };
+    default:
+      return { label: String(status), tone: "slate" };
   }
-
-  if (status === "Approved" || status === "Finance Approved - Payment under process") {
-    return "border-emerald-200 bg-emerald-50/80 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-500 dark:border-emerald-500/20";
-  }
-
-  if (status === "Payment Done - Closed") {
-    return "border-green-200 bg-green-50/80 text-green-700 dark:bg-green-600/20 dark:text-green-400 dark:border-green-600/50";
-  }
-
-  return "border-zinc-200 bg-zinc-50/80 text-zinc-600 dark:bg-zinc-900/20 dark:text-zinc-300 dark:border-zinc-700/60";
 }
 
 export function ClaimStatusBadge({
@@ -46,15 +75,18 @@ export function ClaimStatusBadge({
   fullWidth = false,
   className = "",
 }: ClaimStatusBadgeProps) {
-  const layoutClasses = fullWidth
-    ? "min-h-11 w-full items-center justify-center px-3 py-2 text-center text-xs font-semibold leading-4 whitespace-normal"
-    : "items-center whitespace-nowrap px-2.5 py-1 text-xs font-medium";
+  const { label, tone } = getStatusMeta(status);
+  const { pill, dot } = TONE_CLASSES[tone];
+  const layoutClasses = fullWidth ? "w-full justify-center px-3 py-1.5" : "px-2.5 py-1";
 
   return (
-    <Badge
-      className={`rounded-2xl ${layoutClasses} ${getStatusClasses(status)} ${className}`.trim()}
+    <span
+      title={status}
+      aria-label={status}
+      className={`inline-flex items-center gap-1.5 rounded-full border text-xs font-semibold whitespace-nowrap ${pill} ${layoutClasses} ${className}`.trim()}
     >
-      {status}
-    </Badge>
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
+      {label}
+    </span>
   );
 }
