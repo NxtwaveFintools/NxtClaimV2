@@ -2195,6 +2195,32 @@ export async function rerunClaimVerificationAction(input: {
   return { ok: true, message: "Verification re-queued." };
 }
 
+export async function bulkRerunExtractionFailedAction(): Promise<{
+  ok: boolean;
+  count?: number;
+  message?: string;
+}> {
+  const currentUserResult = await authRepository.getCurrentUser();
+  if (currentUserResult.errorMessage || !currentUserResult.user?.id) {
+    return { ok: false, message: currentUserResult.errorMessage ?? "Unauthorized session." };
+  }
+
+  const approverIds = await repository.getFinanceApproverIdsForUser(currentUserResult.user.id);
+  if (approverIds.errorMessage || approverIds.data.length === 0) {
+    return { ok: false, message: "Only finance approvers can re-run AI verification." };
+  }
+
+  const result = await verificationRepository.bulkRerunExtractionFailed({
+    actorId: currentUserResult.user.id,
+  });
+  if (result.errorMessage) {
+    return { ok: false, message: result.errorMessage };
+  }
+
+  revalidatePath(ROUTES.claims.myClaims, "page");
+  return { ok: true, count: result.data ?? 0 };
+}
+
 function normalizeClaimIds(claimIds: string[]): string[] {
   return Array.from(new Set(claimIds.map((claimId) => claimId.trim()).filter(Boolean)));
 }

@@ -391,6 +391,19 @@ export class SupabaseVerificationRepository {
     }
     return { data: (data as string | null) ?? null, errorMessage: null };
   }
+
+  async bulkRerunExtractionFailed(input: {
+    actorId: string;
+  }): Promise<{ data: number | null; errorMessage: string | null }> {
+    const client = getServiceRoleSupabaseClient();
+    const { data, error } = await client.rpc("bulk_rerun_extraction_failed", {
+      p_actor_id: input.actorId,
+    });
+    if (error) {
+      return { data: null, errorMessage: error.message };
+    }
+    return { data: (data as number | null) ?? null, errorMessage: null };
+  }
 }
 
 type VerificationRunSummaryRow = {

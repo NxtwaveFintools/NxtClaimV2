@@ -41,6 +41,10 @@ const mockRevalidatePath = jest.fn();
 const mockRedirect = jest.fn();
 const mockStorageUpload = jest.fn();
 const mockStorageRemove = jest.fn();
+const mockBulkRerunExtractionFailed = jest.fn();
+const mockEnqueueVerificationRun = jest.fn();
+const mockRerunVerification = jest.fn();
+const mockOverrideVerification = jest.fn();
 
 jest.mock("next/cache", () => ({
   revalidatePath: (...args: unknown[]) => mockRevalidatePath(...args),
@@ -93,6 +97,15 @@ jest.mock("@/modules/claims/repositories/SupabaseClaimRepository", () => ({
     getClaimDetailById: mockGetClaimDetailById,
     getClaimAuditLogs: mockGetClaimAuditLogs,
     getFinanceApproverIdsForUser: mockGetFinanceApproverIdsForUser,
+  })),
+}));
+
+jest.mock("@/modules/claims/repositories/SupabaseVerificationRepository", () => ({
+  SupabaseVerificationRepository: jest.fn().mockImplementation(() => ({
+    enqueueVerificationRun: mockEnqueueVerificationRun,
+    rerunVerification: mockRerunVerification,
+    overrideVerification: mockOverrideVerification,
+    bulkRerunExtractionFailed: mockBulkRerunExtractionFailed,
   })),
 }));
 
@@ -1558,5 +1571,74 @@ describe("claims actions", () => {
       allowResubmission: true,
     });
     expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/my-claims");
+  });
+});
+
+describe("bulkRerunExtractionFailedAction", () => {
+  beforeEach(() => {
+    mockRevalidatePath.mockClear();
+    mockGetCurrentUser.mockResolvedValue({
+      user: { id: "user-1", email: "fin@nxtwave.co.in" },
+      errorMessage: null,
+    });
+    mockGetFinanceApproverIdsForUser.mockResolvedValue({
+      data: ["approver-1"],
+      errorMessage: null,
+    });
+    mockBulkRerunExtractionFailed.mockResolvedValue({ data: 7, errorMessage: null });
+  });
+
+  test("rejects unauthenticated sessions", async () => {
+    mockGetCurrentUser.mockResolvedValue({ user: null, errorMessage: "No session." });
+
+    const { bulkRerunExtractionFailedAction } = await import("@/modules/claims/actions");
+    const result = await bulkRerunExtractionFailedAction();
+
+    expect(result.ok).toBe(false);
+    expect(mockBulkRerunExtractionFailed).not.toHaveBeenCalled();
+  });
+
+  test("rejects non finance approvers", async () => {
+    mockGetFinanceApproverIdsForUser.mockResolvedValue({ data: [], errorMessage: null });
+
+    const { bulkRerunExtractionFailedAction } = await import("@/modules/claims/actions");
+    const result = await bulkRerunExtractionFailedAction();
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Only finance approvers can re-run AI verification.",
+    });
+    expect(mockBulkRerunExtractionFailed).not.toHaveBeenCalled();
+  });
+
+  test("re-queues via the repository and returns the count for approvers", async () => {
+    const { bulkRerunExtractionFailedAction } = await import("@/modules/claims/actions");
+    const result = await bulkRerunExtractionFailedAction();
+
+    expect(mockBulkRerunExtractionFailed).toHaveBeenCalledWith({ actorId: "user-1" });
+    expect(result).toEqual({ ok: true, count: 7 });
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/dashboard/my-claims", "page");
+  });
+
+  test("surfaces repository errors", async () => {
+    mockBulkRerunExtractionFailed.mockResolvedValue({
+      data: null,
+      errorMessage: "rpc exploded",
+    });
+
+    const { bulkRerunExtractionFailedAction } = await import("@/modules/claims/actions");
+    const result = await bulkRerunExtractionFailedAction();
+
+    expect(result).toEqual({ ok: false, message: "rpc exploded" });
+    expect(mockRevalidatePath).not.toHaveBeenCalled();
+  });
+
+  test("returns count 0 when nothing matched", async () => {
+    mockBulkRerunExtractionFailed.mockResolvedValue({ data: 0, errorMessage: null });
+
+    const { bulkRerunExtractionFailedAction } = await import("@/modules/claims/actions");
+    const result = await bulkRerunExtractionFailedAction();
+
+    expect(result).toEqual({ ok: true, count: 0 });
   });
 });
