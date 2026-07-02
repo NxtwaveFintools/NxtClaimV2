@@ -254,7 +254,7 @@ export async function ClaimsApprovalsSection({
         ) : approvalScope === "finance" || approvalScope === "l1" ? (
           <>
             {approvalScope === "finance" && aiCounts ? (
-              <VerificationFilterChips counts={aiCounts} />
+              <VerificationFilterChips counts={aiCounts} readOnly={readOnly} />
             ) : null}
             <MyClaimsPaginationControls
               hasNextPage={approvalsResult.hasNextPage}

@@ -8,6 +8,7 @@ import type { VerificationBadgeState } from "@/modules/claims/repositories/Supab
 
 type VerificationFilterChipsProps = {
   counts: Record<VerificationBadgeState, number>;
+  readOnly?: boolean;
 };
 
 const CHIP_ORDER: { state: VerificationBadgeState; label: string; activeClass: string }[] = [
@@ -40,7 +41,10 @@ const CHIP_ORDER: { state: VerificationBadgeState; label: string; activeClass: s
   },
 ];
 
-export function VerificationFilterChips({ counts }: VerificationFilterChipsProps) {
+export function VerificationFilterChips({
+  counts,
+  readOnly = false,
+}: VerificationFilterChipsProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -48,7 +52,7 @@ export function VerificationFilterChips({ counts }: VerificationFilterChipsProps
 
   const [isRerunning, setIsRerunning] = useState(false);
   const extractionFailedCount = counts.extraction_failed ?? 0;
-  const showBulkRerun = active === "extraction_failed" && extractionFailedCount > 0;
+  const showBulkRerun = !readOnly && active === "extraction_failed" && extractionFailedCount > 0;
 
   const submitBulkRerun = async () => {
     if (isRerunning) return;
@@ -62,7 +66,10 @@ export function VerificationFilterChips({ counts }: VerificationFilterChipsProps
     try {
       const result = await bulkRerunExtractionFailedAction();
       if (result.ok) {
-        toast.success(`Re-queued ${result.count ?? 0} claims for verification`);
+        const requeuedCount = result.count ?? 0;
+        toast.success(
+          `Re-queued ${requeuedCount} claim${requeuedCount === 1 ? "" : "s"} for verification`,
+        );
         router.refresh();
       } else {
         toast.error(result.message ?? "Bulk re-verification failed.");

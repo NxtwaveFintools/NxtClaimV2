@@ -66,6 +66,12 @@ describe("VerificationFilterChips — bulk re-verify button", () => {
     expect(screen.getByText("Re-verify all (5)")).toBeInTheDocument();
   });
 
+  test("hides the button when readOnly is set, even with the filter active and count > 0", () => {
+    mockSearch = "ai_verdict=extraction_failed";
+    render(<VerificationFilterChips counts={makeCounts({ extraction_failed: 5 })} readOnly />);
+    expect(screen.queryByText(/Re-verify all/)).not.toBeInTheDocument();
+  });
+
   test("confirms, calls the action, toasts the actual count, and refreshes", async () => {
     mockSearch = "ai_verdict=extraction_failed";
     jest.spyOn(window, "confirm").mockReturnValue(true);
@@ -89,6 +95,19 @@ describe("VerificationFilterChips — bulk re-verify button", () => {
     fireEvent.click(screen.getByText("Re-verify all (5)"));
 
     expect(mockAction).not.toHaveBeenCalled();
+  });
+
+  test("toasts singular claim wording when the requeued count is 1", async () => {
+    mockSearch = "ai_verdict=extraction_failed";
+    jest.spyOn(window, "confirm").mockReturnValue(true);
+    mockAction.mockResolvedValue({ ok: true, count: 1 });
+
+    render(<VerificationFilterChips counts={makeCounts({ extraction_failed: 5 })} />);
+    fireEvent.click(screen.getByText("Re-verify all (5)"));
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith("Re-queued 1 claim for verification");
+    });
   });
 
   test("shows an error toast when the action fails", async () => {
