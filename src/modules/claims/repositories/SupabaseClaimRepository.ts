@@ -4180,4 +4180,50 @@ export class SupabaseClaimRepository implements ClaimRepository {
     }
     return { errorMessage: null };
   }
+
+  async getLastSubmittedExpenseClaimDefaults(userId: string): Promise<{
+    data: {
+      locationId: string | null;
+      expenseCategoryId: string | null;
+      productId: string | null;
+    } | null;
+    errorMessage: string | null;
+  }> {
+    const client = getServiceRoleSupabaseClient();
+    const { data, error } = await client
+      .from("claims")
+      .select("expense_details(expense_category_id, product_id, location_id)")
+      .eq("submitted_by", userId)
+      .eq("detail_type", "expense")
+      .order("submitted_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      return { data: null, errorMessage: error.message };
+    }
+
+    if (!data) {
+      return { data: null, errorMessage: null };
+    }
+
+    const detail = getSingleRelation(data.expense_details) as {
+      expense_category_id: string | null;
+      product_id: string | null;
+      location_id: string | null;
+    } | null;
+
+    if (!detail) {
+      return { data: null, errorMessage: null };
+    }
+
+    return {
+      data: {
+        locationId: detail.location_id ?? null,
+        expenseCategoryId: detail.expense_category_id ?? null,
+        productId: detail.product_id ?? null,
+      },
+      errorMessage: null,
+    };
+  }
 }

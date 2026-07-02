@@ -668,6 +668,14 @@ export type ClaimRepository = {
   getClaimListDetails(
     claimIds: string[],
   ): Promise<{ data: Record<string, ClaimListDetail>; errorMessage: string | null }>;
+  getLastSubmittedExpenseClaimDefaults(userId: string): Promise<{
+    data: {
+      locationId: string | null;
+      expenseCategoryId: string | null;
+      productId: string | null;
+    } | null;
+    errorMessage: string | null;
+  }>;
 };
 
 export type ClaimDomainLogger = {

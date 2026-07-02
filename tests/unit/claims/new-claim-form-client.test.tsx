@@ -83,6 +83,7 @@ const options = {
   ],
   products: [{ id: "77777777-7777-4777-8777-777777777777", name: "NxtWave" }],
   locations: [{ id: "88888888-8888-4888-8888-888888888888", name: "Hyderabad" }],
+  lastClaim: null,
 };
 
 async function fillRequiredExpenseFields(user: ReturnType<typeof userEvent.setup>): Promise<void> {
@@ -292,7 +293,7 @@ describe("NewClaimFormClient", () => {
     });
   });
 
-  test("keeps category unselected when AI returns null or unknown category_name", async () => {
+  test("preserves historical/default category when AI returns null or unknown category_name", async () => {
     const user = userEvent.setup();
     mockParseReceiptAction.mockResolvedValueOnce({
       ok: true,
@@ -324,7 +325,7 @@ describe("NewClaimFormClient", () => {
     );
 
     await waitFor(() => {
-      expect(categorySelect.value).toBe("");
+      expect(categorySelect.value).toBe("66666666-6666-4666-8666-666666666666");
     });
   });
 
