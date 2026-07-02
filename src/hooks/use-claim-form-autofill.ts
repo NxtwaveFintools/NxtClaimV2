@@ -7,13 +7,13 @@ import type { ClaimFormDraftValues } from "@/modules/claims/ui/new-claim-form-cl
 // ─── Storage key constants ──────────────────────────────────────────────────
 
 const STORAGE_KEYS = {
-  submissionType: "nxtclaim_v2_pref_submissionType",
-  employeeId: "nxtclaim_v2_pref_employeeId",
-  onBehalfEmail: "nxtclaim_v2_pref_onBehalfEmail",
-  onBehalfEmployeeCode: "nxtclaim_v2_pref_onBehalfEmployeeCode",
-  departmentId: "nxtclaim_v2_pref_departmentId",
-  paymentModeId: "nxtclaim_v2_pref_paymentModeId",
-  ccEmails: "nxtclaim_v2_pref_ccEmails",
+  submissionType: "nxtclaim_pref_submissionType",
+  employeeId: "nxtclaim_pref_employeeId",
+  onBehalfEmail: "nxtclaim_pref_onBehalfEmail",
+  onBehalfEmployeeCode: "nxtclaim_pref_onBehalfEmployeeCode",
+  departmentId: "nxtclaim_pref_departmentId",
+  paymentModeId: "nxtclaim_pref_paymentModeId",
+  ccEmails: "nxtclaim_pref_ccEmails",
 } as const;
 
 const TRACKED_FIELDS = [

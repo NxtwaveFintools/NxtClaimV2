@@ -119,7 +119,7 @@ export function LoginPageContent() {
             <p
               className={`${loginDisplayFont.className} text-[30px] font-extrabold tracking-[-0.04em] text-zinc-950 dark:text-zinc-50 sm:text-[34px]`}
             >
-              NxtClaim V2
+              NxtClaim
             </p>
           </div>
 

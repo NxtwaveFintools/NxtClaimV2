@@ -34,7 +34,7 @@ export default async function NewClaimPage() {
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-indigo-600 dark:text-indigo-400">
-              NxtClaim V2
+              NxtClaim
             </p>
             <h1 className="dashboard-font-display mt-1.5 text-2xl font-bold tracking-[-0.03em] text-zinc-950 sm:text-3xl dark:text-zinc-50">
               New Claim
