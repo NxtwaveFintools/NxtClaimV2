@@ -5,7 +5,7 @@ import { AuthSessionSync } from "@/modules/auth/ui/auth-session-sync";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "NxtClaim V2",
+  title: "NxtClaim",
   description: "Enterprise reimbursement platform authentication",
 };
 
