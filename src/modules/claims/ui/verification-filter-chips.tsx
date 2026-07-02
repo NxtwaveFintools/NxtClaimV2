@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
+import { bulkRerunExtractionFailedAction } from "@/modules/claims/actions";
 import type { VerificationBadgeState } from "@/modules/claims/repositories/SupabaseVerificationRepository";
 
 type VerificationFilterChipsProps = {
@@ -42,6 +45,32 @@ export function VerificationFilterChips({ counts }: VerificationFilterChipsProps
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const active = searchParams.get("ai_verdict");
+
+  const [isRerunning, setIsRerunning] = useState(false);
+  const extractionFailedCount = counts.extraction_failed ?? 0;
+  const showBulkRerun = active === "extraction_failed" && extractionFailedCount > 0;
+
+  const submitBulkRerun = async () => {
+    if (isRerunning) return;
+    const confirmed = window.confirm(
+      `Re-queue ${extractionFailedCount} extraction-failed claim${
+        extractionFailedCount === 1 ? "" : "s"
+      } for AI verification?`,
+    );
+    if (!confirmed) return;
+    setIsRerunning(true);
+    try {
+      const result = await bulkRerunExtractionFailedAction();
+      if (result.ok) {
+        toast.success(`Re-queued ${result.count ?? 0} claims for verification`);
+        router.refresh();
+      } else {
+        toast.error(result.message ?? "Bulk re-verification failed.");
+      }
+    } finally {
+      setIsRerunning(false);
+    }
+  };
 
   const setVerdict = (state: VerificationBadgeState | null) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -90,6 +119,16 @@ export function VerificationFilterChips({ counts }: VerificationFilterChipsProps
           </button>
         );
       })}
+      {showBulkRerun ? (
+        <button
+          type="button"
+          onClick={submitBulkRerun}
+          disabled={isRerunning}
+          className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-700 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isRerunning ? "Re-queuing..." : `Re-verify all (${extractionFailedCount})`}
+        </button>
+      ) : null}
       {active ? (
         <button
           type="button"
