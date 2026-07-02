@@ -1866,6 +1866,10 @@ export type Database = {
         };
         Returns: number;
       };
+      bulk_rerun_extraction_failed: {
+        Args: { p_actor_id: string };
+        Returns: number;
+      };
       complete_bc_claim: {
         Args: {
           p_actor_user_id: string;
