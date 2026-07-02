@@ -58,7 +58,9 @@
       "Read(//c/Users/Nxtwave/.claude/plugins/cache/thedotmack/claude-mem/13.6.2/plugin/scripts/**)",
       "Read(//c/Users/Nxtwave/.claude/plugins/cache/thedotmack/claude-mem/13.6.2/**)",
       "Read(//c/Users/Nxtwave/.claude/plugins/cache/thedotmack/claude-mem/13.6.2/scripts/**)",
-      "mcp__supabase__list_edge_functions"
+      "mcp__supabase__list_edge_functions",
+      "PowerShell(git *)",
+      "Bash(/c/Users/Nxtwave/.claude/plugins/cache/claude-plugins-official/superpowers/6.1.0/skills/subagent-driven-development/scripts/task-brief docs/superpowers/plans/2026-07-02-bulk-rerun-extraction-failed.md 1)"
     ]
   },
   "enabledMcpjsonServers": [
