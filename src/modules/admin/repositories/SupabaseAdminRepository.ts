@@ -293,6 +293,8 @@ type DepartmentActorRow = {
   approver2: UserNameRow | UserNameRow[] | null;
 };
 
+const SAME_APPROVER_ERROR_MESSAGE = "Approver 1 and Approver 2 cannot be the same person.";
+
 type FinanceApproverRow = {
   id: string;
   user_id: string | null;
@@ -1125,6 +1127,10 @@ export class SupabaseAdminRepository implements AdminRepository {
     approver1Id: string,
     approver2Id: string,
   ): Promise<{ success: boolean; errorMessage: string | null }> {
+    if (approver1Id === approver2Id) {
+      return { success: false, errorMessage: SAME_APPROVER_ERROR_MESSAGE };
+    }
+
     const { error } = await this.client
       .from("master_departments")
       .update({ approver1_id: approver1Id, approver2_id: approver2Id })
@@ -1156,6 +1162,10 @@ export class SupabaseAdminRepository implements AdminRepository {
 
     const approver1Id = approver1User?.id ?? null;
     const approver2Id = approver2User?.id ?? null;
+
+    if (approver1Id && approver1Id === approver2Id) {
+      return { success: false, errorMessage: SAME_APPROVER_ERROR_MESSAGE };
+    }
 
     const updatePayload: Record<string, unknown> = {
       approver1_id: approver1Id,
@@ -1200,6 +1210,10 @@ export class SupabaseAdminRepository implements AdminRepository {
 
     const approver1Id = approver1Lookup.userId;
     const approver2Id = approver2Lookup.userId;
+
+    if (approver1Id && approver1Id === approver2Id) {
+      return { data: null, errorMessage: SAME_APPROVER_ERROR_MESSAGE };
+    }
 
     if (!approver1Id || !approver2Id) {
       return {

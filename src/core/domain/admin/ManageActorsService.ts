@@ -54,6 +54,8 @@ type FinanceApproverResult = {
   errorMessage: string | null;
 };
 
+const SAME_APPROVER_ERROR_MESSAGE = "Approver 1 and Approver 2 cannot be the same person.";
+
 export class ManageActorsService {
   private readonly repository: AdminRepository;
   private readonly logger: AdminDomainLogger;
@@ -99,6 +101,14 @@ export class ManageActorsService {
         success: false,
         errorCode: "INVALID_INPUT",
         errorMessage: "Approver 2 user ID is required.",
+      };
+    }
+
+    if (input.approver1Id.trim() === input.approver2Id.trim()) {
+      return {
+        success: false,
+        errorCode: "SAME_APPROVER",
+        errorMessage: SAME_APPROVER_ERROR_MESSAGE,
       };
     }
 
@@ -157,6 +167,14 @@ export class ManageActorsService {
         success: false,
         errorCode: "INVALID_INPUT",
         errorMessage: "Department ID is required.",
+      };
+    }
+
+    if (approver1Email === approver2Email) {
+      return {
+        success: false,
+        errorCode: "SAME_APPROVER",
+        errorMessage: SAME_APPROVER_ERROR_MESSAGE,
       };
     }
 

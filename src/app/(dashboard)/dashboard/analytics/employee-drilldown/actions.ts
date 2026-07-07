@@ -43,6 +43,10 @@ async function resolveHodScope(): Promise<{
   const isAdmin = ctxResult.data.isAdmin;
   const hodDepartmentIds = ctxResult.data.approver1DepartmentIds;
 
+  if (isAdmin) {
+    return { hodDepartmentIds: [], isAdmin: true, errorMessage: null };
+  }
+
   if (!isAdmin && hodDepartmentIds.length === 0) {
     return { hodDepartmentIds: [], isAdmin: false, errorMessage: null };
   }
