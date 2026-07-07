@@ -21,6 +21,8 @@ type CreateDepartmentResult = {
   errorMessage: string | null;
 };
 
+const SAME_APPROVER_ERROR_MESSAGE = "Approver 1 and Approver 2 cannot be the same person.";
+
 export class CreateDepartmentService {
   private readonly repository: AdminRepository;
   private readonly logger: AdminDomainLogger;
@@ -56,6 +58,14 @@ export class CreateDepartmentService {
         data: null,
         errorCode: "INVALID_INPUT",
         errorMessage: "A valid Approver 2 email address is required.",
+      };
+    }
+
+    if (approver1Email === approver2Email) {
+      return {
+        data: null,
+        errorCode: "SAME_APPROVER",
+        errorMessage: SAME_APPROVER_ERROR_MESSAGE,
       };
     }
 

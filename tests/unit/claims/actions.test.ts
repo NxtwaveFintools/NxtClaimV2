@@ -1256,7 +1256,9 @@ describe("claims actions", () => {
 
     expect(result).toEqual({
       ok: false,
-      message: "A claim with this exact Bill No, Date, and Amount already exists.",
+      message:
+        "Duplicate Alert: A claim with this exact Bill Number, Amount, and Date already exists in Claim #CLAIM-EXISTING-1. Update blocked.",
+      duplicateClaimId: "CLAIM-EXISTING-1",
     });
     expect(mockUpdateByFinanceExecute).not.toHaveBeenCalled();
   });

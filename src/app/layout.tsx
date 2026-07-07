@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthSessionSync } from "@/modules/auth/ui/auth-session-sync";
+import { FaqLauncherButton } from "@/modules/faq/ui/faq-launcher-button";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -28,6 +29,7 @@ export default function RootLayout({
         >
           <AuthSessionSync />
           {children}
+          <FaqLauncherButton />
           <Toaster
             position="top-center"
             richColors
