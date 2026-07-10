@@ -18,6 +18,11 @@ export const maxDuration = 30;
 
 const google = createGoogle({ apiKey: serverEnv.GEMINI_API_KEY });
 
+// Hardcoded rather than sourced from GEMINI_MODEL — that env var is shared
+// with other Gemini use cases (e.g. receipt parsing) which need to stay on
+// a different model independently of this chatbot.
+const CHAT_MODEL = "gemini-2.5-flash";
+
 // Keep only the most recent turns sent to the model — most Q&A here is
 // self-contained, and this caps worst-case token growth in long sessions.
 const MAX_HISTORY_MESSAGES = 12;
@@ -107,7 +112,7 @@ export async function POST(request: Request) {
   const recentMessages = messages.slice(-MAX_HISTORY_MESSAGES);
 
   const result = streamText({
-    model: google(serverEnv.GEMINI_MODEL),
+    model: google(CHAT_MODEL),
     instructions: buildSystemPrompt(),
     messages: await convertToModelMessages(recentMessages),
     maxOutputTokens: 500,
