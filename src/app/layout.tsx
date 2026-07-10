@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthSessionSync } from "@/modules/auth/ui/auth-session-sync";
-import { FaqLauncherButton } from "@/modules/faq/ui/faq-launcher-button";
+import { FinanceChatWidget } from "@/modules/faq/ui/finance-chat-widget";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -29,7 +29,7 @@ export default function RootLayout({
         >
           <AuthSessionSync />
           {children}
-          <FaqLauncherButton />
+          <FinanceChatWidget />
           <Toaster
             position="top-center"
             richColors

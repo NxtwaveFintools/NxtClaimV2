@@ -40,6 +40,8 @@
     ]
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.11",
+    "@ai-sdk/react": "^4.0.20",
     "@google/genai": "^2.8.0",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",
@@ -47,6 +49,7 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.99.1",
+    "ai": "^7.0.19",
     "clsx": "^2.1.1",
     "exceljs": "^4.4.0",
     "lucide-react": "^0.577.0",
@@ -57,6 +60,7 @@
     "react-countup": "^6.5.3",
     "react-dom": "19.2.3",
     "react-hook-form": "^7.71.2",
+    "react-markdown": "^10.1.0",
     "recharts": "^3.8.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
