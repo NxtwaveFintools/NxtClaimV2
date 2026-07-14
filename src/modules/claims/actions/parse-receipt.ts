@@ -694,13 +694,6 @@ export async function extractReceiptFromBuffer(params: {
           params.now.toISOString().slice(0, 10),
         ));
 
-  console.log(
-    "[DEBUG extractReceiptFromBuffer] has ETERNAL exception:",
-    systemInstruction.includes("ETERNAL INVOICE EXCEPTION"),
-    "documentType:",
-    params.documentType,
-  );
-
   const client = new GoogleGenAI({ apiKey: serverEnv.GEMINI_API_KEY });
   const generationResult = await generateGeminiContentWithRetry(
     client,
