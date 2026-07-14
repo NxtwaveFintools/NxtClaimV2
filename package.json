@@ -24,6 +24,7 @@
     "seed:ta-bulk-hiring": "node scripts/seed-ta-bulk-hiring.js",
     "seed:ta-bulk-hiring:apply": "node scripts/seed-ta-bulk-hiring.js --apply",
     "export:departments": "node --env-file=.env.prod --experimental-strip-types scripts/export-departments.ts",
+    "create:pr-api-key": "node --env-file=.env.local scripts/create-purchase-request-api-key.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:migrate": "node --env-file=.env.local scripts/run-migrations.mjs",
