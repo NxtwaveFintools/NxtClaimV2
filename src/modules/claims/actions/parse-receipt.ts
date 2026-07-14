@@ -270,6 +270,21 @@ FIELDS:
 - Amounts: plain numbers, no symbols, no thousands separators. null when that
   line is not printed. NEVER derive a value that is not printed (e.g. never
   back-calculate tax from a percentage, or a subtotal from the total).
+  ETERNAL INVOICE EXCEPTION: Zomato orders are sometimes printed as TWO
+  SEPARATE GST tax invoices in one PDF — a Food invoice (seller = the
+  restaurant) and a Platform/Convenience Fee invoice (seller = "Eternal" /
+  "Eternal Limited"). Detect this by document STRUCTURE, not by whichever
+  vendor name you'd otherwise pick first: look for two distinct "Tax
+  Invoice" blocks on the same document, each with its own GSTIN, where one
+  seller is "Eternal" / "Eternal Limited" / "Zomato". Only when BOTH
+  invoices are present, you MUST: report vendorName as "Eternal Limited";
+  report gstNumber from the Eternal Limited (platform fee) invoice; sum the
+  two invoices' totals into totalAmount, cgstAmount, and sgstAmount; use the
+  FOOD invoice's billNo and transactionDate. IMPORTANT: because you summed
+  across invoices, you MUST output null for subtotalAmount, feesTotal, and
+  otherTaxTotal to prevent downstream math conflicts. If only ONE tax
+  invoice is printed (no separate platform-fee invoice), this exception
+  does NOT apply — extract normally from that single invoice.
   EXCEPTION — summing printed values IS allowed: when a tax or fee appears as a
   printed column across line items (itemized GST invoices) or in an annexure
   table, ADD UP the printed values and report the sum. That is reading, not
