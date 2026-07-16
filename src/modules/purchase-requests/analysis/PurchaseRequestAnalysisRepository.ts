@@ -9,6 +9,20 @@ export type PurchaseRequestAttachmentForAnalysis = {
   contentType: string;
 };
 
+export type PurchaseRequestLineForAnalysis = {
+  lineNo: number;
+  description: string;
+  gstGroupCode: string | null;
+  programCode: string | null;
+  responsibleDept: string | null;
+  beneficiaryCode: string | null;
+  regionCode: string | null;
+  subproduct: string | null;
+  qty: number | null;
+  directUnitCostExclVat: number | null;
+  lineAmountExcludingVat: number | null;
+};
+
 export type PurchaseRequestForAnalysis = {
   id: string;
   prId: string;
@@ -29,7 +43,25 @@ export type PurchaseRequestForAnalysis = {
   bankAccountNumber: string | null;
   bankIfsc: string | null;
   bankName: string | null;
+  serviceStartDate: string | null;
+  serviceEndDate: string | null;
+  budgetPeriod: string | null;
+  posAsInVendorState: string | null;
+  totalAmountIncludingGst: number | null;
+  cgstPercentage: number | null;
+  cgstAmount: number | null;
+  sgstPercentage: number | null;
+  sgstAmount: number | null;
+  igstPercentage: number | null;
+  igstAmount: number | null;
+  fixedAssetDescription: string | null;
+  fixedAssetFaClassCode: string | null;
+  fixedAssetFaSubclassCode: string | null;
+  depreciationStartDate: string | null;
+  noOfDepreciationYears: number | null;
+  depreciationEndDate: string | null;
   attachments: PurchaseRequestAttachmentForAnalysis[];
+  lines: PurchaseRequestLineForAnalysis[];
 };
 
 export type PurchaseRequestStatus = "pending_analysis" | "analyzing" | "analyzed";
@@ -42,7 +74,7 @@ export class PurchaseRequestAnalysisRepository {
     const { data, error } = await client
       .from("purchase_requests")
       .select(
-        "id, pr_id, request_date, vendor_code, vendor_name, vendor_gstin, company_gstin, department, pr_type, vendor_invoice_number, document_date, direct_unit_cost, gst_percentage, gst_amount, purchase_request_amount, description, bank_account_number, bank_ifsc, bank_name, purchase_request_attachments(id, file_name, storage_path, content_type)",
+        "id, pr_id, request_date, vendor_code, vendor_name, vendor_gstin, company_gstin, department, pr_type, vendor_invoice_number, document_date, direct_unit_cost, gst_percentage, gst_amount, purchase_request_amount, description, bank_account_number, bank_ifsc, bank_name, service_start_date, service_end_date, budget_period, pos_as_in_vendor_state, total_amount_including_gst, cgst_percentage, cgst_amount, sgst_percentage, sgst_amount, igst_percentage, igst_amount, fixed_asset_description, fixed_asset_fa_class_code, fixed_asset_fa_subclass_code, depreciation_start_date, no_of_depreciation_years, depreciation_end_date, purchase_request_attachments(id, file_name, storage_path, content_type), purchase_request_lines(line_no, description, gst_group_code, program_code, responsible_dept, beneficiary_code, region_code, subproduct, qty, direct_unit_cost_excl_vat, line_amount_excluding_vat)",
       )
       .eq("id", purchaseRequestId)
       .maybeSingle();
@@ -60,6 +92,23 @@ export class PurchaseRequestAnalysisRepository {
       storage_path: string;
       content_type: string;
     }>;
+
+    const lineRows = (data.purchase_request_lines ?? []) as Array<{
+      line_no: number;
+      description: string;
+      gst_group_code: string | null;
+      program_code: string | null;
+      responsible_dept: string | null;
+      beneficiary_code: string | null;
+      region_code: string | null;
+      subproduct: string | null;
+      qty: string | number | null;
+      direct_unit_cost_excl_vat: string | number | null;
+      line_amount_excluding_vat: string | number | null;
+    }>;
+
+    const toNullableNumber = (value: string | number | null): number | null =>
+      value === null ? null : Number(value);
 
     return {
       data: {
@@ -82,11 +131,45 @@ export class PurchaseRequestAnalysisRepository {
         bankAccountNumber: (data.bank_account_number as string | null) ?? null,
         bankIfsc: (data.bank_ifsc as string | null) ?? null,
         bankName: (data.bank_name as string | null) ?? null,
+        serviceStartDate: (data.service_start_date as string | null) ?? null,
+        serviceEndDate: (data.service_end_date as string | null) ?? null,
+        budgetPeriod: (data.budget_period as string | null) ?? null,
+        posAsInVendorState: (data.pos_as_in_vendor_state as string | null) ?? null,
+        totalAmountIncludingGst: toNullableNumber(
+          data.total_amount_including_gst as string | number | null,
+        ),
+        cgstPercentage: toNullableNumber(data.cgst_percentage as string | number | null),
+        cgstAmount: toNullableNumber(data.cgst_amount as string | number | null),
+        sgstPercentage: toNullableNumber(data.sgst_percentage as string | number | null),
+        sgstAmount: toNullableNumber(data.sgst_amount as string | number | null),
+        igstPercentage: toNullableNumber(data.igst_percentage as string | number | null),
+        igstAmount: toNullableNumber(data.igst_amount as string | number | null),
+        fixedAssetDescription: (data.fixed_asset_description as string | null) ?? null,
+        fixedAssetFaClassCode: (data.fixed_asset_fa_class_code as string | null) ?? null,
+        fixedAssetFaSubclassCode: (data.fixed_asset_fa_subclass_code as string | null) ?? null,
+        depreciationStartDate: (data.depreciation_start_date as string | null) ?? null,
+        noOfDepreciationYears: toNullableNumber(
+          data.no_of_depreciation_years as string | number | null,
+        ),
+        depreciationEndDate: (data.depreciation_end_date as string | null) ?? null,
         attachments: attachmentRows.map((row) => ({
           id: row.id,
           fileName: row.file_name,
           storagePath: row.storage_path,
           contentType: row.content_type,
+        })),
+        lines: lineRows.map((row) => ({
+          lineNo: row.line_no,
+          description: row.description,
+          gstGroupCode: row.gst_group_code,
+          programCode: row.program_code,
+          responsibleDept: row.responsible_dept,
+          beneficiaryCode: row.beneficiary_code,
+          regionCode: row.region_code,
+          subproduct: row.subproduct,
+          qty: toNullableNumber(row.qty),
+          directUnitCostExclVat: toNullableNumber(row.direct_unit_cost_excl_vat),
+          lineAmountExcludingVat: toNullableNumber(row.line_amount_excluding_vat),
         })),
       },
       errorMessage: null,
@@ -106,6 +189,25 @@ export class PurchaseRequestAnalysisRepository {
     }
 
     return { data: Buffer.from(await data.arrayBuffer()), errorMessage: null };
+  }
+
+  async getLatestAnalysisId(
+    purchaseRequestId: string,
+  ): Promise<{ data: string | null; errorMessage: string | null }> {
+    const client = getServiceRoleSupabaseClient();
+    const { data, error } = await client
+      .from("purchase_request_analyses")
+      .select("analysis_id")
+      .eq("purchase_request_id", purchaseRequestId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      return { data: null, errorMessage: error.message };
+    }
+
+    return { data: (data?.analysis_id as string | undefined) ?? null, errorMessage: null };
   }
 
   async countPreviousAnalyses(
@@ -201,4 +303,102 @@ export class PurchaseRequestAnalysisRepository {
       errorMessage: null,
     };
   }
+
+  /** Full row for building the BC callback payload -- everything BC needs about this analysis. */
+  async getAnalysisForCallback(analysisId: string): Promise<{
+    data: PurchaseRequestAnalysisForCallback | null;
+    errorMessage: string | null;
+  }> {
+    const client = getServiceRoleSupabaseClient();
+    const { data, error } = await client
+      .from("purchase_request_analyses")
+      .select(
+        "id, analysis_id, overall_status, confidence_score, document_summary, field_validations, remarks, created_at, bc_callback_status, bc_callback_attempts, bc_callback_sent_at, bc_callback_error, purchase_request_attachments(file_name), purchase_requests(pr_id, api_keys(callback_url, callback_api_key))",
+      )
+      .eq("analysis_id", analysisId)
+      .maybeSingle();
+
+    if (error) {
+      return { data: null, errorMessage: error.message };
+    }
+    if (!data) {
+      return { data: null, errorMessage: "Analysis not found." };
+    }
+
+    // Both are many-to-one embeds (this row's FK -> the other table's PK), so at
+    // runtime PostgREST returns a single object (or null), not an array -- despite
+    // what the untyped client's inferred TS shape suggests. Cast via unknown since
+    // the two types don't structurally overlap.
+    const attachment = data.purchase_request_attachments as unknown as {
+      file_name: string;
+    } | null;
+    const purchaseRequest = data.purchase_requests as unknown as {
+      pr_id: string;
+      api_keys: { callback_url: string | null; callback_api_key: string | null } | null;
+    } | null;
+    if (!purchaseRequest) {
+      return { data: null, errorMessage: "Analysis has no linked purchase request." };
+    }
+
+    return {
+      data: {
+        analysisRowId: data.id as string,
+        prId: purchaseRequest.pr_id,
+        analysisId: data.analysis_id as string,
+        overallStatus: data.overall_status as string,
+        confidenceScore: Number(data.confidence_score),
+        documentSummary: data.document_summary as string,
+        analyzedFileName: attachment?.file_name ?? null,
+        fieldValidations: data.field_validations as PrAnalysisResponse["field_validations"],
+        remarks: data.remarks as string,
+        analyzedAt: data.created_at as string,
+        bcCallbackStatus: data.bc_callback_status as "pending" | "sent" | "failed",
+        bcCallbackAttempts: data.bc_callback_attempts as number,
+        bcCallbackSentAt: data.bc_callback_sent_at as string | null,
+        bcCallbackError: data.bc_callback_error as string | null,
+        callbackUrl: purchaseRequest.api_keys?.callback_url ?? null,
+        callbackApiKey: purchaseRequest.api_keys?.callback_api_key ?? null,
+      },
+      errorMessage: null,
+    };
+  }
+
+  async updateCallbackStatus(
+    analysisRowId: string,
+    outcome:
+      | { status: "sent"; attempts: number }
+      | { status: "failed"; attempts: number; error: string },
+  ): Promise<{ errorMessage: string | null }> {
+    const client = getServiceRoleSupabaseClient();
+    const { error } = await client
+      .from("purchase_request_analyses")
+      .update({
+        bc_callback_status: outcome.status,
+        bc_callback_attempts: outcome.attempts,
+        bc_callback_sent_at: outcome.status === "sent" ? new Date().toISOString() : null,
+        bc_callback_error: outcome.status === "failed" ? outcome.error : null,
+      })
+      .eq("id", analysisRowId);
+
+    return { errorMessage: error?.message ?? null };
+  }
 }
+
+export type PurchaseRequestAnalysisForCallback = {
+  analysisRowId: string;
+  prId: string;
+  analysisId: string;
+  overallStatus: string;
+  confidenceScore: number;
+  documentSummary: string;
+  analyzedFileName: string | null;
+  fieldValidations: PrAnalysisResponse["field_validations"];
+  remarks: string;
+  analyzedAt: string;
+  bcCallbackStatus: "pending" | "sent" | "failed";
+  bcCallbackAttempts: number;
+  bcCallbackSentAt: string | null;
+  bcCallbackError: string | null;
+  callbackUrl: string | null;
+  callbackApiKey: string | null;
+};

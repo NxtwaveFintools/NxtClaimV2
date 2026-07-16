@@ -25,6 +25,20 @@ export type PrAnalysisInputAttachment = {
   buffer: Buffer;
 };
 
+export type PrAnalysisInputLine = {
+  line_no: number;
+  description: string;
+  gst_group_code: string | null;
+  program_code: string | null;
+  responsible_dept: string | null;
+  beneficiary_code: string | null;
+  region_code: string | null;
+  subproduct: string | null;
+  qty: number | null;
+  direct_unit_cost_excl_vat: number | null;
+  line_amount_excluding_vat: number | null;
+};
+
 export type PrAnalysisInput = {
   prId: string;
   prData: {
@@ -45,6 +59,26 @@ export type PrAnalysisInput = {
     bank_account_number: string | null;
     bank_ifsc: string | null;
     bank_name: string | null;
+    // Additional context fields (see system-prompt.ts "ADDITIONAL CONTEXT FIELDS") --
+    // informational only, not part of the 17-check catalog.
+    service_start_date: string | null;
+    service_end_date: string | null;
+    budget_period: string | null;
+    pos_as_in_vendor_state: string | null;
+    total_amount_including_gst: number | null;
+    cgst_percentage: number | null;
+    cgst_amount: number | null;
+    sgst_percentage: number | null;
+    sgst_amount: number | null;
+    igst_percentage: number | null;
+    igst_amount: number | null;
+    fixed_asset_description: string | null;
+    fixed_asset_fa_class_code: string | null;
+    fixed_asset_fa_subclass_code: string | null;
+    depreciation_start_date: string | null;
+    no_of_depreciation_years: number | null;
+    depreciation_end_date: string | null;
+    lines: PrAnalysisInputLine[];
   };
   attachments: PrAnalysisInputAttachment[];
 };

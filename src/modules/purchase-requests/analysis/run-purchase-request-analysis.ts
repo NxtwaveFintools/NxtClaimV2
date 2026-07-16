@@ -11,6 +11,7 @@ import {
   PurchaseRequestAnalysisRepository,
   type PurchaseRequestForAnalysis,
 } from "@/modules/purchase-requests/analysis/PurchaseRequestAnalysisRepository";
+import { sendAnalysisResultToBc } from "@/modules/purchase-requests/callback/send-analysis-to-bc";
 
 const repository = new PurchaseRequestAnalysisRepository();
 
@@ -51,6 +52,36 @@ function buildPrData(pr: PurchaseRequestForAnalysis) {
     bank_account_number: pr.bankAccountNumber,
     bank_ifsc: pr.bankIfsc,
     bank_name: pr.bankName,
+    service_start_date: pr.serviceStartDate,
+    service_end_date: pr.serviceEndDate,
+    budget_period: pr.budgetPeriod,
+    pos_as_in_vendor_state: pr.posAsInVendorState,
+    total_amount_including_gst: pr.totalAmountIncludingGst,
+    cgst_percentage: pr.cgstPercentage,
+    cgst_amount: pr.cgstAmount,
+    sgst_percentage: pr.sgstPercentage,
+    sgst_amount: pr.sgstAmount,
+    igst_percentage: pr.igstPercentage,
+    igst_amount: pr.igstAmount,
+    fixed_asset_description: pr.fixedAssetDescription,
+    fixed_asset_fa_class_code: pr.fixedAssetFaClassCode,
+    fixed_asset_fa_subclass_code: pr.fixedAssetFaSubclassCode,
+    depreciation_start_date: pr.depreciationStartDate,
+    no_of_depreciation_years: pr.noOfDepreciationYears,
+    depreciation_end_date: pr.depreciationEndDate,
+    lines: pr.lines.map((line) => ({
+      line_no: line.lineNo,
+      description: line.description,
+      gst_group_code: line.gstGroupCode,
+      program_code: line.programCode,
+      responsible_dept: line.responsibleDept,
+      beneficiary_code: line.beneficiaryCode,
+      region_code: line.regionCode,
+      subproduct: line.subproduct,
+      qty: line.qty,
+      direct_unit_cost_excl_vat: line.directUnitCostExclVat,
+      line_amount_excluding_vat: line.lineAmountExcludingVat,
+    })),
   };
 }
 
@@ -161,6 +192,20 @@ export async function runPurchaseRequestAnalysis(
       overallStatus: response.overall_status,
       confidenceScore: response.confidence_score,
     });
+
+    // Best-effort delivery back to BC -- the analysis itself is already stored and
+    // 'analyzed' above, so a callback failure here must never revert that. See
+    // sendAnalysisResultToBc's own doc comment for retry/no-op-until-configured behavior.
+    try {
+      await sendAnalysisResultToBc(analysisId);
+    } catch (callbackError) {
+      logger.error("purchase_request.bc_callback.unhandled_error", {
+        purchaseRequestId: pr.id,
+        prId: pr.prId,
+        analysisId,
+        errorMessage: callbackError instanceof Error ? callbackError.message : "Unknown error.",
+      });
+    }
   } catch (error) {
     logger.error("purchase_request.analysis.failed", {
       purchaseRequestId,

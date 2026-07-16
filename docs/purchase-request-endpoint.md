@@ -69,11 +69,20 @@ curl -X POST https://<host>/api/v1/purchase-request \
     "pr_type": "Invoice",
     "vendor_invoice_number": "INV-2024-0157",
     "document_date": "2026-07-15",
-    "direct_unit_cost": 7000,
+    "direct_unit_cost_excl_vat": 7000,
     "gst_percentage": 12,
     "gst_amount": 840,
-    "purchase_request_amount": 7840,
+    "purchase_requisition_amount": 7840,
     "description": "Office supplies for Q3 2024",
+    "service_start_date": "2026-08-01",
+    "service_end_date": "2026-12-31",
+    "budget_period": "FY2026-Q3",
+    "pos_as_in_vendor_state": "27",
+    "total_amount_including_gst": 7840,
+    "cgst_percentage": 6,
+    "cgst_amount": 420,
+    "sgst_percentage": 6,
+    "sgst_amount": 420,
     "attachments": [
       {
         "file_name": "INV-2024-0157.pdf",
@@ -85,9 +94,51 @@ curl -X POST https://<host>/api/v1/purchase-request \
         "content_type": "image/jpeg",
         "base64": "/9j/4AAQSkZJRg..."
       }
+    ],
+    "lines": [
+      {
+        "line_no": 1,
+        "description": "Dell Laptop XPS 13",
+        "qty": 2,
+        "direct_unit_cost_excl_vat": 3500,
+        "line_amount_excluding_vat": 7000
+      }
     ]
   }'
 ```
+
+### Extended fields (BC's updated spec)
+
+BC's newer field spec adds optional header-level fields and a required `lines[]`
+array on top of the original contract above. All of the following are additive —
+a payload using only the original fields still works except that `lines[]` is now
+always required (see below).
+
+- **Aliased fields**: `direct_unit_cost`/`direct_unit_cost_excl_vat` and
+  `purchase_request_amount`/`purchase_requisition_amount` are the same two
+  concepts under BC's old vs. new naming. Either name satisfies the requirement;
+  if both are sent for the same concept, the new name wins. Stored in the same
+  `direct_unit_cost`/`purchase_request_amount` DB columns either way.
+- **New required header fields**: `department`, `service_start_date`/
+  `service_end_date` (ISO date, start must be <= end), `budget_period`,
+  `pos_as_in_vendor_state` (exactly 2 characters), `total_amount_including_gst`.
+  All must be non-empty/non-null -- `department: ""` (previously accepted) now
+  fails with `MISSING_REQUIRED_FIELDS`.
+- **New optional header fields**: `cgst_percentage`/`cgst_amount`,
+  `sgst_percentage`/`sgst_amount`, `igst_percentage`/`igst_amount`,
+  `fixed_asset_description`, `fixed_asset_fa_class_code`,
+  `fixed_asset_fa_subclass_code`, `depreciation_start_date`/
+  `depreciation_end_date` (start must be <= end if both given),
+  `no_of_depreciation_years` (1-50).
+- **`lines[]` (required, min 1)**: each line requires `line_no` (positive
+  integer, unique per PR) and `description`; optional per-line fields are
+  `gst_group_code`, `program_code`, `responsible_dept`, `beneficiary_code`,
+  `region_code`, `subproduct`, `qty`, `direct_unit_cost_excl_vat` (line-level unit
+  cost — independent of the header's own `direct_unit_cost`), and
+  `line_amount_excluding_vat`. Resubmitting a `pr_id` replaces the entire line
+  set, same as attachments — it isn't merged.
+- Fixed-asset/depreciation fields are **header-level only** — they are not
+  nested under `lines[]`, even though BC's original spec modeled them per-line.
 
 ### 202 success
 
@@ -117,18 +168,18 @@ curl -X POST https://<host>/api/v1/purchase-request \
 
 ## Status codes
 
-| Status | `error_code`              | When                                                                                                          |
-| ------ | ------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| 202    | —                         | Stored successfully                                                                                           |
-| 400    | `INVALID_JSON`            | Body isn't valid JSON                                                                                         |
-| 400    | `MISSING_REQUIRED_FIELDS` | A required top-level or `attachments[i].*` field is absent                                                    |
-| 400    | `VALIDATION_FAILED`       | A field is present but invalid (bad enum, base64, empty array, length)                                        |
-| 401    | `INVALID_API_KEY`         | Missing/unknown/inactive `apikey` header                                                                      |
-| 400    | `ATTACHMENT_TOO_SMALL`    | Any attachment decodes to < 512 bytes -- empty/placeholder, not a real document (`details` lists the indexes) |
-| 413    | `ATTACHMENT_TOO_LARGE`    | Any attachment decodes to > 10MB (`details` lists the indexes)                                                |
-| 415    | `UNSUPPORTED_FILE_TYPE`   | Any `content_type` isn't `application/pdf` or `image/*` (`details` lists the indexes)                         |
-| 429    | `RATE_LIMIT_EXCEEDED`     | > 100 requests for this key in the last hour                                                                  |
-| 500    | `INTERNAL_ERROR`          | DB/storage failure                                                                                            |
+| Status | `error_code`              | When                                                                                                           |
+| ------ | ------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 202    | —                         | Stored successfully                                                                                            |
+| 400    | `INVALID_JSON`            | Body isn't valid JSON                                                                                          |
+| 400    | `MISSING_REQUIRED_FIELDS` | A required top-level, `attachments[i].*`, or `lines[i].*` field is absent                                      |
+| 400    | `VALIDATION_FAILED`       | A field is present but invalid (bad enum, base64, empty array, length, duplicate `line_no`, bad date ordering) |
+| 401    | `INVALID_API_KEY`         | Missing/unknown/inactive `apikey` header                                                                       |
+| 400    | `ATTACHMENT_TOO_SMALL`    | Any attachment decodes to < 512 bytes -- empty/placeholder, not a real document (`details` lists the indexes)  |
+| 413    | `ATTACHMENT_TOO_LARGE`    | Any attachment decodes to > 10MB (`details` lists the indexes)                                                 |
+| 415    | `UNSUPPORTED_FILE_TYPE`   | Any `content_type` isn't `application/pdf` or `image/*` (`details` lists the indexes)                          |
+| 429    | `RATE_LIMIT_EXCEEDED`     | > 100 requests for this key in the last hour                                                                   |
+| 500    | `INTERNAL_ERROR`          | DB/storage failure                                                                                             |
 
 ## Test scenarios
 
@@ -147,6 +198,11 @@ curl -X POST https://<host>/api/v1/purchase-request \
 13. Wrong/inactive `apikey` -> 401 `INVALID_API_KEY`
 14. Malformed JSON body -> 400 `INVALID_JSON`
 15. 101st request for the same key within an hour -> 429 `RATE_LIMIT_EXCEEDED`
+16. Missing `lines` entirely, or `lines: []` -> 400 `MISSING_REQUIRED_FIELDS`/`VALIDATION_FAILED`
+17. `lines[0]` missing `description` -> 400 `MISSING_REQUIRED_FIELDS`, `details: ["lines[0].description"]`
+18. Two lines with the same `line_no` -> 400 `VALIDATION_FAILED`, one `purchase_request_lines` row per unique line, none inserted for a rejected submission
+19. `direct_unit_cost_excl_vat`/`purchase_requisition_amount` sent instead of the old names -> 202, stored in the same `direct_unit_cost`/`purchase_request_amount` columns
+20. `pr_id` resubmitted with a different `lines` set -> 202, same `request_id`, all old `purchase_request_lines` rows replaced by the new set
 
 ## AI Analysis
 
@@ -249,6 +305,10 @@ sequence>`), not by the model — an LLM can't reliably produce a globally uniqu
 | `confidence_score`       | 0–100, one decimal                                                                                                |
 | `field_validations`      | JSONB array of exactly 17 check results, ordered failures-first (`mismatch` > `minor_variance` > `match_success`) |
 | `model`                  | The `PR_ANALYSIS_MODEL` value used for this run (audit trail)                                                     |
+| `bc_callback_status`     | `pending \| sent \| failed` -- delivery state of sending this result back to BC                                   |
+| `bc_callback_attempts`   | Number of delivery attempts made (0 if the api key's `callback_url` was never configured)                         |
+| `bc_callback_sent_at`    | Timestamp of the successful delivery; null until `bc_callback_status = 'sent'`                                    |
+| `bc_callback_error`      | Last error message if `bc_callback_status = 'failed'`; null otherwise                                             |
 
 ### Manual re-trigger (debug/local use)
 
@@ -272,6 +332,76 @@ response didn't complete successfully" -- but restarting the process kills any
 in-flight or queued `after()` callback along with it, same as killing any other
 background task. This route lets you resume/retest without needing to re-upload
 attachments.
+
+### Sending analysis results back to BC
+
+Structure is built and wired in, but **BC hasn't shared their receiving endpoint
+yet** -- so this currently no-ops on every run (see below). Nothing needs to change
+in this codebase once BC provides one; it's a per-`api_keys`-row config change.
+
+**Trigger**: the moment `runPurchaseRequestAnalysis` finishes storing a result and
+flips `purchase_requests.status` to `analyzed`, it calls
+`sendAnalysisResultToBc(analysisId)` (`src/modules/purchase-requests/callback/send-analysis-to-bc.ts`).
+This is best-effort and isolated in its own `try/catch` -- a callback failure never
+un-does or reverts the already-stored analysis; it only affects delivery tracking.
+This fires for every analysis outcome (`verified`, `needs_review`, `mismatch`,
+`extraction_failed`, `no_document`) since all of them are successfully-stored
+results, just with a different `overall_status` -- only a hard failure that
+prevents the analysis row from being written at all skips the callback.
+
+**Config** (both nullable, on the `api_keys` row the submitting PR used --
+`callback_url` / `callback_api_key` columns, added in
+`20260713180000_add_api_keys_bc_callback_url.sql`). Each BC integration (dev/
+staging/prod, or a different company entirely) can point at its own endpoint,
+matching the existing `company_id` scoping on that table:
+
+- `callback_url` -- BC's endpoint to `POST` results to. Unset by default on new
+  keys, so every callback attempt is recorded as `bc_callback_status = 'failed'`
+  with `bc_callback_error = "No callback_url configured on this PR's api_keys
+row."` and 0 attempts (no network call is actually made). Set it via
+  `--callback-url` on `scripts/create-purchase-request-api-key.mjs` at key
+  creation, or update the column directly for existing keys.
+- `callback_api_key` -- if set, sent as `Authorization: Bearer <value>`. Exact
+  auth scheme is unconfirmed until BC shares their requirements; change the header
+  in `send-analysis-to-bc.ts` if they need something else (e.g. a custom header
+  name, HMAC signature, mTLS).
+
+**Payload** (`POST` to the api key's `callback_url`, `Content-Type: application/json`):
+
+```json
+{
+  "pr_id": "PR-2026-1022",
+  "analysis_id": "AN-20260714-PR20261022-00001",
+  "overall_status": "verified",
+  "confidence_score": 99.7,
+  "document_summary": "Analysis of Invoice INV-2026-1058 from ABC Technologies...",
+  "analyzed_file_name": "Invoice.pdf",
+  "field_validations": [
+    /* same 17-entry array stored in purchase_request_analyses.field_validations */
+  ],
+  "remarks": "...",
+  "analyzed_at": "2026-07-14T07:27:06.752Z"
+}
+```
+
+A `2xx` response from BC is treated as success. `5xx`/`429` responses and network
+failures are retried up to 3 times (2s/4s backoff, 15s timeout per attempt); any
+other `4xx` fails immediately without retrying (treated as a payload/auth problem,
+not transient). Every outcome updates `bc_callback_status`/`bc_callback_attempts`/
+`bc_callback_sent_at`/`bc_callback_error` on the analysis row.
+
+**Manual (re)send** -- `POST /api/internal/pr-callback-trigger`, same
+`x-cron-secret` gate as the analysis trigger route. Accepts either
+`{ "analysis_id": "..." }` directly or `{ "pr_id": "..." }` (resolves that PR's
+latest analysis). Useful for retrying a delivery once the relevant api_keys row's
+`callback_url` is finally configured, without re-running the Gemini analysis itself.
+
+```bash
+curl -X POST http://localhost:3000/api/internal/pr-callback-trigger \
+  -H "x-cron-secret: <CRON_SECRET from .env.local>" \
+  -H "Content-Type: application/json" \
+  -d '{ "pr_id": "PR-2026-1022" }'
+```
 
 ### Test scenarios
 

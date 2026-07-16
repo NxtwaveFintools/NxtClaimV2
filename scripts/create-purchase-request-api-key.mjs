@@ -4,7 +4,13 @@
  * api_keys.key_hash; the raw key is printed once and cannot be recovered.
  *
  * Usage:
- *   node --env-file=.env.local scripts/create-purchase-request-api-key.mjs --label "BC Prod" --company "niat"
+ *   node --env-file=.env.local scripts/create-purchase-request-api-key.mjs --label "BC Prod" --company "niat" \
+ *     [--callback-url "https://bc.example.com/webhook"] [--callback-api-key "secret"]
+ *
+ * callback-url/callback-api-key configure where completed PR analysis results are POSTed
+ * back to (see sendAnalysisResultToBc). Omit them to create the key with no callback
+ * configured -- update api_keys.callback_url/callback_api_key directly once BC shares
+ * their receiving endpoint.
  */
 
 import { randomBytes, createHash } from "node:crypto";
@@ -30,6 +36,8 @@ function requireEnv(name) {
 async function main() {
   const label = parseArg("label");
   const companyId = parseArg("company");
+  const callbackUrl = parseArg("callback-url");
+  const callbackApiKey = parseArg("callback-api-key");
 
   if (!label || !companyId) {
     console.error("\n  Usage: --label <label> --company <company id>\n");
@@ -43,9 +51,13 @@ async function main() {
   const rawKey = `pr_live_${randomBytes(32).toString("hex")}`;
   const keyHash = createHash("sha256").update(rawKey).digest("hex");
 
-  const { error } = await client
-    .from("api_keys")
-    .insert({ key_hash: keyHash, label, company_id: companyId });
+  const { error } = await client.from("api_keys").insert({
+    key_hash: keyHash,
+    label,
+    company_id: companyId,
+    callback_url: callbackUrl,
+    callback_api_key: callbackApiKey,
+  });
 
   if (error) {
     console.error(`\n  Failed to create API key: ${error.message}\n`);

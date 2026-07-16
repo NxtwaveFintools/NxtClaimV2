@@ -28,6 +28,23 @@ export type InsertPurchaseRequestInput = {
   bankAccountNumber: string | null;
   bankIfsc: string | null;
   bankName: string | null;
+  serviceStartDate: string | null;
+  serviceEndDate: string | null;
+  budgetPeriod: string | null;
+  posAsInVendorState: string | null;
+  totalAmountIncludingGst: number | null;
+  cgstPercentage: number | null;
+  cgstAmount: number | null;
+  sgstPercentage: number | null;
+  sgstAmount: number | null;
+  igstPercentage: number | null;
+  igstAmount: number | null;
+  fixedAssetDescription: string | null;
+  fixedAssetFaClassCode: string | null;
+  fixedAssetFaSubclassCode: string | null;
+  depreciationStartDate: string | null;
+  noOfDepreciationYears: number | null;
+  depreciationEndDate: string | null;
 };
 
 export type AttachmentRecord = {
@@ -40,6 +57,20 @@ export type InsertAttachmentInput = {
   storagePath: string;
   contentType: string;
   sizeBytes: number;
+};
+
+export type InsertLineInput = {
+  lineNo: number;
+  description: string;
+  gstGroupCode: string | null;
+  programCode: string | null;
+  responsibleDept: string | null;
+  beneficiaryCode: string | null;
+  regionCode: string | null;
+  subproduct: string | null;
+  qty: number | null;
+  directUnitCostExclVat: number | null;
+  lineAmountExcludingVat: number | null;
 };
 
 export function hashApiKey(rawKey: string): string {
@@ -67,6 +98,23 @@ function toRow(input: InsertPurchaseRequestInput) {
     bank_account_number: input.bankAccountNumber,
     bank_ifsc: input.bankIfsc,
     bank_name: input.bankName,
+    service_start_date: input.serviceStartDate,
+    service_end_date: input.serviceEndDate,
+    budget_period: input.budgetPeriod,
+    pos_as_in_vendor_state: input.posAsInVendorState,
+    total_amount_including_gst: input.totalAmountIncludingGst,
+    cgst_percentage: input.cgstPercentage,
+    cgst_amount: input.cgstAmount,
+    sgst_percentage: input.sgstPercentage,
+    sgst_amount: input.sgstAmount,
+    igst_percentage: input.igstPercentage,
+    igst_amount: input.igstAmount,
+    fixed_asset_description: input.fixedAssetDescription,
+    fixed_asset_fa_class_code: input.fixedAssetFaClassCode,
+    fixed_asset_fa_subclass_code: input.fixedAssetFaSubclassCode,
+    depreciation_start_date: input.depreciationStartDate,
+    no_of_depreciation_years: input.noOfDepreciationYears,
+    depreciation_end_date: input.depreciationEndDate,
   };
 }
 
@@ -231,6 +279,50 @@ export class PurchaseRequestRepository {
         size_bytes: attachment.sizeBytes,
       })),
     );
+
+    return { errorMessage: error?.message ?? null };
+  }
+
+  async insertLines(
+    purchaseRequestId: string,
+    lines: InsertLineInput[],
+  ): Promise<{ errorMessage: string | null }> {
+    const client = getServiceRoleSupabaseClient();
+    const { error } = await client.from("purchase_request_lines").insert(
+      lines.map((line) => ({
+        purchase_request_id: purchaseRequestId,
+        line_no: line.lineNo,
+        description: line.description,
+        gst_group_code: line.gstGroupCode,
+        program_code: line.programCode,
+        responsible_dept: line.responsibleDept,
+        beneficiary_code: line.beneficiaryCode,
+        region_code: line.regionCode,
+        subproduct: line.subproduct,
+        qty: line.qty,
+        direct_unit_cost_excl_vat: line.directUnitCostExclVat,
+        line_amount_excluding_vat: line.lineAmountExcludingVat,
+      })),
+    );
+
+    return { errorMessage: error?.message ?? null };
+  }
+
+  /**
+   * Deletes all line rows for a PR. Called before insertLines() on every
+   * submission (insert or resubmission) -- simpler than the attachments'
+   * by-id tracking since lines have no storage files to clean up, and
+   * delete-then-insert naturally satisfies the UNIQUE(purchase_request_id, line_no)
+   * constraint even when a resubmission changes line numbers.
+   */
+  async deleteLinesByPurchaseRequestId(
+    purchaseRequestId: string,
+  ): Promise<{ errorMessage: string | null }> {
+    const client = getServiceRoleSupabaseClient();
+    const { error } = await client
+      .from("purchase_request_lines")
+      .delete()
+      .eq("purchase_request_id", purchaseRequestId);
 
     return { errorMessage: error?.message ?? null };
   }

@@ -45,7 +45,39 @@ You will receive a JSON payload containing:
     "description": "string (≥10 characters)",
     "bank_account_number": "string (optional)",
     "bank_ifsc": "string (optional)",
-    "bank_name": "string (optional)"
+    "bank_name": "string (optional)",
+    "service_start_date": "date (optional)",
+    "service_end_date": "date (optional)",
+    "budget_period": "string (optional)",
+    "pos_as_in_vendor_state": "string, 2 chars (optional)",
+    "total_amount_including_gst": "number (optional)",
+    "cgst_percentage": "number (optional)",
+    "cgst_amount": "number (optional)",
+    "sgst_percentage": "number (optional)",
+    "sgst_amount": "number (optional)",
+    "igst_percentage": "number (optional)",
+    "igst_amount": "number (optional)",
+    "fixed_asset_description": "string (optional)",
+    "fixed_asset_fa_class_code": "string (optional)",
+    "fixed_asset_fa_subclass_code": "string (optional)",
+    "depreciation_start_date": "date (optional)",
+    "no_of_depreciation_years": "number (optional)",
+    "depreciation_end_date": "date (optional)",
+    "lines": [
+      {
+        "line_no": "number",
+        "description": "string",
+        "gst_group_code": "string (optional)",
+        "program_code": "string (optional)",
+        "responsible_dept": "string (optional)",
+        "beneficiary_code": "string (optional)",
+        "region_code": "string (optional)",
+        "subproduct": "string (optional)",
+        "qty": "number (optional)",
+        "direct_unit_cost_excl_vat": "number (optional)",
+        "line_amount_excluding_vat": "number (optional)"
+      }
+    ]
   }
 }
 \`\`\`
@@ -53,6 +85,17 @@ You will receive a JSON payload containing:
 There is no separate vendor master or company master data source -- pr_data is the
 only source of truth to validate the document against. Every check below compares
 the document directly to pr_data's own fields.
+
+**ADDITIONAL CONTEXT FIELDS (informational only -- not part of the 17-check
+catalog):** everything from \`service_start_date\` through \`lines\` above is
+supplementary data BC now submits alongside the original fields. These are NOT
+new formal validation checks -- do not invent additional check_name entries for
+them, and do not let their presence/absence affect overall_status. If something
+here is directly relevant to understanding the document (e.g. a line item
+description helps confirm the PR's scope, or a GST breakup is worth a passing
+mention), you may reference it naturally in \`document_summary\` or \`remarks\`.
+Otherwise ignore them. The check catalog below is unchanged and still the only
+thing that determines \`field_validations\`/\`overall_status\`.
 
 Attachment files are provided as separate inline file parts in this same message (see MULTI-ATTACHMENT HANDLING below), not as base64 inside this JSON payload.
 

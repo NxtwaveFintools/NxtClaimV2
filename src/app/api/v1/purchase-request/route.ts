@@ -204,6 +204,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     uploadedPaths.push(upload.storagePath);
   }
 
+  // New-spec field names win when both the old and new name are sent for the
+  // same concept (see ALIASED_REQUIRED_FIELD_PAIRS in the validator).
+  const directUnitCost = body.direct_unit_cost_excl_vat ?? body.direct_unit_cost;
+  const purchaseRequestAmount = body.purchase_requisition_amount ?? body.purchase_request_amount;
+
   const rowInput = {
     apiKeyId: apiKeyRecord.id,
     prId: body.pr_id,
@@ -216,14 +221,31 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     prType: body.pr_type,
     vendorInvoiceNumber: body.vendor_invoice_number,
     documentDate: body.document_date,
-    directUnitCost: body.direct_unit_cost,
+    directUnitCost: directUnitCost as number,
     gstPercentage: body.gst_percentage,
     gstAmount: body.gst_amount,
-    purchaseRequestAmount: body.purchase_request_amount,
+    purchaseRequestAmount: purchaseRequestAmount as number,
     description: body.description,
     bankAccountNumber: body.bank_account_number || null,
     bankIfsc: body.bank_ifsc || null,
     bankName: body.bank_name || null,
+    serviceStartDate: body.service_start_date ?? null,
+    serviceEndDate: body.service_end_date ?? null,
+    budgetPeriod: body.budget_period ?? null,
+    posAsInVendorState: body.pos_as_in_vendor_state ?? null,
+    totalAmountIncludingGst: body.total_amount_including_gst ?? null,
+    cgstPercentage: body.cgst_percentage ?? null,
+    cgstAmount: body.cgst_amount ?? null,
+    sgstPercentage: body.sgst_percentage ?? null,
+    sgstAmount: body.sgst_amount ?? null,
+    igstPercentage: body.igst_percentage ?? null,
+    igstAmount: body.igst_amount ?? null,
+    fixedAssetDescription: body.fixed_asset_description ?? null,
+    fixedAssetFaClassCode: body.fixed_asset_fa_class_code ?? null,
+    fixedAssetFaSubclassCode: body.fixed_asset_fa_subclass_code ?? null,
+    depreciationStartDate: body.depreciation_start_date ?? null,
+    noOfDepreciationYears: body.no_of_depreciation_years ?? null,
+    depreciationEndDate: body.depreciation_end_date ?? null,
   };
 
   const { data: saved, errorMessage: saveError } = existing
@@ -284,6 +306,46 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         existing.attachments.map((attachment) => attachment.storagePath),
       );
     }
+  }
+
+  // Delete-then-insert on every submission (not just resubmissions) -- simplest way
+  // to satisfy UNIQUE(purchase_request_id, line_no) and to have a resubmission's
+  // line set wholesale-replace the previous one, matching attachment semantics.
+  const { errorMessage: deleteLinesError } = await repository.deleteLinesByPurchaseRequestId(
+    saved.id,
+  );
+  if (deleteLinesError) {
+    logger.error("purchase_request.line_delete_failed", {
+      errorMessage: deleteLinesError,
+      prId: body.pr_id,
+      requestId: saved.id,
+    });
+    return NextResponse.json(errorBody("INTERNAL_ERROR", "Error processing PR"), { status: 500 });
+  }
+
+  const { errorMessage: insertLinesError } = await repository.insertLines(
+    saved.id,
+    body.lines.map((line) => ({
+      lineNo: line.line_no,
+      description: line.description,
+      gstGroupCode: line.gst_group_code ?? null,
+      programCode: line.program_code ?? null,
+      responsibleDept: line.responsible_dept ?? null,
+      beneficiaryCode: line.beneficiary_code ?? null,
+      regionCode: line.region_code ?? null,
+      subproduct: line.subproduct ?? null,
+      qty: line.qty ?? null,
+      directUnitCostExclVat: line.direct_unit_cost_excl_vat ?? null,
+      lineAmountExcludingVat: line.line_amount_excluding_vat ?? null,
+    })),
+  );
+  if (insertLinesError) {
+    logger.error("purchase_request.line_insert_failed", {
+      errorMessage: insertLinesError,
+      prId: body.pr_id,
+      requestId: saved.id,
+    });
+    return NextResponse.json(errorBody("INTERNAL_ERROR", "Error processing PR"), { status: 500 });
   }
 
   // Pre-allocated here (not inside runPurchaseRequestAnalysis) so the exact same
