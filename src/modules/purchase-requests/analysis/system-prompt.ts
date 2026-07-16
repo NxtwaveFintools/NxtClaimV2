@@ -49,7 +49,7 @@ You will receive a JSON payload containing:
     "service_start_date": "date (optional)",
     "service_end_date": "date (optional)",
     "budget_period": "string (optional)",
-    "pos_as_in_vendor_state": "string, 2 chars (optional)",
+    "pos_as_in_vendor_state": "boolean -- true if Place of Supply matches the vendor's own state (intra-state, CGST+SGST), false if it differs (inter-state, IGST)",
     "total_amount_including_gst": "number (optional)",
     "cgst_percentage": "number (optional)",
     "cgst_amount": "number (optional)",

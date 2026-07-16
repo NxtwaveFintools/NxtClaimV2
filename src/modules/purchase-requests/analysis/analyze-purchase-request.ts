@@ -64,7 +64,7 @@ export type PrAnalysisInput = {
     service_start_date: string | null;
     service_end_date: string | null;
     budget_period: string | null;
-    pos_as_in_vendor_state: string | null;
+    pos_as_in_vendor_state: boolean | null;
     total_amount_including_gst: number | null;
     cgst_percentage: number | null;
     cgst_amount: number | null;

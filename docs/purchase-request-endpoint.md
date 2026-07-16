@@ -64,7 +64,7 @@ curl -X POST https://<host>/api/v1/purchase-request \
     "vendor_code": "V-001",
     "vendor_name": "ABC Vendor Pvt Ltd",
     "vendor_gstin": "18AAACL5055K1Z0",
-    "company_gstin": "27ABCDE1234F2Z5",
+    "company_gstin": "18ABCDE1234F2Z5",
     "department": "Operations",
     "pr_type": "Invoice",
     "vendor_invoice_number": "INV-2024-0157",
@@ -77,7 +77,7 @@ curl -X POST https://<host>/api/v1/purchase-request \
     "service_start_date": "2026-08-01",
     "service_end_date": "2026-12-31",
     "budget_period": "FY2026-Q3",
-    "pos_as_in_vendor_state": "27",
+    "pos_as_in_vendor_state": true,
     "total_amount_including_gst": 7840,
     "cgst_percentage": 6,
     "cgst_amount": 420,
@@ -121,9 +121,10 @@ always required (see below).
   `direct_unit_cost`/`purchase_request_amount` DB columns either way.
 - **New required header fields**: `department`, `service_start_date`/
   `service_end_date` (ISO date, start must be <= end), `budget_period`,
-  `pos_as_in_vendor_state` (exactly 2 characters), `total_amount_including_gst`.
-  All must be non-empty/non-null -- `department: ""` (previously accepted) now
-  fails with `MISSING_REQUIRED_FIELDS`.
+  `pos_as_in_vendor_state` (boolean -- `true` if Place of Supply matches the
+  vendor's own state, i.e. intra-state/CGST+SGST; `false` if it differs, i.e.
+  inter-state/IGST), `total_amount_including_gst`. All must be non-empty/non-null
+  -- `department: ""` (previously accepted) now fails with `MISSING_REQUIRED_FIELDS`.
 - **New optional header fields**: `cgst_percentage`/`cgst_amount`,
   `sgst_percentage`/`sgst_amount`, `igst_percentage`/`igst_amount`,
   `fixed_asset_description`, `fixed_asset_fa_class_code`,

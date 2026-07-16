@@ -46,7 +46,7 @@ export type PurchaseRequestForAnalysis = {
   serviceStartDate: string | null;
   serviceEndDate: string | null;
   budgetPeriod: string | null;
-  posAsInVendorState: string | null;
+  posAsInVendorState: boolean | null;
   totalAmountIncludingGst: number | null;
   cgstPercentage: number | null;
   cgstAmount: number | null;
@@ -134,7 +134,7 @@ export class PurchaseRequestAnalysisRepository {
         serviceStartDate: (data.service_start_date as string | null) ?? null,
         serviceEndDate: (data.service_end_date as string | null) ?? null,
         budgetPeriod: (data.budget_period as string | null) ?? null,
-        posAsInVendorState: (data.pos_as_in_vendor_state as string | null) ?? null,
+        posAsInVendorState: (data.pos_as_in_vendor_state as boolean | null) ?? null,
         totalAmountIncludingGst: toNullableNumber(
           data.total_amount_including_gst as string | number | null,
         ),

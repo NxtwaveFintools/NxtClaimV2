@@ -150,7 +150,7 @@ export const purchaseRequestBodySchema = z
     service_start_date: isoDateSchema,
     service_end_date: isoDateSchema,
     budget_period: z.string().trim().min(1),
-    pos_as_in_vendor_state: z.string().trim().length(2),
+    pos_as_in_vendor_state: z.boolean(),
     total_amount_including_gst: z.number(),
     cgst_percentage: z.number().optional().nullable(),
     cgst_amount: z.number().optional().nullable(),

@@ -31,7 +31,7 @@ export type InsertPurchaseRequestInput = {
   serviceStartDate: string | null;
   serviceEndDate: string | null;
   budgetPeriod: string | null;
-  posAsInVendorState: string | null;
+  posAsInVendorState: boolean | null;
   totalAmountIncludingGst: number | null;
   cgstPercentage: number | null;
   cgstAmount: number | null;
