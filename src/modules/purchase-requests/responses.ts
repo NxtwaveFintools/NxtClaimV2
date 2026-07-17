@@ -7,6 +7,7 @@ export type PurchaseRequestErrorCode =
   | "ATTACHMENT_TOO_SMALL"
   | "UNSUPPORTED_FILE_TYPE"
   | "RATE_LIMIT_EXCEEDED"
+  | "PR_NOT_FOUND"
   | "INTERNAL_ERROR";
 
 export function errorBody(code: PurchaseRequestErrorCode, message: string, details?: string[]) {

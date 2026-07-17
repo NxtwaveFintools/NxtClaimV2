@@ -28,6 +28,9 @@ export type PrAnalysisInputAttachment = {
 export type PrAnalysisInputLine = {
   line_no: number;
   description: string;
+  department: string;
+  gst_percentage: number;
+  gst_amount: number;
   gst_group_code: string | null;
   program_code: string | null;
   responsible_dept: string | null;
@@ -37,6 +40,18 @@ export type PrAnalysisInputLine = {
   qty: number | null;
   direct_unit_cost_excl_vat: number | null;
   line_amount_excluding_vat: number | null;
+  cgst_percentage: number | null;
+  cgst_amount: number | null;
+  sgst_percentage: number | null;
+  sgst_amount: number | null;
+  igst_percentage: number | null;
+  igst_amount: number | null;
+  fixed_asset_description: string | null;
+  fixed_asset_fa_class_code: string | null;
+  fixed_asset_fa_subclass_code: string | null;
+  depreciation_start_date: string | null;
+  no_of_depreciation_years: number | null;
+  depreciation_end_date: string | null;
 };
 
 export type PrAnalysisInput = {
@@ -47,10 +62,15 @@ export type PrAnalysisInput = {
     vendor_name: string;
     vendor_gstin: string;
     company_gstin: string;
-    department: string | null;
     pr_type: "Invoice" | "Quotation";
     vendor_invoice_number: string;
     document_date: string;
+    // direct_unit_cost/gst_percentage/gst_amount/description used to be header
+    // fields the 17-check catalog (VC-04/05/06/07/16/17) validates directly.
+    // They now vary per line, so these are SYNTHESIZED aggregates (sum of line
+    // costs/GST amounts, first line's GST %, joined line descriptions) built in
+    // run-purchase-request-analysis.ts's buildPrData() -- an approximation, not
+    // a guarantee, especially when lines carry differing GST rates.
     direct_unit_cost: number;
     gst_percentage: number;
     gst_amount: number;
@@ -66,18 +86,6 @@ export type PrAnalysisInput = {
     budget_period: string | null;
     pos_as_in_vendor_state: boolean | null;
     total_amount_including_gst: number | null;
-    cgst_percentage: number | null;
-    cgst_amount: number | null;
-    sgst_percentage: number | null;
-    sgst_amount: number | null;
-    igst_percentage: number | null;
-    igst_amount: number | null;
-    fixed_asset_description: string | null;
-    fixed_asset_fa_class_code: string | null;
-    fixed_asset_fa_subclass_code: string | null;
-    depreciation_start_date: string | null;
-    no_of_depreciation_years: number | null;
-    depreciation_end_date: string | null;
     lines: PrAnalysisInputLine[];
   };
   attachments: PrAnalysisInputAttachment[];

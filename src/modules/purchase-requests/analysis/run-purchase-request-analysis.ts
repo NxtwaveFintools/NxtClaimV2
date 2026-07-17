@@ -33,22 +33,36 @@ function buildNoAttachmentsResult(): PrAnalysisResponse {
   };
 }
 
+/**
+ * direct_unit_cost/gst_percentage/gst_amount/description used to be header
+ * columns the 17-check catalog (VC-04/05/06/07/16/17) validates directly. They
+ * now live per-line, so these are synthesized: summed cost/GST amounts across
+ * lines, the first line's GST % (an approximation -- lines can have differing
+ * rates), and all line descriptions joined together.
+ */
 function buildPrData(pr: PurchaseRequestForAnalysis) {
+  const totalDirectUnitCost = pr.lines.reduce(
+    (sum, line) => sum + (line.directUnitCostExclVat ?? 0),
+    0,
+  );
+  const totalGstAmount = pr.lines.reduce((sum, line) => sum + line.gstAmount, 0);
+  const firstLineGstPercentage = pr.lines[0]?.gstPercentage ?? 0;
+  const combinedDescription = pr.lines.map((line) => line.description).join("; ");
+
   return {
     request_date: pr.requestDate,
     vendor_code: pr.vendorCode,
     vendor_name: pr.vendorName,
     vendor_gstin: pr.vendorGstin,
     company_gstin: pr.companyGstin,
-    department: pr.department,
     pr_type: pr.prType,
     vendor_invoice_number: pr.vendorInvoiceNumber,
     document_date: pr.documentDate,
-    direct_unit_cost: pr.directUnitCost,
-    gst_percentage: pr.gstPercentage,
-    gst_amount: pr.gstAmount,
+    direct_unit_cost: totalDirectUnitCost,
+    gst_percentage: firstLineGstPercentage,
+    gst_amount: totalGstAmount,
     purchase_request_amount: pr.purchaseRequestAmount,
-    description: pr.description,
+    description: combinedDescription,
     bank_account_number: pr.bankAccountNumber,
     bank_ifsc: pr.bankIfsc,
     bank_name: pr.bankName,
@@ -57,21 +71,12 @@ function buildPrData(pr: PurchaseRequestForAnalysis) {
     budget_period: pr.budgetPeriod,
     pos_as_in_vendor_state: pr.posAsInVendorState,
     total_amount_including_gst: pr.totalAmountIncludingGst,
-    cgst_percentage: pr.cgstPercentage,
-    cgst_amount: pr.cgstAmount,
-    sgst_percentage: pr.sgstPercentage,
-    sgst_amount: pr.sgstAmount,
-    igst_percentage: pr.igstPercentage,
-    igst_amount: pr.igstAmount,
-    fixed_asset_description: pr.fixedAssetDescription,
-    fixed_asset_fa_class_code: pr.fixedAssetFaClassCode,
-    fixed_asset_fa_subclass_code: pr.fixedAssetFaSubclassCode,
-    depreciation_start_date: pr.depreciationStartDate,
-    no_of_depreciation_years: pr.noOfDepreciationYears,
-    depreciation_end_date: pr.depreciationEndDate,
     lines: pr.lines.map((line) => ({
       line_no: line.lineNo,
       description: line.description,
+      department: line.department,
+      gst_percentage: line.gstPercentage,
+      gst_amount: line.gstAmount,
       gst_group_code: line.gstGroupCode,
       program_code: line.programCode,
       responsible_dept: line.responsibleDept,
@@ -81,6 +86,18 @@ function buildPrData(pr: PurchaseRequestForAnalysis) {
       qty: line.qty,
       direct_unit_cost_excl_vat: line.directUnitCostExclVat,
       line_amount_excluding_vat: line.lineAmountExcludingVat,
+      cgst_percentage: line.cgstPercentage,
+      cgst_amount: line.cgstAmount,
+      sgst_percentage: line.sgstPercentage,
+      sgst_amount: line.sgstAmount,
+      igst_percentage: line.igstPercentage,
+      igst_amount: line.igstAmount,
+      fixed_asset_description: line.fixedAssetDescription,
+      fixed_asset_fa_class_code: line.fixedAssetFaClassCode,
+      fixed_asset_fa_subclass_code: line.fixedAssetFaSubclassCode,
+      depreciation_start_date: line.depreciationStartDate,
+      no_of_depreciation_years: line.noOfDepreciationYears,
+      depreciation_end_date: line.depreciationEndDate,
     })),
   };
 }

@@ -65,24 +65,15 @@ curl -X POST https://<host>/api/v1/purchase-request \
     "vendor_name": "ABC Vendor Pvt Ltd",
     "vendor_gstin": "18AAACL5055K1Z0",
     "company_gstin": "18ABCDE1234F2Z5",
-    "department": "Operations",
     "pr_type": "Invoice",
     "vendor_invoice_number": "INV-2024-0157",
     "document_date": "2026-07-15",
-    "direct_unit_cost_excl_vat": 7000,
-    "gst_percentage": 12,
-    "gst_amount": 840,
     "purchase_requisition_amount": 7840,
-    "description": "Office supplies for Q3 2024",
     "service_start_date": "2026-08-01",
     "service_end_date": "2026-12-31",
     "budget_period": "FY2026-Q3",
     "pos_as_in_vendor_state": true,
     "total_amount_including_gst": 7840,
-    "cgst_percentage": 6,
-    "cgst_amount": 420,
-    "sgst_percentage": 6,
-    "sgst_amount": 420,
     "attachments": [
       {
         "file_name": "INV-2024-0157.pdf",
@@ -99,9 +90,16 @@ curl -X POST https://<host>/api/v1/purchase-request \
       {
         "line_no": 1,
         "description": "Dell Laptop XPS 13",
+        "department": "Operations",
+        "gst_percentage": 12,
+        "gst_amount": 840,
         "qty": 2,
         "direct_unit_cost_excl_vat": 3500,
-        "line_amount_excluding_vat": 7000
+        "line_amount_excluding_vat": 7000,
+        "cgst_percentage": 6,
+        "cgst_amount": 420,
+        "sgst_percentage": 6,
+        "sgst_amount": 420
       }
     ]
   }'
@@ -109,37 +107,37 @@ curl -X POST https://<host>/api/v1/purchase-request \
 
 ### Extended fields (BC's updated spec)
 
-BC's newer field spec adds optional header-level fields and a required `lines[]`
-array on top of the original contract above. All of the following are additive —
-a payload using only the original fields still works except that `lines[]` is now
-always required (see below).
+BC's newer field spec adds header-level fields and a required `lines[]` array
+on top of the original contract. Several fields that vary per line item
+(department, GST rate/amount, tax breakup, fixed-asset/depreciation info) live
+**only on `lines[]`, not the header** — a single PR can have lines in different
+departments with different tax treatment.
 
 - **Aliased fields**: `direct_unit_cost`/`direct_unit_cost_excl_vat` and
-  `purchase_request_amount`/`purchase_requisition_amount` are the same two
-  concepts under BC's old vs. new naming. Either name satisfies the requirement;
-  if both are sent for the same concept, the new name wins. Stored in the same
-  `direct_unit_cost`/`purchase_request_amount` DB columns either way.
-- **New required header fields**: `department`, `service_start_date`/
-  `service_end_date` (ISO date, start must be <= end), `budget_period`,
-  `pos_as_in_vendor_state` (boolean -- `true` if Place of Supply matches the
-  vendor's own state, i.e. intra-state/CGST+SGST; `false` if it differs, i.e.
-  inter-state/IGST), `total_amount_including_gst`. All must be non-empty/non-null
-  -- `department: ""` (previously accepted) now fails with `MISSING_REQUIRED_FIELDS`.
-- **New optional header fields**: `cgst_percentage`/`cgst_amount`,
-  `sgst_percentage`/`sgst_amount`, `igst_percentage`/`igst_amount`,
-  `fixed_asset_description`, `fixed_asset_fa_class_code`,
-  `fixed_asset_fa_subclass_code`, `depreciation_start_date`/
-  `depreciation_end_date` (start must be <= end if both given),
-  `no_of_depreciation_years` (1-50).
+  `purchase_request_amount`/`purchase_requisition_amount` (header-level total)
+  are the same two concepts under BC's old vs. new naming. Either name
+  satisfies the requirement; if both are sent, the new name wins. `direct_unit_cost`
+  itself has no header column anymore — see `lines[]` below.
+- **New required header fields**: `service_start_date`/`service_end_date` (ISO
+  date, start must be <= end), `budget_period`, `pos_as_in_vendor_state`
+  (boolean -- `true` if Place of Supply matches the vendor's own state, i.e.
+  intra-state/CGST+SGST; `false` if it differs, i.e. inter-state/IGST),
+  `total_amount_including_gst`.
 - **`lines[]` (required, min 1)**: each line requires `line_no` (positive
-  integer, unique per PR) and `description`; optional per-line fields are
-  `gst_group_code`, `program_code`, `responsible_dept`, `beneficiary_code`,
-  `region_code`, `subproduct`, `qty`, `direct_unit_cost_excl_vat` (line-level unit
-  cost — independent of the header's own `direct_unit_cost`), and
-  `line_amount_excluding_vat`. Resubmitting a `pr_id` replaces the entire line
-  set, same as attachments — it isn't merged.
-- Fixed-asset/depreciation fields are **header-level only** — they are not
-  nested under `lines[]`, even though BC's original spec modeled them per-line.
+  integer, unique per PR), `description`, `department`, `gst_percentage` (5,
+  12, 18, or 28), and `gst_amount`. Optional per-line fields: `gst_group_code`,
+  `program_code`, `responsible_dept`, `beneficiary_code`, `region_code`,
+  `subproduct`, `qty`, `direct_unit_cost_excl_vat`, `line_amount_excluding_vat`,
+  `cgst_percentage`/`cgst_amount`, `sgst_percentage`/`sgst_amount`,
+  `igst_percentage`/`igst_amount`, `fixed_asset_description`,
+  `fixed_asset_fa_class_code`, `fixed_asset_fa_subclass_code`,
+  `depreciation_start_date`/`depreciation_end_date` (start must be <= end if
+  both given), `no_of_depreciation_years` (1-50). Resubmitting a `pr_id`
+  replaces the entire line set, same as attachments — it isn't merged.
+- **`department` and PR-wide `description` no longer exist on the header** --
+  `department` moved to `lines[]` (different lines can belong to different
+  departments); the header's own `description` field was dropped entirely
+  since `lines[].description` already serves that purpose per line.
 
 ### 202 success
 
@@ -204,6 +202,85 @@ always required (see below).
 18. Two lines with the same `line_no` -> 400 `VALIDATION_FAILED`, one `purchase_request_lines` row per unique line, none inserted for a rejected submission
 19. `direct_unit_cost_excl_vat`/`purchase_requisition_amount` sent instead of the old names -> 202, stored in the same `direct_unit_cost`/`purchase_request_amount` columns
 20. `pr_id` resubmitted with a different `lines` set -> 202, same `request_id`, all old `purchase_request_lines` rows replaced by the new set
+
+## Approvals Update Endpoint
+
+`PATCH /api/v1/purchase-request/approvals`
+
+Separate from PR submission -- a different system pushes approval-sequence data
+back for an already-submitted PR, one or more fields at a time, as each step of
+a multi-step approval chain completes. `pr_id` is a **body field, not a URL path
+segment** -- real `pr_id` values (e.g. `PR/2627/00000257`) contain slashes, which
+would break path-based routing.
+
+### Auth
+
+Same `apikey` header as the submission endpoint. Not subject to the
+100/hour rate limit (that limit is submission-specific).
+
+### Fields
+
+| Field                 | Required? | Type   | Notes                                           |
+| --------------------- | --------- | ------ | ----------------------------------------------- |
+| `pr_id`               | Required  | string | Must match an existing PR's `pr_id`, else `404` |
+| `created_by`          | Optional  | string | Free text, no format enforced                   |
+| `sequence_1_approval` | Optional  | string | Free text, no format enforced                   |
+| `sequence_2_approval` | Optional  | string | Free text, no format enforced                   |
+| `sequence_3_approval` | Optional  | string | Free text, no format enforced                   |
+| `sequence_4_approval` | Optional  | string | Free text, no format enforced                   |
+| `sequence_5_approval` | Optional  | string | Free text, no format enforced                   |
+
+At least one of `created_by`/`sequence_1_approval`..`sequence_5_approval` must
+be present, or the request fails `VALIDATION_FAILED`. **Partial updates**: only
+the fields present in the request body are updated -- omitted fields keep
+their existing stored value. Calling this repeatedly as each approval step
+completes (updating one `sequence_N_approval` at a time) is the expected usage
+pattern, not a special case.
+
+### Example request
+
+```bash
+curl -X PATCH https://<host>/api/v1/purchase-request/approvals \
+  -H "apikey: pr_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "pr_id": "PR-2024-001234",
+    "created_by": "jane.doe@bc.com",
+    "sequence_1_approval": "Approved"
+  }'
+```
+
+### 200 success
+
+```json
+{
+  "success": true,
+  "pr_id": "PR-2024-001234",
+  "request_id": "b3b6b1d0-....-....-....-............",
+  "message": "Approval fields updated successfully",
+  "timestamp": "2026-07-17T06:00:39.776Z"
+}
+```
+
+### Status codes
+
+| Status | `error_code`              | When                                                     |
+| ------ | ------------------------- | -------------------------------------------------------- |
+| 200    | —                         | Updated successfully                                     |
+| 400    | `INVALID_JSON`            | Body isn't valid JSON                                    |
+| 400    | `MISSING_REQUIRED_FIELDS` | `pr_id` is absent                                        |
+| 400    | `VALIDATION_FAILED`       | No updatable field provided, or a field fails validation |
+| 401    | `INVALID_API_KEY`         | Missing/unknown/inactive `apikey` header                 |
+| 404    | `PR_NOT_FOUND`            | No `purchase_requests` row matches the given `pr_id`     |
+| 500    | `INTERNAL_ERROR`          | Database failure                                         |
+
+### Test scenarios
+
+1. `pr_id` + `sequence_1_approval` only -> 200, only that column updated, all others untouched
+2. Missing `pr_id` -> 400 `MISSING_REQUIRED_FIELDS`, `details: ["pr_id"]`
+3. `pr_id` only, no other fields -> 400 `VALIDATION_FAILED`
+4. Unknown `pr_id` -> 404 `PR_NOT_FOUND`
+5. Two sequential calls updating different sequence fields -> both persist independently (verified: `sequence_1_approval` from call 1 remains after call 2 sets only `sequence_2_approval`)
 
 ## AI Analysis
 

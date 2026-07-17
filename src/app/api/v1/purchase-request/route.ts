@@ -204,9 +204,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     uploadedPaths.push(upload.storagePath);
   }
 
-  // New-spec field names win when both the old and new name are sent for the
+  // New-spec field name wins when both the old and new name are sent for the
   // same concept (see ALIASED_REQUIRED_FIELD_PAIRS in the validator).
-  const directUnitCost = body.direct_unit_cost_excl_vat ?? body.direct_unit_cost;
   const purchaseRequestAmount = body.purchase_requisition_amount ?? body.purchase_request_amount;
 
   const rowInput = {
@@ -217,15 +216,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     vendorName: body.vendor_name,
     vendorGstin: body.vendor_gstin,
     companyGstin: body.company_gstin,
-    department: body.department ?? null,
     prType: body.pr_type,
     vendorInvoiceNumber: body.vendor_invoice_number,
     documentDate: body.document_date,
-    directUnitCost: directUnitCost as number,
-    gstPercentage: body.gst_percentage,
-    gstAmount: body.gst_amount,
     purchaseRequestAmount: purchaseRequestAmount as number,
-    description: body.description,
     bankAccountNumber: body.bank_account_number || null,
     bankIfsc: body.bank_ifsc || null,
     bankName: body.bank_name || null,
@@ -234,18 +228,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     budgetPeriod: body.budget_period ?? null,
     posAsInVendorState: body.pos_as_in_vendor_state ?? null,
     totalAmountIncludingGst: body.total_amount_including_gst ?? null,
-    cgstPercentage: body.cgst_percentage ?? null,
-    cgstAmount: body.cgst_amount ?? null,
-    sgstPercentage: body.sgst_percentage ?? null,
-    sgstAmount: body.sgst_amount ?? null,
-    igstPercentage: body.igst_percentage ?? null,
-    igstAmount: body.igst_amount ?? null,
-    fixedAssetDescription: body.fixed_asset_description ?? null,
-    fixedAssetFaClassCode: body.fixed_asset_fa_class_code ?? null,
-    fixedAssetFaSubclassCode: body.fixed_asset_fa_subclass_code ?? null,
-    depreciationStartDate: body.depreciation_start_date ?? null,
-    noOfDepreciationYears: body.no_of_depreciation_years ?? null,
-    depreciationEndDate: body.depreciation_end_date ?? null,
   };
 
   const { data: saved, errorMessage: saveError } = existing
@@ -328,6 +310,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     body.lines.map((line) => ({
       lineNo: line.line_no,
       description: line.description,
+      department: line.department,
+      gstPercentage: line.gst_percentage,
+      gstAmount: line.gst_amount,
       gstGroupCode: line.gst_group_code ?? null,
       programCode: line.program_code ?? null,
       responsibleDept: line.responsible_dept ?? null,
@@ -337,6 +322,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       qty: line.qty ?? null,
       directUnitCostExclVat: line.direct_unit_cost_excl_vat ?? null,
       lineAmountExcludingVat: line.line_amount_excluding_vat ?? null,
+      cgstPercentage: line.cgst_percentage ?? null,
+      cgstAmount: line.cgst_amount ?? null,
+      sgstPercentage: line.sgst_percentage ?? null,
+      sgstAmount: line.sgst_amount ?? null,
+      igstPercentage: line.igst_percentage ?? null,
+      igstAmount: line.igst_amount ?? null,
+      fixedAssetDescription: line.fixed_asset_description ?? null,
+      fixedAssetFaClassCode: line.fixed_asset_fa_class_code ?? null,
+      fixedAssetFaSubclassCode: line.fixed_asset_fa_subclass_code ?? null,
+      depreciationStartDate: line.depreciation_start_date ?? null,
+      noOfDepreciationYears: line.no_of_depreciation_years ?? null,
+      depreciationEndDate: line.depreciation_end_date ?? null,
     })),
   );
   if (insertLinesError) {

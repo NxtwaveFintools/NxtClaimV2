@@ -12,6 +12,9 @@ export type PurchaseRequestAttachmentForAnalysis = {
 export type PurchaseRequestLineForAnalysis = {
   lineNo: number;
   description: string;
+  department: string;
+  gstPercentage: number;
+  gstAmount: number;
   gstGroupCode: string | null;
   programCode: string | null;
   responsibleDept: string | null;
@@ -21,33 +24,6 @@ export type PurchaseRequestLineForAnalysis = {
   qty: number | null;
   directUnitCostExclVat: number | null;
   lineAmountExcludingVat: number | null;
-};
-
-export type PurchaseRequestForAnalysis = {
-  id: string;
-  prId: string;
-  requestDate: string;
-  vendorCode: string;
-  vendorName: string;
-  vendorGstin: string;
-  companyGstin: string;
-  department: string | null;
-  prType: "Invoice" | "Quotation";
-  vendorInvoiceNumber: string;
-  documentDate: string;
-  directUnitCost: number;
-  gstPercentage: number;
-  gstAmount: number;
-  purchaseRequestAmount: number;
-  description: string;
-  bankAccountNumber: string | null;
-  bankIfsc: string | null;
-  bankName: string | null;
-  serviceStartDate: string | null;
-  serviceEndDate: string | null;
-  budgetPeriod: string | null;
-  posAsInVendorState: boolean | null;
-  totalAmountIncludingGst: number | null;
   cgstPercentage: number | null;
   cgstAmount: number | null;
   sgstPercentage: number | null;
@@ -60,6 +36,28 @@ export type PurchaseRequestForAnalysis = {
   depreciationStartDate: string | null;
   noOfDepreciationYears: number | null;
   depreciationEndDate: string | null;
+};
+
+export type PurchaseRequestForAnalysis = {
+  id: string;
+  prId: string;
+  requestDate: string;
+  vendorCode: string;
+  vendorName: string;
+  vendorGstin: string;
+  companyGstin: string;
+  prType: "Invoice" | "Quotation";
+  vendorInvoiceNumber: string;
+  documentDate: string;
+  purchaseRequestAmount: number;
+  bankAccountNumber: string | null;
+  bankIfsc: string | null;
+  bankName: string | null;
+  serviceStartDate: string | null;
+  serviceEndDate: string | null;
+  budgetPeriod: string | null;
+  posAsInVendorState: boolean | null;
+  totalAmountIncludingGst: number | null;
   attachments: PurchaseRequestAttachmentForAnalysis[];
   lines: PurchaseRequestLineForAnalysis[];
 };
@@ -74,7 +72,7 @@ export class PurchaseRequestAnalysisRepository {
     const { data, error } = await client
       .from("purchase_requests")
       .select(
-        "id, pr_id, request_date, vendor_code, vendor_name, vendor_gstin, company_gstin, department, pr_type, vendor_invoice_number, document_date, direct_unit_cost, gst_percentage, gst_amount, purchase_request_amount, description, bank_account_number, bank_ifsc, bank_name, service_start_date, service_end_date, budget_period, pos_as_in_vendor_state, total_amount_including_gst, cgst_percentage, cgst_amount, sgst_percentage, sgst_amount, igst_percentage, igst_amount, fixed_asset_description, fixed_asset_fa_class_code, fixed_asset_fa_subclass_code, depreciation_start_date, no_of_depreciation_years, depreciation_end_date, purchase_request_attachments(id, file_name, storage_path, content_type), purchase_request_lines(line_no, description, gst_group_code, program_code, responsible_dept, beneficiary_code, region_code, subproduct, qty, direct_unit_cost_excl_vat, line_amount_excluding_vat)",
+        "id, pr_id, request_date, vendor_code, vendor_name, vendor_gstin, company_gstin, pr_type, vendor_invoice_number, document_date, purchase_request_amount, bank_account_number, bank_ifsc, bank_name, service_start_date, service_end_date, budget_period, pos_as_in_vendor_state, total_amount_including_gst, purchase_request_attachments(id, file_name, storage_path, content_type), purchase_request_lines(line_no, description, department, gst_percentage, gst_amount, gst_group_code, program_code, responsible_dept, beneficiary_code, region_code, subproduct, qty, direct_unit_cost_excl_vat, line_amount_excluding_vat, cgst_percentage, cgst_amount, sgst_percentage, sgst_amount, igst_percentage, igst_amount, fixed_asset_description, fixed_asset_fa_class_code, fixed_asset_fa_subclass_code, depreciation_start_date, no_of_depreciation_years, depreciation_end_date)",
       )
       .eq("id", purchaseRequestId)
       .maybeSingle();
@@ -96,6 +94,9 @@ export class PurchaseRequestAnalysisRepository {
     const lineRows = (data.purchase_request_lines ?? []) as Array<{
       line_no: number;
       description: string;
+      department: string;
+      gst_percentage: number;
+      gst_amount: string | number;
       gst_group_code: string | null;
       program_code: string | null;
       responsible_dept: string | null;
@@ -105,6 +106,18 @@ export class PurchaseRequestAnalysisRepository {
       qty: string | number | null;
       direct_unit_cost_excl_vat: string | number | null;
       line_amount_excluding_vat: string | number | null;
+      cgst_percentage: string | number | null;
+      cgst_amount: string | number | null;
+      sgst_percentage: string | number | null;
+      sgst_amount: string | number | null;
+      igst_percentage: string | number | null;
+      igst_amount: string | number | null;
+      fixed_asset_description: string | null;
+      fixed_asset_fa_class_code: string | null;
+      fixed_asset_fa_subclass_code: string | null;
+      depreciation_start_date: string | null;
+      no_of_depreciation_years: number | null;
+      depreciation_end_date: string | null;
     }>;
 
     const toNullableNumber = (value: string | number | null): number | null =>
@@ -119,15 +132,10 @@ export class PurchaseRequestAnalysisRepository {
         vendorName: data.vendor_name as string,
         vendorGstin: data.vendor_gstin as string,
         companyGstin: data.company_gstin as string,
-        department: (data.department as string | null) ?? null,
         prType: data.pr_type as "Invoice" | "Quotation",
         vendorInvoiceNumber: data.vendor_invoice_number as string,
         documentDate: data.document_date as string,
-        directUnitCost: Number(data.direct_unit_cost),
-        gstPercentage: Number(data.gst_percentage),
-        gstAmount: Number(data.gst_amount),
         purchaseRequestAmount: Number(data.purchase_request_amount),
-        description: data.description as string,
         bankAccountNumber: (data.bank_account_number as string | null) ?? null,
         bankIfsc: (data.bank_ifsc as string | null) ?? null,
         bankName: (data.bank_name as string | null) ?? null,
@@ -138,20 +146,6 @@ export class PurchaseRequestAnalysisRepository {
         totalAmountIncludingGst: toNullableNumber(
           data.total_amount_including_gst as string | number | null,
         ),
-        cgstPercentage: toNullableNumber(data.cgst_percentage as string | number | null),
-        cgstAmount: toNullableNumber(data.cgst_amount as string | number | null),
-        sgstPercentage: toNullableNumber(data.sgst_percentage as string | number | null),
-        sgstAmount: toNullableNumber(data.sgst_amount as string | number | null),
-        igstPercentage: toNullableNumber(data.igst_percentage as string | number | null),
-        igstAmount: toNullableNumber(data.igst_amount as string | number | null),
-        fixedAssetDescription: (data.fixed_asset_description as string | null) ?? null,
-        fixedAssetFaClassCode: (data.fixed_asset_fa_class_code as string | null) ?? null,
-        fixedAssetFaSubclassCode: (data.fixed_asset_fa_subclass_code as string | null) ?? null,
-        depreciationStartDate: (data.depreciation_start_date as string | null) ?? null,
-        noOfDepreciationYears: toNullableNumber(
-          data.no_of_depreciation_years as string | number | null,
-        ),
-        depreciationEndDate: (data.depreciation_end_date as string | null) ?? null,
         attachments: attachmentRows.map((row) => ({
           id: row.id,
           fileName: row.file_name,
@@ -161,6 +155,9 @@ export class PurchaseRequestAnalysisRepository {
         lines: lineRows.map((row) => ({
           lineNo: row.line_no,
           description: row.description,
+          department: row.department,
+          gstPercentage: Number(row.gst_percentage),
+          gstAmount: Number(row.gst_amount),
           gstGroupCode: row.gst_group_code,
           programCode: row.program_code,
           responsibleDept: row.responsible_dept,
@@ -170,6 +167,18 @@ export class PurchaseRequestAnalysisRepository {
           qty: toNullableNumber(row.qty),
           directUnitCostExclVat: toNullableNumber(row.direct_unit_cost_excl_vat),
           lineAmountExcludingVat: toNullableNumber(row.line_amount_excluding_vat),
+          cgstPercentage: toNullableNumber(row.cgst_percentage),
+          cgstAmount: toNullableNumber(row.cgst_amount),
+          sgstPercentage: toNullableNumber(row.sgst_percentage),
+          sgstAmount: toNullableNumber(row.sgst_amount),
+          igstPercentage: toNullableNumber(row.igst_percentage),
+          igstAmount: toNullableNumber(row.igst_amount),
+          fixedAssetDescription: row.fixed_asset_description,
+          fixedAssetFaClassCode: row.fixed_asset_fa_class_code,
+          fixedAssetFaSubclassCode: row.fixed_asset_fa_subclass_code,
+          depreciationStartDate: row.depreciation_start_date,
+          noOfDepreciationYears: row.no_of_depreciation_years,
+          depreciationEndDate: row.depreciation_end_date,
         })),
       },
       errorMessage: null,

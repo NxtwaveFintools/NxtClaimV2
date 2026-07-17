@@ -8,9 +8,14 @@ export const GST_PERCENTAGES = [5, 12, 18, 28] as const;
 // required here so a missing value fails validation with a clear 400 instead of a
 // DB constraint error.
 //
-// direct_unit_cost/purchase_request_amount are intentionally absent here -- BC's
-// newer spec renamed them (direct_unit_cost_excl_vat/purchase_requisition_amount).
-// Either name satisfies "required"; see ALIASED_REQUIRED_FIELD_PAIRS below.
+// department/gst_percentage/gst_amount/description are intentionally absent here --
+// these vary per line item, not per PR, so they moved to lines[] (see
+// REQUIRED_LINE_FIELDS below). direct_unit_cost/purchase_request_amount are also
+// absent -- BC's newer spec renamed the latter (direct_unit_cost_excl_vat/
+// purchase_requisition_amount); either name satisfies "required", see
+// ALIASED_REQUIRED_FIELD_PAIRS below. direct_unit_cost itself moved to lines[]
+// entirely (no header equivalent survives -- see lineItemSchema's own
+// direct_unit_cost_excl_vat, a pre-existing line-level field).
 export const REQUIRED_TOP_LEVEL_FIELDS = [
   "pr_id",
   "request_date",
@@ -18,13 +23,9 @@ export const REQUIRED_TOP_LEVEL_FIELDS = [
   "vendor_name",
   "vendor_gstin",
   "company_gstin",
-  "department",
   "pr_type",
   "vendor_invoice_number",
   "document_date",
-  "gst_percentage",
-  "gst_amount",
-  "description",
   "service_start_date",
   "service_end_date",
   "budget_period",
@@ -36,12 +37,19 @@ export const REQUIRED_TOP_LEVEL_FIELDS = [
 
 // Fields BC's newer spec renamed -- the old name still works, but so does the new one.
 const ALIASED_REQUIRED_FIELD_PAIRS = [
-  { canonical: "direct_unit_cost", alias: "direct_unit_cost_excl_vat" },
   { canonical: "purchase_request_amount", alias: "purchase_requisition_amount" },
 ] as const;
 
 const REQUIRED_ATTACHMENT_FIELDS = ["file_name", "content_type", "base64"] as const;
-const REQUIRED_LINE_FIELDS = ["line_no", "description"] as const;
+// department/gst_percentage/gst_amount moved here from the header -- they vary
+// per line (different lines can have different departments/tax treatment).
+const REQUIRED_LINE_FIELDS = [
+  "line_no",
+  "description",
+  "department",
+  "gst_percentage",
+  "gst_amount",
+] as const;
 
 function isPresent(value: unknown): boolean {
   return value !== undefined && value !== null && value !== "";
@@ -114,6 +122,9 @@ const attachmentSchema = z.object({
 const lineItemSchema = z.object({
   line_no: z.number().int().positive(),
   description: z.string().trim().min(1),
+  department: z.string().trim().min(1),
+  gst_percentage: z.union([z.literal(5), z.literal(12), z.literal(18), z.literal(28)]),
+  gst_amount: z.number(),
   gst_group_code: z.string().trim().optional().nullable(),
   program_code: z.string().trim().optional().nullable(),
   responsible_dept: z.string().trim().optional().nullable(),
@@ -123,6 +134,18 @@ const lineItemSchema = z.object({
   qty: z.number().positive().optional().nullable(),
   direct_unit_cost_excl_vat: z.number().positive().optional().nullable(),
   line_amount_excluding_vat: z.number().positive().optional().nullable(),
+  cgst_percentage: z.number().optional().nullable(),
+  cgst_amount: z.number().optional().nullable(),
+  sgst_percentage: z.number().optional().nullable(),
+  sgst_amount: z.number().optional().nullable(),
+  igst_percentage: z.number().optional().nullable(),
+  igst_amount: z.number().optional().nullable(),
+  fixed_asset_description: z.string().trim().optional().nullable(),
+  fixed_asset_fa_class_code: z.string().trim().optional().nullable(),
+  fixed_asset_fa_subclass_code: z.string().trim().optional().nullable(),
+  depreciation_start_date: isoDateSchema.optional().nullable(),
+  depreciation_end_date: isoDateSchema.optional().nullable(),
+  no_of_depreciation_years: z.number().int().min(1).max(50).optional().nullable(),
 });
 
 export const purchaseRequestBodySchema = z
@@ -133,17 +156,11 @@ export const purchaseRequestBodySchema = z
     vendor_name: z.string().trim().min(1),
     vendor_gstin: z.string().trim().min(1),
     company_gstin: z.string().trim().min(1),
-    department: z.string().trim().min(1),
     pr_type: z.enum(PR_TYPES),
     vendor_invoice_number: z.string().trim().min(1),
     document_date: isoDateSchema,
-    direct_unit_cost: z.number().optional(),
-    direct_unit_cost_excl_vat: z.number().optional(),
-    gst_percentage: z.union([z.literal(5), z.literal(12), z.literal(18), z.literal(28)]),
-    gst_amount: z.number(),
     purchase_request_amount: z.number().optional(),
     purchase_requisition_amount: z.number().optional(),
-    description: z.string().trim().min(10),
     bank_account_number: z.string().trim().optional().nullable(),
     bank_ifsc: z.string().trim().optional().nullable(),
     bank_name: z.string().trim().optional().nullable(),
@@ -152,29 +169,10 @@ export const purchaseRequestBodySchema = z
     budget_period: z.string().trim().min(1),
     pos_as_in_vendor_state: z.boolean(),
     total_amount_including_gst: z.number(),
-    cgst_percentage: z.number().optional().nullable(),
-    cgst_amount: z.number().optional().nullable(),
-    sgst_percentage: z.number().optional().nullable(),
-    sgst_amount: z.number().optional().nullable(),
-    igst_percentage: z.number().optional().nullable(),
-    igst_amount: z.number().optional().nullable(),
-    fixed_asset_description: z.string().trim().optional().nullable(),
-    fixed_asset_fa_class_code: z.string().trim().optional().nullable(),
-    fixed_asset_fa_subclass_code: z.string().trim().optional().nullable(),
-    depreciation_start_date: isoDateSchema.optional().nullable(),
-    depreciation_end_date: isoDateSchema.optional().nullable(),
-    no_of_depreciation_years: z.number().int().min(1).max(50).optional().nullable(),
     attachments: z.array(attachmentSchema).min(1, "At least one attachment is required."),
     lines: z.array(lineItemSchema).min(1, "At least one line item is required."),
   })
   .superRefine((data, ctx) => {
-    if (data.direct_unit_cost === undefined && data.direct_unit_cost_excl_vat === undefined) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Either direct_unit_cost or direct_unit_cost_excl_vat is required.",
-        path: ["direct_unit_cost"],
-      });
-    }
     if (
       data.purchase_request_amount === undefined &&
       data.purchase_requisition_amount === undefined
@@ -196,17 +194,6 @@ export const purchaseRequestBodySchema = z
         path: ["service_end_date"],
       });
     }
-    if (
-      data.depreciation_start_date &&
-      data.depreciation_end_date &&
-      data.depreciation_start_date > data.depreciation_end_date
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        message: "depreciation_start_date must be on or before depreciation_end_date.",
-        path: ["depreciation_end_date"],
-      });
-    }
 
     const seenLineNumbers = new Set<number>();
     data.lines.forEach((line, index) => {
@@ -218,6 +205,18 @@ export const purchaseRequestBodySchema = z
         });
       }
       seenLineNumbers.add(line.line_no);
+
+      if (
+        line.depreciation_start_date &&
+        line.depreciation_end_date &&
+        line.depreciation_start_date > line.depreciation_end_date
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          message: "depreciation_start_date must be on or before depreciation_end_date.",
+          path: ["lines", index, "depreciation_end_date"],
+        });
+      }
     });
   });
 

@@ -16,15 +16,10 @@ export type InsertPurchaseRequestInput = {
   vendorName: string;
   vendorGstin: string;
   companyGstin: string;
-  department: string | null;
   prType: "Invoice" | "Quotation";
   vendorInvoiceNumber: string;
   documentDate: string;
-  directUnitCost: number;
-  gstPercentage: number;
-  gstAmount: number;
   purchaseRequestAmount: number;
-  description: string;
   bankAccountNumber: string | null;
   bankIfsc: string | null;
   bankName: string | null;
@@ -33,18 +28,6 @@ export type InsertPurchaseRequestInput = {
   budgetPeriod: string | null;
   posAsInVendorState: boolean | null;
   totalAmountIncludingGst: number | null;
-  cgstPercentage: number | null;
-  cgstAmount: number | null;
-  sgstPercentage: number | null;
-  sgstAmount: number | null;
-  igstPercentage: number | null;
-  igstAmount: number | null;
-  fixedAssetDescription: string | null;
-  fixedAssetFaClassCode: string | null;
-  fixedAssetFaSubclassCode: string | null;
-  depreciationStartDate: string | null;
-  noOfDepreciationYears: number | null;
-  depreciationEndDate: string | null;
 };
 
 export type AttachmentRecord = {
@@ -59,9 +42,21 @@ export type InsertAttachmentInput = {
   sizeBytes: number;
 };
 
+export type UpdateApprovalFieldsInput = {
+  createdBy?: string;
+  sequence1Approval?: string;
+  sequence2Approval?: string;
+  sequence3Approval?: string;
+  sequence4Approval?: string;
+  sequence5Approval?: string;
+};
+
 export type InsertLineInput = {
   lineNo: number;
   description: string;
+  department: string;
+  gstPercentage: number;
+  gstAmount: number;
   gstGroupCode: string | null;
   programCode: string | null;
   responsibleDept: string | null;
@@ -71,6 +66,18 @@ export type InsertLineInput = {
   qty: number | null;
   directUnitCostExclVat: number | null;
   lineAmountExcludingVat: number | null;
+  cgstPercentage: number | null;
+  cgstAmount: number | null;
+  sgstPercentage: number | null;
+  sgstAmount: number | null;
+  igstPercentage: number | null;
+  igstAmount: number | null;
+  fixedAssetDescription: string | null;
+  fixedAssetFaClassCode: string | null;
+  fixedAssetFaSubclassCode: string | null;
+  depreciationStartDate: string | null;
+  noOfDepreciationYears: number | null;
+  depreciationEndDate: string | null;
 };
 
 export function hashApiKey(rawKey: string): string {
@@ -86,15 +93,10 @@ function toRow(input: InsertPurchaseRequestInput) {
     vendor_name: input.vendorName,
     vendor_gstin: input.vendorGstin,
     company_gstin: input.companyGstin,
-    department: input.department,
     pr_type: input.prType,
     vendor_invoice_number: input.vendorInvoiceNumber,
     document_date: input.documentDate,
-    direct_unit_cost: input.directUnitCost,
-    gst_percentage: input.gstPercentage,
-    gst_amount: input.gstAmount,
     purchase_request_amount: input.purchaseRequestAmount,
-    description: input.description,
     bank_account_number: input.bankAccountNumber,
     bank_ifsc: input.bankIfsc,
     bank_name: input.bankName,
@@ -103,18 +105,6 @@ function toRow(input: InsertPurchaseRequestInput) {
     budget_period: input.budgetPeriod,
     pos_as_in_vendor_state: input.posAsInVendorState,
     total_amount_including_gst: input.totalAmountIncludingGst,
-    cgst_percentage: input.cgstPercentage,
-    cgst_amount: input.cgstAmount,
-    sgst_percentage: input.sgstPercentage,
-    sgst_amount: input.sgstAmount,
-    igst_percentage: input.igstPercentage,
-    igst_amount: input.igstAmount,
-    fixed_asset_description: input.fixedAssetDescription,
-    fixed_asset_fa_class_code: input.fixedAssetFaClassCode,
-    fixed_asset_fa_subclass_code: input.fixedAssetFaSubclassCode,
-    depreciation_start_date: input.depreciationStartDate,
-    no_of_depreciation_years: input.noOfDepreciationYears,
-    depreciation_end_date: input.depreciationEndDate,
   };
 }
 
@@ -283,6 +273,44 @@ export class PurchaseRequestRepository {
     return { errorMessage: error?.message ?? null };
   }
 
+  /**
+   * Updates only the fields present in `input` (undefined keys are left
+   * untouched) for the PR matching `prId`. Used by the separate
+   * approvals-update endpoint -- a different system pushes approval-sequence
+   * data back for an already-submitted PR, one or more fields at a time.
+   * Returns null data (no error) if no row matches prId, so the route can
+   * return a clean 404 rather than a false-positive success.
+   */
+  async updateApprovalFields(
+    prId: string,
+    input: UpdateApprovalFieldsInput,
+  ): Promise<{ data: { id: string } | null; errorMessage: string | null }> {
+    const client = getServiceRoleSupabaseClient();
+    const row: Record<string, string> = {};
+    if (input.createdBy !== undefined) row.created_by = input.createdBy;
+    if (input.sequence1Approval !== undefined) row.sequence_1_approval = input.sequence1Approval;
+    if (input.sequence2Approval !== undefined) row.sequence_2_approval = input.sequence2Approval;
+    if (input.sequence3Approval !== undefined) row.sequence_3_approval = input.sequence3Approval;
+    if (input.sequence4Approval !== undefined) row.sequence_4_approval = input.sequence4Approval;
+    if (input.sequence5Approval !== undefined) row.sequence_5_approval = input.sequence5Approval;
+
+    const { data, error } = await client
+      .from("purchase_requests")
+      .update({ ...row, updated_at: new Date().toISOString() })
+      .eq("pr_id", prId)
+      .select("id")
+      .maybeSingle();
+
+    if (error) {
+      return { data: null, errorMessage: error.message };
+    }
+    if (!data) {
+      return { data: null, errorMessage: null };
+    }
+
+    return { data: { id: data.id as string }, errorMessage: null };
+  }
+
   async insertLines(
     purchaseRequestId: string,
     lines: InsertLineInput[],
@@ -293,6 +321,9 @@ export class PurchaseRequestRepository {
         purchase_request_id: purchaseRequestId,
         line_no: line.lineNo,
         description: line.description,
+        department: line.department,
+        gst_percentage: line.gstPercentage,
+        gst_amount: line.gstAmount,
         gst_group_code: line.gstGroupCode,
         program_code: line.programCode,
         responsible_dept: line.responsibleDept,
@@ -302,6 +333,18 @@ export class PurchaseRequestRepository {
         qty: line.qty,
         direct_unit_cost_excl_vat: line.directUnitCostExclVat,
         line_amount_excluding_vat: line.lineAmountExcludingVat,
+        cgst_percentage: line.cgstPercentage,
+        cgst_amount: line.cgstAmount,
+        sgst_percentage: line.sgstPercentage,
+        sgst_amount: line.sgstAmount,
+        igst_percentage: line.igstPercentage,
+        igst_amount: line.igstAmount,
+        fixed_asset_description: line.fixedAssetDescription,
+        fixed_asset_fa_class_code: line.fixedAssetFaClassCode,
+        fixed_asset_fa_subclass_code: line.fixedAssetFaSubclassCode,
+        depreciation_start_date: line.depreciationStartDate,
+        no_of_depreciation_years: line.noOfDepreciationYears,
+        depreciation_end_date: line.depreciationEndDate,
       })),
     );
 
