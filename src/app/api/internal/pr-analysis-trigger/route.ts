@@ -58,16 +58,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
   const analysisId = buildAnalysisId(body.pr_id, previousAnalysesCount + 1);
 
-  await runPurchaseRequestAnalysis(existing.id, analysisId);
+  const runResult = await runPurchaseRequestAnalysis(existing.id, analysisId);
+
+  if (!runResult.ok) {
+    // runPurchaseRequestAnalysis reverts status + logs but never throws. It now
+    // returns the real failure reason (Gemini count mismatch, attachment download
+    // error, network failure, etc.) so we can surface it directly instead of
+    // sending the caller to dig through server logs.
+    return NextResponse.json(
+      { pr_id: body.pr_id, analysis_id: analysisId, error: runResult.reason },
+      { status: 500 },
+    );
+  }
 
   const { data: result } = await analysisRepository.getByAnalysisId(analysisId);
 
   if (!result) {
-    // runPurchaseRequestAnalysis swallows its own errors (reverts status, logs, never
-    // throws) -- no row means the run failed silently. Surface that here instead of
-    // returning 200 with a null result that looks identical to "ran fine, nothing to show".
+    // ok:true but no stored row is an unexpected inconsistency (e.g. the analysis
+    // row was deleted between insert and re-read) rather than an analysis failure.
     return NextResponse.json(
-      { pr_id: body.pr_id, analysis_id: analysisId, error: "analysis failed -- see server logs" },
+      { pr_id: body.pr_id, analysis_id: analysisId, error: "analysis ran but no result row found" },
       { status: 500 },
     );
   }

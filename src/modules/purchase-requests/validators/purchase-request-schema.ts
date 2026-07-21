@@ -113,6 +113,13 @@ export function isValidBase64(value: string): boolean {
 
 const isoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Must be an ISO date (YYYY-MM-DD).");
 
+// For optional date fields: treat empty/whitespace-only strings as null so callers
+// can send "" instead of omitting the field or sending null.
+const optionalIsoDateSchema = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+  isoDateSchema.nullable().optional(),
+);
+
 const attachmentSchema = z.object({
   file_name: z.string().trim().min(1),
   content_type: z.string().trim().min(1),
@@ -143,8 +150,8 @@ const lineItemSchema = z.object({
   fixed_asset_description: z.string().trim().optional().nullable(),
   fixed_asset_fa_class_code: z.string().trim().optional().nullable(),
   fixed_asset_fa_subclass_code: z.string().trim().optional().nullable(),
-  depreciation_start_date: isoDateSchema.optional().nullable(),
-  depreciation_end_date: isoDateSchema.optional().nullable(),
+  depreciation_start_date: optionalIsoDateSchema,
+  depreciation_end_date: optionalIsoDateSchema,
   no_of_depreciation_years: z.number().int().min(1).max(50).optional().nullable(),
 });
 

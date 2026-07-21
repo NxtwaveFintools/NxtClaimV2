@@ -15,16 +15,78 @@ export const OVERALL_STATUSES = [
 export const VALIDATION_RESULTS = ["match_success", "minor_variance", "mismatch"] as const;
 export const SEVERITIES = ["hard_block", "warning"] as const;
 
-// Every PR analysis must report exactly these 17 named checks (VC-01..VC-17
-// from the system prompt) -- enforced by both the JSON schema (minItems/
-// maxItems) and this zod schema (.length(17)) as defense in depth, mirroring
-// how parse-receipt.ts double-validates Gemini's structured output.
-export const FIELD_VALIDATIONS_COUNT = 17;
+// The original 17-check catalog's VC-04 (Taxable Amount), VC-05 (GST Amount),
+// VC-06 (GST Percentage), and VC-07 (GST Computed Check) assumed one flat PR with
+// no line items. Now that amount/GST data lives per-line (purchase_request_lines),
+// those 4 checks are replaced by an equivalent set repeated PER LINE, matched by
+// position against the invoice's line-items table. Every analysis must report
+// exactly FIXED_CHECK_NAMES.length + PER_LINE_CHECK_TEMPLATES.length * lineCount
+// checks -- enforced by both the JSON schema (minItems/maxItems, built per-call
+// once the line count is known) and a post-parse exact-count check in
+// analyze-purchase-request.ts (the zod schema itself can't express a dynamic
+// length, so it only floors at FIXED_CHECK_NAMES.length).
+export const FIXED_CHECK_NAMES: ReadonlyArray<{
+  checkName: string;
+  severity: (typeof SEVERITIES)[number];
+}> = [
+  { checkName: "PR Type Match", severity: "hard_block" },
+  { checkName: "Vendor Invoice Number Match", severity: "hard_block" },
+  { checkName: "Document Date Match", severity: "hard_block" },
+  { checkName: "Vendor GSTIN Match", severity: "hard_block" },
+  { checkName: "Company GSTIN Match", severity: "hard_block" },
+  { checkName: "GSTIN Format Check", severity: "hard_block" },
+  { checkName: "Total Amount Match", severity: "hard_block" },
+  { checkName: "Bank Account Match", severity: "warning" },
+  { checkName: "IFSC Code Match", severity: "warning" },
+  { checkName: "Bank Name Match", severity: "warning" },
+  { checkName: "Bank Details Absent", severity: "warning" },
+  { checkName: "Description Length Check", severity: "hard_block" },
+  { checkName: "Description Keyword Match", severity: "warning" },
+];
+
+// Applied once per PR line, in this order, with "Line {n}: " prefixed onto
+// checkName (n is 1-based, matching lines[].line_no as submitted).
+export const PER_LINE_CHECK_TEMPLATES: ReadonlyArray<{
+  checkName: string;
+  severity: (typeof SEVERITIES)[number];
+}> = [
+  { checkName: "Unit Cost Match", severity: "hard_block" },
+  { checkName: "Taxable Amount Match", severity: "hard_block" },
+  { checkName: "CGST Percentage Match", severity: "hard_block" },
+  { checkName: "CGST Amount Match", severity: "hard_block" },
+  { checkName: "SGST Percentage Match", severity: "hard_block" },
+  { checkName: "SGST Amount Match", severity: "hard_block" },
+  { checkName: "IGST Percentage Match", severity: "hard_block" },
+  { checkName: "IGST Amount Match", severity: "hard_block" },
+];
+
+export function buildPerLineCheckNames(
+  lineNo: number,
+): Array<{ checkName: string; severity: (typeof SEVERITIES)[number] }> {
+  return PER_LINE_CHECK_TEMPLATES.map((template) => ({
+    checkName: `Line ${lineNo}: ${template.checkName}`,
+    severity: template.severity,
+  }));
+}
+
+export function getExpectedFieldValidationsCount(lineCount: number): number {
+  return FIXED_CHECK_NAMES.length + PER_LINE_CHECK_TEMPLATES.length * lineCount;
+}
+
+/** Full {checkName, severity} list for a PR with the given line count, in the order Gemini should report them. */
+export function buildAllCheckNames(
+  lineNumbers: number[],
+): Array<{ checkName: string; severity: (typeof SEVERITIES)[number] }> {
+  return [...FIXED_CHECK_NAMES, ...lineNumbers.flatMap((lineNo) => buildPerLineCheckNames(lineNo))];
+}
 
 // Standard JSON Schema for Gemini constrained decoding (google/genai
 // responseJsonSchema). analysis_id and pr_id are NOT requested here -- the
 // model can't reliably generate a globally unique sequenced ID, so the
 // service generates analysis_id itself and already knows pr_id from input.
+// Not parameterized by line count: field_validations' exact length can't be
+// pinned via minItems/maxItems (see the comment on that property below), so
+// this schema is identical regardless of how many lines a given PR has.
 export const PR_ANALYSIS_RESPONSE_JSON_SCHEMA = {
   type: "object",
   properties: {
@@ -38,8 +100,14 @@ export const PR_ANALYSIS_RESPONSE_JSON_SCHEMA = {
     },
     field_validations: {
       type: "array",
-      minItems: FIELD_VALIDATIONS_COUNT,
-      maxItems: FIELD_VALIDATIONS_COUNT,
+      // Deliberately NOT pinning minItems/maxItems to an exact count here --
+      // Gemini's constrained-decoding schema compiler rejects the request
+      // outright ("too many states for serving") once a pinned exact length
+      // gets large enough (confirmed failing at 21; 17 was fine). The exact
+      // count is instead communicated via the prompt text (very explicit,
+      // repeated in the per-call addendum) and enforced with a hard
+      // post-parse check in analyze-purchase-request.ts.
+      minItems: 1,
       items: {
         type: "object",
         properties: {
@@ -86,37 +154,11 @@ export const prAnalysisResponseSchema = z.object({
   confidence_score: z.number().min(0).max(100),
   document_summary: z.string(),
   analyzed_file_name: z.string().nullable(),
-  field_validations: z.array(fieldValidationSchema).length(FIELD_VALIDATIONS_COUNT),
+  // Exact count depends on this PR's line count (unknown to a static zod schema)
+  // -- floored at the fixed-check count here; analyze-purchase-request.ts does
+  // the real exact-count check once it knows how many lines this PR has.
+  field_validations: z.array(fieldValidationSchema).min(FIXED_CHECK_NAMES.length),
   remarks: z.string(),
 });
 
 export type PrAnalysisResponse = z.infer<typeof prAnalysisResponseSchema>;
-
-// Canonical 17 check names + severities, exactly as shown in the system prompt's
-// worked example output (the check catalog's prose labels differ slightly, e.g.
-// "Document Number Match" vs the example's "Vendor Invoice Number Match" -- the
-// example is authoritative since it's the literal expected check_name string).
-// Used to build a synthetic result when a PR has no attachments at all (skips
-// the Gemini call entirely rather than spending it on a foregone conclusion).
-export const PR_ANALYSIS_CHECK_NAMES: ReadonlyArray<{
-  checkName: string;
-  severity: (typeof SEVERITIES)[number];
-}> = [
-  { checkName: "PR Type Match", severity: "hard_block" },
-  { checkName: "Vendor Invoice Number Match", severity: "hard_block" },
-  { checkName: "Document Date Match", severity: "hard_block" },
-  { checkName: "Taxable Amount Match", severity: "hard_block" },
-  { checkName: "GST Amount Match", severity: "hard_block" },
-  { checkName: "GST Percentage Match", severity: "hard_block" },
-  { checkName: "GST Computed Check", severity: "warning" },
-  { checkName: "Vendor GSTIN Match", severity: "hard_block" },
-  { checkName: "Company GSTIN Match", severity: "hard_block" },
-  { checkName: "GSTIN Format Check", severity: "hard_block" },
-  { checkName: "Total Amount Match", severity: "hard_block" },
-  { checkName: "Bank Account Match", severity: "warning" },
-  { checkName: "IFSC Code Match", severity: "warning" },
-  { checkName: "Bank Name Match", severity: "warning" },
-  { checkName: "Bank Details Absent", severity: "warning" },
-  { checkName: "Description Length Check", severity: "hard_block" },
-  { checkName: "Description Keyword Match", severity: "warning" },
-];

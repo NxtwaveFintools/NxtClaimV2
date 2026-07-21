@@ -4,7 +4,7 @@ import {
   PR_ANALYSIS_MODEL,
 } from "@/modules/purchase-requests/analysis/analyze-purchase-request";
 import {
-  PR_ANALYSIS_CHECK_NAMES,
+  buildAllCheckNames,
   type PrAnalysisResponse,
 } from "@/modules/purchase-requests/analysis/analysis-schema";
 import {
@@ -15,13 +15,21 @@ import { sendAnalysisResultToBc } from "@/modules/purchase-requests/callback/sen
 
 const repository = new PurchaseRequestAnalysisRepository();
 
-function buildNoAttachmentsResult(): PrAnalysisResponse {
+/**
+ * Outcome of a run. The after()-triggered submission path ignores this (fire and
+ * forget), but the manual trigger endpoint uses `reason` to surface WHY a run
+ * failed in its HTTP response instead of making the caller dig through logs.
+ * The function still never throws -- a reverted run resolves to { ok: false }.
+ */
+export type PrAnalysisRunResult = { ok: true } | { ok: false; reason: string };
+
+function buildNoAttachmentsResult(lineNumbers: number[]): PrAnalysisResponse {
   return {
     overall_status: "no_document",
     confidence_score: 0,
     document_summary: "No attachments were submitted with this PR; nothing to validate.",
     analyzed_file_name: null,
-    field_validations: PR_ANALYSIS_CHECK_NAMES.map(({ checkName, severity }) => ({
+    field_validations: buildAllCheckNames(lineNumbers).map(({ checkName, severity }) => ({
       check_name: checkName,
       submitted_value: "N/A",
       extracted_value: "N/A",
@@ -34,19 +42,13 @@ function buildNoAttachmentsResult(): PrAnalysisResponse {
 }
 
 /**
- * direct_unit_cost/gst_percentage/gst_amount/description used to be header
- * columns the 17-check catalog (VC-04/05/06/07/16/17) validates directly. They
- * now live per-line, so these are synthesized: summed cost/GST amounts across
- * lines, the first line's GST % (an approximation -- lines can have differing
- * rates), and all line descriptions joined together.
+ * description used to be a header column VC-16/17 validate directly. It now
+ * lives per-line, so it's synthesized (all line descriptions joined together).
+ * direct_unit_cost/gst_percentage/gst_amount no longer need a header synthesis
+ * at all -- VC-04/05/06/07 were replaced by per-line checks (see PER-LINE
+ * VALIDATION in system-prompt.ts), which read pr.lines directly.
  */
 function buildPrData(pr: PurchaseRequestForAnalysis) {
-  const totalDirectUnitCost = pr.lines.reduce(
-    (sum, line) => sum + (line.directUnitCostExclVat ?? 0),
-    0,
-  );
-  const totalGstAmount = pr.lines.reduce((sum, line) => sum + line.gstAmount, 0);
-  const firstLineGstPercentage = pr.lines[0]?.gstPercentage ?? 0;
   const combinedDescription = pr.lines.map((line) => line.description).join("; ");
 
   return {
@@ -58,9 +60,6 @@ function buildPrData(pr: PurchaseRequestForAnalysis) {
     pr_type: pr.prType,
     vendor_invoice_number: pr.vendorInvoiceNumber,
     document_date: pr.documentDate,
-    direct_unit_cost: totalDirectUnitCost,
-    gst_percentage: firstLineGstPercentage,
-    gst_amount: totalGstAmount,
     purchase_request_amount: pr.purchaseRequestAmount,
     description: combinedDescription,
     bank_account_number: pr.bankAccountNumber,
@@ -115,7 +114,7 @@ function buildPrData(pr: PurchaseRequestForAnalysis) {
 export async function runPurchaseRequestAnalysis(
   purchaseRequestId: string,
   analysisId: string,
-): Promise<void> {
+): Promise<PrAnalysisRunResult> {
   const { data: pr, errorMessage: fetchError } =
     await repository.getPurchaseRequestForAnalysis(purchaseRequestId);
 
@@ -124,7 +123,7 @@ export async function runPurchaseRequestAnalysis(
       purchaseRequestId,
       errorMessage: fetchError,
     });
-    return;
+    return { ok: false, reason: `Failed to fetch PR for analysis: ${fetchError ?? "not found"}` };
   }
 
   const { errorMessage: statusError } = await repository.updateStatus(pr.id, "analyzing");
@@ -133,14 +132,14 @@ export async function runPurchaseRequestAnalysis(
       purchaseRequestId,
       errorMessage: statusError,
     });
-    return;
+    return { ok: false, reason: `Failed to set status to 'analyzing': ${statusError}` };
   }
 
   try {
     let response: PrAnalysisResponse;
 
     if (pr.attachments.length === 0) {
-      response = buildNoAttachmentsResult();
+      response = buildNoAttachmentsResult(pr.lines.map((line) => line.lineNo));
     } else {
       const downloadedAttachments: { fileName: string; contentType: string; buffer: Buffer }[] = [];
       for (const attachment of pr.attachments) {
@@ -223,14 +222,18 @@ export async function runPurchaseRequestAnalysis(
         errorMessage: callbackError instanceof Error ? callbackError.message : "Unknown error.",
       });
     }
+
+    return { ok: true };
   } catch (error) {
+    const reason = error instanceof Error ? error.message : "Unknown analysis failure.";
     logger.error("purchase_request.analysis.failed", {
       purchaseRequestId,
-      errorMessage: error instanceof Error ? error.message : "Unknown analysis failure.",
+      errorMessage: reason,
     });
     // Revert to pending_analysis so a failed run doesn't strand the PR in
     // 'analyzing' forever. There's no auto-retry worker (out of scope for this
     // feature), but this leaves it in a state a manual re-run can pick up.
     await repository.updateStatus(purchaseRequestId, "pending_analysis");
+    return { ok: false, reason };
   }
 }

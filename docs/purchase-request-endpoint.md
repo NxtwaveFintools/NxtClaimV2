@@ -295,7 +295,9 @@ All of a PR's attachments are downloaded and sent to Gemini in a single call, al
 with `pr_data` (the only source of truth -- see the "No vendor_master/company_config"
 deviation below). The model itself identifies which
 ONE attachment is the actual invoice/quotation to validate (vs. supporting documents
-like delivery proofs) and performs all 17 validation checks against it. The result is
+like delivery proofs) and performs the full check catalog against it -- 13 fixed
+checks plus 8 checks per PR line item (see "Per-line validation" deviation below).
+The result is
 inserted as a new row in `purchase_request_analyses` (append-only — re-running
 analysis for the same PR adds another row, doesn't overwrite).
 
@@ -315,6 +317,36 @@ understanding, not the `@ai-sdk/google` streaming pattern the chatbot uses.
 
 ### Deviations from the original spec
 
+- **Per-line validation (replaces VC-04/05/06/07).** The original spec's Taxable
+  Amount, GST Amount, GST Percentage, and GST Computed checks assumed one flat
+  PR with no line items. Now that amount/GST data lives in `purchase_request_lines`,
+  these are replaced by an 8-check set repeated **per PR line** -- Unit Cost
+  Match, Taxable Amount Match, and the GST breakdown (CGST Percentage/Amount,
+  SGST Percentage/Amount, IGST Percentage/Amount) -- all hard_block and all pure
+  invoice-extract-vs-submitted comparisons (no internal/computed consistency
+  check), matched against the invoice's own line-item table **strictly by array
+  position** (1st PR line ↔ 1st invoice row, 2nd ↔ 2nd, etc.) -- never by
+  `line_no` value, which is used only to label the check name (e.g.
+  `"Line 5: Taxable Amount Match"`). Unit Cost Match compares the invoice's
+  per-unit **Rate** against `direct_unit_cost_excl_vat`; Taxable Amount Match
+  compares the invoice's line **Amount** (qty × rate, before tax) against
+  `line_amount_excluding_vat`. Each line uses **either** CGST+SGST (intra-state)
+  **or** IGST (inter-state); the six breakdown checks are always reported, with
+  the non-applicable half marked `match_success`/"N/A" rather than a mismatch. If
+  the invoice has no per-line tax breakdown (just one lump-sum GST for the whole
+  document), each applicable component falls back to a proportional share of the
+  total, capped at 75% confidence. Total check count is therefore
+  `13 + 8 × line_count`, not a fixed 17 -- communicated to Gemini via a per-call
+  prompt addendum (`buildPerLineMatchingAddendum` in `system-prompt.ts`) and
+  enforced with a hard post-parse count check in `analyze-purchase-request.ts`
+  (`field_validations_count_mismatch` outcome).
+- **No pinned array length in the response schema.** `responseJsonSchema`'s
+  `field_validations` array does NOT set `minItems`/`maxItems` to the exact
+  expected count -- Gemini's constrained-decoding schema compiler rejects the
+  request outright ("too many states for serving") once a pinned exact array
+  length gets large enough (confirmed failing at 21 checks; the original fixed
+  17 was fine). The exact count is enforced entirely through prompt text plus
+  the post-parse check above, not the schema itself.
 - **Multi-attachment selection**: the original spec assumed one attachment per PR.
   Since PRs can now carry several, the system prompt has an appended
   "MULTI-ATTACHMENT HANDLING" section (the other 3800+ words are verbatim) instructing
@@ -351,7 +383,7 @@ sequence>`), not by the model — an LLM can't reliably produce a globally uniqu
 - **No `statement_mismatch` outcome.** The original spec's status logic escalated a
   bank-details mismatch to a distinct `statement_mismatch` overall status. Changed so
   bank-detail checks (VC-12/13/14/15) behave like every other warning-severity check
-  (VC-07, VC-17): reported in `field_validations`/`remarks`, but never on their own
+  (VC-17): reported in `field_validations`/`remarks`, but never on their own
   changing `overall_status` away from `verified`. Only a Hard Block failure can
   produce `mismatch`. `OVERALL_STATUSES` (and the DB `CHECK` constraint) now has 5
   values, not 6; historical rows with `statement_mismatch` were backfilled to
@@ -375,18 +407,18 @@ sequence>`), not by the model — an LLM can't reliably produce a globally uniqu
 
 ### `purchase_request_analyses` columns
 
-| Column                   | Notes                                                                                                             |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `analyzed_attachment_id` | FK to the attachment Gemini picked; null if none qualified                                                        |
-| `analysis_id`            | `AN-YYYYMMDD-<pr_id suffix>-<sequence>`, unique                                                                   |
-| `overall_status`         | `verified \| needs_review \| mismatch \| extraction_failed \| no_document`                                        |
-| `confidence_score`       | 0–100, one decimal                                                                                                |
-| `field_validations`      | JSONB array of exactly 17 check results, ordered failures-first (`mismatch` > `minor_variance` > `match_success`) |
-| `model`                  | The `PR_ANALYSIS_MODEL` value used for this run (audit trail)                                                     |
-| `bc_callback_status`     | `pending \| sent \| failed` -- delivery state of sending this result back to BC                                   |
-| `bc_callback_attempts`   | Number of delivery attempts made (0 if the api key's `callback_url` was never configured)                         |
-| `bc_callback_sent_at`    | Timestamp of the successful delivery; null until `bc_callback_status = 'sent'`                                    |
-| `bc_callback_error`      | Last error message if `bc_callback_status = 'failed'`; null otherwise                                             |
+| Column                   | Notes                                                                                                                        |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `analyzed_attachment_id` | FK to the attachment Gemini picked; null if none qualified                                                                   |
+| `analysis_id`            | `AN-YYYYMMDD-<pr_id suffix>-<sequence>`, unique                                                                              |
+| `overall_status`         | `verified \| needs_review \| mismatch \| extraction_failed \| no_document`                                                   |
+| `confidence_score`       | 0–100, one decimal                                                                                                           |
+| `field_validations`      | JSONB array of `13 + 8 × line_count` check results, ordered failures-first (`mismatch` > `minor_variance` > `match_success`) |
+| `model`                  | The `PR_ANALYSIS_MODEL` value used for this run (audit trail)                                                                |
+| `bc_callback_status`     | `pending \| sent \| failed` -- delivery state of sending this result back to BC                                              |
+| `bc_callback_attempts`   | Number of delivery attempts made (0 if the api key's `callback_url` was never configured)                                    |
+| `bc_callback_sent_at`    | Timestamp of the successful delivery; null until `bc_callback_status = 'sent'`                                               |
+| `bc_callback_error`      | Last error message if `bc_callback_status = 'failed'`; null otherwise                                                        |
 
 ### Manual re-trigger (debug/local use)
 
@@ -455,7 +487,7 @@ row."` and 0 attempts (no network call is actually made). Set it via
   "document_summary": "Analysis of Invoice INV-2026-1058 from ABC Technologies...",
   "analyzed_file_name": "Invoice.pdf",
   "field_validations": [
-    /* same 17-entry array stored in purchase_request_analyses.field_validations */
+    /* same array stored in purchase_request_analyses.field_validations (13 + 8 × line_count entries) */
   ],
   "remarks": "...",
   "analyzed_at": "2026-07-14T07:27:06.752Z"

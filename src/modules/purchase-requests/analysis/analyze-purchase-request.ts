@@ -1,12 +1,17 @@
 import { GoogleGenAI } from "@google/genai";
 import type { z } from "zod";
 import { serverEnv } from "@/core/config/server-env";
+import { logger } from "@/core/infra/logging/logger";
 import {
+  getExpectedFieldValidationsCount,
   PR_ANALYSIS_RESPONSE_JSON_SCHEMA,
   prAnalysisResponseSchema,
   type PrAnalysisResponse,
 } from "@/modules/purchase-requests/analysis/analysis-schema";
-import { PR_ANALYSIS_SYSTEM_PROMPT } from "@/modules/purchase-requests/analysis/system-prompt";
+import {
+  buildPerLineMatchingAddendum,
+  PR_ANALYSIS_SYSTEM_PROMPT,
+} from "@/modules/purchase-requests/analysis/system-prompt";
 
 const GEMINI_MAX_ATTEMPTS = 3;
 const GEMINI_RETRY_DELAY_MS = 1_000;
@@ -65,16 +70,12 @@ export type PrAnalysisInput = {
     pr_type: "Invoice" | "Quotation";
     vendor_invoice_number: string;
     document_date: string;
-    // direct_unit_cost/gst_percentage/gst_amount/description used to be header
-    // fields the 17-check catalog (VC-04/05/06/07/16/17) validates directly.
-    // They now vary per line, so these are SYNTHESIZED aggregates (sum of line
-    // costs/GST amounts, first line's GST %, joined line descriptions) built in
-    // run-purchase-request-analysis.ts's buildPrData() -- an approximation, not
-    // a guarantee, especially when lines carry differing GST rates.
-    direct_unit_cost: number;
-    gst_percentage: number;
-    gst_amount: number;
     purchase_request_amount: number;
+    // description used to be a header field VC-16/17 validate directly. It now
+    // varies per line, so this is SYNTHESIZED (all line descriptions joined
+    // together) in run-purchase-request-analysis.ts's buildPrData() -- taxable
+    // amount/GST percentage/GST amount no longer need a header synthesis at all,
+    // since VC-04/05/06/07 were replaced by per-line checks (see lines[] below).
     description: string;
     bank_account_number: string | null;
     bank_ifsc: string | null;
@@ -163,6 +164,10 @@ function isRetryableGeminiError(error: unknown): boolean {
 export async function analyzePurchaseRequest(input: PrAnalysisInput): Promise<PrAnalysisOutcome> {
   const client = new GoogleGenAI({ apiKey: serverEnv.GEMINI_API_KEY });
 
+  const lineCount = input.prData.lines.length;
+  const expectedFieldValidationsCount = getExpectedFieldValidationsCount(lineCount);
+  const systemInstruction = `${PR_ANALYSIS_SYSTEM_PROMPT}\n\n${buildPerLineMatchingAddendum(input.prData.lines)}`;
+
   const contextPayload = {
     pr_id: input.prId,
     pr_data: input.prData,
@@ -188,8 +193,13 @@ export async function analyzePurchaseRequest(input: PrAnalysisInput): Promise<Pr
         model: PR_ANALYSIS_MODEL,
         contents: [{ role: "user", parts }],
         config: {
-          systemInstruction: PR_ANALYSIS_SYSTEM_PROMPT,
+          systemInstruction,
           temperature: 0,
+          // field_validations grows with line count (13 + 8 * lines). The default
+          // output cap plus gemini-2.5-flash's thinking tokens can truncate a large
+          // multi-line response, producing invalid/partial JSON. Pin to the model's
+          // max so a 3+ line PR's full check list fits.
+          maxOutputTokens: 65536,
           responseMimeType: "application/json",
           responseJsonSchema: PR_ANALYSIS_RESPONSE_JSON_SCHEMA,
         },
@@ -223,6 +233,22 @@ export async function analyzePurchaseRequest(input: PrAnalysisInput): Promise<Pr
   const parsedSchemaResult = prAnalysisResponseSchema.safeParse(parsedJson);
   if (!parsedSchemaResult.success) {
     return { ok: false, reason: "schema_invalid", error: parsedSchemaResult.error };
+  }
+
+  // The exact count (13 + 8 * lines) is communicated via the prompt only -- the
+  // Gemini responseJsonSchema can't pin it (its compiler rejects large exact
+  // lengths). A miscount used to hard-fail the whole run: it threw, the PR
+  // reverted to pending_analysis, nothing was stored and no BC callback fired.
+  // That stranding is worse than an off-by-a-few check list, so we now log the
+  // discrepancy and proceed with whatever valid checks came back (zod still
+  // guarantees each item's shape and a >= 13 floor).
+  const actualCount = parsedSchemaResult.data.field_validations.length;
+  if (actualCount !== expectedFieldValidationsCount) {
+    logger.warn("purchase_request.analysis.field_validations_count_mismatch", {
+      prId: input.prId,
+      expected: expectedFieldValidationsCount,
+      actual: actualCount,
+    });
   }
 
   return { ok: true, data: sortFieldValidationsByFailureFirst(parsedSchemaResult.data) };
