@@ -201,4 +201,103 @@ export const faqData: FaqItem[] = [
     answer:
       "HOD reviews claims for business validity and policy compliance, ensures complete and accurate documentation, provides timely approval/return, and signs cash memos when required.",
   },
+  {
+    id: 30,
+    category: "General",
+    question: "I have a food bill. Should I attach the payment proof?",
+    answer:
+      "You can proceed with your claim by attaching the original invoice/receipt. Transaction proof is not required for Food expense claims.",
+  },
+  {
+    id: 31,
+    category: "General",
+    question: "I have a bill but I don't have transaction proof. Can I still submit?",
+    answer:
+      "You may proceed with your claim by attaching the original invoice/receipt. If you require further assistance, please raise a ticket, and the Finance team will reach out to you.",
+  },
+  {
+    id: 32,
+    category: "General",
+    question: "Can I raise a claim request in foreign currency?",
+    answer:
+      "Yes, you can raise a claim request in a foreign currency. Please ensure that you attach the required supporting documents based on the selected expense category.",
+  },
+  {
+    id: 33,
+    category: "General",
+    question: "At the time of the request, what amount should I put?",
+    answer:
+      "Please enter the claim amount in Indian Rupees (INR). The amount entered should match the amount reflected in your bank/payment proof to ensure accurate claim processing.",
+  },
+  {
+    id: 34,
+    category: "General",
+    question: "I have a USD ($) currency invoice. What amount should I submit — $ or INR?",
+    answer:
+      "Please submit the claim amount in Indian Rupees (INR). If your invoice is in a foreign currency (e.g., USD), enter the equivalent amount in INR. The INR amount should match the amount reflected in your bank/payment proof, where applicable.",
+  },
+  {
+    id: 35,
+    category: "General",
+    question: "For accommodation bills, can we provide the company details in the invoice?",
+    answer:
+      "Please do not provide the company's GST details on accommodation invoices. Submit the invoice with the required supporting documents as per the reimbursement policy.",
+  },
+  {
+    id: 36,
+    category: "General",
+    question: "Can we give the company name but not provide the GST number?",
+    answer:
+      "Yes, you may provide the company name on the invoice. However, please do not provide the company's GST number.",
+  },
+  {
+    id: 37,
+    category: "General",
+    question: "Can I request reimbursement for assets?",
+    answer:
+      "No. Petty Cash Reimbursement claims cannot be submitted for asset purchases. Please follow the company's asset procurement process for such purchases.",
+  },
+  {
+    id: 38,
+    category: "General",
+    question:
+      "Can I claim flight tickets for reimbursement, or can I use petty cash for flight ticket bookings?",
+    answer:
+      "As per company policy, all flight ticket bookings must be made exclusively through Make My Trip MyBiz. Flight ticket expenses booked outside MyBiz are not eligible for reimbursement or petty cash.",
+  },
+  {
+    id: 39,
+    category: "General",
+    question: "I have an invoice above ₹10,000. Is payment proof required?",
+    answer:
+      "Yes. Payment proof is mandatory for all transactions above ₹10,000. Please attach the original invoice/receipt along with the payment proof. Additionally, no single petty cash or reimbursement request may exceed ₹10,000 through these channels.",
+  },
+  {
+    id: 40,
+    category: "General",
+    question: "Can I get local subscriptions through petty cash?",
+    answer:
+      "No. Local Subscription expenses cannot be requested through petty cash or reimbursement. A Purchase Requisition (PR) must be raised for all Local Subscription purchases as per company policy.",
+  },
+  {
+    id: 41,
+    category: "General",
+    question: "I have an invoice for ₹6,000 but I paid ₹7,000. How can I request ₹7,000?",
+    answer:
+      "You can claim only the amount supported by a valid invoice. If your invoice is for ₹6,000 but you paid ₹7,000, only the invoiced amount is eligible for reimbursement. If the amount paid differs from the invoice amount, the vendor name and transaction date on the invoice must match the payment proof.",
+  },
+  {
+    id: 42,
+    category: "General",
+    question: "I paid a Rapido partner over the ride amount. How can I request the claim?",
+    answer:
+      "You can claim only the actual ride fare supported by the Rapido invoice/receipt. Any additional amount paid directly to the Rapido partner that is not reflected in the invoice/receipt is not eligible for claim submission.",
+  },
+  {
+    id: 43,
+    category: "General",
+    question: "Can I use the Team Outing petty cash amount for other activities?",
+    answer:
+      "No. Team Outing petty cash must be used only for the approved team outing expenses. It cannot be used for any other activities or purposes.",
+  },
 ];
