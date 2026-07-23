@@ -62,6 +62,32 @@ const baseSubmissionSchema = z.object({
   paymentModeId: uuidSchema,
 });
 
+export const INVOICE_DATE_MAX_AGE_DAYS = 60;
+
+export const INVOICE_DATE_TOO_OLD_MESSAGE =
+  "This expense cannot be submitted because the invoice date is more than 60 days old. As per company policy, expense claims must be submitted within 60 days from the invoice date.";
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+// Today's calendar day (YYYY-MM-DD) in IST, so client and server agree regardless of runtime timezone.
+function todayIstMidnightUtcMs() {
+  const istDate = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  return Date.parse(`${istDate}T00:00:00Z`);
+}
+
+// A calendar-day gap of 0-60 is allowed; 61+ is rejected (invoice date up to and
+// including 60 days old may still be submitted).
+export function isInvoiceDateWithinWindow(isoDate: string) {
+  const invoiceMs = Date.parse(`${isoDate}T00:00:00Z`);
+  const diffDays = Math.round((todayIstMidnightUtcMs() - invoiceMs) / MS_PER_DAY);
+  return diffDays <= INVOICE_DATE_MAX_AGE_DAYS;
+}
+
 const expenseDetailSchema = z.object({
   detailType: z.literal("expense"),
   expense: z.object({
