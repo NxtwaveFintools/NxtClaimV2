@@ -13,7 +13,11 @@ import {
   DB_SUBMITTED_AWAITING_HOD_APPROVAL_STATUS,
   type DbClaimStatus,
 } from "@/core/constants/statuses";
-import { isAdvancePaymentModeName, isExpensePaymentModeName } from "@/core/constants/payment-modes";
+import {
+  isAdvancePaymentModeName,
+  isExpensePaymentModeName,
+  isReimbursementPaymentModeName,
+} from "@/core/constants/payment-modes";
 import { getServiceRoleSupabaseClient } from "@/core/infra/supabase/server-client";
 import { SubmitClaimService } from "@/core/domain/claims/SubmitClaimService";
 import { ProcessL1ClaimDecisionService } from "@/core/domain/claims/ProcessL1ClaimDecisionService";
@@ -34,7 +38,11 @@ import { GetActiveDepartmentsService } from "@/core/domain/departments/GetActive
 import { SupabaseClaimRepository } from "@/modules/claims/repositories/SupabaseClaimRepository";
 import { SupabaseVerificationRepository } from "@/modules/claims/repositories/SupabaseVerificationRepository";
 import { SupabaseDepartmentRepository } from "@/modules/departments/repositories/SupabaseDepartmentRepository";
-import { newClaimSubmitSchema } from "@/modules/claims/validators/new-claim-schema";
+import {
+  newClaimSubmitSchema,
+  isInvoiceDateWithinWindow,
+  INVOICE_DATE_TOO_OLD_MESSAGE,
+} from "@/modules/claims/validators/new-claim-schema";
 import { financeEditSchema } from "@/modules/claims/validators/finance-edit-schema";
 import { ownEditSchema } from "@/modules/claims/validators/own-edit-schema";
 import { computeInrTotal } from "@/modules/claims/utils/compute-totals";
@@ -784,6 +792,18 @@ export async function submitClaimAction(input: unknown): Promise<{
   let advanceReceiptFileBuffer: Buffer | null = null;
 
   if (parseResult.data.detailType === "expense") {
+    const paymentModeResult = await repository.getPaymentModeById(parseResult.data.paymentModeId);
+    if (
+      isReimbursementPaymentModeName(paymentModeResult.data?.name) &&
+      !isInvoiceDateWithinWindow(parseResult.data.expense.transactionDate)
+    ) {
+      return {
+        ok: false,
+        message: INVOICE_DATE_TOO_OLD_MESSAGE,
+        fieldErrors: { "expense.transactionDate": [INVOICE_DATE_TOO_OLD_MESSAGE] },
+      };
+    }
+
     receiptFileName = nullIfNASentinel(parseResult.data.expense.receiptFileName);
     receiptFileType = nullIfNASentinel(parseResult.data.expense.receiptFileType);
     const receiptFileBase64 = nullIfNASentinel(parseResult.data.expense.receiptFileBase64);

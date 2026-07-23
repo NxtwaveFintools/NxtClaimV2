@@ -22,7 +22,10 @@ import { parseReceiptAction } from "@/modules/claims/actions/parse-receipt";
 import {
   newClaimSubmitSchema,
   ON_BEHALF_EMAIL_DOMAIN,
+  isInvoiceDateWithinWindow,
+  INVOICE_DATE_TOO_OLD_MESSAGE,
 } from "@/modules/claims/validators/new-claim-schema";
+import { isReimbursementPaymentModeName } from "@/core/constants/payment-modes";
 import { computeForeignTotal, computeInrTotal } from "@/modules/claims/utils/compute-totals";
 import { useClaimFormAutofill } from "@/hooks/use-claim-form-autofill";
 import {
@@ -458,6 +461,7 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     register,
     control,
     setValue,
+    setError,
     getValues,
     handleSubmit,
     formState: { errors },
@@ -677,6 +681,22 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
     }
 
     if (values.detailType === "expense") {
+      const selectedPaymentMode = options.paymentModes.find(
+        (mode) => mode.id === values.paymentModeId,
+      );
+      if (
+        isReimbursementPaymentModeName(selectedPaymentMode?.name) &&
+        !isInvoiceDateWithinWindow(values.expense.transactionDate)
+      ) {
+        setIsSubmitting(false);
+        setError("expense.transactionDate", {
+          type: "manual",
+          message: INVOICE_DATE_TOO_OLD_MESSAGE,
+        });
+        toast.error(INVOICE_DATE_TOO_OLD_MESSAGE);
+        return;
+      }
+
       if (!invoiceFile) {
         setIsSubmitting(false);
         setFileError("Invoice/Bill upload is required.");
@@ -1855,6 +1875,11 @@ export function NewClaimFormClient({ currentUser, options }: NewClaimFormClientP
                     className="h-9 rounded-lg border border-zinc-300 px-3 text-sm"
                     {...register("expense.transactionDate")}
                   />
+                  {errors.expense?.transactionDate ? (
+                    <p className="text-xs text-rose-600">
+                      {errors.expense.transactionDate.message}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="grid gap-1">
