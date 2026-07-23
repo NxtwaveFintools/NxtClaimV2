@@ -36,10 +36,6 @@ export function isCorporateCardPaymentModeName(name: string | null | undefined):
   return normalizePaymentModeName(name) === PAYMENT_MODE_CORPORATE_CARD;
 }
 
-export function isReimbursementPaymentModeName(name: string | null | undefined): boolean {
-  return normalizePaymentModeName(name) === PAYMENT_MODE_REIMBURSEMENT;
-}
-
 export function isExpensePaymentModeName(name: string | null | undefined): boolean {
   return EXPENSE_PAYMENT_MODE_NAMES.has(normalizePaymentModeName(name));
 }
